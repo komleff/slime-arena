@@ -4,6 +4,8 @@ import express from "express";
 import cors from "cors";
 import { monitor } from "@colyseus/monitor";
 
+import { ArenaRoom } from "./rooms/ArenaRoom";
+
 const port = Number(process.env.PORT || 2567);
 const app = express();
 
@@ -15,8 +17,8 @@ const gameServer = new Server({
   server,
 });
 
-// Регистрация комнат будет здесь
-// gameServer.define("arena", ArenaRoom);
+// Регистрация комнат
+gameServer.define("arena", ArenaRoom);
 
 app.use("/colyseus", monitor());
 
