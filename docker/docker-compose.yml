@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    ports:
+      - "2567:2567"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../server:/app/server
+      - ../shared:/app/shared
+
+  client:
+    build:
+      context: ..
+      dockerfile: docker/client.Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../client:/app/client
+      - ../shared:/app/shared

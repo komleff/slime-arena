@@ -1,0 +1,92 @@
+{
+  "server": {
+    "tickRate": 30,
+    "simulationIntervalMs": 33.33,
+    "globalCooldownMs": 100,
+    "abilityQueueSize": 1
+  },
+  "physics": {
+    "environmentDrag": 0.03,
+    "collisionRestitution": 0.5,
+    "collisionImpulseCap": 10000,
+    "slimeLinearDamping": 0.02,
+    "orbLinearDamping": 0.08,
+    "speedDampingRate": 0.2,
+    "minSlimeMass": 50,
+    "maxSlimeSpeed": 500,
+    "maxOrbSpeed": 1000
+  },
+  "controls": {
+    "joystickMode": "adaptive",
+    "joystickRadius": 100,
+    "joystickDeadzone": 0.1,
+    "joystickSensitivity": 1.0,
+    "joystickFollowSpeed": 0.8
+  },
+  "movement": {
+    "baseTurnRateDeg": 180,
+    "driftThresholdAngleDeg": 120,
+    "driftDurationSec": 0.3,
+    "driftSpeedLoss": 0.5,
+    "driftCooldownSec": 0.5
+  },
+  "combat": {
+    "mouthArcDeg": 120,
+    "tailArcDeg": 120,
+    "tailDamageMultiplier": 1.5,
+    "damageInvulnSec": 0.2,
+    "respawnShieldSec": 5.0,
+    "lastBreathDurationSec": 0.5,
+    "lastBreathDamageMult": 0.5,
+    "lastBreathSpeedMult": 0.8
+  },
+  "orbs": {
+    "initialCount": 100,
+    "maxCount": 150,
+    "respawnIntervalSec": 0.5,
+    "minMass": 3,
+    "minRadius": 5,
+    "types": [
+      { "id": "green",  "weight": 40, "density": 0.8, "massRange": [5, 15] },
+      { "id": "blue",   "weight": 30, "density": 1.0, "massRange": [20, 40] },
+      { "id": "red",    "weight": 20, "density": 1.0, "massRange": [20, 40] },
+      { "id": "gold",   "weight": 10, "density": 1.5, "massRange": [50, 100] }
+    ]
+  },
+  "formulas": {
+    "hp": { "base": 50, "scale": 50, "divisor": 100 },
+    "damage": { "base": 10, "scale": 10, "divisor": 100 },
+    "speed": { "base": 1.0, "divisor": 500 },
+    "radius": { "base": 10, "divisor": 50 }
+  },
+  "classes": {
+    "hunter": {
+      "speedMult": 1.15,
+      "hpMult": 0.9,
+      "swallowLimit": 50,
+      "biteFraction": 0.3
+    },
+    "warrior": {
+      "speedMult": 0.9,
+      "hpMult": 1.15,
+      "damageVsSlimeMult": 1.1,
+      "swallowLimit": 45,
+      "biteFraction": 0.35
+    },
+    "collector": {
+      "radiusMult": 1.25,
+      "eatingPowerMult": 1.15,
+      "swallowLimit": 70,
+      "biteFraction": 0.5
+    }
+  },
+  "chests": {
+    "maxCount": 3,
+    "spawnIntervalSec": 20,
+    "mass": 200,
+    "rewards": {
+      "massPercent": [0.1, 0.2, 0.3],
+      "talentChance": 0.3
+    }
+  }
+}
