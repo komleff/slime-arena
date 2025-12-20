@@ -15,6 +15,7 @@
     "test": "npm --workspaces --if-present test"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "pngjs": "^7.0.0"
   }
 }
