@@ -7,6 +7,7 @@ export interface SlimeSprite {
     damaged?: string;
     attacking?: string; // для Warrior
     absorbing?: string; // для Collector
+    hunting?: string; // для Hunter
 }
 
 export const SLIME_SPRITES: Record<number, SlimeSprite> = {
@@ -30,6 +31,13 @@ export const SLIME_SPRITES: Record<number, SlimeSprite> = {
         moving: "/sprites/slimes/collector/collector-moving.png",
         absorbing: "/sprites/slimes/collector/collector-absorbing.png",
         damaged: "/sprites/slimes/collector/collector-damaged.png",
+    },
+    // Hunter (classId = 3)
+    3: {
+        idle: "/sprites/slimes/hunter/hunter-idle.png",
+        moving: "/sprites/slimes/hunter/hunter-moving.png",
+        hunting: "/sprites/slimes/hunter/hunter-hunting.png",
+        damaged: "/sprites/slimes/hunter/hunter-damaged.png",
     },
 };
 
@@ -71,7 +79,7 @@ export async function loadClassSprites(classId: number): Promise<void> {
  */
 export function getPlayerSprite(
     classId: number,
-    state: "idle" | "moving" | "eating" | "damaged" | "attacking" | "absorbing"
+    state: "idle" | "moving" | "eating" | "damaged" | "attacking" | "absorbing" | "hunting"
 ): string | undefined {
     const sprites = SLIME_SPRITES[classId];
     if (!sprites) return undefined;
@@ -79,6 +87,7 @@ export function getPlayerSprite(
     // Первоприоритет - спец-состояние
     if (state === "attacking" && "attacking" in sprites) return sprites.attacking;
     if (state === "absorbing" && "absorbing" in sprites) return sprites.absorbing;
+    if (state === "hunting" && "hunting" in sprites) return sprites.hunting;
     if (state === "eating" && "eating" in sprites) return sprites.eating;
 
     // Обычные состояния
