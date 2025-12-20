@@ -8,6 +8,8 @@ on:
 jobs:
   check-protection:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Check if push is from merged PR
         run: |
