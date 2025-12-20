@@ -8,6 +8,7 @@ import { loadBalanceConfig } from "./config/loadBalanceConfig";
 
 const balance = loadBalanceConfig();
 const port = Number(process.env.PORT || 2567);
+const host = process.env.HOST || "0.0.0.0";
 const app = express();
 
 app.use(cors());
@@ -26,6 +27,6 @@ if (enableMonitor) {
     app.use("/colyseus", monitor());
 }
 
-gameServer.listen(port);
+gameServer.listen(port, host);
 console.log(`Balance config loaded. Tick rate: ${balance.server.tickRate}`);
-console.log(`Listening on ws://localhost:${port}`);
+console.log(`Listening on ws://${host}:${port}`);

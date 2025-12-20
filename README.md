@@ -57,6 +57,15 @@ npm run start:servers
 - Сервер: `npm run dev:server` → `ws://localhost:2567`
 - Клиент: `npm run dev:client` → `http://localhost:5173`
 
+### Доступ с мобильных устройств (локальная сеть)
+
+1. Убедитесь, что сервер запущен: `npm run dev:server`.
+2. Узнайте локальный IP компьютера (например, `192.168.0.10`).
+3. Откройте клиент на этом IP: `http://192.168.0.10:5173`.
+4. Если нужно явно указать адрес сервера, задайте переменную:
+   - Windows (PowerShell): `setx VITE_WS_URL "ws://192.168.0.10:2567"`
+   - macOS/Linux: `VITE_WS_URL=ws://192.168.0.10:2567 npm run dev:client`
+
 #### 3️⃣ Остановка серверов
 
 **Windows (PowerShell):**

@@ -190,14 +190,29 @@ const cameraLerp = 0.15;
 const desiredView = { width: 900, height: 700 };
 let hasFocus = true;
 const slimeSpriteNames = [
+    "slime-angrybird.png",
+    "slime-astronaut.png",
     "slime-base.png",
+    "slime-cccp.png",
     "slime-crazy.png",
     "slime-crystal.png",
+    "slime-cyberneon.png",
+    "slime-frost.png",
+    "slime-greeendragon.png",
+    "slime-knight.png",
+    "slime-mecha.png",
+    "slime-ninja.png",
+    "slime-pinklove.png",
+    "slime-pirate.png",
     "slime-pumpkin.png",
+    "slime-reddragon.png",
+    "slime-redfire.png",
+    "slime-samurai.png",
     "slime-shark.png",
     "slime-tomato.png",
     "slime-toxic.png",
-    "slime-knight.png",
+    "slime-wizard.png",
+    "slime-zombi.png",
 ];
 const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -218,6 +233,418 @@ const applyBalanceConfig = (config: BalanceConfig) => {
     collectorRadiusMult = config.classes.collector.radiusMult;
     camera.x = Math.min(Math.max(camera.x, 0), mapSize);
     camera.y = Math.min(Math.max(camera.y, 0), mapSize);
+};
+
+type SnapshotPlayer = {
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    angle: number;
+    mass: number;
+    hp: number;
+    maxHp: number;
+    classId: number;
+    talentsAvailable: number;
+    flags: number;
+};
+
+type SnapshotOrb = {
+    id: string;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    mass: number;
+    colorId: number;
+};
+
+type SnapshotChest = {
+    id: string;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    type: number;
+};
+
+type SnapshotHotZone = {
+    id: string;
+    x: number;
+    y: number;
+    radius: number;
+    spawnMultiplier: number;
+};
+
+type Snapshot = {
+    time: number;
+    players: Map<string, SnapshotPlayer>;
+    orbs: Map<string, SnapshotOrb>;
+    chests: Map<string, SnapshotChest>;
+    hotZones: Map<string, SnapshotHotZone>;
+};
+
+type RenderPlayer = SnapshotPlayer & { alpha?: number };
+type RenderOrb = SnapshotOrb & { alpha?: number };
+type RenderChest = SnapshotChest & { alpha?: number };
+type RenderHotZone = SnapshotHotZone & { alpha?: number };
+
+type RenderState = {
+    players: Map<string, RenderPlayer>;
+    orbs: Map<string, RenderOrb>;
+    chests: Map<string, RenderChest>;
+    hotZones: Map<string, RenderHotZone>;
+};
+
+const snapshotBuffer: Snapshot[] = [];
+const snapshotBufferLimit = 30;
+let interpolationDelayMs = 100;
+const interpolationDelayClamp = { min: 60, max: 200 };
+const maxExtrapolationMs = 120;
+const hermiteMaxDistance = 300;
+const hermiteMaxDtMs = 120;
+let lastSnapshotTime: number | null = null;
+let avgSnapshotIntervalMs = 100;
+const resetSnapshotBuffer = () => {
+    snapshotBuffer.length = 0;
+    lastSnapshotTime = null;
+    avgSnapshotIntervalMs = 100;
+    interpolationDelayMs = 100;
+};
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const lerpAngle = (a: number, b: number, t: number) => {
+    const delta = ((b - a + 540) % 360) - 180;
+    return a + delta * t;
+};
+const shouldUseHermite = (dx: number, dy: number, dtMs: number) => {
+    if (dtMs <= 0 || dtMs > hermiteMaxDtMs) return false;
+    return dx * dx + dy * dy <= hermiteMaxDistance * hermiteMaxDistance;
+};
+
+const hermiteInterpolate = (p0: number, v0: number, p1: number, v1: number, t: number, dt: number) => {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    const h00 = 2 * t3 - 3 * t2 + 1;
+    const h10 = t3 - 2 * t2 + t;
+    const h01 = -2 * t3 + 3 * t2;
+    const h11 = t3 - t2;
+    return p0 * h00 + v0 * dt * h10 + p1 * h01 + v1 * dt * h11;
+};
+
+type CollectionLike<T> = {
+    entries(): IterableIterator<[string, T]>;
+};
+
+type GameStateLike = {
+    players: CollectionLike<Partial<SnapshotPlayer>>;
+    orbs: CollectionLike<Partial<SnapshotOrb>>;
+    chests: CollectionLike<Partial<SnapshotChest>>;
+    hotZones: CollectionLike<Partial<SnapshotHotZone>>;
+};
+
+const captureSnapshot = (state: GameStateLike) => {
+    const now = performance.now();
+    const snapshot: Snapshot = {
+        time: now,
+        players: new Map(),
+        orbs: new Map(),
+        chests: new Map(),
+        hotZones: new Map(),
+    };
+
+    for (const [id, player] of state.players.entries()) {
+        snapshot.players.set(id, {
+            id,
+            name: String(player.name ?? ""),
+            x: Number(player.x ?? 0),
+            y: Number(player.y ?? 0),
+            vx: Number(player.vx ?? 0),
+            vy: Number(player.vy ?? 0),
+            angle: Number(player.angle ?? 0),
+            mass: Number(player.mass ?? 0),
+            hp: Number(player.hp ?? 0),
+            maxHp: Number(player.maxHp ?? 0),
+            classId: Number(player.classId ?? 0),
+            talentsAvailable: Number(player.talentsAvailable ?? 0),
+            flags: Number(player.flags ?? 0),
+        });
+    }
+
+    for (const [id, orb] of state.orbs.entries()) {
+        snapshot.orbs.set(id, {
+            id,
+            x: Number(orb.x ?? 0),
+            y: Number(orb.y ?? 0),
+            vx: Number(orb.vx ?? 0),
+            vy: Number(orb.vy ?? 0),
+            mass: Number(orb.mass ?? 0),
+            colorId: Number(orb.colorId ?? 0),
+        });
+    }
+
+    for (const [id, chest] of state.chests.entries()) {
+        snapshot.chests.set(id, {
+            id,
+            x: Number(chest.x ?? 0),
+            y: Number(chest.y ?? 0),
+            vx: Number(chest.vx ?? 0),
+            vy: Number(chest.vy ?? 0),
+            type: Number(chest.type ?? 0),
+        });
+    }
+
+    for (const [id, zone] of state.hotZones.entries()) {
+        snapshot.hotZones.set(id, {
+            id,
+            x: Number(zone.x ?? 0),
+            y: Number(zone.y ?? 0),
+            radius: Number(zone.radius ?? 0),
+            spawnMultiplier: Number(zone.spawnMultiplier ?? 0),
+        });
+    }
+
+    if (lastSnapshotTime !== null) {
+        const dt = now - lastSnapshotTime;
+        if (dt > 0) {
+            avgSnapshotIntervalMs = avgSnapshotIntervalMs * 0.9 + dt * 0.1;
+            interpolationDelayMs = clamp(
+                avgSnapshotIntervalMs * 2,
+                interpolationDelayClamp.min,
+                interpolationDelayClamp.max
+            );
+        }
+    }
+    lastSnapshotTime = now;
+
+    snapshotBuffer.push(snapshot);
+    if (snapshotBuffer.length > snapshotBufferLimit) {
+        snapshotBuffer.shift();
+    }
+};
+
+const extrapolateMotion = <T extends { x: number; y: number; vx: number; vy: number }>(
+    entity: T,
+    dtSec: number
+): T => ({
+    ...entity,
+    x: entity.x + entity.vx * dtSec,
+    y: entity.y + entity.vy * dtSec,
+});
+
+const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: number, dtSec: number): RenderPlayer => {
+    const dtMs = dtSec * 1000;
+    const dx = newer.x - older.x;
+    const dy = newer.y - older.y;
+    const useHermite = shouldUseHermite(dx, dy, dtMs);
+    return {
+        ...newer,
+        x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
+        y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
+        vx: lerp(older.vx, newer.vx, t),
+        vy: lerp(older.vy, newer.vy, t),
+        angle: lerpAngle(older.angle, newer.angle, t),
+        mass: lerp(older.mass, newer.mass, t),
+        hp: lerp(older.hp, newer.hp, t),
+        maxHp: lerp(older.maxHp, newer.maxHp, t),
+    };
+};
+
+const interpolateOrb = (older: SnapshotOrb, newer: SnapshotOrb, t: number, dtSec: number): RenderOrb => {
+    const dtMs = dtSec * 1000;
+    const dx = newer.x - older.x;
+    const dy = newer.y - older.y;
+    const useHermite = shouldUseHermite(dx, dy, dtMs);
+    return {
+        ...newer,
+        x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
+        y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
+        vx: lerp(older.vx, newer.vx, t),
+        vy: lerp(older.vy, newer.vy, t),
+        mass: lerp(older.mass, newer.mass, t),
+    };
+};
+
+const interpolateChest = (older: SnapshotChest, newer: SnapshotChest, t: number, dtSec: number): RenderChest => {
+    const dtMs = dtSec * 1000;
+    const dx = newer.x - older.x;
+    const dy = newer.y - older.y;
+    const useHermite = shouldUseHermite(dx, dy, dtMs);
+    return {
+        ...newer,
+        x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
+        y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
+        vx: lerp(older.vx, newer.vx, t),
+        vy: lerp(older.vy, newer.vy, t),
+    };
+};
+
+const interpolateHotZone = (older: SnapshotHotZone, newer: SnapshotHotZone, t: number): RenderHotZone => ({
+    ...newer,
+    x: lerp(older.x, newer.x, t),
+    y: lerp(older.y, newer.y, t),
+    radius: lerp(older.radius, newer.radius, t),
+    spawnMultiplier: lerp(older.spawnMultiplier, newer.spawnMultiplier, t),
+});
+
+const clonePlayers = (source: Map<string, SnapshotPlayer>): Map<string, RenderPlayer> => {
+    const result = new Map<string, RenderPlayer>();
+    for (const [id, player] of source.entries()) {
+        result.set(id, { ...player });
+    }
+    return result;
+};
+
+const cloneOrbs = (source: Map<string, SnapshotOrb>): Map<string, RenderOrb> => {
+    const result = new Map<string, RenderOrb>();
+    for (const [id, orb] of source.entries()) {
+        result.set(id, { ...orb });
+    }
+    return result;
+};
+
+const cloneChests = (source: Map<string, SnapshotChest>): Map<string, RenderChest> => {
+    const result = new Map<string, RenderChest>();
+    for (const [id, chest] of source.entries()) {
+        result.set(id, { ...chest });
+    }
+    return result;
+};
+
+const cloneHotZones = (source: Map<string, SnapshotHotZone>): Map<string, RenderHotZone> => {
+    const result = new Map<string, RenderHotZone>();
+    for (const [id, zone] of source.entries()) {
+        result.set(id, { ...zone });
+    }
+    return result;
+};
+
+const extrapolateState = (snapshot: Snapshot, dtSec: number): RenderState => {
+    const players = new Map<string, RenderPlayer>();
+    const orbs = new Map<string, RenderOrb>();
+    const chests = new Map<string, RenderChest>();
+    const hotZones = new Map<string, RenderHotZone>();
+    for (const [id, player] of snapshot.players.entries()) {
+        players.set(id, extrapolateMotion(player, dtSec));
+    }
+    for (const [id, orb] of snapshot.orbs.entries()) {
+        orbs.set(id, extrapolateMotion(orb, dtSec));
+    }
+    for (const [id, chest] of snapshot.chests.entries()) {
+        chests.set(id, extrapolateMotion(chest, dtSec));
+    }
+    for (const [id, zone] of snapshot.hotZones.entries()) {
+        hotZones.set(id, { ...zone });
+    }
+    return {
+        players,
+        orbs,
+        chests,
+        hotZones,
+    };
+};
+
+const interpolateState = (older: Snapshot, newer: Snapshot, t: number, dtSec: number): RenderState => {
+    const players = new Map<string, RenderPlayer>();
+    const orbs = new Map<string, RenderOrb>();
+    const chests = new Map<string, RenderChest>();
+    const hotZones = new Map<string, RenderHotZone>();
+
+    for (const [id, player] of newer.players.entries()) {
+        const prev = older.players.get(id);
+        players.set(id, prev ? interpolatePlayer(prev, player, t, dtSec) : { ...player });
+    }
+    for (const [id, orb] of newer.orbs.entries()) {
+        const prev = older.orbs.get(id);
+        orbs.set(id, prev ? interpolateOrb(prev, orb, t, dtSec) : { ...orb });
+    }
+    for (const [id, chest] of newer.chests.entries()) {
+        const prev = older.chests.get(id);
+        chests.set(id, prev ? interpolateChest(prev, chest, t, dtSec) : { ...chest });
+    }
+    for (const [id, zone] of newer.hotZones.entries()) {
+        const prev = older.hotZones.get(id);
+        hotZones.set(id, prev ? interpolateHotZone(prev, zone, t) : { ...zone });
+    }
+
+    const fadeAlpha = clamp(1 - t, 0, 1);
+    for (const [id, player] of older.players.entries()) {
+        if (!newer.players.has(id)) {
+            players.set(id, { ...player, alpha: fadeAlpha });
+        }
+    }
+    for (const [id, orb] of older.orbs.entries()) {
+        if (!newer.orbs.has(id)) {
+            orbs.set(id, { ...orb, alpha: fadeAlpha });
+        }
+    }
+    for (const [id, chest] of older.chests.entries()) {
+        if (!newer.chests.has(id)) {
+            chests.set(id, { ...chest, alpha: fadeAlpha });
+        }
+    }
+    for (const [id, zone] of older.hotZones.entries()) {
+        if (!newer.hotZones.has(id)) {
+            hotZones.set(id, { ...zone, alpha: fadeAlpha });
+        }
+    }
+
+    return {
+        players,
+        orbs,
+        chests,
+        hotZones,
+    };
+};
+
+const getRenderState = (renderTimeMs: number): RenderState | null => {
+    if (snapshotBuffer.length === 0) return null;
+    const oldest = snapshotBuffer[0];
+    const newest = snapshotBuffer[snapshotBuffer.length - 1];
+
+    if (renderTimeMs <= oldest.time) {
+        return {
+            players: clonePlayers(oldest.players),
+            orbs: cloneOrbs(oldest.orbs),
+            chests: cloneChests(oldest.chests),
+            hotZones: cloneHotZones(oldest.hotZones),
+        };
+    }
+
+    if (renderTimeMs >= newest.time) {
+        const dtMs = Math.min(renderTimeMs - newest.time, maxExtrapolationMs);
+        return extrapolateState(newest, dtMs / 1000);
+    }
+
+    if (snapshotBuffer.length < 2) {
+        return {
+            players: clonePlayers(newest.players),
+            orbs: cloneOrbs(newest.orbs),
+            chests: cloneChests(newest.chests),
+            hotZones: cloneHotZones(newest.hotZones),
+        };
+    }
+
+    let low = 0;
+    let high = snapshotBuffer.length - 1;
+    while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (snapshotBuffer[mid].time <= renderTimeMs) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    const olderIndex = Math.max(0, low - 1);
+    const older = snapshotBuffer[olderIndex];
+    const newer = snapshotBuffer[Math.min(olderIndex + 1, snapshotBuffer.length - 1)];
+
+    const dtMs = Math.max(newer.time - older.time, 0.001);
+    const t = clamp((renderTimeMs - older.time) / dtMs, 0, 1);
+    return interpolateState(older, newer, t, dtMs / 1000);
 };
 
 function loadSprite(name: string) {
@@ -336,7 +763,11 @@ function drawSprite(
 async function main() {
     hud.textContent = "Подключение к серверу...";
 
-        const client = new Colyseus.Client("ws://localhost:2567");
+    const env = import.meta as { env?: { BASE_URL?: string; VITE_WS_URL?: string } };
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const defaultWsUrl = `${protocol}://${window.location.hostname}:2567`;
+    const wsUrl = env.env?.VITE_WS_URL ?? defaultWsUrl;
+    const client = new Colyseus.Client(wsUrl);
 
         try {
             const room = await client.joinOrCreate<any>("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
@@ -352,11 +783,16 @@ async function main() {
         let playersCount = 0;
         let inputSeq = 0;
         let localPlayer: any = null;
+        let renderStateForHud: RenderState | null = null;
         let lastTalentsAvailable = 0;
         let talentSelectionInFlight = false;
 
         // Логирование для отладки
         console.log("Room joined:", room.id);
+        resetSnapshotBuffer();
+        const handleStateChange = () => captureSnapshot(room.state);
+        room.onStateChange(handleStateChange);
+        captureSnapshot(room.state);
 
         const refreshTalentModal = () => {
             if (!localPlayer) {
@@ -465,20 +901,21 @@ async function main() {
             console.log(`Hot zone removed, total: ${hotZonesCount}`);
         });
 
-            const updateHud = () => {
-                const lines: string[] = [];
-                lines.push(`Фаза: ${room.state.phase}`);
-                lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`);
-                lines.push(`Игроки: ${playersCount}`);
-                lines.push(`Орбы: ${orbsCount}/${balanceConfig.orbs.maxCount}`);
-                lines.push(`Сундуки: ${chestsCount}/${balanceConfig.chests.maxCount}`);
-                lines.push(`Hot Zones: ${hotZonesCount}`);
-                if (localPlayer) {
-                    lines.push(
-                        `Моя масса: ${localPlayer.mass.toFixed(0)} | HP: ${localPlayer.hp.toFixed(1)}/${localPlayer.maxHp.toFixed(1)}`
-                    );
-                if (localPlayer.talentsAvailable > 0) {
-                    lines.push(`Таланты: ${localPlayer.talentsAvailable}`);
+        const updateHud = () => {
+            const lines: string[] = [];
+            lines.push(`Фаза: ${room.state.phase}`);
+            lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`);
+            lines.push(`Игроки: ${playersCount}`);
+            lines.push(`Орбы: ${orbsCount}/${balanceConfig.orbs.maxCount}`);
+            lines.push(`Сундуки: ${chestsCount}/${balanceConfig.chests.maxCount}`);
+            lines.push(`Hot Zones: ${hotZonesCount}`);
+            const hudPlayer = renderStateForHud?.players.get(room.sessionId) ?? localPlayer;
+            if (hudPlayer) {
+                lines.push(
+                    `Моя масса: ${hudPlayer.mass.toFixed(0)} | HP: ${hudPlayer.hp.toFixed(1)}/${hudPlayer.maxHp.toFixed(1)}`
+                );
+                if (hudPlayer.talentsAvailable > 0) {
+                    lines.push(`Таланты: ${hudPlayer.talentsAvailable}`);
                 }
             }
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {
@@ -487,7 +924,7 @@ async function main() {
                     const playerId = room.state.leaderboard[i];
                     const pl = room.state.players.get(playerId);
                     if (pl) {
-                        lines.push(`${i + 1}. ${pl.name} — ${pl.mass.toFixed(0)} масса`);
+                        lines.push(`${i + 1}. ${pl.name} - ${pl.mass.toFixed(0)} масса`);
                     }
                 }
             }
@@ -516,6 +953,7 @@ async function main() {
         let isRendering = true;
         let rafId: number | null = null;
 
+        const inputIntervalMs = Math.max(16, Math.round(1000 / balanceConfig.server.tickRate));
         const inputTimer = setInterval(() => {
             if (!hasFocus) return;
             const { x, y } = computeMoveInput();
@@ -524,7 +962,7 @@ async function main() {
             lastSentInput = { x, y };
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: x, moveY: y });
-        }, 50);
+        }, inputIntervalMs);
 
         const render = () => {
             if (!isRendering) return;
@@ -534,8 +972,16 @@ async function main() {
             const halfWorldW = cw / scale / 2;
             const halfWorldH = ch / scale / 2;
 
-            const targetX = localPlayer ? localPlayer.x : mapSize / 2;
-            const targetY = localPlayer ? localPlayer.y : mapSize / 2;
+            const renderState = getRenderState(performance.now() - interpolationDelayMs);
+            renderStateForHud = renderState;
+            const playersView = renderState ? renderState.players : room.state.players;
+            const orbsView = renderState ? renderState.orbs : room.state.orbs;
+            const chestsView = renderState ? renderState.chests : room.state.chests;
+            const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
+
+            const cameraTarget = renderState?.players.get(room.sessionId) ?? localPlayer;
+            const targetX = cameraTarget ? cameraTarget.x : mapSize / 2;
+            const targetY = cameraTarget ? cameraTarget.y : mapSize / 2;
             const clampX = Math.max(halfWorldW, Math.min(mapSize - halfWorldW, targetX));
             const clampY = Math.max(halfWorldH, Math.min(mapSize - halfWorldH, targetY));
             camera.x += (clampX - camera.x) * cameraLerp;
@@ -545,30 +991,43 @@ async function main() {
             drawGrid(scale, camera.x, camera.y, cw, ch);
 
             canvasCtx.fillStyle = "rgba(255, 99, 71, 0.08)";
-            for (const [, zone] of room.state.hotZones.entries()) {
+            for (const [, zone] of hotZonesView.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                const alpha = zone.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
                 drawCircle(p.x, p.y, zone.radius * scale, "rgba(255, 99, 71, 0.08)", "rgba(255, 99, 71, 0.4)");
+                canvasCtx.restore();
             }
 
-            for (const [, orb] of room.state.orbs.entries()) {
+            for (const [, orb] of orbsView.entries()) {
                 if (Math.abs(orb.x - camera.x) > halfWorldW + 50 || Math.abs(orb.y - camera.y) > halfWorldH + 50) continue;
                 const p = worldToScreen(orb.x, orb.y, scale, camera.x, camera.y, cw, ch);
                 const orbType = balanceConfig.orbs.types[orb.colorId];
                 const density = orbType?.density ?? 1;
                 const r = Math.max(2, getOrbRadius(orb.mass, density, orbMinRadius) * scale);
+                const alpha = orb.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
                 drawCircle(p.x, p.y, r, orbColor(orb.colorId));
+                canvasCtx.restore();
             }
 
             const time = performance.now() * 0.001;
 
-            for (const [, chest] of room.state.chests.entries()) {
+            for (const [, chest] of chestsView.entries()) {
                 if (Math.abs(chest.x - camera.x) > halfWorldW + chestRadius || Math.abs(chest.y - camera.y) > halfWorldH + chestRadius) continue;
                 const p = worldToScreen(chest.x, chest.y, scale, camera.x, camera.y, cw, ch);
                 const style = chestStyles[chest.type] ?? chestStyles[0];
                 const pulse = 1 + 0.12 * Math.sin(time * 4 + chest.x * 0.01 + chest.y * 0.01);
                 const r = chestRadius * style.scale * pulse * scale;
+                const alpha = chest.alpha ?? 1;
+                if (alpha <= 0.01) continue;
                 canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
                 canvasCtx.shadowColor = style.glow;
                 canvasCtx.shadowBlur = 12;
                 drawCircle(p.x, p.y, r, style.fill, style.stroke);
@@ -580,7 +1039,7 @@ async function main() {
                 canvasCtx.restore();
             }
 
-            for (const [id, player] of room.state.players.entries()) {
+            for (const [id, player] of playersView.entries()) {
                 if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
                 const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
                 const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
@@ -593,6 +1052,10 @@ async function main() {
                 const angleDeg = player.angle ?? 0;
                 const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(id);
                 const sprite = loadSprite(spriteName);
+                const alpha = player.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
                 drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleDeg, color, stroke);
 
                 canvasCtx.fillStyle = "#e6f3ff";
@@ -607,10 +1070,11 @@ async function main() {
                 if (flagText.length > 0) {
                     canvasCtx.fillText(flagText.join(" "), p.x, p.y + r + 12);
                 }
+                canvasCtx.restore();
             }
 
             // Chest indicators по краям экрана
-            for (const [, chest] of room.state.chests.entries()) {
+            for (const [, chest] of chestsView.entries()) {
                 const dx = chest.x - camera.x;
                 const dy = chest.y - camera.y;
                 if (Math.abs(dx) <= halfWorldW && Math.abs(dy) <= halfWorldH) continue;
@@ -619,7 +1083,10 @@ async function main() {
                 const edgeY = Math.sin(angle) * (halfWorldH - 40);
                 const screen = worldToScreen(camera.x + edgeX, camera.y + edgeY, scale, camera.x, camera.y, cw, ch);
                 const style = chestStyles[chest.type] ?? chestStyles[0];
+                const alpha = chest.alpha ?? 1;
+                if (alpha <= 0.01) continue;
                 canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
                 canvasCtx.translate(screen.x, screen.y);
                 canvasCtx.rotate(angle);
                 canvasCtx.fillStyle = style.fill;
@@ -731,6 +1198,7 @@ async function main() {
             if (rafId !== null) {
                 cancelAnimationFrame(rafId);
             }
+            resetSnapshotBuffer();
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
             window.removeEventListener("blur", onBlur);
