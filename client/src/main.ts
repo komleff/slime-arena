@@ -33,60 +33,66 @@ async function main() {
         let orbsCount = 0;
         let playersCount = 0;
 
-        // Дождаться первой синхронизации состояния
-        await new Promise<void>((resolve) => {
-            room.onStateChange.once((state) => {
-                console.log("Начальное состояние:", state);
-                
-                // Инициализировать счётчики
-                orbsCount = state.orbs.size;
-                chestsCount = state.chests.size;
-                hotZonesCount = state.hotZones.size;
-                playersCount = state.players.size;
-                lastPhase = state.phase;
+        // Логирование для отладки
+        console.log("Room joined:", room.id);
 
-                // Установить слушатели
-                state.listen("phase", (phase: string) => {
-                    if (phase !== lastPhase) {
-                        console.log(`📍 Смена фазы: ${lastPhase} → ${phase}`);
-                        lastPhase = phase;
-                    }
-                });
-
-                state.hotZones.onAdd = () => {
-                    hotZonesCount = state.hotZones.size;
-                };
-
-                state.hotZones.onRemove = () => {
-                    hotZonesCount = state.hotZones.size;
-                };
-
-                state.chests.onAdd = () => {
-                    chestsCount = state.chests.size;
-                };
-
-                state.chests.onRemove = () => {
-                    chestsCount = state.chests.size;
-                };
-
-                state.orbs.onAdd = () => {
-                    orbsCount = state.orbs.size;
-                };
-
-                state.orbs.onRemove = () => {
-                    orbsCount = state.orbs.size;
-                };
-
-                state.players.onAdd = () => {
-                    playersCount = state.players.size;
-                };
-
-                state.players.onRemove = () => {
-                    playersCount = state.players.size;
-                };
-
-                resolve();
+        // Подписка на игроков (как в legacy)
+        room.state.players.onAdd((player: any, sessionId: string) => {
+            playersCount++;
+            console.log(`Player added: ${sessionId} (${player.name}), total: ${playersCount}`);
+            
+            player.onChange(() => {
+                // Обновление данных игрока
             });
+        });
+
+        room.state.players.onRemove((_player: any, sessionId: string) => {
+            playersCount--;
+            console.log(`Player removed: ${sessionId}, total: ${playersCount}`);
+        });
+
+        // Подписка на орбы
+        room.state.orbs.onAdd((orb: any, orbId: string) => {
+            orbsCount++;
+            orb.onChange(() => {});
+        });
+
+        room.state.orbs.onRemove(() => {
+            orbsCount--;
+        });
+
+        // Подписка на сундуки
+        room.state.chests.onAdd((chest: any) => {
+            chestsCount++;
+            console.log(`Chest added, total: ${chestsCount}`);
+            chest.onChange(() => {});
+        });
+
+        room.state.chests.onRemove(() => {
+            chestsCount--;
+            console.log(`Chest removed, total: ${chestsCount}`);
+        });
+
+        // Подписка на hot zones
+        room.state.hotZones.onAdd((zone: any) => {
+            hotZonesCount++;
+            console.log(`Hot zone added, total: ${hotZonesCount}`);
+            zone.onChange(() => {});
+        });
+
+        room.state.hotZones.onRemove(() => {
+            hotZonesCount--;
+            console.log(`Hot zone removed, total: ${hotZonesCount}`);
+        });
+
+        // Слушаем изменения фазы
+        room.state.listen("phase", (phase: string) => {
+            console.log(`Phase changed: ${lastPhase} -> ${phase}`);
+            lastPhase = phase;
+        });
+
+        room.state.listen("timeRemaining", (time: number) => {
+            // Обновляется автоматически
         });
 
         setInterval(() => {

@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@slime-arena/shared": "*",
     "colyseus.js": "^0.15.0",
-    "howler": "^2.2.3",
-    "@slime-arena/shared": "*"
+    "howler": "^2.2.3"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
