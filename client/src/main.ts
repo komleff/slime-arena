@@ -1,7 +1,6 @@
 import * as Colyseus from "colyseus.js";
 import {
     DEFAULT_BALANCE_CONFIG,
-    getSlimeRadius,
     getOrbRadius,
     FLAG_IS_REBEL,
     FLAG_LAST_BREATH,
@@ -169,6 +168,11 @@ const orbMinRadius = DEFAULT_BALANCE_CONFIG.orbs.minRadius;
 const chestRadius = DEFAULT_BALANCE_CONFIG.chests.radius;
 const hotZoneRadius = DEFAULT_BALANCE_CONFIG.hotZones.radius;
 const collectorRadiusMult = DEFAULT_BALANCE_CONFIG.classes.collector.radiusMult;
+const chestStyles = [
+    { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1 },
+    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1.08 },
+    { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.16 },
+];
 
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: mapSize / 2, y: mapSize / 2 };
@@ -442,10 +446,10 @@ async function main() {
             camera.x += (clampX - camera.x) * cameraLerp;
             camera.y += (clampY - camera.y) * cameraLerp;
 
-            ctx.clearRect(0, 0, cw, ch);
+            canvasCtx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
 
-            ctx.fillStyle = "rgba(255, 99, 71, 0.08)";
+            canvasCtx.fillStyle = "rgba(255, 99, 71, 0.08)";
             for (const [, zone] of room.state.hotZones.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
@@ -464,18 +468,19 @@ async function main() {
             for (const [, chest] of room.state.chests.entries()) {
                 if (Math.abs(chest.x - camera.x) > halfWorldW + chestRadius || Math.abs(chest.y - camera.y) > halfWorldH + chestRadius) continue;
                 const p = worldToScreen(chest.x, chest.y, scale, camera.x, camera.y, cw, ch);
+                const style = chestStyles[chest.type] ?? chestStyles[0];
                 const pulse = 1 + 0.12 * Math.sin(time * 4 + chest.x * 0.01 + chest.y * 0.01);
-                const r = chestRadius * pulse * scale;
-                ctx.save();
-                ctx.shadowColor = "rgba(255, 220, 120, 0.6)";
-                ctx.shadowBlur = 12;
-                drawCircle(p.x, p.y, r, "#ffc857", "#ffe8a3");
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = "#3a2a12";
-                ctx.font = "16px \"IBM Plex Mono\", monospace";
-                ctx.textAlign = "center";
-                ctx.fillText("📦", p.x, p.y + 5);
-                ctx.restore();
+                const r = chestRadius * style.scale * pulse * scale;
+                canvasCtx.save();
+                canvasCtx.shadowColor = style.glow;
+                canvasCtx.shadowBlur = 12;
+                drawCircle(p.x, p.y, r, style.fill, style.stroke);
+                canvasCtx.shadowBlur = 0;
+                canvasCtx.fillStyle = "#1b1b1b";
+                canvasCtx.font = "16px \"IBM Plex Mono\", monospace";
+                canvasCtx.textAlign = "center";
+                canvasCtx.fillText(style.icon, p.x, p.y + 5);
+                canvasCtx.restore();
             }
 
             for (const [id, player] of room.state.players.entries()) {
@@ -488,17 +493,17 @@ async function main() {
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 drawCircle(p.x, p.y, Math.max(radius, 6), color, stroke);
 
-                ctx.fillStyle = "#e6f3ff";
-                ctx.font = "12px \"IBM Plex Mono\", monospace";
-                ctx.textAlign = "center";
-                ctx.fillText(player.name, p.x, p.y - Math.max(radius, 6) - 6);
+                canvasCtx.fillStyle = "#e6f3ff";
+                canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
+                canvasCtx.textAlign = "center";
+                canvasCtx.fillText(player.name, p.x, p.y - Math.max(radius, 6) - 6);
 
                 const flagText: string[] = [];
                 if (player.flags & FLAG_IS_REBEL) flagText.push("REB");
                 if (player.flags & FLAG_LAST_BREATH) flagText.push("LB");
                 if (player.flags & FLAG_IS_DEAD) flagText.push("DEAD");
                 if (flagText.length > 0) {
-                    ctx.fillText(flagText.join(" "), p.x, p.y + Math.max(radius, 6) + 12);
+                    canvasCtx.fillText(flagText.join(" "), p.x, p.y + Math.max(radius, 6) + 12);
                 }
             }
 
@@ -511,17 +516,17 @@ async function main() {
                 const edgeX = Math.cos(angle) * (halfWorldW - 40);
                 const edgeY = Math.sin(angle) * (halfWorldH - 40);
                 const screen = worldToScreen(camera.x + edgeX, camera.y + edgeY, scale, camera.x, camera.y, cw, ch);
-                ctx.save();
-                ctx.translate(screen.x, screen.y);
-                ctx.rotate(angle);
-                ctx.fillStyle = "#ffc857";
-                ctx.beginPath();
-                ctx.moveTo(12, 0);
-                ctx.lineTo(-8, 8);
-                ctx.lineTo(-8, -8);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
+                canvasCtx.save();
+                canvasCtx.translate(screen.x, screen.y);
+                canvasCtx.rotate(angle);
+                canvasCtx.fillStyle = "#ffc857";
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(12, 0);
+                canvasCtx.lineTo(-8, 8);
+                canvasCtx.lineTo(-8, -8);
+                canvasCtx.closePath();
+                canvasCtx.fill();
+                canvasCtx.restore();
             }
 
             requestAnimationFrame(render);
@@ -619,5 +624,3 @@ async function main() {
 }
 
 main();
-
-
