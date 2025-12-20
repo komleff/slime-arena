@@ -46,6 +46,7 @@ export class ArenaRoom extends Room<GameState> {
     private metricsAccumulatorMs = 0;
     private metricsTickCount = 0;
     private metricsIntervalTicks = 0;
+    private maxTalentQueue = 3;
 
     private attackCooldownTicks = 0;
     private invulnerableTicks = 0;
@@ -150,6 +151,7 @@ export class ArenaRoom extends Room<GameState> {
         player.mass = this.balance.slime.initialMass;
         player.level = this.balance.slime.initialLevel;
         player.classId = this.balance.slime.initialClassId;
+        player.talentsAvailable = 0;
         player.angle = 0;
         player.isDead = false;
         player.isDrifting = false;
@@ -219,7 +221,10 @@ export class ArenaRoom extends Room<GameState> {
             }
 
             if (player.talentChoicePressed !== null) {
-                console.log(`Player ${player.id} selected talent ${player.talentChoicePressed}`);
+                if (player.talentsAvailable > 0) {
+                    player.talentsAvailable = Math.max(0, player.talentsAvailable - 1);
+                    this.applyTalentChoice(player, player.talentChoicePressed);
+                }
                 player.talentChoicePressed = null;
             }
 
@@ -246,6 +251,11 @@ export class ArenaRoom extends Room<GameState> {
         player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
         player.queuedAbilitySlot = null;
         console.log(`Player ${player.id} used ability ${slot}`);
+    }
+
+    private applyTalentChoice(player: Player, choice: number) {
+        void player;
+        void choice;
     }
 
     private movementSystem() {
@@ -302,8 +312,8 @@ export class ArenaRoom extends Room<GameState> {
                 let accel = baseSpeed * speedMult * inputMag;
                 let maxSpeed = this.balance.physics.maxSlimeSpeed * speedMult;
                 if (player.isLastBreath) {
-                    accel *= this.balance.combat.lastBreathSpeedMult;
-                    maxSpeed *= this.balance.combat.lastBreathSpeedMult;
+                    accel *= this.balance.combat.lastBreathSpeedPenalty;
+                    maxSpeed *= this.balance.combat.lastBreathSpeedPenalty;
                 }
                 const angleRad = player.angle * (Math.PI / 180);
                 player.vx += Math.cos(angleRad) * accel * dt;
@@ -526,20 +536,26 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private openChest(player: Player, chestId: string) {
-        const rewards = this.balance.chests.rewards.massPercent;
-        const rewardIndex = this.rng.int(0, rewards.length);
-        const gain = player.mass * rewards[rewardIndex];
-        player.mass += gain;
-        this.updateMaxHpForMass(player);
-        if (player.hp > player.maxHp) {
-            player.hp = player.maxHp;
-        }
-
-        if (this.rng.next() < this.balance.chests.rewards.talentChance) {
-            console.log(`Player ${player.id} gained a talent from chest`);
+        const grantedTalent =
+            this.rng.next() < this.balance.chests.rewards.talentChance && this.grantTalent(player);
+        if (!grantedTalent) {
+            const rewards = this.balance.chests.rewards.massPercent;
+            const rewardIndex = this.rng.int(0, rewards.length);
+            const gain = player.mass * rewards[rewardIndex];
+            player.mass += gain;
+            this.updateMaxHpForMass(player);
+            if (player.hp > player.maxHp) {
+                player.hp = player.maxHp;
+            }
         }
 
         this.state.chests.delete(chestId);
+    }
+
+    private grantTalent(player: Player): boolean {
+        if (player.talentsAvailable >= this.maxTalentQueue) return false;
+        player.talentsAvailable += 1;
+        return true;
     }
 
     private deathSystem() {

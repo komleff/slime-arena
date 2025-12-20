@@ -25,19 +25,76 @@
 - Docker и Docker Compose (для запуска в контейнерах)
 
 ### Установка и запуск
-1. Установите зависимости:
-   ```bash
-   npm install
-   ```
 
-2. Запустите компоненты в режиме разработки:
-   - Сервер: `npm run dev:server`
-   - Клиент: `npm run dev:client`
+#### 1️⃣ Установка зависимостей
+```bash
+npm install
+```
 
-Или используйте Docker для запуска всего окружения:
+#### 2️⃣ Запуск серверов
+
+**Windows (PowerShell)** — в отдельных окнах:
+```powershell
+.\scripts\start-servers.ps1
+```
+
+**Windows (Command Prompt)** — в отдельных окнах:
+```batch
+scripts\start-servers.bat
+```
+
+**Linux / macOS** — в отдельных терминалах:
+```bash
+./scripts/start-servers.sh
+```
+
+**Все платформы** — в одном терминале (может зависнуть VS Code на Windows):
+```bash
+npm run start:servers
+```
+
+**Запуск отдельно** (рекомендуется для разработки):
+- Сервер: `npm run dev:server` → `ws://localhost:2567`
+- Клиент: `npm run dev:client` → `http://localhost:5173`
+
+#### 3️⃣ Остановка серверов
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\stop-servers.ps1
+```
+
+**Windows (Command Prompt):**
+```batch
+scripts\stop-servers.bat
+```
+
+**Все платформы** — нажмите `Ctrl+C` в терминалах.
+
+### Docker (полный стек)
 ```bash
 docker-compose -f docker/docker-compose.yml up
 ```
+
+### Рекомендуемый рабочий процесс
+
+1. Откройте **два терминала** в VS Code
+2. **Терминал 1:** `npm run dev:server`
+3. **Терминал 2:** `npm run dev:client`
+4. Откройте браузер: `http://localhost:5173`
+
+### Полезные команды
+
+| Команда | Описание |
+|---------|---------|
+| `npm run build` | Собрать все пакеты |
+| `npm run test` | Запустить тесты |
+| `npm run dev:server` | Запустить сервер (порт 2567) |
+| `npm run dev:client` | Запустить клиент (порт 5173) |
+| `npm run start:servers` | Запустить оба одной командой (может зависнуть на Win) |
+| `npm run stop:servers` | Остановить все серверы |
+
+Более подробно см. [scripts/README.md](scripts/README.md).
 
 ## Документация
 

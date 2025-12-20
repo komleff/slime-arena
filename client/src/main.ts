@@ -24,7 +24,7 @@ async function main() {
     const client = new Colyseus.Client("ws://localhost:2567");
 
     try {
-        const room = await client.joinOrCreate("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
+        const room = await client.joinOrCreate<any>("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
         status.textContent = "✅ Подключено к серверу\n";
 
         let lastPhase = "";
@@ -33,48 +33,61 @@ async function main() {
         let orbsCount = 0;
         let playersCount = 0;
 
-        room.onStateChange.once(() => {
-            console.log("Начальное состояние:", room.state);
+        // Дождаться первой синхронизации состояния
+        await new Promise<void>((resolve) => {
+            room.onStateChange.once((state) => {
+                console.log("Начальное состояние:", state);
+                
+                // Инициализировать счётчики
+                orbsCount = state.orbs.size;
+                chestsCount = state.chests.size;
+                hotZonesCount = state.hotZones.size;
+                playersCount = state.players.size;
+                lastPhase = state.phase;
+
+                // Установить слушатели
+                state.listen("phase", (phase: string) => {
+                    if (phase !== lastPhase) {
+                        console.log(`📍 Смена фазы: ${lastPhase} → ${phase}`);
+                        lastPhase = phase;
+                    }
+                });
+
+                state.hotZones.onAdd = () => {
+                    hotZonesCount = state.hotZones.size;
+                };
+
+                state.hotZones.onRemove = () => {
+                    hotZonesCount = state.hotZones.size;
+                };
+
+                state.chests.onAdd = () => {
+                    chestsCount = state.chests.size;
+                };
+
+                state.chests.onRemove = () => {
+                    chestsCount = state.chests.size;
+                };
+
+                state.orbs.onAdd = () => {
+                    orbsCount = state.orbs.size;
+                };
+
+                state.orbs.onRemove = () => {
+                    orbsCount = state.orbs.size;
+                };
+
+                state.players.onAdd = () => {
+                    playersCount = state.players.size;
+                };
+
+                state.players.onRemove = () => {
+                    playersCount = state.players.size;
+                };
+
+                resolve();
+            });
         });
-
-        room.state.listen("phase", (phase: string) => {
-            if (phase !== lastPhase) {
-                console.log(`📍 Смена фазы: ${lastPhase} → ${phase}`);
-                lastPhase = phase;
-            }
-        });
-
-        room.state.hotZones.onAdd = () => {
-            hotZonesCount = room.state.hotZones.size;
-        };
-
-        room.state.hotZones.onRemove = () => {
-            hotZonesCount = room.state.hotZones.size;
-        };
-
-        room.state.chests.onAdd = () => {
-            chestsCount = room.state.chests.size;
-        };
-
-        room.state.chests.onRemove = () => {
-            chestsCount = room.state.chests.size;
-        };
-
-        room.state.orbs.onAdd = () => {
-            orbsCount = room.state.orbs.size;
-        };
-
-        room.state.orbs.onRemove = () => {
-            orbsCount = room.state.orbs.size;
-        };
-
-        room.state.players.onAdd = () => {
-            playersCount = room.state.players.size;
-        };
-
-        room.state.players.onRemove = () => {
-            playersCount = room.state.players.size;
-        };
 
         setInterval(() => {
             let info = "═══════════════════════════════════════\n";
@@ -93,7 +106,8 @@ async function main() {
                 const isLastBreath = (player.flags & 4) ? "💨 ПОСЛЕДНИЙ ВЗДОХ" : "";
                 const isDead = (player.flags & 16) ? "💀 МЁРТВ" : "";
                 const status = [isRebel, isLastBreath, isDead].filter(Boolean).join(" ");
-                info += `   ${playerIndex}. ${player.name} | масса=${player.mass.toFixed(0)} | hp=${player.hp.toFixed(1)}/${player.maxHp.toFixed(1)} ${status}\n`;
+                const talents = player.talentsAvailable > 0 ? `| 🎁×${player.talentsAvailable} ` : "";
+                info += `   ${playerIndex}. ${player.name} | масса=${player.mass.toFixed(0)} | hp=${player.hp.toFixed(1)}/${player.maxHp.toFixed(1)} ${talents}${status}\n`;
                 if (playerIndex >= 5) {
                     if (playersCount > 5) info += `   ... и ещё ${playersCount - 5}\n`;
                     break;
@@ -109,7 +123,7 @@ async function main() {
             if (hotZonesCount > 0) {
                 info += `🔥 HOT ZONES\n`;
                 let zoneIndex = 0;
-                for (const [id, zone] of room.state.hotZones.entries()) {
+                for (const [, zone] of room.state.hotZones.entries()) {
                     zoneIndex++;
                     info += `   ${zoneIndex}. центр(${zone.x.toFixed(0)}, ${zone.y.toFixed(0)}) | радиус=${zone.radius.toFixed(0)} | множитель=×${zone.spawnMultiplier}\n`;
                 }

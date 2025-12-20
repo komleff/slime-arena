@@ -62,7 +62,7 @@
     "respawnShieldSec": 5.0,
     "lastBreathDurationSec": 0.5,
     "lastBreathDamageMult": 0.5,
-    "lastBreathSpeedMult": 0.8,
+    "lastBreathSpeedPenalty": 0.8,
     "massStealPercent": 0.1
   },
   "death": {

@@ -13,6 +13,7 @@ export class Player extends Schema {
     @type("number") maxHp: number = 0;
     @type("number") level: number = 0;
     @type("number") classId: number = 0;
+    @type("number") talentsAvailable: number = 0;
     @type("number") flags: number = 0;
 
     // Server-only state (not synced)

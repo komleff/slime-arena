@@ -70,7 +70,7 @@ export interface BalanceConfig {
         respawnShieldSec: number;
         lastBreathDurationSec: number;
         lastBreathDamageMult: number;
-        lastBreathSpeedMult: number;
+        lastBreathSpeedPenalty: number;
         massStealPercent: number;
     };
     death: {
@@ -220,7 +220,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         respawnShieldSec: 5,
         lastBreathDurationSec: 0.5,
         lastBreathDamageMult: 0.5,
-        lastBreathSpeedMult: 0.8,
+        lastBreathSpeedPenalty: 0.8,
         massStealPercent: 0.1,
     },
     death: {
@@ -593,10 +593,10 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.combat.lastBreathDamageMult,
                 "combat.lastBreathDamageMult"
             ),
-            lastBreathSpeedMult: readNumber(
-                combat.lastBreathSpeedMult,
-                DEFAULT_BALANCE_CONFIG.combat.lastBreathSpeedMult,
-                "combat.lastBreathSpeedMult"
+            lastBreathSpeedPenalty: readNumber(
+                combat.lastBreathSpeedPenalty ?? combat.lastBreathSpeedMult,
+                DEFAULT_BALANCE_CONFIG.combat.lastBreathSpeedPenalty,
+                "combat.lastBreathSpeedPenalty"
             ),
             massStealPercent: readNumber(
                 combat.massStealPercent,
