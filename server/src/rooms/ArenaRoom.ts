@@ -160,6 +160,7 @@ export class ArenaRoom extends Room<GameState> {
         player.hp = player.maxHp;
         this.state.players.set(client.sessionId, player);
         this.updateLeaderboard();
+        client.send("balance", this.balance);
         console.log(`${client.sessionId} joined!`);
     }
 

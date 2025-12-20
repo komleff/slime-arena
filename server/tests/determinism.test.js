@@ -12,8 +12,11 @@ function createRoom(seed) {
     const room = new ArenaRoom();
     room.setSimulationInterval = () => 0;
     room.onCreate({ seed });
-    room.onJoin({ sessionId: "p1" }, { name: "p1" });
-    room.onJoin({ sessionId: "p2" }, { name: "p2" });
+    const mockClient = { sessionId: "", send: () => {} };
+    mockClient.sessionId = "p1";
+    room.onJoin(mockClient, { name: "p1" });
+    mockClient.sessionId = "p2";
+    room.onJoin(mockClient, { name: "p2" });
     return room;
 }
 

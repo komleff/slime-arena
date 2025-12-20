@@ -9,10 +9,8 @@ export function getSlimeDamage(mass: number, formulas: BalanceConfig["formulas"]
 }
 
 export function getSlimeRadius(mass: number, formulas: BalanceConfig["formulas"]): number {
-    return (
-        formulas.radius.base *
-        Math.sqrt(1 + formulas.radius.scale * Math.log(1 + mass / formulas.radius.divisor))
-    );
+    const divisor = formulas.radius.divisor > 0 ? formulas.radius.divisor : 1;
+    return formulas.radius.base * Math.sqrt(1 + (formulas.radius.scale * mass) / divisor);
 }
 
 export function getOrbRadius(orbMass: number, density: number, minRadius: number): number {

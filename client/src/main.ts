@@ -1,7 +1,9 @@
 import * as Colyseus from "colyseus.js";
 import {
     DEFAULT_BALANCE_CONFIG,
+    type BalanceConfig,
     getOrbRadius,
+    getSlimeRadius,
     FLAG_IS_REBEL,
     FLAG_LAST_BREATH,
     FLAG_IS_DEAD,
@@ -43,20 +45,27 @@ canvas.style.display = "block";
 canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
 root.appendChild(canvas);
 
-let ctx = canvas.getContext("2d");
-if (!ctx) {
-    throw new Error("Canvas 2D context unavailable");
-}
-const canvasCtx: CanvasRenderingContext2D = ctx;
+const getCanvasContext = () => {
+    const context = canvas.getContext("2d");
+    if (!context) {
+        throw new Error("Canvas 2D context unavailable");
+    }
+    return context;
+};
+
+let canvasCtx = getCanvasContext();
 
 canvas.addEventListener(
     "contextlost",
     (event) => {
         event.preventDefault();
-        const restored = canvas.getContext("2d");
-        if (restored) {
-            ctx = restored;
-        }
+    },
+    false
+);
+canvas.addEventListener(
+    "contextrestored",
+    () => {
+        canvasCtx = getCanvasContext();
     },
     false
 );
@@ -163,11 +172,12 @@ talentCard.appendChild(talentButtons);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
 
-const mapSize = DEFAULT_BALANCE_CONFIG.world.mapSize;
-const orbMinRadius = DEFAULT_BALANCE_CONFIG.orbs.minRadius;
-const chestRadius = DEFAULT_BALANCE_CONFIG.chests.radius;
-const hotZoneRadius = DEFAULT_BALANCE_CONFIG.hotZones.radius;
-const collectorRadiusMult = DEFAULT_BALANCE_CONFIG.classes.collector.radiusMult;
+let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
+let mapSize = balanceConfig.world.mapSize;
+let orbMinRadius = balanceConfig.orbs.minRadius;
+let chestRadius = balanceConfig.chests.radius;
+let hotZoneRadius = balanceConfig.hotZones.radius;
+let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
 const chestStyles = [
     { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1 },
     { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1.08 },
@@ -189,6 +199,8 @@ const slimeSpriteNames = [
     "slime-toxic.png",
     "slime-knight.png",
 ];
+const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
+const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 const spriteCache = new Map<
     string,
     {
@@ -197,6 +209,16 @@ const spriteCache = new Map<
     }
 >();
 const playerSpriteById = new Map<string, string>();
+const applyBalanceConfig = (config: BalanceConfig) => {
+    balanceConfig = config;
+    mapSize = config.world.mapSize;
+    orbMinRadius = config.orbs.minRadius;
+    chestRadius = config.chests.radius;
+    hotZoneRadius = config.hotZones.radius;
+    collectorRadiusMult = config.classes.collector.radiusMult;
+    camera.x = Math.min(Math.max(camera.x, 0), mapSize);
+    camera.y = Math.min(Math.max(camera.y, 0), mapSize);
+};
 
 function loadSprite(name: string) {
     if (spriteCache.has(name)) return spriteCache.get(name)!;
@@ -204,7 +226,7 @@ function loadSprite(name: string) {
     const entry = { img, ready: false };
     spriteCache.set(name, entry);
     img.onload = () => (entry.ready = true);
-    img.src = `/assets/sprites/slimes/base/${name}`;
+    img.src = `${assetBase}assets/sprites/slimes/base/${name}`;
     return entry;
 }
 
@@ -314,11 +336,15 @@ function drawSprite(
 async function main() {
     hud.textContent = "Подключение к серверу...";
 
-    const client = new Colyseus.Client("ws://localhost:2567");
+        const client = new Colyseus.Client("ws://localhost:2567");
 
-    try {
-        const room = await client.joinOrCreate<any>("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
-        hud.textContent = "Подключено к серверу";
+        try {
+            const room = await client.joinOrCreate<any>("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
+            hud.textContent = "Подключено к серверу";
+            room.onMessage("balance", (config: BalanceConfig) => {
+                if (!config) return;
+                applyBalanceConfig(config);
+            });
 
         let hotZonesCount = 0;
         let chestsCount = 0;
@@ -439,18 +465,18 @@ async function main() {
             console.log(`Hot zone removed, total: ${hotZonesCount}`);
         });
 
-        const updateHud = () => {
-            const lines: string[] = [];
-            lines.push(`Фаза: ${room.state.phase}`);
-            lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`);
-            lines.push(`Игроки: ${playersCount}`);
-            lines.push(`Орбы: ${orbsCount}/${DEFAULT_BALANCE_CONFIG.orbs.maxCount}`);
-            lines.push(`Сундуки: ${chestsCount}/${DEFAULT_BALANCE_CONFIG.chests.maxCount}`);
-            lines.push(`Hot Zones: ${hotZonesCount}`);
-            if (localPlayer) {
-                lines.push(
-                    `Моя масса: ${localPlayer.mass.toFixed(0)} | HP: ${localPlayer.hp.toFixed(1)}/${localPlayer.maxHp.toFixed(1)}`
-                );
+            const updateHud = () => {
+                const lines: string[] = [];
+                lines.push(`Фаза: ${room.state.phase}`);
+                lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`);
+                lines.push(`Игроки: ${playersCount}`);
+                lines.push(`Орбы: ${orbsCount}/${balanceConfig.orbs.maxCount}`);
+                lines.push(`Сундуки: ${chestsCount}/${balanceConfig.chests.maxCount}`);
+                lines.push(`Hot Zones: ${hotZonesCount}`);
+                if (localPlayer) {
+                    lines.push(
+                        `Моя масса: ${localPlayer.mass.toFixed(0)} | HP: ${localPlayer.hp.toFixed(1)}/${localPlayer.maxHp.toFixed(1)}`
+                    );
                 if (localPlayer.talentsAvailable > 0) {
                     lines.push(`Таланты: ${localPlayer.talentsAvailable}`);
                 }
@@ -487,6 +513,8 @@ async function main() {
         };
 
         let lastSentInput = { x: 0, y: 0 };
+        let isRendering = true;
+        let rafId: number | null = null;
 
         const inputTimer = setInterval(() => {
             if (!hasFocus) return;
@@ -499,6 +527,7 @@ async function main() {
         }, 50);
 
         const render = () => {
+            if (!isRendering) return;
             const cw = canvas.width;
             const ch = canvas.height;
             const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
@@ -525,7 +554,9 @@ async function main() {
             for (const [, orb] of room.state.orbs.entries()) {
                 if (Math.abs(orb.x - camera.x) > halfWorldW + 50 || Math.abs(orb.y - camera.y) > halfWorldH + 50) continue;
                 const p = worldToScreen(orb.x, orb.y, scale, camera.x, camera.y, cw, ch);
-                const r = Math.max(2, getOrbRadius(orb.mass, 1, orbMinRadius) * scale);
+                const orbType = balanceConfig.orbs.types[orb.colorId];
+                const density = orbType?.density ?? 1;
+                const r = Math.max(2, getOrbRadius(orb.mass, density, orbMinRadius) * scale);
                 drawCircle(p.x, p.y, r, orbColor(orb.colorId));
             }
 
@@ -553,7 +584,8 @@ async function main() {
                 if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
                 const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
                 const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
-                const radius = Math.sqrt(player.mass) * classRadiusMult * scale;
+                const baseRadius = getSlimeRadius(player.mass, balanceConfig.formulas);
+                const radius = baseRadius * classRadiusMult * scale;
                 const isSelf = id === room.sessionId;
                 const color = isSelf ? "#6fd6ff" : "#9be070";
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
@@ -586,20 +618,24 @@ async function main() {
                 const edgeX = Math.cos(angle) * (halfWorldW - 40);
                 const edgeY = Math.sin(angle) * (halfWorldH - 40);
                 const screen = worldToScreen(camera.x + edgeX, camera.y + edgeY, scale, camera.x, camera.y, cw, ch);
+                const style = chestStyles[chest.type] ?? chestStyles[0];
                 canvasCtx.save();
                 canvasCtx.translate(screen.x, screen.y);
                 canvasCtx.rotate(angle);
-                canvasCtx.fillStyle = "#ffc857";
+                canvasCtx.fillStyle = style.fill;
+                canvasCtx.strokeStyle = style.stroke;
+                canvasCtx.lineWidth = 2;
                 canvasCtx.beginPath();
                 canvasCtx.moveTo(12, 0);
                 canvasCtx.lineTo(-8, 8);
                 canvasCtx.lineTo(-8, -8);
                 canvasCtx.closePath();
                 canvasCtx.fill();
+                canvasCtx.stroke();
                 canvasCtx.restore();
             }
 
-            requestAnimationFrame(render);
+            rafId = requestAnimationFrame(render);
         };
 
         const sendStopInput = () => {
@@ -608,7 +644,7 @@ async function main() {
             room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
         };
 
-        window.addEventListener("keydown", (event) => {
+        const onKeyDown = (event: KeyboardEvent) => {
             if (event.repeat) return;
             switch (event.key.toLowerCase()) {
                 case "arrowup":
@@ -632,9 +668,9 @@ async function main() {
             }
             hasFocus = true;
             event.preventDefault();
-        });
+        };
 
-        window.addEventListener("keyup", (event) => {
+        const onKeyUp = (event: KeyboardEvent) => {
             switch (event.key.toLowerCase()) {
                 case "arrowup":
                 case "w":
@@ -656,15 +692,15 @@ async function main() {
                     return;
             }
             event.preventDefault();
-        });
+        };
 
-        window.addEventListener("blur", () => {
+        const onBlur = () => {
             hasFocus = false;
             keyState.up = keyState.down = keyState.left = keyState.right = false;
             sendStopInput();
-        });
+        };
 
-        document.addEventListener("visibilitychange", () => {
+        const onVisibilityChange = () => {
             if (document.visibilityState === "hidden") {
                 hasFocus = false;
                 keyState.up = keyState.down = keyState.left = keyState.right = false;
@@ -672,7 +708,12 @@ async function main() {
             } else {
                 hasFocus = true;
             }
-        });
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        window.addEventListener("keyup", onKeyUp);
+        window.addEventListener("blur", onBlur);
+        document.addEventListener("visibilitychange", onVisibilityChange);
 
         updateHud();
         refreshTalentModal();
@@ -686,6 +727,14 @@ async function main() {
         room.onLeave(() => {
             clearInterval(inputTimer);
             clearInterval(hudTimer);
+            isRendering = false;
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+            }
+            window.removeEventListener("keydown", onKeyDown);
+            window.removeEventListener("keyup", onKeyUp);
+            window.removeEventListener("blur", onBlur);
+            document.removeEventListener("visibilitychange", onVisibilityChange);
         });
     } catch (e) {
         hud.textContent = `Ошибка подключения: ${e}`;
