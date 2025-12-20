@@ -1,0 +1,35 @@
+name: Branch Protection
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-protection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if push is from merged PR
+        run: |
+          echo "Checking if this push is from a merged pull request..."
+
+          # This workflow runs on every push to main
+          # If you see this in a direct push (not from a PR merge),
+          # it means branch protection rules need to be enabled
+          # in GitHub settings
+
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          if [[ "$COMMIT_MSG" =~ ^Merge\ pull\ request ]]; then
+            echo "✅ Push is from a merged pull request"
+            exit 0
+          elif [[ "${{ github.event_name }}" == "push" ]] && \
+               [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "⚠️ WARNING: Direct push to main branch detected!"
+            echo "Please enable branch protection rules in GitHub"
+            echo "repository settings:"
+            echo "1. Go to Settings > Branches"
+            echo "2. Add a branch protection rule for 'main'"
+            echo "3. Enable 'Require pull request reviews before merging'"
+            echo "4. Enable 'Require status checks to pass before merging'"
+            exit 1
+          fi

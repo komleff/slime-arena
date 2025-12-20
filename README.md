@@ -45,3 +45,7 @@ docker-compose -f docker/docker-compose.yml up
 - [Архитектура](docs/SlimeArena-Architecture-v1.4.md) — техническое устройство системы.
 - [План разработки](docs/SlimeArena-Plan-v1.7.md) — этапы реализации.
 - [Список задач](TODO.md) — текущий прогресс и ближайшие цели.
+
+## Разработка
+
+- [Защита ветки main](.github/BRANCH_PROTECTION.md) — настройка защиты основной ветки от прямых изменений.
