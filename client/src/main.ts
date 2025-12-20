@@ -1,4 +1,12 @@
 import * as Colyseus from "colyseus.js";
+import {
+    DEFAULT_BALANCE_CONFIG,
+    getSlimeRadius,
+    getOrbRadius,
+    FLAG_IS_REBEL,
+    FLAG_LAST_BREATH,
+    FLAG_IS_DEAD,
+} from "@slime-arena/shared";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -13,33 +21,304 @@ root.style.wordWrap = "break-word";
 
 document.body.appendChild(root);
 
-const status = document.createElement("div");
-status.style.marginBottom = "20px";
-status.style.fontSize = "14px";
-root.appendChild(status);
+const hud = document.createElement("div");
+hud.style.position = "fixed";
+hud.style.top = "12px";
+hud.style.left = "12px";
+hud.style.padding = "10px 12px";
+hud.style.background = "rgba(0, 0, 0, 0.55)";
+hud.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+hud.style.borderRadius = "10px";
+hud.style.fontSize = "13px";
+hud.style.lineHeight = "1.4";
+hud.style.color = "#e6f3ff";
+hud.style.pointerEvents = "none";
+hud.style.minWidth = "220px";
+hud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
+root.appendChild(hud);
+
+const canvas = document.createElement("canvas");
+canvas.style.width = "100%";
+canvas.style.height = "100vh";
+canvas.style.display = "block";
+canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
+root.appendChild(canvas);
+
+let ctx = canvas.getContext("2d");
+if (!ctx) {
+    throw new Error("Canvas 2D context unavailable");
+}
+const canvasCtx: CanvasRenderingContext2D = ctx;
+
+canvas.addEventListener(
+    "contextlost",
+    (event) => {
+        event.preventDefault();
+        const restored = canvas.getContext("2d");
+        if (restored) {
+            ctx = restored;
+        }
+    },
+    false
+);
+
+const talentModal = document.createElement("div");
+talentModal.style.position = "fixed";
+talentModal.style.inset = "0";
+talentModal.style.display = "none";
+talentModal.style.alignItems = "center";
+talentModal.style.justifyContent = "center";
+talentModal.style.padding = "24px";
+talentModal.style.background = "radial-gradient(circle at top, rgba(24, 40, 60, 0.75), rgba(5, 7, 12, 0.9))";
+talentModal.style.backdropFilter = "blur(2px)";
+talentModal.style.zIndex = "10";
+
+const talentCard = document.createElement("div");
+talentCard.style.width = "min(520px, 92vw)";
+talentCard.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
+talentCard.style.border = "1px solid #2a3c55";
+talentCard.style.borderRadius = "16px";
+talentCard.style.padding = "20px";
+talentCard.style.color = "#e6f3ff";
+talentCard.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
+talentCard.style.boxShadow = "0 18px 40px rgba(0, 0, 0, 0.45)";
+talentCard.style.display = "grid";
+talentCard.style.gap = "12px";
+
+const talentTitle = document.createElement("div");
+talentTitle.textContent = "Choose a Talent";
+talentTitle.style.fontSize = "18px";
+talentTitle.style.fontWeight = "700";
+talentTitle.style.letterSpacing = "0.5px";
+
+const talentHint = document.createElement("div");
+talentHint.textContent = "Spend one available talent to gain a boost.";
+talentHint.style.fontSize = "13px";
+talentHint.style.color = "#9fb5cc";
+
+const talentCount = document.createElement("div");
+talentCount.style.fontSize = "12px";
+talentCount.style.color = "#6fd6ff";
+
+const talentButtons = document.createElement("div");
+talentButtons.style.display = "grid";
+talentButtons.style.gap = "10px";
+
+const talentChoices = [
+    { id: 0, name: "Mass Surge", detail: "+5% mass" },
+    { id: 1, name: "Vital Burst", detail: "+30% HP" },
+    { id: 2, name: "Guard Pulse", detail: "+3% mass + shield" },
+];
+
+const talentButtonsList: HTMLButtonElement[] = [];
+
+const styleTalentButton = (button: HTMLButtonElement) => {
+    button.type = "button";
+    button.style.display = "grid";
+    button.style.gap = "4px";
+    button.style.padding = "12px 14px";
+    button.style.background = "#111b2a";
+    button.style.border = "1px solid #2d4a6d";
+    button.style.borderRadius = "12px";
+    button.style.color = "#e6f3ff";
+    button.style.fontSize = "14px";
+    button.style.textAlign = "left";
+    button.style.cursor = "pointer";
+    button.style.transition = "transform 120ms ease, box-shadow 120ms ease, background 120ms ease";
+
+    button.addEventListener("mouseenter", () => {
+        if (button.disabled) return;
+        button.style.transform = "translateY(-2px)";
+        button.style.background = "#1b2c45";
+        button.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
+    });
+
+    button.addEventListener("mouseleave", () => {
+        button.style.transform = "translateY(0)";
+        button.style.background = "#111b2a";
+        button.style.boxShadow = "none";
+    });
+};
+
+for (const choice of talentChoices) {
+    const button = document.createElement("button");
+    const label = document.createElement("div");
+    label.textContent = choice.name;
+    label.style.fontWeight = "600";
+    const detail = document.createElement("div");
+    detail.textContent = choice.detail;
+    detail.style.fontSize = "12px";
+    detail.style.color = "#a9bdd6";
+    button.dataset.choice = String(choice.id);
+    styleTalentButton(button);
+    button.appendChild(label);
+    button.appendChild(detail);
+    talentButtons.appendChild(button);
+    talentButtonsList.push(button);
+}
+
+talentCard.appendChild(talentTitle);
+talentCard.appendChild(talentHint);
+talentCard.appendChild(talentCount);
+talentCard.appendChild(talentButtons);
+talentModal.appendChild(talentCard);
+document.body.appendChild(talentModal);
+
+const mapSize = DEFAULT_BALANCE_CONFIG.world.mapSize;
+const orbMinRadius = DEFAULT_BALANCE_CONFIG.orbs.minRadius;
+const chestRadius = DEFAULT_BALANCE_CONFIG.chests.radius;
+const hotZoneRadius = DEFAULT_BALANCE_CONFIG.hotZones.radius;
+
+const keyState = { up: false, down: false, left: false, right: false };
+const camera = { x: mapSize / 2, y: mapSize / 2 };
+const cameraLerp = 0.15;
+const desiredView = { width: 900, height: 700 };
+let hasFocus = true;
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+function worldToScreen(x: number, y: number, scale: number, camX: number, camY: number, cw: number, ch: number) {
+    return {
+        x: (x - camX) * scale + cw / 2,
+        y: (y - camY) * scale + ch / 2,
+    };
+}
+
+function drawGrid(scale: number, camX: number, camY: number, cw: number, ch: number) {
+    const step = 200;
+    const halfW = cw / scale / 2;
+    const halfH = ch / scale / 2;
+    const startX = Math.max(0, Math.floor((camX - halfW) / step) * step);
+    const endX = Math.min(mapSize, Math.ceil((camX + halfW) / step) * step);
+    const startY = Math.max(0, Math.floor((camY - halfH) / step) * step);
+    const endY = Math.min(mapSize, Math.ceil((camY + halfH) / step) * step);
+    canvasCtx.strokeStyle = "rgba(255,255,255,0.03)";
+    canvasCtx.lineWidth = 1;
+    for (let x = startX; x <= endX; x += step) {
+        const screen = worldToScreen(x, 0, scale, camX, camY, cw, ch);
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(screen.x, 0);
+        canvasCtx.lineTo(screen.x, ch);
+        canvasCtx.stroke();
+    }
+    for (let y = startY; y <= endY; y += step) {
+        const screen = worldToScreen(0, y, scale, camX, camY, cw, ch);
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(0, screen.y);
+        canvasCtx.lineTo(cw, screen.y);
+        canvasCtx.stroke();
+    }
+}
+
+function orbColor(colorId: number): string {
+    switch (colorId) {
+        case 0:
+            return "#6ddc6a";
+        case 1:
+            return "#53c7ff";
+        case 2:
+            return "#ff6f6f";
+        case 3:
+            return "#ffd166";
+        default:
+            return "#b0b0b0";
+    }
+}
+
+function drawCircle(x: number, y: number, radius: number, fill: string, stroke?: string) {
+    canvasCtx.beginPath();
+    canvasCtx.arc(x, y, radius, 0, Math.PI * 2);
+    canvasCtx.fillStyle = fill;
+    canvasCtx.fill();
+    if (stroke) {
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = stroke;
+        canvasCtx.stroke();
+    }
+}
 
 async function main() {
-    status.textContent = "🔌 Подключение к серверу...";
+    hud.textContent = "Подключение к серверу...";
 
     const client = new Colyseus.Client("ws://localhost:2567");
 
     try {
         const room = await client.joinOrCreate<any>("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
-        status.textContent = "✅ Подключено к серверу\n";
+        hud.textContent = "Подключено к серверу";
 
-        let lastPhase = "";
         let hotZonesCount = 0;
         let chestsCount = 0;
         let orbsCount = 0;
         let playersCount = 0;
+        let inputSeq = 0;
+        let localPlayer: any = null;
+        let lastTalentsAvailable = 0;
+        let talentSelectionInFlight = false;
 
         // Логирование для отладки
         console.log("Room joined:", room.id);
+
+        const refreshTalentModal = () => {
+            if (!localPlayer) {
+                talentModal.style.display = "none";
+                return;
+            }
+            const available = Number(localPlayer.talentsAvailable || 0);
+            if (available !== lastTalentsAvailable) {
+                talentSelectionInFlight = false;
+                lastTalentsAvailable = available;
+            }
+            if (available <= 0) {
+                talentModal.style.display = "none";
+                return;
+            }
+
+            talentModal.style.display = "flex";
+            talentCount.textContent = `Available talents: ${available}`;
+            const canSelect = !talentSelectionInFlight;
+            for (const button of talentButtonsList) {
+                button.disabled = !canSelect;
+                button.style.opacity = canSelect ? "1" : "0.6";
+                button.style.cursor = canSelect ? "pointer" : "not-allowed";
+            }
+        };
+
+        const sendTalentChoice = (choice: number) => {
+            if (talentSelectionInFlight) return;
+            talentSelectionInFlight = true;
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, talentChoice: choice });
+            setTimeout(() => {
+                talentSelectionInFlight = false;
+                refreshTalentModal();
+            }, 1000);
+            refreshTalentModal();
+        };
+
+        for (const button of talentButtonsList) {
+            const rawChoice = Number(button.dataset.choice);
+            button.addEventListener("click", () => {
+                if (!Number.isFinite(rawChoice)) return;
+                sendTalentChoice(rawChoice);
+            });
+        }
 
         // Подписка на игроков (как в legacy)
         room.state.players.onAdd((player: any, sessionId: string) => {
             playersCount++;
             console.log(`Player added: ${sessionId} (${player.name}), total: ${playersCount}`);
+
+            if (sessionId === room.sessionId) {
+                localPlayer = player;
+                lastTalentsAvailable = Number(player.talentsAvailable || 0);
+                refreshTalentModal();
+                player.onChange(() => refreshTalentModal());
+            }
             
             player.onChange(() => {
                 // Обновление данных игрока
@@ -49,10 +328,14 @@ async function main() {
         room.state.players.onRemove((_player: any, sessionId: string) => {
             playersCount--;
             console.log(`Player removed: ${sessionId}, total: ${playersCount}`);
+            if (sessionId === room.sessionId) {
+                localPlayer = null;
+                refreshTalentModal();
+            }
         });
 
         // Подписка на орбы
-        room.state.orbs.onAdd((orb: any, orbId: string) => {
+        room.state.orbs.onAdd((orb: any) => {
             orbsCount++;
             orb.onChange(() => {});
         });
@@ -85,80 +368,222 @@ async function main() {
             console.log(`Hot zone removed, total: ${hotZonesCount}`);
         });
 
-        // Слушаем изменения фазы
-        room.state.listen("phase", (phase: string) => {
-            console.log(`Phase changed: ${lastPhase} -> ${phase}`);
-            lastPhase = phase;
-        });
-
-        room.state.listen("timeRemaining", (time: number) => {
-            // Обновляется автоматически
-        });
-
-        setInterval(() => {
-            let info = "═══════════════════════════════════════\n";
-            info += `📊 SLIME ARENA — ШАГ 3 ТЕСТ\n`;
-            info += `═══════════════════════════════════════\n\n`;
-
-            info += `⏱️  МАТЧ\n`;
-            info += `   Фаза: ${room.state.phase}\n`;
-            info += `   Время осталось: ${room.state.timeRemaining?.toFixed(1) ?? 0}с\n\n`;
-
-            info += `👥 ИГРОКИ (${playersCount})\n`;
-            let playerIndex = 0;
-            for (const [id, player] of room.state.players.entries()) {
-                playerIndex++;
-                const isRebel = room.state.rebelId === id ? "⚔️ МЯТЕЖНИК" : "";
-                const isLastBreath = (player.flags & 4) ? "💨 ПОСЛЕДНИЙ ВЗДОХ" : "";
-                const isDead = (player.flags & 16) ? "💀 МЁРТВ" : "";
-                const status = [isRebel, isLastBreath, isDead].filter(Boolean).join(" ");
-                const talents = player.talentsAvailable > 0 ? `| 🎁×${player.talentsAvailable} ` : "";
-                info += `   ${playerIndex}. ${player.name} | масса=${player.mass.toFixed(0)} | hp=${player.hp.toFixed(1)}/${player.maxHp.toFixed(1)} ${talents}${status}\n`;
-                if (playerIndex >= 5) {
-                    if (playersCount > 5) info += `   ... и ещё ${playersCount - 5}\n`;
-                    break;
+        const updateHud = () => {
+            const lines: string[] = [];
+            lines.push(`Фаза: ${room.state.phase}`);
+            lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`);
+            lines.push(`Игроки: ${playersCount}`);
+            lines.push(`Орбы: ${orbsCount}/${DEFAULT_BALANCE_CONFIG.orbs.maxCount}`);
+            lines.push(`Сундуки: ${chestsCount}/${DEFAULT_BALANCE_CONFIG.chests.maxCount}`);
+            lines.push(`Hot Zones: ${hotZonesCount}`);
+            if (localPlayer) {
+                lines.push(
+                    `Моя масса: ${localPlayer.mass.toFixed(0)} | HP: ${localPlayer.hp.toFixed(1)}/${localPlayer.maxHp.toFixed(1)}`
+                );
+                if (localPlayer.talentsAvailable > 0) {
+                    lines.push(`Таланты: ${localPlayer.talentsAvailable}`);
                 }
             }
-            info += "\n";
-
-            info += `🌍 МИР\n`;
-            info += `   Орбы: ${orbsCount}/${150}\n`;
-            info += `   Сундуки: ${chestsCount}/${3}\n`;
-            info += `   Hot Zones: ${hotZonesCount}\n\n`;
-
-            if (hotZonesCount > 0) {
-                info += `🔥 HOT ZONES\n`;
-                let zoneIndex = 0;
-                for (const [, zone] of room.state.hotZones.entries()) {
-                    zoneIndex++;
-                    info += `   ${zoneIndex}. центр(${zone.x.toFixed(0)}, ${zone.y.toFixed(0)}) | радиус=${zone.radius.toFixed(0)} | множитель=×${zone.spawnMultiplier}\n`;
-                }
-                info += "\n";
-            }
-
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {
-                info += `🏆 ЛИДЕРБОРД (ТОП-3)\n`;
-                for (let i = 0; i < room.state.leaderboard.length; i++) {
+                lines.push("Топ-3:");
+                for (let i = 0; i < Math.min(3, room.state.leaderboard.length); i += 1) {
                     const playerId = room.state.leaderboard[i];
-                    const player = room.state.players.get(playerId);
-                    if (player) {
-                        info += `   ${i + 1}. ${player.name} | ${player.mass.toFixed(0)} масса\n`;
+                    const pl = room.state.players.get(playerId);
+                    if (pl) {
+                        lines.push(`${i + 1}. ${pl.name} — ${pl.mass.toFixed(0)} масса`);
                     }
                 }
-                info += "\n";
+            }
+            hud.textContent = lines.join("\n");
+        };
+
+        const computeMoveInput = () => {
+            let x = 0;
+            let y = 0;
+            if (keyState.left) x -= 1;
+            if (keyState.right) x += 1;
+            if (keyState.up) y -= 1;
+            if (keyState.down) y += 1;
+            const len = Math.hypot(x, y);
+            if (len > 1e-6) {
+                x /= len;
+                y /= len;
+            } else {
+                x = 0;
+                y = 0;
+            }
+            return { x, y };
+        };
+
+        let lastSentInput = { x: 0, y: 0 };
+
+        const inputTimer = setInterval(() => {
+            if (!hasFocus) return;
+            const { x, y } = computeMoveInput();
+            const changed = Math.abs(x - lastSentInput.x) > 1e-3 || Math.abs(y - lastSentInput.y) > 1e-3;
+            if (!changed) return;
+            lastSentInput = { x, y };
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: x, moveY: y });
+        }, 50);
+
+        const render = () => {
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
+            const halfWorldW = cw / scale / 2;
+            const halfWorldH = ch / scale / 2;
+
+            const targetX = localPlayer ? localPlayer.x : mapSize / 2;
+            const targetY = localPlayer ? localPlayer.y : mapSize / 2;
+            const clampX = Math.max(halfWorldW, Math.min(mapSize - halfWorldW, targetX));
+            const clampY = Math.max(halfWorldH, Math.min(mapSize - halfWorldH, targetY));
+            camera.x += (clampX - camera.x) * cameraLerp;
+            camera.y += (clampY - camera.y) * cameraLerp;
+
+            canvasCtx.clearRect(0, 0, cw, ch);
+            drawGrid(scale, camera.x, camera.y, cw, ch);
+
+            canvasCtx.fillStyle = "rgba(255, 99, 71, 0.08)";
+            for (const [, zone] of room.state.hotZones.entries()) {
+                if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
+                const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                drawCircle(p.x, p.y, zone.radius * scale, "rgba(255, 99, 71, 0.08)", "rgba(255, 99, 71, 0.4)");
             }
 
-            info += `🔌 СИНХРОНИЗАЦИЯ\n`;
-            info += `   Room ID: ${room.roomId}\n`;
-            info += `   Session ID: ${room.sessionId}\n`;
-            info += `   State: ${room.state ? "✅" : "❌"}\n`;
+            for (const [, orb] of room.state.orbs.entries()) {
+                if (Math.abs(orb.x - camera.x) > halfWorldW + 50 || Math.abs(orb.y - camera.y) > halfWorldH + 50) continue;
+                const p = worldToScreen(orb.x, orb.y, scale, camera.x, camera.y, cw, ch);
+                const r = Math.max(2, getOrbRadius(orb.mass, 1, orbMinRadius) * scale);
+                drawCircle(p.x, p.y, r, orbColor(orb.colorId));
+            }
 
-            status.textContent = info;
-        }, 100);
+            for (const [, chest] of room.state.chests.entries()) {
+                if (Math.abs(chest.x - camera.x) > halfWorldW + chestRadius || Math.abs(chest.y - camera.y) > halfWorldH + chestRadius) continue;
+                const p = worldToScreen(chest.x, chest.y, scale, camera.x, camera.y, cw, ch);
+                drawCircle(p.x, p.y, chestRadius * scale, "#ffc857", "#ffdf8f");
+            }
+
+            for (const [id, player] of room.state.players.entries()) {
+                if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
+                const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
+                const radius = getSlimeRadius(player.mass, DEFAULT_BALANCE_CONFIG.formulas) * scale;
+                const isSelf = id === room.sessionId;
+                const color = isSelf ? "#6fd6ff" : "#9be070";
+                const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
+                drawCircle(p.x, p.y, Math.max(radius, 6), color, stroke);
+
+                canvasCtx.fillStyle = "#e6f3ff";
+                canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
+                canvasCtx.textAlign = "center";
+                canvasCtx.fillText(player.name, p.x, p.y - Math.max(radius, 6) - 6);
+
+                const flagText: string[] = [];
+                if (player.flags & FLAG_IS_REBEL) flagText.push("REB");
+                if (player.flags & FLAG_LAST_BREATH) flagText.push("LB");
+                if (player.flags & FLAG_IS_DEAD) flagText.push("DEAD");
+                if (flagText.length > 0) {
+                    canvasCtx.fillText(flagText.join(" "), p.x, p.y + Math.max(radius, 6) + 12);
+                }
+            }
+
+            requestAnimationFrame(render);
+        };
+
+        const sendStopInput = () => {
+            lastSentInput = { x: 0, y: 0 };
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
+        };
+
+        window.addEventListener("keydown", (event) => {
+            if (event.repeat) return;
+            switch (event.key.toLowerCase()) {
+                case "arrowup":
+                case "w":
+                    keyState.up = true;
+                    break;
+                case "arrowdown":
+                case "s":
+                    keyState.down = true;
+                    break;
+                case "arrowleft":
+                case "a":
+                    keyState.left = true;
+                    break;
+                case "arrowright":
+                case "d":
+                    keyState.right = true;
+                    break;
+                default:
+                    return;
+            }
+            hasFocus = true;
+            event.preventDefault();
+        });
+
+        window.addEventListener("keyup", (event) => {
+            switch (event.key.toLowerCase()) {
+                case "arrowup":
+                case "w":
+                    keyState.up = false;
+                    break;
+                case "arrowdown":
+                case "s":
+                    keyState.down = false;
+                    break;
+                case "arrowleft":
+                case "a":
+                    keyState.left = false;
+                    break;
+                case "arrowright":
+                case "d":
+                    keyState.right = false;
+                    break;
+                default:
+                    return;
+            }
+            event.preventDefault();
+        });
+
+        window.addEventListener("blur", () => {
+            hasFocus = false;
+            keyState.up = keyState.down = keyState.left = keyState.right = false;
+            sendStopInput();
+        });
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") {
+                hasFocus = false;
+                keyState.up = keyState.down = keyState.left = keyState.right = false;
+                sendStopInput();
+            } else {
+                hasFocus = true;
+            }
+        });
+
+        updateHud();
+        refreshTalentModal();
+        render();
+
+        const hudTimer = setInterval(() => {
+            updateHud();
+            refreshTalentModal();
+        }, 200);
+
+        room.onLeave(() => {
+            clearInterval(inputTimer);
+            clearInterval(hudTimer);
+        });
     } catch (e) {
-        status.textContent = `❌ Ошибка подключения: ${e}`;
+        hud.textContent = `Ошибка подключения: ${e}`;
         console.error(e);
     }
 }
 
 main();
+
+
+
+
+
