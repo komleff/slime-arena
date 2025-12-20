@@ -179,6 +179,22 @@ const camera = { x: mapSize / 2, y: mapSize / 2 };
 const cameraLerp = 0.15;
 const desiredView = { width: 900, height: 700 };
 let hasFocus = true;
+const selfSprite = new Image();
+const enemySprite = new Image();
+let selfSpriteReady = false;
+let enemySpriteReady = false;
+
+const packmanYellowSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><radialGradient id="yGlow" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#fff57a"/><stop offset="50%" stop-color="#ffd53b"/><stop offset="100%" stop-color="#d6a600"/></radialGradient></defs><circle cx="256" cy="256" r="240" fill="url(#yGlow)" stroke="#f7c800" stroke-width="12"/><path d="M256 256 L480 150 A240 240 0 0 1 480 362 Z" fill="#1a0c0c"/><g fill="#ffeede" stroke="#d18a00" stroke-width="8" stroke-linejoin="round"><polygon points="360,220 400,210 375,250"/><polygon points="330,190 370,180 345,220"/><polygon points="390,260 420,260 400,295"/><polygon points="330,310 370,320 345,280"/><polygon points="360,290 395,300 370,260"/><polygon points="320,240 355,250 330,210"/><polygon points="300,270 335,280 310,240"/></g><circle cx="210" cy="190" r="48" fill="#fff" stroke="#d18a00" stroke-width="8"/><circle cx="215" cy="190" r="20" fill="#1f8f2b"/><circle cx="220" cy="190" r="10" fill="#0b3a13"/><circle cx="230" cy="180" r="6" fill="#fff"/></svg>';
+const packmanRedSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><radialGradient id="rGlow" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffb09a"/><stop offset="50%" stop-color="#ff6b3b"/><stop offset="100%" stop-color="#c51d00"/></radialGradient></defs><circle cx="256" cy="256" r="240" fill="url(#rGlow)" stroke="#ff8a3b" stroke-width="12"/><path d="M256 256 L480 150 A240 240 0 0 1 480 362 Z" fill="#230c0c"/><g fill="#ffefc5" stroke="#c56700" stroke-width="8" stroke-linejoin="round"><polygon points="360,220 400,210 375,250"/><polygon points="330,190 370,180 345,220"/><polygon points="390,260 420,260 400,295"/><polygon points="330,310 370,320 345,280"/><polygon points="360,290 395,300 370,260"/><polygon points="320,240 355,250 330,210"/><polygon points="300,270 335,280 310,240"/></g><circle cx="210" cy="190" r="48" fill="#fff" stroke="#c56700" stroke-width="8"/><circle cx="215" cy="190" r="20" fill="#3f5f0a"/><circle cx="220" cy="190" r="10" fill="#0f2800"/><circle cx="230" cy="180" r="6" fill="#fff"/></svg>';
+
+const svgToDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+
+selfSprite.src = svgToDataUri(packmanYellowSvg);
+enemySprite.src = svgToDataUri(packmanRedSvg);
+selfSprite.onload = () => (selfSpriteReady = true);
+enemySprite.onload = () => (enemySpriteReady = true);
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -244,6 +260,29 @@ function drawCircle(x: number, y: number, radius: number, fill: string, stroke?:
         canvasCtx.lineWidth = 2;
         canvasCtx.strokeStyle = stroke;
         canvasCtx.stroke();
+    }
+}
+
+function drawSprite(
+    img: HTMLImageElement,
+    ready: boolean,
+    x: number,
+    y: number,
+    radius: number,
+    angleDeg: number,
+    fallbackFill: string,
+    fallbackStroke: string
+) {
+    if (ready) {
+        const size = radius * 2;
+        const angleRad = (angleDeg * Math.PI) / 180;
+        canvasCtx.save();
+        canvasCtx.translate(x, y);
+        canvasCtx.rotate(angleRad);
+        canvasCtx.drawImage(img, -size / 2, -size / 2, size, size);
+        canvasCtx.restore();
+    } else {
+        drawCircle(x, y, radius, fallbackFill, fallbackStroke);
     }
 }
 
@@ -491,19 +530,25 @@ async function main() {
                 const isSelf = id === room.sessionId;
                 const color = isSelf ? "#6fd6ff" : "#9be070";
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
-                drawCircle(p.x, p.y, Math.max(radius, 6), color, stroke);
+                const r = Math.max(radius, 12);
+                const angleDeg = player.angle ?? 0;
+                if (isSelf) {
+                    drawSprite(selfSprite, selfSpriteReady, p.x, p.y, r, angleDeg, color, stroke);
+                } else {
+                    drawSprite(enemySprite, enemySpriteReady, p.x, p.y, r, angleDeg, color, stroke);
+                }
 
                 canvasCtx.fillStyle = "#e6f3ff";
                 canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
                 canvasCtx.textAlign = "center";
-                canvasCtx.fillText(player.name, p.x, p.y - Math.max(radius, 6) - 6);
+                canvasCtx.fillText(player.name, p.x, p.y - r - 6);
 
                 const flagText: string[] = [];
                 if (player.flags & FLAG_IS_REBEL) flagText.push("REB");
                 if (player.flags & FLAG_LAST_BREATH) flagText.push("LB");
                 if (player.flags & FLAG_IS_DEAD) flagText.push("DEAD");
                 if (flagText.length > 0) {
-                    canvasCtx.fillText(flagText.join(" "), p.x, p.y + Math.max(radius, 6) + 12);
+                    canvasCtx.fillText(flagText.join(" "), p.x, p.y + r + 12);
                 }
             }
 

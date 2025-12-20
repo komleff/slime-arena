@@ -17,3 +17,12 @@ export {
     FLAG_IS_REBEL,
     FLAG_IS_DEAD,
 } from "./constants.js";
+export type { SlimeSprite } from "./sprites.js";
+export {
+    SLIME_SPRITES,
+    SPRITE_SIZE,
+    SPRITE_CACHE,
+    loadSprite,
+    loadClassSprites,
+    getPlayerSprite,
+} from "./sprites.js";
