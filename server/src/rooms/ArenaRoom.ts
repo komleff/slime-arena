@@ -254,8 +254,33 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private applyTalentChoice(player: Player, choice: number) {
-        void player;
-        void choice;
+        const applyMassBonus = (bonus: number) => {
+            if (bonus <= 0) return;
+            const hpRatio = player.maxHp > 0 ? player.hp / player.maxHp : 1;
+            player.mass += player.mass * bonus;
+            this.updateMaxHpForMass(player);
+            player.hp = Math.min(player.maxHp, player.maxHp * hpRatio);
+        };
+
+        switch (choice) {
+            case 0:
+                applyMassBonus(0.05);
+                break;
+            case 1: {
+                const heal = player.maxHp * 0.3;
+                player.hp = Math.min(player.maxHp, player.hp + heal);
+                break;
+            }
+            case 2:
+                applyMassBonus(0.03);
+                player.invulnerableUntilTick = Math.max(
+                    player.invulnerableUntilTick,
+                    this.tick + this.invulnerableTicks
+                );
+                break;
+            default:
+                break;
+        }
     }
 
     private movementSystem() {

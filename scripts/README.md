@@ -1,12 +1,12 @@
-# 🚀 Скрипты автоматизации Slime Arena
+# Automation Scripts - Slime Arena
 
-Набор скриптов для удобного запуска и управления серверами.
+Collection of scripts for convenient server management.
 
 ## Windows
 
-### Запуск обоих серверов в отдельных окнах
+### Start both servers in separate windows
 
-**PowerShell (рекомендуется):**
+**PowerShell (recommended):**
 ```powershell
 .\scripts\start-servers.ps1
 ```
@@ -16,7 +16,7 @@
 scripts\start-servers.bat
 ```
 
-### Остановка всех серверов
+### Stop all servers
 
 **PowerShell:**
 ```powershell
@@ -30,13 +30,13 @@ scripts\stop-servers.bat
 
 ## Linux / macOS
 
-### Запуск обоих серверов в отдельных терминалах
+### Start both servers in separate terminals
 
 ```bash
 ./scripts/start-servers.sh
 ```
 
-### Остановка всех серверов
+### Stop all servers
 
 **Linux:**
 ```bash
@@ -49,63 +49,57 @@ pkill -f "npm run dev:client"
 killall node
 ```
 
-## npm команды (все платформы)
+## npm commands (all platforms)
 
-### Запуск через npm (в одном терминале)
+### Start via npm (in one terminal)
 
 ```bash
 npm run start:servers
 ```
 
-⚠️ **Примечание:** На Windows может привести к зависанию VS Code. Рекомендуется использовать `.ps1` или `.bat` скрипты.
+**Note:** On Windows, this may freeze VS Code. Use `.ps1` or `.bat` scripts instead.
 
-### Запуск отдельно
+### Start separately
 
-**Сервер:**
+**Server:**
 ```bash
 npm run dev:server
 ```
 
-**Клиент:**
+**Client:**
 ```bash
 npm run dev:client
 ```
 
-### Остановка
+### Stop
 
-Нажмите `Ctrl+C` в терминале или используйте скрипты выше.
+Press `Ctrl+C` in terminals or use stop scripts above.
 
-## Что видеть после запуска
+## Expected output after startup
 
-### Сервер (порт 2567)
+### Server output
 ```
 Balance config loaded. Tick rate: 30
 Listening on ws://localhost:2567
 ArenaRoom created!
 ```
 
-### Клиент (порт 5173)
+### Client output
 ```
 VITE v5.4.21  ready in 157 ms
 
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
+  Local:   http://localhost:5173/
+  Network: use --host to expose
 ```
 
-## Логи
+## Ports
 
-Логи сохраняются в директорию `logs/`:
-- `logs/server.log` — логи сервера
-- `logs/client.log` — логи клиента
+- **Server:** `ws://localhost:2567` (WebSocket)
+- **Client:** `http://localhost:5173` (HTTP/Vite)
 
-## Порты
+## Troubleshooting
 
-- **Сервер:** `ws://localhost:2567` (WebSocket)
-- **Клиент:** `http://localhost:5173` (HTTP/Vite)
-
-## Решение проблем
-
-### Порты уже заняты
+### Ports already in use
 
 **Windows:**
 ```powershell
@@ -114,50 +108,50 @@ VITE v5.4.21  ready in 157 ms
 
 **Linux/macOS:**
 ```bash
-lsof -i :2567  # сервер
-lsof -i :5173  # клиент
+lsof -i :2567  # server
+lsof -i :5173  # client
 kill -9 <PID>
 ```
 
-### PowerShell: "файл не может быть загружен"
+### PowerShell: "cannot be loaded"
 
-Выполните в PowerShell с правами администратора:
+Run in PowerShell as Administrator:
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-Затем:
+Then:
 ```powershell
 .\scripts\start-servers.ps1
 ```
 
-### npm не найден
+### npm not found
 
-Установите [Node.js](https://nodejs.org/) 18+
+Install [Node.js](https://nodejs.org/) 18+
 
-### Требуется установка зависимостей
+### Dependencies missing
 
 ```bash
 npm install
 ```
 
-## Рекомендуемый рабочий процесс
+## Recommended workflow
 
-### 1️⃣ Первый запуск
+### 1. First run
 
 ```bash
 npm install
 .\scripts\start-servers.ps1  # Windows
-# или
+# or
 ./scripts/start-servers.sh   # Linux/macOS
 ```
 
-### 2️⃣ Разработка
+### 2. Development
 
-Откройте два терминала в VS Code:
+Open two terminals in VS Code:
 - **Terminal 1:** `npm run dev:server`
 - **Terminal 2:** `npm run dev:client`
 
-### 3️⃣ Остановка
+### 3. Stop
 
-Нажмите `Ctrl+C` в каждом терминале, или используйте скрипт `stop-servers`
+Press `Ctrl+C` in each terminal, or use stop scripts above

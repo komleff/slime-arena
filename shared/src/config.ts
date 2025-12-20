@@ -278,7 +278,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         radius: 28,
         rewards: {
             massPercent: [0.1, 0.2, 0.3],
-            talentChance: 0.3,
+            talentChance: 0.4,
         },
     },
     hotZones: {

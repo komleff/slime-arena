@@ -1,59 +1,59 @@
 @echo off
-REM Bat скрипт для запуска сервера и клиента в отдельных окнах
-REM Использование: scripts\start-servers.bat
+REM Bat script for launching server and client in separate windows
+REM Usage: scripts\start-servers.bat
 
 setlocal enabledelayedexpansion
 
 set "PROJECT_ROOT=%~dp0.."
 set "LOG_DIR=%PROJECT_ROOT%\logs"
 
-REM Создаём директорию логов, если её нет
+REM Create logs directory if needed
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
 echo.
 echo ================================================================================
-echo  ^^ SLIME ARENA — Запуск серверов
+echo  SLIME ARENA - Starting servers
 echo ================================================================================
 echo.
-echo Корневая директория: %PROJECT_ROOT%
-echo Логи: %LOG_DIR%
+echo Project root: %PROJECT_ROOT%
+echo Logs: %LOG_DIR%
 echo.
 
-REM Проверяем наличие node_modules
+REM Check if node_modules exists
 if not exist "%PROJECT_ROOT%\node_modules" (
-    echo ⚠️  node_modules не найдены. Запускаю npm install...
+    echo [!] node_modules not found. Running npm install...
     cd /d "%PROJECT_ROOT%"
     call npm install
 )
 
-REM Запускаем сервер в новом окне
-echo ▶️  Запуск сервера (ws://localhost:2567)
+REM Start server in new window
+echo [*] Starting server (ws://localhost:2567)
 set "SERVER_LOG=%LOG_DIR%\server.log"
-start "SLIME ARENA - Server" /D "%PROJECT_ROOT%" cmd /k "npm run dev:server > "%SERVER_LOG%" 2>&1"
-echo    ✓ Сервер запущен
+start "SLIME ARENA - Server" /D "%PROJECT_ROOT%" cmd /k "npm run dev:server"
+echo [+] Server started
 echo.
 
-REM Небольшая задержка перед запуском клиента
+REM Wait before starting client
 timeout /t 2 /nobreak > nul
 
-REM Запускаем клиент в новом окне
-echo ▶️  Запуск клиента (http://localhost:5173)
+REM Start client in new window
+echo [*] Starting client (http://localhost:5173)
 set "CLIENT_LOG=%LOG_DIR%\client.log"
-start "SLIME ARENA - Client" /D "%PROJECT_ROOT%" cmd /k "npm run dev:client > "%CLIENT_LOG%" 2>&1"
-echo    ✓ Клиент запущен
+start "SLIME ARENA - Client" /D "%PROJECT_ROOT%" cmd /k "npm run dev:client"
+echo [+] Client started
 echo.
 
 echo ================================================================================
-echo ✅ Оба сервера запущены!
+echo [OK] Both servers are running!
 echo ================================================================================
 echo.
-echo 🌐 Адреса:
+echo Addresses:
 echo    Server:  ws://localhost:2567
 echo    Client:  http://localhost:5173
 echo.
-echo 📋 Команды:
-echo    • Закрыть сервер:  закройте окно сервера
-echo    • Закрыть клиент:  закройте окно клиента
+echo Commands:
+echo    - Close server:  close the server window
+echo    - Close client:  close the client window
 echo.
-echo 📝 Логи: %LOG_DIR%
+echo Logs: %LOG_DIR%
 echo.
