@@ -406,12 +406,15 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     updateJoystickVisual();
 };
 
-const getJoystickActivationLimit = () => {
+const joystickLandscapeTopExclusionRatio = 0.25;
+
+const getJoystickActivationGate = () => {
     const rect = canvas.getBoundingClientRect();
     const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-    const ratio = isLandscape ? joystickLandscapeRatio : joystickLeftZoneRatio;
-    if (ratio >= 0.999) return Number.POSITIVE_INFINITY;
-    return rect.left + rect.width * ratio;
+    const ratioX = isLandscape ? joystickLandscapeRatio : joystickLeftZoneRatio;
+    const maxX = ratioX >= 0.999 ? Number.POSITIVE_INFINITY : rect.left + rect.width * ratioX;
+    const minY = isLandscape ? rect.top + rect.height * joystickLandscapeTopExclusionRatio : Number.NEGATIVE_INFINITY;
+    return { maxX, minY };
 };
 
 updateJoystickConfig();
@@ -1506,8 +1509,9 @@ async function main() {
             if (!isTouchPointer && !isPrimaryMouseButton && !isCoarse) return;
             if (joystickState.active) return;
             if (!isPrimaryMouseButton) {
-                const activationLimit = getJoystickActivationLimit();
-                if (event.clientX > activationLimit) return;
+                const gate = getJoystickActivationGate();
+                if (event.clientX > gate.maxX) return;
+                if (event.clientY < gate.minY) return;
             }
             event.preventDefault();
             hasFocus = true;
