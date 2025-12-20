@@ -179,22 +179,47 @@ const camera = { x: mapSize / 2, y: mapSize / 2 };
 const cameraLerp = 0.15;
 const desiredView = { width: 900, height: 700 };
 let hasFocus = true;
-const selfSprite = new Image();
-const enemySprite = new Image();
-let selfSpriteReady = false;
-let enemySpriteReady = false;
+const slimeSpriteNames = [
+    "slime-base.png",
+    "slime-crazy.png",
+    "slime-crystal.png",
+    "slime-pumpkin.png",
+    "slime-shark.png",
+    "slime-tomato.png",
+    "slime-toxic.png",
+    "slime-knight.png",
+];
+const spriteCache = new Map<
+    string,
+    {
+        img: HTMLImageElement;
+        ready: boolean;
+    }
+>();
+const playerSpriteById = new Map<string, string>();
 
-const packmanYellowSvg =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><radialGradient id="yGlow" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#fff57a"/><stop offset="50%" stop-color="#ffd53b"/><stop offset="100%" stop-color="#d6a600"/></radialGradient></defs><circle cx="256" cy="256" r="240" fill="url(#yGlow)" stroke="#f7c800" stroke-width="12"/><path d="M256 256 L480 150 A240 240 0 0 1 480 362 Z" fill="#1a0c0c"/><g fill="#ffeede" stroke="#d18a00" stroke-width="8" stroke-linejoin="round"><polygon points="360,220 400,210 375,250"/><polygon points="330,190 370,180 345,220"/><polygon points="390,260 420,260 400,295"/><polygon points="330,310 370,320 345,280"/><polygon points="360,290 395,300 370,260"/><polygon points="320,240 355,250 330,210"/><polygon points="300,270 335,280 310,240"/></g><circle cx="210" cy="190" r="48" fill="#fff" stroke="#d18a00" stroke-width="8"/><circle cx="215" cy="190" r="20" fill="#1f8f2b"/><circle cx="220" cy="190" r="10" fill="#0b3a13"/><circle cx="230" cy="180" r="6" fill="#fff"/></svg>';
-const packmanRedSvg =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><radialGradient id="rGlow" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffb09a"/><stop offset="50%" stop-color="#ff6b3b"/><stop offset="100%" stop-color="#c51d00"/></radialGradient></defs><circle cx="256" cy="256" r="240" fill="url(#rGlow)" stroke="#ff8a3b" stroke-width="12"/><path d="M256 256 L480 150 A240 240 0 0 1 480 362 Z" fill="#230c0c"/><g fill="#ffefc5" stroke="#c56700" stroke-width="8" stroke-linejoin="round"><polygon points="360,220 400,210 375,250"/><polygon points="330,190 370,180 345,220"/><polygon points="390,260 420,260 400,295"/><polygon points="330,310 370,320 345,280"/><polygon points="360,290 395,300 370,260"/><polygon points="320,240 355,250 330,210"/><polygon points="300,270 335,280 310,240"/></g><circle cx="210" cy="190" r="48" fill="#fff" stroke="#c56700" stroke-width="8"/><circle cx="215" cy="190" r="20" fill="#3f5f0a"/><circle cx="220" cy="190" r="10" fill="#0f2800"/><circle cx="230" cy="180" r="6" fill="#fff"/></svg>';
+function loadSprite(name: string) {
+    if (spriteCache.has(name)) return spriteCache.get(name)!;
+    const img = new Image();
+    const entry = { img, ready: false };
+    spriteCache.set(name, entry);
+    img.onload = () => (entry.ready = true);
+    img.src = `/assets/sprites/slimes/base/${name}`;
+    return entry;
+}
 
-const svgToDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+function hashSessionId(sessionId: string): number {
+    let h = 0;
+    for (let i = 0; i < sessionId.length; i += 1) {
+        h = (h * 31 + sessionId.charCodeAt(i)) >>> 0;
+    }
+    return h;
+}
 
-selfSprite.src = svgToDataUri(packmanYellowSvg);
-enemySprite.src = svgToDataUri(packmanRedSvg);
-selfSprite.onload = () => (selfSpriteReady = true);
-enemySprite.onload = () => (enemySpriteReady = true);
+function pickSpriteForPlayer(sessionId: string): string {
+    const hash = hashSessionId(sessionId);
+    return slimeSpriteNames[hash % slimeSpriteNames.length];
+}
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -363,6 +388,7 @@ async function main() {
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
+            playerSpriteById.set(sessionId, pickSpriteForPlayer(sessionId));
             
             player.onChange(() => {
                 // Обновление данных игрока
@@ -376,6 +402,7 @@ async function main() {
                 localPlayer = null;
                 refreshTalentModal();
             }
+            playerSpriteById.delete(sessionId);
         });
 
         // Подписка на орбы
@@ -532,11 +559,9 @@ async function main() {
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 const r = Math.max(radius, 12);
                 const angleDeg = player.angle ?? 0;
-                if (isSelf) {
-                    drawSprite(selfSprite, selfSpriteReady, p.x, p.y, r, angleDeg, color, stroke);
-                } else {
-                    drawSprite(enemySprite, enemySpriteReady, p.x, p.y, r, angleDeg, color, stroke);
-                }
+                const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(id);
+                const sprite = loadSprite(spriteName);
+                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleDeg, color, stroke);
 
                 canvasCtx.fillStyle = "#e6f3ff";
                 canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
