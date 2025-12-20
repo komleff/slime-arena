@@ -55,7 +55,8 @@ function hasAnyTransparency(png) {
 
 function processPngBuffer(buffer, opts) {
     const png = PNG.sync.read(buffer);
-    if (hasAnyTransparency(png)) {
+    const force = Boolean(opts.force);
+    if (!force && hasAnyTransparency(png)) {
         return { changed: false, buffer };
     }
 
@@ -94,27 +95,40 @@ function main() {
         threshold: 28,
         feather: 20,
         dir: "assets/sprites/slimes/base",
+        file: null,
+        force: false,
     };
 
     for (let i = 0; i < argv.length; i += 1) {
         const arg = argv[i];
         if (arg === "--dir") opts.dir = argv[++i];
+        else if (arg === "--file") opts.file = argv[++i];
         else if (arg === "--threshold") opts.threshold = Number(argv[++i]);
         else if (arg === "--feather") opts.feather = Number(argv[++i]);
+        else if (arg === "--force") opts.force = true;
     }
 
-    const dir = path.resolve(process.cwd(), opts.dir);
-    const entries = fs.readdirSync(dir).filter((name) => name.toLowerCase().endsWith(".png"));
+    const entries = [];
+    if (opts.file) {
+        entries.push(opts.file);
+    } else {
+        const dir = path.resolve(process.cwd(), opts.dir);
+        for (const name of fs.readdirSync(dir)) {
+            if (name.toLowerCase().endsWith(".png")) {
+                entries.push(path.join(opts.dir, name));
+            }
+        }
+    }
 
     let changedCount = 0;
     for (const name of entries) {
-        const filePath = path.join(dir, name);
+        const filePath = path.resolve(process.cwd(), name);
         const raw = fs.readFileSync(filePath);
         const result = processPngBuffer(raw, opts);
         if (result.changed) {
             fs.writeFileSync(filePath, result.buffer);
             changedCount += 1;
-            console.log(`fixed alpha: ${opts.dir}/${name}`);
+            console.log(`fixed alpha: ${name}`);
         }
     }
 
@@ -122,4 +136,3 @@ function main() {
 }
 
 main();
-

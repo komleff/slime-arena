@@ -220,6 +220,7 @@ let hasFocus = true;
 const joystickState = {
     active: false,
     pointerId: null as number | null,
+    pointerType: null as string | null,
     baseX: 0,
     baseY: 0,
     knobX: 0,
@@ -234,7 +235,7 @@ let joystickMode = balanceConfig.controls.joystickMode;
 let joystickFollowSpeed = balanceConfig.controls.joystickFollowSpeed;
 let joystickKnobRadius = joystickRadius * 0.45;
 const joystickFixedBase = { x: joystickRadius + 24, y: window.innerHeight - joystickRadius - 24 };
-const joystickLeftZoneRatio = 0.55;
+const joystickLeftZoneRatio = 1;
 const joystickLandscapeRatio = 1;
 const slimeSpriteNames = [
     "slime-angrybird.png",
@@ -323,6 +324,7 @@ const updateJoystickVisual = () => {
 const resetJoystick = () => {
     joystickState.active = false;
     joystickState.pointerId = null;
+    joystickState.pointerType = null;
     joystickState.moveX = 0;
     joystickState.moveY = 0;
     joystickState.knobX = joystickState.baseX;
@@ -337,13 +339,39 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     let dy = clientY - baseY;
     let distance = Math.hypot(dx, dy);
 
-    if (joystickMode === "adaptive" && distance > joystickRadius) {
+    const allowAdaptiveBase = joystickMode === "adaptive" && joystickState.pointerType !== "mouse";
+    if (allowAdaptiveBase && distance > joystickRadius) {
         const excess = distance - joystickRadius;
         const shift = excess * joystickFollowSpeed;
         const nx = distance > 0 ? dx / distance : 0;
         const ny = distance > 0 ? dy / distance : 0;
         baseX += nx * shift;
         baseY += ny * shift;
+        joystickState.baseX = baseX;
+        joystickState.baseY = baseY;
+        dx = clientX - baseX;
+        dy = clientY - baseY;
+        distance = Math.hypot(dx, dy);
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    let minX = rect.left + joystickRadius;
+    let maxX = rect.left + rect.width - joystickRadius;
+    let minY = rect.top + joystickRadius;
+    let maxY = rect.top + rect.height - joystickRadius;
+    if (maxX < minX) {
+        minX = rect.left + rect.width / 2;
+        maxX = minX;
+    }
+    if (maxY < minY) {
+        minY = rect.top + rect.height / 2;
+        maxY = minY;
+    }
+    const clampedBaseX = clamp(baseX, minX, maxX);
+    const clampedBaseY = clamp(baseY, minY, maxY);
+    if (clampedBaseX !== baseX || clampedBaseY !== baseY) {
+        baseX = clampedBaseX;
+        baseY = clampedBaseY;
         joystickState.baseX = baseX;
         joystickState.baseY = baseY;
         dx = clientX - baseX;
@@ -380,8 +408,9 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
 
 const getJoystickActivationLimit = () => {
     const rect = canvas.getBoundingClientRect();
-    const isLandscape = rect.width > rect.height;
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
     const ratio = isLandscape ? joystickLandscapeRatio : joystickLeftZoneRatio;
+    if (ratio >= 0.999) return Number.POSITIVE_INFINITY;
     return rect.left + rect.width * ratio;
 };
 
@@ -830,7 +859,7 @@ const computeSpriteScale = (img: HTMLImageElement) => {
     const boxH = maxY - minY + 1;
     const fill = Math.max(boxW / w, boxH / h);
     if (fill <= 0) return 1;
-    return clamp(1 / fill, 1, 1.5);
+    return clamp(1 / fill, 1, 6);
 };
 
 function loadSprite(name: string) {
@@ -925,6 +954,30 @@ function drawCircle(x: number, y: number, radius: number, fill: string, stroke?:
         canvasCtx.strokeStyle = stroke;
         canvasCtx.stroke();
     }
+}
+
+function drawCrown(x: number, y: number, size: number, fill: string, stroke?: string) {
+    const w = size;
+    const h = size * 0.7;
+    const half = w / 2;
+
+    canvasCtx.save();
+    canvasCtx.translate(x, y);
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(-half, 0);
+    canvasCtx.lineTo(-half + w * 0.2, -h);
+    canvasCtx.lineTo(0, -h * 0.55);
+    canvasCtx.lineTo(half - w * 0.2, -h);
+    canvasCtx.lineTo(half, 0);
+    canvasCtx.closePath();
+    canvasCtx.fillStyle = fill;
+    canvasCtx.fill();
+    if (stroke) {
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = stroke;
+        canvasCtx.stroke();
+    }
+    canvasCtx.restore();
 }
 
 function drawSprite(
@@ -1240,6 +1293,7 @@ async function main() {
                 const baseRadius = getSlimeRadius(player.mass, balanceConfig.formulas);
                 const radius = baseRadius * classRadiusMult * scale;
                 const isSelf = id === room.sessionId;
+                const isRebel = id === room.state.rebelId || (player.flags & FLAG_IS_REBEL) !== 0;
                 const color = isSelf ? "#6fd6ff" : "#9be070";
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 const r = Math.max(radius, 12);
@@ -1256,13 +1310,28 @@ async function main() {
                 canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
                 canvasCtx.textAlign = "center";
                 canvasCtx.fillText(player.name, p.x, p.y - r - 6);
+                if (isRebel) {
+                    const markerY = p.y - r - 18;
+                    canvasCtx.fillStyle = "#ff4d4d";
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(p.x, markerY);
+                    canvasCtx.lineTo(p.x - 7, markerY + 12);
+                    canvasCtx.lineTo(p.x + 7, markerY + 12);
+                    canvasCtx.closePath();
+                    canvasCtx.fill();
+                }
 
                 const flagText: string[] = [];
-                if (player.flags & FLAG_IS_REBEL) flagText.push("REB");
+                if (player.flags & FLAG_IS_REBEL) flagText.push("KING");
                 if (player.flags & FLAG_LAST_BREATH) flagText.push("LB");
                 if (player.flags & FLAG_IS_DEAD) flagText.push("DEAD");
                 if (flagText.length > 0) {
                     canvasCtx.fillText(flagText.join(" "), p.x, p.y + r + 12);
+                }
+
+                if ((player.flags & FLAG_IS_REBEL) !== 0) {
+                    const crownSize = Math.max(14, Math.min(26, r * 0.9));
+                    drawCrown(p.x, p.y - r - crownSize * 0.25, crownSize, "#ffc857", "#ffe8a3");
                 }
                 canvasCtx.restore();
             }
@@ -1294,6 +1363,53 @@ async function main() {
                 canvasCtx.fill();
                 canvasCtx.stroke();
                 canvasCtx.restore();
+            }
+
+            // KING indicator по краям экрана (для тех, кто не KING)
+            const localIsKing = (playersView.get(room.sessionId)?.flags ?? 0) & FLAG_IS_REBEL;
+            if (!localIsKing) {
+                const kingId = room.state.rebelId;
+                const king = kingId ? playersView.get(kingId) : null;
+                if (king) {
+                    const dx = king.x - camera.x;
+                    const dy = king.y - camera.y;
+                    if (Math.abs(dx) > halfWorldW || Math.abs(dy) > halfWorldH) {
+                        const angle = Math.atan2(dy, dx);
+                        const edgeX = Math.cos(angle) * (halfWorldW - 54);
+                        const edgeY = Math.sin(angle) * (halfWorldH - 54);
+                        const screen = worldToScreen(
+                            camera.x + edgeX,
+                            camera.y + edgeY,
+                            scale,
+                            camera.x,
+                            camera.y,
+                            cw,
+                            ch
+                        );
+                        const alpha = king.alpha ?? 1;
+                        if (alpha > 0.01) {
+                            canvasCtx.save();
+                            canvasCtx.globalAlpha = alpha;
+                            canvasCtx.translate(screen.x, screen.y);
+                            canvasCtx.rotate(angle);
+
+                            canvasCtx.fillStyle = "#ffc857";
+                            canvasCtx.strokeStyle = "#ffe8a3";
+                            canvasCtx.lineWidth = 2;
+                            canvasCtx.beginPath();
+                            canvasCtx.moveTo(14, 0);
+                            canvasCtx.lineTo(-10, 10);
+                            canvasCtx.lineTo(-10, -10);
+                            canvasCtx.closePath();
+                            canvasCtx.fill();
+                            canvasCtx.stroke();
+
+                            canvasCtx.restore();
+
+                            drawCrown(screen.x, screen.y - 16, 18, "#ffc857", "#ffe8a3");
+                        }
+                    }
+                }
             }
 
             rafId = requestAnimationFrame(render);
@@ -1376,14 +1492,19 @@ async function main() {
         const onPointerDown = (event: PointerEvent) => {
             const isCoarse = window.matchMedia("(pointer: coarse)").matches;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
-            if (!isTouchPointer && !isCoarse) return;
+            const isMousePointer = event.pointerType === "mouse";
+            const isPrimaryMouseButton = isMousePointer && event.button === 0;
+            if (!isTouchPointer && !isPrimaryMouseButton && !isCoarse) return;
             if (joystickState.active) return;
-            const activationLimit = getJoystickActivationLimit();
-            if (event.clientX > activationLimit) return;
+            if (!isPrimaryMouseButton) {
+                const activationLimit = getJoystickActivationLimit();
+                if (event.clientX > activationLimit) return;
+            }
             event.preventDefault();
             hasFocus = true;
             joystickState.active = true;
             joystickState.pointerId = event.pointerId;
+            joystickState.pointerType = event.pointerType;
             attachJoystickPointerListeners();
             if (joystickMode === "fixed") {
                 joystickState.baseX = joystickFixedBase.x;
@@ -1416,6 +1537,9 @@ async function main() {
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
+                sendStopInput();
+            }
         };
 
         const onPointerCancel = (event: PointerEvent) => {
@@ -1424,6 +1548,9 @@ async function main() {
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
+                sendStopInput();
+            }
         };
 
         const onBlur = () => {
