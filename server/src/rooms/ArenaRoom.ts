@@ -33,8 +33,8 @@ interface ClassStats {
 export class ArenaRoom extends Room<GameState> {
     maxClients = 20;
 
-    private balance: ResolvedBalanceConfig = loadBalanceConfig();
-    private rng = new Rng(Date.now());
+    private balance!: ResolvedBalanceConfig;
+    private rng!: Rng;
     private tick = 0;
     private orbIdCounter = 0;
     private chestIdCounter = 0;
@@ -476,6 +476,7 @@ export class ArenaRoom extends Room<GameState> {
 
     private pickupSystem() {
         const dt = 1 / this.balance.server.tickRate;
+        const orbEntries = Array.from(this.state.orbs.entries());
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
             if (this.tick < player.lastBiteTick + this.biteCooldownTicks) continue;
@@ -485,7 +486,8 @@ export class ArenaRoom extends Room<GameState> {
             const mouthHalf = (this.balance.combat.mouthArcDeg / 2) * (Math.PI / 180);
             const playerAngleRad = player.angle * (Math.PI / 180);
 
-            for (const [orbId, orb] of this.state.orbs) {
+            for (const [orbId, orb] of orbEntries) {
+                if (!this.state.orbs.has(orbId)) continue;
                 const dx = orb.x - player.x;
                 const dy = orb.y - player.y;
                 const distSq = dx * dx + dy * dy;
@@ -529,13 +531,15 @@ export class ArenaRoom extends Room<GameState> {
 
     private chestSystem() {
         const dt = 1 / this.balance.server.tickRate;
+        const chestEntries = Array.from(this.state.chests.entries());
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
             const playerRadius = this.getPlayerRadius(player);
             const playerAngleRad = player.angle * (Math.PI / 180);
             const mouthHalf = (this.balance.combat.mouthArcDeg / 2) * (Math.PI / 180);
 
-            for (const [chestId, chest] of this.state.chests) {
+            for (const [chestId, chest] of chestEntries) {
+                if (!this.state.chests.has(chestId)) continue;
                 const dx = chest.x - player.x;
                 const dy = chest.y - player.y;
                 const distSq = dx * dx + dy * dy;
@@ -999,6 +1003,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private secondsToTicks(seconds: number): number {
+        if (!Number.isFinite(seconds) || seconds <= 0) return 0;
         return Math.max(1, Math.round(seconds * this.balance.server.tickRate));
     }
 

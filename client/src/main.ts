@@ -43,6 +43,7 @@ canvas.style.width = "100%";
 canvas.style.height = "100vh";
 canvas.style.display = "block";
 canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
+canvas.style.touchAction = "none";
 root.appendChild(canvas);
 
 const getCanvasContext = () => {
@@ -172,6 +173,33 @@ talentCard.appendChild(talentButtons);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
 
+const joystickLayer = document.createElement("div");
+joystickLayer.style.position = "fixed";
+joystickLayer.style.inset = "0";
+joystickLayer.style.pointerEvents = "none";
+joystickLayer.style.zIndex = "5";
+
+const joystickBase = document.createElement("div");
+joystickBase.style.position = "fixed";
+joystickBase.style.borderRadius = "50%";
+joystickBase.style.border = "2px solid rgba(255, 255, 255, 0.18)";
+joystickBase.style.background = "rgba(12, 16, 24, 0.25)";
+joystickBase.style.backdropFilter = "blur(2px)";
+joystickBase.style.opacity = "0";
+joystickBase.style.transform = "translate(-50%, -50%)";
+
+const joystickKnob = document.createElement("div");
+joystickKnob.style.position = "fixed";
+joystickKnob.style.borderRadius = "50%";
+joystickKnob.style.background = "rgba(150, 200, 255, 0.55)";
+joystickKnob.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.35)";
+joystickKnob.style.opacity = "0";
+joystickKnob.style.transform = "translate(-50%, -50%)";
+
+joystickLayer.appendChild(joystickBase);
+joystickLayer.appendChild(joystickKnob);
+document.body.appendChild(joystickLayer);
+
 let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
 let mapSize = balanceConfig.world.mapSize;
 let orbMinRadius = balanceConfig.orbs.minRadius;
@@ -189,6 +217,25 @@ const camera = { x: mapSize / 2, y: mapSize / 2 };
 const cameraLerp = 0.15;
 const desiredView = { width: 900, height: 700 };
 let hasFocus = true;
+const joystickState = {
+    active: false,
+    pointerId: null as number | null,
+    baseX: 0,
+    baseY: 0,
+    knobX: 0,
+    knobY: 0,
+    moveX: 0,
+    moveY: 0,
+};
+let joystickRadius = balanceConfig.controls.joystickRadius;
+let joystickDeadzone = balanceConfig.controls.joystickDeadzone;
+let joystickSensitivity = balanceConfig.controls.joystickSensitivity;
+let joystickMode = balanceConfig.controls.joystickMode;
+let joystickFollowSpeed = balanceConfig.controls.joystickFollowSpeed;
+let joystickKnobRadius = joystickRadius * 0.45;
+const joystickFixedBase = { x: joystickRadius + 24, y: window.innerHeight - joystickRadius - 24 };
+const joystickLeftZoneRatio = 0.55;
+const joystickLandscapeRatio = 1;
 const slimeSpriteNames = [
     "slime-angrybird.png",
     "slime-astronaut.png",
@@ -221,9 +268,12 @@ const spriteCache = new Map<
     {
         img: HTMLImageElement;
         ready: boolean;
+        scale: number;
     }
 >();
 const playerSpriteById = new Map<string, string>();
+const spriteMeasureCanvas = document.createElement("canvas");
+const spriteMeasureCtx = spriteMeasureCanvas.getContext("2d", { willReadFrequently: true });
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     mapSize = config.world.mapSize;
@@ -233,7 +283,109 @@ const applyBalanceConfig = (config: BalanceConfig) => {
     collectorRadiusMult = config.classes.collector.radiusMult;
     camera.x = Math.min(Math.max(camera.x, 0), mapSize);
     camera.y = Math.min(Math.max(camera.y, 0), mapSize);
+    updateJoystickConfig();
 };
+
+const updateJoystickConfig = () => {
+    joystickRadius = Number(balanceConfig.controls.joystickRadius ?? 90);
+    joystickDeadzone = Number(balanceConfig.controls.joystickDeadzone ?? 0.1);
+    joystickSensitivity = Number(balanceConfig.controls.joystickSensitivity ?? 1);
+    joystickMode = balanceConfig.controls.joystickMode ?? "adaptive";
+    joystickFollowSpeed = Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8);
+    joystickKnobRadius = joystickRadius * 0.45;
+    const rect = canvas.getBoundingClientRect();
+    joystickFixedBase.x = rect.left + joystickRadius + 24;
+    joystickFixedBase.y = rect.top + rect.height - joystickRadius - 24;
+    joystickBase.style.width = `${joystickRadius * 2}px`;
+    joystickBase.style.height = `${joystickRadius * 2}px`;
+    joystickKnob.style.width = `${joystickKnobRadius * 2}px`;
+    joystickKnob.style.height = `${joystickKnobRadius * 2}px`;
+    if (joystickMode === "fixed" && joystickState.active) {
+        joystickState.baseX = joystickFixedBase.x;
+        joystickState.baseY = joystickFixedBase.y;
+        updateJoystickVisual();
+    }
+};
+
+const setJoystickVisible = (visible: boolean) => {
+    const opacity = visible ? "1" : "0";
+    joystickBase.style.opacity = opacity;
+    joystickKnob.style.opacity = opacity;
+};
+
+const updateJoystickVisual = () => {
+    joystickBase.style.left = `${joystickState.baseX}px`;
+    joystickBase.style.top = `${joystickState.baseY}px`;
+    joystickKnob.style.left = `${joystickState.knobX}px`;
+    joystickKnob.style.top = `${joystickState.knobY}px`;
+};
+
+const resetJoystick = () => {
+    joystickState.active = false;
+    joystickState.pointerId = null;
+    joystickState.moveX = 0;
+    joystickState.moveY = 0;
+    joystickState.knobX = joystickState.baseX;
+    joystickState.knobY = joystickState.baseY;
+    setJoystickVisible(false);
+};
+
+const updateJoystickFromPointer = (clientX: number, clientY: number) => {
+    let baseX = joystickState.baseX;
+    let baseY = joystickState.baseY;
+    let dx = clientX - baseX;
+    let dy = clientY - baseY;
+    let distance = Math.hypot(dx, dy);
+
+    if (joystickMode === "adaptive" && distance > joystickRadius) {
+        const excess = distance - joystickRadius;
+        const shift = excess * joystickFollowSpeed;
+        const nx = distance > 0 ? dx / distance : 0;
+        const ny = distance > 0 ? dy / distance : 0;
+        baseX += nx * shift;
+        baseY += ny * shift;
+        joystickState.baseX = baseX;
+        joystickState.baseY = baseY;
+        dx = clientX - baseX;
+        dy = clientY - baseY;
+        distance = Math.hypot(dx, dy);
+    }
+
+    if (distance > joystickRadius && distance > 0) {
+        const scale = joystickRadius / distance;
+        dx *= scale;
+        dy *= scale;
+        distance = joystickRadius;
+    }
+
+    const deadzonePx = joystickRadius * joystickDeadzone;
+    let outX = 0;
+    let outY = 0;
+    if (distance > deadzonePx) {
+        const normalized = (distance - deadzonePx) / Math.max(joystickRadius - deadzonePx, 1);
+        const scale = normalized / Math.max(distance, 1);
+        outX = dx * scale;
+        outY = dy * scale;
+    }
+
+    outX = clamp(outX * joystickSensitivity, -1, 1);
+    outY = clamp(outY * joystickSensitivity, -1, 1);
+
+    joystickState.moveX = outX;
+    joystickState.moveY = outY;
+    joystickState.knobX = baseX + dx;
+    joystickState.knobY = baseY + dy;
+    updateJoystickVisual();
+};
+
+const getJoystickActivationLimit = () => {
+    const rect = canvas.getBoundingClientRect();
+    const isLandscape = rect.width > rect.height;
+    const ratio = isLandscape ? joystickLandscapeRatio : joystickLeftZoneRatio;
+    return rect.left + rect.width * ratio;
+};
+
+updateJoystickConfig();
 
 type SnapshotPlayer = {
     id: string;
@@ -647,12 +799,49 @@ const getRenderState = (renderTimeMs: number): RenderState | null => {
     return interpolateState(older, newer, t, dtMs / 1000);
 };
 
+const computeSpriteScale = (img: HTMLImageElement) => {
+    if (!spriteMeasureCtx) return 1;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return 1;
+    spriteMeasureCanvas.width = w;
+    spriteMeasureCanvas.height = h;
+    spriteMeasureCtx.clearRect(0, 0, w, h);
+    spriteMeasureCtx.drawImage(img, 0, 0, w, h);
+    const data = spriteMeasureCtx.getImageData(0, 0, w, h).data;
+    const alphaThreshold = 8;
+    let minX = w;
+    let minY = h;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+            const a = data[(y * w + x) * 4 + 3];
+            if (a > alphaThreshold) {
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    if (maxX < minX || maxY < minY) return 1;
+    const boxW = maxX - minX + 1;
+    const boxH = maxY - minY + 1;
+    const fill = Math.max(boxW / w, boxH / h);
+    if (fill <= 0) return 1;
+    return clamp(1 / fill, 1, 1.5);
+};
+
 function loadSprite(name: string) {
     if (spriteCache.has(name)) return spriteCache.get(name)!;
     const img = new Image();
-    const entry = { img, ready: false };
+    const entry = { img, ready: false, scale: 1 };
     spriteCache.set(name, entry);
-    img.onload = () => (entry.ready = true);
+    img.onload = () => {
+        entry.scale = computeSpriteScale(img);
+        entry.ready = true;
+    };
     img.src = `${assetBase}assets/sprites/slimes/base/${name}`;
     return entry;
 }
@@ -673,6 +862,7 @@ function pickSpriteForPlayer(sessionId: string): string {
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    updateJoystickConfig();
 }
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
@@ -745,10 +935,11 @@ function drawSprite(
     radius: number,
     angleDeg: number,
     fallbackFill: string,
-    fallbackStroke: string
+    fallbackStroke: string,
+    spriteScale = 1
 ) {
     if (ready) {
-        const size = radius * 2;
+        const size = radius * 2 * spriteScale;
         const angleRad = (angleDeg * Math.PI) / 180;
         canvasCtx.save();
         canvasCtx.translate(x, y);
@@ -932,6 +1123,9 @@ async function main() {
         };
 
         const computeMoveInput = () => {
+            if (joystickState.active) {
+                return { x: joystickState.moveX, y: joystickState.moveY };
+            }
             let x = 0;
             let y = 0;
             if (keyState.left) x -= 1;
@@ -1056,7 +1250,7 @@ async function main() {
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
-                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleDeg, color, stroke);
+                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleDeg, color, stroke, sprite.scale);
 
                 canvasCtx.fillStyle = "#e6f3ff";
                 canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
@@ -1161,10 +1355,83 @@ async function main() {
             event.preventDefault();
         };
 
+        let joystickPointerListenersAttached = false;
+
+        const attachJoystickPointerListeners = () => {
+            if (joystickPointerListenersAttached) return;
+            window.addEventListener("pointermove", onPointerMove, { passive: false });
+            window.addEventListener("pointerup", onPointerUp, { passive: false });
+            window.addEventListener("pointercancel", onPointerCancel, { passive: false });
+            joystickPointerListenersAttached = true;
+        };
+
+        const detachJoystickPointerListeners = () => {
+            if (!joystickPointerListenersAttached) return;
+            window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointerup", onPointerUp);
+            window.removeEventListener("pointercancel", onPointerCancel);
+            joystickPointerListenersAttached = false;
+        };
+
+        const onPointerDown = (event: PointerEvent) => {
+            const isCoarse = window.matchMedia("(pointer: coarse)").matches;
+            const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
+            if (!isTouchPointer && !isCoarse) return;
+            if (joystickState.active) return;
+            const activationLimit = getJoystickActivationLimit();
+            if (event.clientX > activationLimit) return;
+            event.preventDefault();
+            hasFocus = true;
+            joystickState.active = true;
+            joystickState.pointerId = event.pointerId;
+            attachJoystickPointerListeners();
+            if (joystickMode === "fixed") {
+                joystickState.baseX = joystickFixedBase.x;
+                joystickState.baseY = joystickFixedBase.y;
+            } else {
+                joystickState.baseX = event.clientX;
+                joystickState.baseY = event.clientY;
+            }
+            joystickState.knobX = joystickState.baseX;
+            joystickState.knobY = joystickState.baseY;
+            setJoystickVisible(true);
+            updateJoystickFromPointer(event.clientX, event.clientY);
+            try {
+                canvas.setPointerCapture(event.pointerId);
+            } catch {
+                // ignore pointer capture errors
+            }
+        };
+
+        const onPointerMove = (event: PointerEvent) => {
+            if (!joystickState.active) return;
+            if (event.pointerId !== joystickState.pointerId) return;
+            event.preventDefault();
+            updateJoystickFromPointer(event.clientX, event.clientY);
+        };
+
+        const onPointerUp = (event: PointerEvent) => {
+            if (!joystickState.active) return;
+            if (event.pointerId !== joystickState.pointerId) return;
+            event.preventDefault();
+            detachJoystickPointerListeners();
+            resetJoystick();
+        };
+
+        const onPointerCancel = (event: PointerEvent) => {
+            if (!joystickState.active) return;
+            if (event.pointerId !== joystickState.pointerId) return;
+            event.preventDefault();
+            detachJoystickPointerListeners();
+            resetJoystick();
+        };
+
         const onBlur = () => {
             hasFocus = false;
             keyState.up = keyState.down = keyState.left = keyState.right = false;
             sendStopInput();
+            detachJoystickPointerListeners();
+            resetJoystick();
         };
 
         const onVisibilityChange = () => {
@@ -1172,6 +1439,8 @@ async function main() {
                 hasFocus = false;
                 keyState.up = keyState.down = keyState.left = keyState.right = false;
                 sendStopInput();
+                detachJoystickPointerListeners();
+                resetJoystick();
             } else {
                 hasFocus = true;
             }
@@ -1179,6 +1448,7 @@ async function main() {
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
+        canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
         window.addEventListener("blur", onBlur);
         document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -1198,9 +1468,11 @@ async function main() {
             if (rafId !== null) {
                 cancelAnimationFrame(rafId);
             }
+            detachJoystickPointerListeners();
             resetSnapshotBuffer();
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
+            canvas.removeEventListener("pointerdown", onPointerDown);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
         });
