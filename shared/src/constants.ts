@@ -1,0 +1,5 @@
+export const FLAG_RESPAWN_SHIELD = 1 << 0;
+export const FLAG_ABILITY_SHIELD = 1 << 1;
+export const FLAG_LAST_BREATH = 1 << 2;
+export const FLAG_IS_REBEL = 1 << 3;
+export const FLAG_IS_DEAD = 1 << 4;

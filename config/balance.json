@@ -1,9 +1,23 @@
 {
+  "world": {
+    "mapSize": 2000
+  },
   "server": {
+    "maxPlayers": 20,
     "tickRate": 30,
     "simulationIntervalMs": 33.33,
     "globalCooldownMs": 100,
     "abilityQueueSize": 1
+  },
+  "match": {
+    "durationSec": 150,
+    "phases": [
+      { "id": "Spawn", "startSec": 0, "endSec": 15 },
+      { "id": "Collect", "startSec": 15, "endSec": 60 },
+      { "id": "Hunt", "startSec": 60, "endSec": 90 },
+      { "id": "Chaos", "startSec": 90, "endSec": 120 },
+      { "id": "Final", "startSec": 120, "endSec": 150 }
+    ]
   },
   "physics": {
     "environmentDrag": 0.03,
@@ -23,8 +37,16 @@
     "joystickSensitivity": 1.0,
     "joystickFollowSpeed": 0.8
   },
+  "slime": {
+    "initialMass": 100,
+    "initialLevel": 1,
+    "initialClassId": 0
+  },
   "movement": {
+    "baseSpeed": 300,
     "baseTurnRateDeg": 180,
+    "turnDivisor": 200,
+    "driftTurnRateDeg": 720,
     "driftThresholdAngleDeg": 120,
     "driftDurationSec": 0.3,
     "driftSpeedLoss": 0.5,
@@ -34,11 +56,21 @@
     "mouthArcDeg": 120,
     "tailArcDeg": 120,
     "tailDamageMultiplier": 1.5,
+    "attackCooldownSec": 0.2,
     "damageInvulnSec": 0.2,
+    "biteCooldownSec": 0.1,
     "respawnShieldSec": 5.0,
     "lastBreathDurationSec": 0.5,
     "lastBreathDamageMult": 0.5,
-    "lastBreathSpeedMult": 0.8
+    "lastBreathSpeedMult": 0.8,
+    "massStealPercent": 0.1
+  },
+  "death": {
+    "respawnDelaySec": 2,
+    "massLostPercent": 0.5,
+    "massToOrbsPercent": 0.3,
+    "orbsCount": 4,
+    "minRespawnMass": 50
   },
   "orbs": {
     "initialCount": 100,
@@ -46,6 +78,7 @@
     "respawnIntervalSec": 0.5,
     "minMass": 3,
     "minRadius": 5,
+    "pushForce": 100,
     "types": [
       { "id": "green",  "weight": 40, "density": 0.8, "massRange": [5, 15] },
       { "id": "blue",   "weight": 30, "density": 1.0, "massRange": [20, 40] },
@@ -84,9 +117,27 @@
     "maxCount": 3,
     "spawnIntervalSec": 20,
     "mass": 200,
+    "radius": 28,
     "rewards": {
       "massPercent": [0.1, 0.2, 0.3],
       "talentChance": 0.3
     }
+  },
+  "hotZones": {
+    "chaosCount": 2,
+    "finalCount": 1,
+    "radius": 220,
+    "spawnMultiplierChaos": 3,
+    "spawnMultiplierFinal": 5
+  },
+  "hunger": {
+    "baseDrainPerSec": 2,
+    "scalingPerMass": 0.01,
+    "maxDrainPerSec": 12,
+    "minMass": 50
+  },
+  "rebel": {
+    "updateIntervalSec": 5,
+    "massThresholdMultiplier": 1.2
   }
 }
