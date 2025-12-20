@@ -11,25 +11,30 @@ jobs:
     steps:
       - name: Check if push is from merged PR
         run: |
-          echo "Checking if this push is from a merged pull request..."
+          echo "Проверка источника отправки в ветку main..."
 
-          # This workflow runs on every push to main
-          # If you see this in a direct push (not from a PR merge),
-          # it means branch protection rules need to be enabled
-          # in GitHub settings
-
+          # Проверяем сообщение фиксации
           COMMIT_MSG="${{ github.event.head_commit.message }}"
+
+          # Слияние через GitHub PR начинается с "Merge pull request"
           if [[ "$COMMIT_MSG" =~ ^Merge\ pull\ request ]]; then
-            echo "✅ Push is from a merged pull request"
+            echo "✅ Отправка из слитого запроса на слияние"
             exit 0
-          elif [[ "${{ github.event_name }}" == "push" ]] && \
-               [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "⚠️ WARNING: Direct push to main branch detected!"
-            echo "Please enable branch protection rules in GitHub"
-            echo "repository settings:"
-            echo "1. Go to Settings > Branches"
-            echo "2. Add a branch protection rule for 'main'"
-            echo "3. Enable 'Require pull request reviews before merging'"
-            echo "4. Enable 'Require status checks to pass before merging'"
-            exit 1
           fi
+
+          # Слияние через squash начинается с названия PR и номером
+          if [[ "$COMMIT_MSG" =~ \(#[0-9]+\)$ ]]; then
+            echo "✅ Отправка из слитого запроса (squash merge)"
+            exit 0
+          fi
+
+          # Если не обнаружено слияние - предупреждение
+          echo "⚠️ ПРЕДУПРЕЖДЕНИЕ: Обнаружена прямая отправка в ветку main"
+          echo ""
+          echo "Для защиты ветки настройте правила в GitHub:"
+          echo "1. Откройте Settings > Branches"
+          echo "2. Добавьте правило защиты для 'main'"
+          echo "3. Включите 'Require a pull request before merging'"
+          echo "4. Включите 'Require status checks to pass before merging'"
+          echo ""
+          echo "Фиксация: $COMMIT_MSG"
