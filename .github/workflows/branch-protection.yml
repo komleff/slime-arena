@@ -22,8 +22,8 @@ jobs:
             exit 0
           fi
 
-          # Слияние через squash начинается с названия PR и номером
-          if [[ "$COMMIT_MSG" =~ \(#[0-9]+\)$ ]]; then
+          # Слияние через squash содержит номер PR в формате (#123)
+          if [[ "$COMMIT_MSG" =~ \(#[0-9]+\) ]]; then
             echo "✅ Отправка из слитого запроса (squash merge)"
             exit 0
           fi
