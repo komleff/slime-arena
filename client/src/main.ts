@@ -168,6 +168,7 @@ const mapSize = DEFAULT_BALANCE_CONFIG.world.mapSize;
 const orbMinRadius = DEFAULT_BALANCE_CONFIG.orbs.minRadius;
 const chestRadius = DEFAULT_BALANCE_CONFIG.chests.radius;
 const hotZoneRadius = DEFAULT_BALANCE_CONFIG.hotZones.radius;
+const collectorRadiusMult = DEFAULT_BALANCE_CONFIG.classes.collector.radiusMult;
 
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: mapSize / 2, y: mapSize / 2 };
@@ -441,10 +442,10 @@ async function main() {
             camera.x += (clampX - camera.x) * cameraLerp;
             camera.y += (clampY - camera.y) * cameraLerp;
 
-            canvasCtx.clearRect(0, 0, cw, ch);
+            ctx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
 
-            canvasCtx.fillStyle = "rgba(255, 99, 71, 0.08)";
+            ctx.fillStyle = "rgba(255, 99, 71, 0.08)";
             for (const [, zone] of room.state.hotZones.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
@@ -458,33 +459,69 @@ async function main() {
                 drawCircle(p.x, p.y, r, orbColor(orb.colorId));
             }
 
+            const time = performance.now() * 0.001;
+
             for (const [, chest] of room.state.chests.entries()) {
                 if (Math.abs(chest.x - camera.x) > halfWorldW + chestRadius || Math.abs(chest.y - camera.y) > halfWorldH + chestRadius) continue;
                 const p = worldToScreen(chest.x, chest.y, scale, camera.x, camera.y, cw, ch);
-                drawCircle(p.x, p.y, chestRadius * scale, "#ffc857", "#ffdf8f");
+                const pulse = 1 + 0.12 * Math.sin(time * 4 + chest.x * 0.01 + chest.y * 0.01);
+                const r = chestRadius * pulse * scale;
+                ctx.save();
+                ctx.shadowColor = "rgba(255, 220, 120, 0.6)";
+                ctx.shadowBlur = 12;
+                drawCircle(p.x, p.y, r, "#ffc857", "#ffe8a3");
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = "#3a2a12";
+                ctx.font = "16px \"IBM Plex Mono\", monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("📦", p.x, p.y + 5);
+                ctx.restore();
             }
 
             for (const [id, player] of room.state.players.entries()) {
                 if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
                 const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
-                const radius = getSlimeRadius(player.mass, DEFAULT_BALANCE_CONFIG.formulas) * scale;
+                const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
+                const radius = Math.sqrt(player.mass) * classRadiusMult * scale;
                 const isSelf = id === room.sessionId;
                 const color = isSelf ? "#6fd6ff" : "#9be070";
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 drawCircle(p.x, p.y, Math.max(radius, 6), color, stroke);
 
-                canvasCtx.fillStyle = "#e6f3ff";
-                canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
-                canvasCtx.textAlign = "center";
-                canvasCtx.fillText(player.name, p.x, p.y - Math.max(radius, 6) - 6);
+                ctx.fillStyle = "#e6f3ff";
+                ctx.font = "12px \"IBM Plex Mono\", monospace";
+                ctx.textAlign = "center";
+                ctx.fillText(player.name, p.x, p.y - Math.max(radius, 6) - 6);
 
                 const flagText: string[] = [];
                 if (player.flags & FLAG_IS_REBEL) flagText.push("REB");
                 if (player.flags & FLAG_LAST_BREATH) flagText.push("LB");
                 if (player.flags & FLAG_IS_DEAD) flagText.push("DEAD");
                 if (flagText.length > 0) {
-                    canvasCtx.fillText(flagText.join(" "), p.x, p.y + Math.max(radius, 6) + 12);
+                    ctx.fillText(flagText.join(" "), p.x, p.y + Math.max(radius, 6) + 12);
                 }
+            }
+
+            // Chest indicators по краям экрана
+            for (const [, chest] of room.state.chests.entries()) {
+                const dx = chest.x - camera.x;
+                const dy = chest.y - camera.y;
+                if (Math.abs(dx) <= halfWorldW && Math.abs(dy) <= halfWorldH) continue;
+                const angle = Math.atan2(dy, dx);
+                const edgeX = Math.cos(angle) * (halfWorldW - 40);
+                const edgeY = Math.sin(angle) * (halfWorldH - 40);
+                const screen = worldToScreen(camera.x + edgeX, camera.y + edgeY, scale, camera.x, camera.y, cw, ch);
+                ctx.save();
+                ctx.translate(screen.x, screen.y);
+                ctx.rotate(angle);
+                ctx.fillStyle = "#ffc857";
+                ctx.beginPath();
+                ctx.moveTo(12, 0);
+                ctx.lineTo(-8, 8);
+                ctx.lineTo(-8, -8);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
             }
 
             requestAnimationFrame(render);
@@ -582,8 +619,5 @@ async function main() {
 }
 
 main();
-
-
-
 
 
