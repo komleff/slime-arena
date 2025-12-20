@@ -1321,12 +1321,21 @@ async function main() {
                     canvasCtx.fill();
                 }
 
-                const flagText: string[] = [];
-                if (player.flags & FLAG_IS_REBEL) flagText.push("KING");
-                if (player.flags & FLAG_LAST_BREATH) flagText.push("LB");
-                if (player.flags & FLAG_IS_DEAD) flagText.push("DEAD");
-                if (flagText.length > 0) {
-                    canvasCtx.fillText(flagText.join(" "), p.x, p.y + r + 12);
+                const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
+                const otherFlags: string[] = [];
+                if (player.flags & FLAG_LAST_BREATH) otherFlags.push("LB");
+                if (player.flags & FLAG_IS_DEAD) otherFlags.push("DEAD");
+
+                if (isKing) {
+                    canvasCtx.fillStyle = "#ffc857";
+                    canvasCtx.fillText("KING", p.x, p.y + r + 12);
+                    if (otherFlags.length > 0) {
+                        canvasCtx.fillStyle = "#e6f3ff";
+                        canvasCtx.fillText(otherFlags.join(" "), p.x, p.y + r + 24);
+                    }
+                } else if (otherFlags.length > 0) {
+                    canvasCtx.fillStyle = "#e6f3ff";
+                    canvasCtx.fillText(otherFlags.join(" "), p.x, p.y + r + 12);
                 }
 
                 if ((player.flags & FLAG_IS_REBEL) !== 0) {
@@ -1393,7 +1402,7 @@ async function main() {
                             canvasCtx.translate(screen.x, screen.y);
                             canvasCtx.rotate(angle);
 
-                            canvasCtx.fillStyle = "#ffc857";
+                            canvasCtx.fillStyle = "#ff4d4d";
                             canvasCtx.strokeStyle = "#ffe8a3";
                             canvasCtx.lineWidth = 2;
                             canvasCtx.beginPath();
