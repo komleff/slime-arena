@@ -30,6 +30,8 @@ jobs:
   lint-js:
     name: Lint (JavaScript)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # Раскомментируйте после создания package.json
     if: false
     
@@ -59,6 +61,8 @@ jobs:
   lint-python:
     name: Lint (Python)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # Раскомментируйте после создания requirements.txt
     if: false
     
@@ -95,6 +99,8 @@ jobs:
   test-js:
     name: Test (JavaScript)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: false
     
     strategy:
@@ -134,6 +140,8 @@ jobs:
   test-python:
     name: Test (Python)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: false
     
     strategy:
@@ -173,6 +181,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: false
     
     steps:
@@ -205,6 +215,8 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
       - name: Checkout code
@@ -283,6 +295,9 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     if: github.event_name == 'pull_request'
     
     steps:
@@ -300,6 +315,8 @@ jobs:
   commit-lint:
     name: Lint Commits
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: github.event_name == 'pull_request'
     
     steps:
@@ -330,6 +347,10 @@ jobs:
     # ВАЖНО: Перед включением этой job, включите также: build, test-js, lint-js, security
     needs: [build, test-js, lint-js, security]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Требуется для деплоя на GitHub Pages
+      pages: write
+      id-token: write
     # Включить когда будет готов к деплою
     # Условие: if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     if: false
