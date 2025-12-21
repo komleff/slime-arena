@@ -24,7 +24,7 @@ jobs:
     name: Lint (JavaScript)
     runs-on: ubuntu-latest
     # Раскомментируйте после создания package.json
-    # if: false
+    if: false
     
     steps:
       - name: Checkout code
@@ -53,7 +53,7 @@ jobs:
     name: Lint (Python)
     runs-on: ubuntu-latest
     # Раскомментируйте после создания requirements.txt
-    # if: false
+    if: false
     
     steps:
       - name: Checkout code
@@ -88,7 +88,7 @@ jobs:
   test-js:
     name: Test (JavaScript)
     runs-on: ubuntu-latest
-    # if: false
+    if: false
     
     strategy:
       matrix:
@@ -127,7 +127,7 @@ jobs:
   test-python:
     name: Test (Python)
     runs-on: ubuntu-latest
-    # if: false
+    if: false
     
     strategy:
       matrix:
@@ -166,7 +166,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    # if: false
+    if: false
     
     steps:
       - name: Checkout code
@@ -322,8 +322,9 @@ jobs:
     name: Deploy
     needs: [build, test-js, lint-js, security]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    # if: false  # Включить когда будет готов к деплою
+    # Включить когда будет готов к деплою
+    # Условие: if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
     
     steps:
       - name: Checkout code

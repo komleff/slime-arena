@@ -51,11 +51,9 @@ out/
 # Vim
 *.swp
 *.swo
-*~
 .netrwhist
 
 # Emacs
-*~
 \#*\#
 .\#*
 .projectile
