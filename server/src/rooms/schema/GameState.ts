@@ -8,6 +8,7 @@ export class Player extends Schema {
     @type("number") vx: number = 0;
     @type("number") vy: number = 0;
     @type("number") angle: number = 0;
+    @type("number") angVel: number = 0;
     @type("number") mass: number = 0;
     @type("number") hp: number = 0;
     @type("number") maxHp: number = 0;
@@ -20,6 +21,7 @@ export class Player extends Schema {
     inputX: number = 0;
     inputY: number = 0;
     lastProcessedSeq: number = 0;
+    lastInputTick: number = 0;
     isDead: boolean = false;
     isDrifting: boolean = false;
     driftEndTick: number = 0;
@@ -35,6 +37,10 @@ export class Player extends Schema {
     talentChoicePressed: number | null = null;
     isLastBreath: boolean = false;
     lastBreathEndTick: number = 0;
+    yawSignHistory: number[] = [];
+    assistFx: number = 0;
+    assistFy: number = 0;
+    assistTorque: number = 0;
 }
 
 export class Orb extends Schema {

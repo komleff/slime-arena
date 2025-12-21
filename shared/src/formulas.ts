@@ -1,4 +1,4 @@
-import { BalanceConfig } from "./config.js";
+import { BalanceConfig, SlimeConfig, MassCurveConfig } from "./config.js";
 
 export function getSlimeHp(mass: number, formulas: BalanceConfig["formulas"]): number {
     return formulas.hp.base + formulas.hp.scale * Math.log(1 + mass / formulas.hp.divisor);
@@ -24,4 +24,50 @@ export function getSpeedMultiplier(mass: number, formulas: BalanceConfig["formul
 
 export function getTurnRateDeg(mass: number, baseTurnRateDeg: number, turnDivisor: number): number {
     return baseTurnRateDeg / (1 + Math.log(1 + mass / turnDivisor));
+}
+
+export function getSlimeRadiusFromConfig(mass: number, config: SlimeConfig): number {
+    const baseMass = config.geometry.baseMassKg > 0 ? config.geometry.baseMassKg : 1;
+    const safeMass = Math.max(mass, baseMass * config.massScaling.minMassFactor);
+    return config.geometry.baseRadiusM * Math.sqrt(safeMass / baseMass);
+}
+
+export function getSlimeInertia(mass: number, config: SlimeConfig): number {
+    const radius = getSlimeRadiusFromConfig(mass, config);
+    return config.geometry.inertiaFactor * mass * radius * radius;
+}
+
+export function scaleSlimeValue(
+    baseValue: number,
+    mass: number,
+    config: SlimeConfig,
+    curve: MassCurveConfig
+): number {
+    const baseMass = config.geometry.baseMassKg > 0 ? config.geometry.baseMassKg : 1;
+    const minMass = baseMass * config.massScaling.minMassFactor;
+    const safeMass = Math.max(mass, minMass);
+    const ratio = safeMass / baseMass;
+    let value = baseValue;
+    if (curve.type === "power") {
+        const exp = curve.exp ?? 0;
+        value = baseValue * Math.pow(ratio, exp);
+    } else if (curve.type === "log") {
+        const k = curve.k ?? 0;
+        value = baseValue * (1 + k * Math.log(ratio));
+    }
+    if (curve.minValue !== undefined) {
+        value = Math.max(curve.minValue, value);
+    }
+    if (curve.maxValue !== undefined) {
+        value = Math.min(curve.maxValue, value);
+    }
+    return value;
+}
+
+export function getSlimeMaxHp(mass: number): number {
+    return Math.max(0, mass);
+}
+
+export function getSlimeBiteDamage(mass: number, config: SlimeConfig): number {
+    return mass * config.combat.biteDamagePctOfMass;
 }

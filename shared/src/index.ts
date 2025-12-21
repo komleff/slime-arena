@@ -1,6 +1,15 @@
 export type { Vector2, MatchPhaseId, InputCommand } from "./types.js";
 export { MATCH_PHASES } from "./types.js";
-export type { BalanceConfig, ResolvedBalanceConfig, FormulaConfig, MatchPhaseConfig } from "./config.js";
+export type {
+    BalanceConfig,
+    ResolvedBalanceConfig,
+    FormulaConfig,
+    MatchPhaseConfig,
+    SlimeConfig,
+    WorldPhysicsConfig,
+    ClientNetSmoothingConfig,
+    MassCurveConfig,
+} from "./config.js";
 export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
 export {
     getSlimeHp,
@@ -9,6 +18,11 @@ export {
     getOrbRadius,
     getSpeedMultiplier,
     getTurnRateDeg,
+    getSlimeRadiusFromConfig,
+    getSlimeInertia,
+    scaleSlimeValue,
+    getSlimeMaxHp,
+    getSlimeBiteDamage,
 } from "./formulas.js";
 export {
     FLAG_RESPAWN_SHIELD,

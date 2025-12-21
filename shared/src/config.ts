@@ -12,6 +12,85 @@ export interface MatchPhaseConfig {
     endSec: number;
 }
 
+export type MassCurveType = "power" | "log";
+
+export interface MassCurveConfig {
+    type: MassCurveType;
+    exp?: number;
+    k?: number;
+    minValue?: number;
+    maxValue?: number;
+}
+
+export interface SlimeConfig {
+    id: string;
+    name: string;
+    geometry: {
+        baseMassKg: number;
+        baseRadiusM: number;
+        inertiaFactor: number;
+    };
+    propulsion: {
+        thrustForwardN: number;
+        thrustReverseN: number;
+        thrustLateralN: number;
+        turnTorqueNm: number;
+    };
+    limits: {
+        speedLimitForwardMps: number;
+        speedLimitReverseMps: number;
+        speedLimitLateralMps: number;
+        angularSpeedLimitRadps: number;
+    };
+    assist: {
+        comfortableBrakingTimeS: number;
+        angularStopTimeS: number;
+        autoBrakeMaxThrustFraction: number;
+        overspeedDampingRate: number;
+        yawFullDeflectionAngleRad: number;
+        yawOscillationWindowFrames: number;
+        yawOscillationSignFlipsThreshold: number;
+        yawDampingBoostFactor: number;
+        yawCmdEps: number;
+    };
+    combat: {
+        biteDamagePctOfMass: number;
+        orbBitePctOfMass: number;
+    };
+    massScaling: {
+        minMassFactor: number;
+        thrustForwardN: MassCurveConfig;
+        thrustReverseN: MassCurveConfig;
+        thrustLateralN: MassCurveConfig;
+        turnTorqueNm: MassCurveConfig;
+        speedLimitForwardMps: MassCurveConfig;
+        speedLimitReverseMps: MassCurveConfig;
+        speedLimitLateralMps: MassCurveConfig;
+        angularSpeedLimitRadps: MassCurveConfig;
+    };
+}
+
+export interface WorldPhysicsConfig {
+    linearDragK: number;
+    angularDragK: number;
+    restitution: number;
+    maxPositionCorrectionM: number;
+    worldShape: "rectangle" | "circle";
+    widthM?: number;
+    heightM?: number;
+    radiusM?: number;
+}
+
+export interface ClientNetSmoothingConfig {
+    lookAheadMs: number;
+    maxDeviationM: number;
+    catchUpMin: number;
+    catchUpMax: number;
+    maxExtrapolationMs: number;
+    transitionDurationMs: number;
+    angleMaxDeviationRad: number;
+}
+
 export interface BalanceConfig {
     world: {
         mapSize: number;
@@ -44,7 +123,16 @@ export interface BalanceConfig {
         joystickDeadzone: number;
         joystickSensitivity: number;
         joystickFollowSpeed: number;
+        inputTimeoutMs: number;
     };
+    slimeConfigs: {
+        base: SlimeConfig;
+        hunter: SlimeConfig;
+        warrior: SlimeConfig;
+        collector: SlimeConfig;
+    };
+    worldPhysics: WorldPhysicsConfig;
+    clientNetSmoothing: ClientNetSmoothingConfig;
     slime: {
         initialMass: number;
         initialLevel: number;
@@ -194,6 +282,215 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         joystickDeadzone: 0.1,
         joystickSensitivity: 1.0,
         joystickFollowSpeed: 0.8,
+        inputTimeoutMs: 200,
+    },
+    slimeConfigs: {
+        base: {
+            id: "base",
+            name: "Base Slime",
+            geometry: {
+                baseMassKg: 100,
+                baseRadiusM: 1.0,
+                inertiaFactor: 0.5,
+            },
+            propulsion: {
+                thrustForwardN: 9000,
+                thrustReverseN: 6750,
+                thrustLateralN: 8500,
+                turnTorqueNm: 175,
+            },
+            limits: {
+                speedLimitForwardMps: 260,
+                speedLimitReverseMps: 180,
+                speedLimitLateralMps: 220,
+                angularSpeedLimitRadps: (80 * Math.PI) / 180,
+            },
+            assist: {
+                comfortableBrakingTimeS: 3.5,
+                angularStopTimeS: 1.0,
+                autoBrakeMaxThrustFraction: 0.6,
+                overspeedDampingRate: 0.2,
+                yawFullDeflectionAngleRad: Math.PI / 2,
+                yawOscillationWindowFrames: 12,
+                yawOscillationSignFlipsThreshold: 4,
+                yawDampingBoostFactor: 2.0,
+                yawCmdEps: 0.001,
+            },
+            combat: {
+                biteDamagePctOfMass: 0.02,
+                orbBitePctOfMass: 0.05,
+            },
+            massScaling: {
+                minMassFactor: 0.1,
+                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustReverseN: { type: "power", exp: 0.5 },
+                thrustLateralN: { type: "power", exp: 0.5 },
+                turnTorqueNm: { type: "power", exp: 1.5 },
+                speedLimitForwardMps: { type: "power", exp: 0 },
+                speedLimitReverseMps: { type: "power", exp: 0 },
+                speedLimitLateralMps: { type: "power", exp: 0 },
+                angularSpeedLimitRadps: { type: "power", exp: 0 },
+            },
+        },
+        hunter: {
+            id: "hunter",
+            name: "Hunter",
+            geometry: {
+                baseMassKg: 100,
+                baseRadiusM: 1.0,
+                inertiaFactor: 0.5,
+            },
+            propulsion: {
+                thrustForwardN: 9000,
+                thrustReverseN: 6750,
+                thrustLateralN: 8500,
+                turnTorqueNm: 175,
+            },
+            limits: {
+                speedLimitForwardMps: 260,
+                speedLimitReverseMps: 180,
+                speedLimitLateralMps: 220,
+                angularSpeedLimitRadps: (80 * Math.PI) / 180,
+            },
+            assist: {
+                comfortableBrakingTimeS: 3.5,
+                angularStopTimeS: 1.0,
+                autoBrakeMaxThrustFraction: 0.6,
+                overspeedDampingRate: 0.2,
+                yawFullDeflectionAngleRad: Math.PI / 2,
+                yawOscillationWindowFrames: 12,
+                yawOscillationSignFlipsThreshold: 4,
+                yawDampingBoostFactor: 2.0,
+                yawCmdEps: 0.001,
+            },
+            combat: {
+                biteDamagePctOfMass: 0.02,
+                orbBitePctOfMass: 0.05,
+            },
+            massScaling: {
+                minMassFactor: 0.1,
+                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustReverseN: { type: "power", exp: 0.5 },
+                thrustLateralN: { type: "power", exp: 0.5 },
+                turnTorqueNm: { type: "power", exp: 1.5 },
+                speedLimitForwardMps: { type: "power", exp: 0 },
+                speedLimitReverseMps: { type: "power", exp: 0 },
+                speedLimitLateralMps: { type: "power", exp: 0 },
+                angularSpeedLimitRadps: { type: "power", exp: 0 },
+            },
+        },
+        warrior: {
+            id: "warrior",
+            name: "Warrior",
+            geometry: {
+                baseMassKg: 100,
+                baseRadiusM: 1.0,
+                inertiaFactor: 0.5,
+            },
+            propulsion: {
+                thrustForwardN: 9000,
+                thrustReverseN: 6750,
+                thrustLateralN: 8500,
+                turnTorqueNm: 175,
+            },
+            limits: {
+                speedLimitForwardMps: 260,
+                speedLimitReverseMps: 180,
+                speedLimitLateralMps: 220,
+                angularSpeedLimitRadps: (80 * Math.PI) / 180,
+            },
+            assist: {
+                comfortableBrakingTimeS: 3.5,
+                angularStopTimeS: 1.0,
+                autoBrakeMaxThrustFraction: 0.6,
+                overspeedDampingRate: 0.2,
+                yawFullDeflectionAngleRad: Math.PI / 2,
+                yawOscillationWindowFrames: 12,
+                yawOscillationSignFlipsThreshold: 4,
+                yawDampingBoostFactor: 2.0,
+                yawCmdEps: 0.001,
+            },
+            combat: {
+                biteDamagePctOfMass: 0.02,
+                orbBitePctOfMass: 0.05,
+            },
+            massScaling: {
+                minMassFactor: 0.1,
+                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustReverseN: { type: "power", exp: 0.5 },
+                thrustLateralN: { type: "power", exp: 0.5 },
+                turnTorqueNm: { type: "power", exp: 1.5 },
+                speedLimitForwardMps: { type: "power", exp: 0 },
+                speedLimitReverseMps: { type: "power", exp: 0 },
+                speedLimitLateralMps: { type: "power", exp: 0 },
+                angularSpeedLimitRadps: { type: "power", exp: 0 },
+            },
+        },
+        collector: {
+            id: "collector",
+            name: "Collector",
+            geometry: {
+                baseMassKg: 100,
+                baseRadiusM: 1.0,
+                inertiaFactor: 0.5,
+            },
+            propulsion: {
+                thrustForwardN: 9000,
+                thrustReverseN: 6750,
+                thrustLateralN: 8500,
+                turnTorqueNm: 175,
+            },
+            limits: {
+                speedLimitForwardMps: 260,
+                speedLimitReverseMps: 180,
+                speedLimitLateralMps: 220,
+                angularSpeedLimitRadps: (80 * Math.PI) / 180,
+            },
+            assist: {
+                comfortableBrakingTimeS: 3.5,
+                angularStopTimeS: 1.0,
+                autoBrakeMaxThrustFraction: 0.6,
+                overspeedDampingRate: 0.2,
+                yawFullDeflectionAngleRad: Math.PI / 2,
+                yawOscillationWindowFrames: 12,
+                yawOscillationSignFlipsThreshold: 4,
+                yawDampingBoostFactor: 2.0,
+                yawCmdEps: 0.001,
+            },
+            combat: {
+                biteDamagePctOfMass: 0.02,
+                orbBitePctOfMass: 0.05,
+            },
+            massScaling: {
+                minMassFactor: 0.1,
+                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustReverseN: { type: "power", exp: 0.5 },
+                thrustLateralN: { type: "power", exp: 0.5 },
+                turnTorqueNm: { type: "power", exp: 1.5 },
+                speedLimitForwardMps: { type: "power", exp: 0 },
+                speedLimitReverseMps: { type: "power", exp: 0 },
+                speedLimitLateralMps: { type: "power", exp: 0 },
+                angularSpeedLimitRadps: { type: "power", exp: 0 },
+            },
+        },
+    },
+    worldPhysics: {
+        linearDragK: 0.1,
+        angularDragK: 0.0,
+        restitution: 0.9,
+        maxPositionCorrectionM: 0.5,
+        worldShape: "rectangle",
+        widthM: 2000,
+        heightM: 2000,
+    },
+    clientNetSmoothing: {
+        lookAheadMs: 100,
+        maxDeviationM: 2.0,
+        catchUpMin: 0.9,
+        catchUpMax: 1.2,
+        maxExtrapolationMs: 250,
+        transitionDurationMs: 200,
+        angleMaxDeviationRad: 0.35,
     },
     slime: {
         initialMass: 100,
@@ -328,6 +625,14 @@ function readNumberArray(value: unknown, fallback: number[], path: string): numb
     return value.map((item, index) => readNumber(item, fallback[index] ?? 0, `${path}[${index}]`));
 }
 
+function readOptionalNumber(value: unknown, path: string): number | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new Error(`Invalid number at ${path}`);
+    }
+    return value;
+}
+
 function readPhaseId(value: unknown, fallback: MatchPhaseId, path: string): MatchPhaseId {
     if (value === undefined || value === null) return fallback;
     if (typeof value !== "string" || !MATCH_PHASES.includes(value as MatchPhaseId)) {
@@ -363,6 +668,191 @@ function readFormula(value: unknown, fallback: FormulaConfig, path: string): For
     };
 }
 
+function readCurveConfig(value: unknown, fallback: MassCurveConfig, path: string): MassCurveConfig {
+    if (!isRecord(value)) return fallback;
+    const type = readString(value.type, fallback.type, `${path}.type`) as MassCurveType;
+    return {
+        type,
+        exp: readOptionalNumber(value.exp, `${path}.exp`) ?? fallback.exp,
+        k: readOptionalNumber(value.k, `${path}.k`) ?? fallback.k,
+        minValue: readOptionalNumber(value.minValue, `${path}.minValue`) ?? fallback.minValue,
+        maxValue: readOptionalNumber(value.maxValue, `${path}.maxValue`) ?? fallback.maxValue,
+    };
+}
+
+function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): SlimeConfig {
+    const data = isRecord(value) ? value : {};
+    const geometry = isRecord(data.geometry) ? data.geometry : {};
+    const propulsion = isRecord(data.propulsion) ? data.propulsion : {};
+    const limits = isRecord(data.limits) ? data.limits : {};
+    const assist = isRecord(data.assist) ? data.assist : {};
+    const combat = isRecord(data.combat) ? data.combat : {};
+    const massScaling = isRecord(data.massScaling) ? data.massScaling : {};
+
+    const angularSpeedLimitDegps = readOptionalNumber(limits.angularSpeedLimitDegps, `${path}.limits.angularSpeedLimitDegps`);
+    const angularSpeedLimitRadps =
+        readOptionalNumber(limits.angularSpeedLimitRadps, `${path}.limits.angularSpeedLimitRadps`) ??
+        (angularSpeedLimitDegps !== undefined ? (angularSpeedLimitDegps * Math.PI) / 180 : fallback.limits.angularSpeedLimitRadps);
+
+    const yawFullDeflectionAngleDeg = readOptionalNumber(
+        assist.yawFullDeflectionAngleDeg,
+        `${path}.assist.yawFullDeflectionAngleDeg`
+    );
+    const yawFullDeflectionAngleRad =
+        readOptionalNumber(assist.yawFullDeflectionAngleRad, `${path}.assist.yawFullDeflectionAngleRad`) ??
+        (yawFullDeflectionAngleDeg !== undefined
+            ? (yawFullDeflectionAngleDeg * Math.PI) / 180
+            : fallback.assist.yawFullDeflectionAngleRad);
+
+    return {
+        id: readString(data.id, fallback.id, `${path}.id`),
+        name: readString(data.name, fallback.name, `${path}.name`),
+        geometry: {
+            baseMassKg: readNumber(geometry.baseMassKg, fallback.geometry.baseMassKg, `${path}.geometry.baseMassKg`),
+            baseRadiusM: readNumber(geometry.baseRadiusM, fallback.geometry.baseRadiusM, `${path}.geometry.baseRadiusM`),
+            inertiaFactor: readNumber(geometry.inertiaFactor, fallback.geometry.inertiaFactor, `${path}.geometry.inertiaFactor`),
+        },
+        propulsion: {
+            thrustForwardN: readNumber(
+                propulsion.thrustForwardN,
+                fallback.propulsion.thrustForwardN,
+                `${path}.propulsion.thrustForwardN`
+            ),
+            thrustReverseN: readNumber(
+                propulsion.thrustReverseN,
+                fallback.propulsion.thrustReverseN,
+                `${path}.propulsion.thrustReverseN`
+            ),
+            thrustLateralN: readNumber(
+                propulsion.thrustLateralN,
+                fallback.propulsion.thrustLateralN,
+                `${path}.propulsion.thrustLateralN`
+            ),
+            turnTorqueNm: readNumber(
+                propulsion.turnTorqueNm,
+                fallback.propulsion.turnTorqueNm,
+                `${path}.propulsion.turnTorqueNm`
+            ),
+        },
+        limits: {
+            speedLimitForwardMps: readNumber(
+                limits.speedLimitForwardMps,
+                fallback.limits.speedLimitForwardMps,
+                `${path}.limits.speedLimitForwardMps`
+            ),
+            speedLimitReverseMps: readNumber(
+                limits.speedLimitReverseMps,
+                fallback.limits.speedLimitReverseMps,
+                `${path}.limits.speedLimitReverseMps`
+            ),
+            speedLimitLateralMps: readNumber(
+                limits.speedLimitLateralMps,
+                fallback.limits.speedLimitLateralMps,
+                `${path}.limits.speedLimitLateralMps`
+            ),
+            angularSpeedLimitRadps,
+        },
+        assist: {
+            comfortableBrakingTimeS: readNumber(
+                assist.comfortableBrakingTimeS,
+                fallback.assist.comfortableBrakingTimeS,
+                `${path}.assist.comfortableBrakingTimeS`
+            ),
+            angularStopTimeS: readNumber(
+                assist.angularStopTimeS,
+                fallback.assist.angularStopTimeS,
+                `${path}.assist.angularStopTimeS`
+            ),
+            autoBrakeMaxThrustFraction: readNumber(
+                assist.autoBrakeMaxThrustFraction,
+                fallback.assist.autoBrakeMaxThrustFraction,
+                `${path}.assist.autoBrakeMaxThrustFraction`
+            ),
+            overspeedDampingRate: readNumber(
+                assist.overspeedDampingRate,
+                fallback.assist.overspeedDampingRate,
+                `${path}.assist.overspeedDampingRate`
+            ),
+            yawFullDeflectionAngleRad,
+            yawOscillationWindowFrames: readNumber(
+                assist.yawOscillationWindowFrames,
+                fallback.assist.yawOscillationWindowFrames,
+                `${path}.assist.yawOscillationWindowFrames`
+            ),
+            yawOscillationSignFlipsThreshold: readNumber(
+                assist.yawOscillationSignFlipsThreshold,
+                fallback.assist.yawOscillationSignFlipsThreshold,
+                `${path}.assist.yawOscillationSignFlipsThreshold`
+            ),
+            yawDampingBoostFactor: readNumber(
+                assist.yawDampingBoostFactor,
+                fallback.assist.yawDampingBoostFactor,
+                `${path}.assist.yawDampingBoostFactor`
+            ),
+            yawCmdEps: readNumber(assist.yawCmdEps, fallback.assist.yawCmdEps, `${path}.assist.yawCmdEps`),
+        },
+        combat: {
+            biteDamagePctOfMass: readNumber(
+                combat.biteDamagePctOfMass,
+                fallback.combat.biteDamagePctOfMass,
+                `${path}.combat.biteDamagePctOfMass`
+            ),
+            orbBitePctOfMass: readNumber(
+                combat.orbBitePctOfMass,
+                fallback.combat.orbBitePctOfMass,
+                `${path}.combat.orbBitePctOfMass`
+            ),
+        },
+        massScaling: {
+            minMassFactor: readNumber(
+                massScaling.minMassFactor,
+                fallback.massScaling.minMassFactor,
+                `${path}.massScaling.minMassFactor`
+            ),
+            thrustForwardN: readCurveConfig(
+                massScaling.thrustForwardN,
+                fallback.massScaling.thrustForwardN,
+                `${path}.massScaling.thrustForwardN`
+            ),
+            thrustReverseN: readCurveConfig(
+                massScaling.thrustReverseN,
+                fallback.massScaling.thrustReverseN,
+                `${path}.massScaling.thrustReverseN`
+            ),
+            thrustLateralN: readCurveConfig(
+                massScaling.thrustLateralN,
+                fallback.massScaling.thrustLateralN,
+                `${path}.massScaling.thrustLateralN`
+            ),
+            turnTorqueNm: readCurveConfig(
+                massScaling.turnTorqueNm,
+                fallback.massScaling.turnTorqueNm,
+                `${path}.massScaling.turnTorqueNm`
+            ),
+            speedLimitForwardMps: readCurveConfig(
+                massScaling.speedLimitForwardMps,
+                fallback.massScaling.speedLimitForwardMps,
+                `${path}.massScaling.speedLimitForwardMps`
+            ),
+            speedLimitReverseMps: readCurveConfig(
+                massScaling.speedLimitReverseMps,
+                fallback.massScaling.speedLimitReverseMps,
+                `${path}.massScaling.speedLimitReverseMps`
+            ),
+            speedLimitLateralMps: readCurveConfig(
+                massScaling.speedLimitLateralMps,
+                fallback.massScaling.speedLimitLateralMps,
+                `${path}.massScaling.speedLimitLateralMps`
+            ),
+            angularSpeedLimitRadps: readCurveConfig(
+                massScaling.angularSpeedLimitRadps,
+                fallback.massScaling.angularSpeedLimitRadps,
+                `${path}.massScaling.angularSpeedLimitRadps`
+            ),
+        },
+    };
+}
+
 export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const data = isRecord(raw) ? raw : {};
 
@@ -371,6 +861,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const match = isRecord(data.match) ? data.match : {};
     const physics = isRecord(data.physics) ? data.physics : {};
     const controls = isRecord(data.controls) ? data.controls : {};
+    const slimeConfigs = isRecord(data.slimeConfigs) ? data.slimeConfigs : {};
+    const worldPhysics = isRecord(data.worldPhysics) ? data.worldPhysics : {};
+    const clientNetSmoothing = isRecord(data.clientNetSmoothing) ? data.clientNetSmoothing : {};
     const slime = isRecord(data.slime) ? data.slime : {};
     const movement = isRecord(data.movement) ? data.movement : {};
     const combat = isRecord(data.combat) ? data.combat : {};
@@ -382,14 +875,24 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const hotZones = isRecord(data.hotZones) ? data.hotZones : {};
     const hunger = isRecord(data.hunger) ? data.hunger : {};
     const rebel = isRecord(data.rebel) ? data.rebel : {};
+    const baseSlime = isRecord(slimeConfigs.base) ? slimeConfigs.base : {};
+    const hunterSlime = isRecord(slimeConfigs.hunter) ? slimeConfigs.hunter : {};
+    const warriorSlime = isRecord(slimeConfigs.warrior) ? slimeConfigs.warrior : {};
+    const collectorSlime = isRecord(slimeConfigs.collector) ? slimeConfigs.collector : {};
+    const worldShape = readString(
+        worldPhysics.worldShape,
+        DEFAULT_BALANCE_CONFIG.worldPhysics.worldShape,
+        "worldPhysics.worldShape"
+    ) as WorldPhysicsConfig["worldShape"];
     const hunter = isRecord(classes.hunter) ? classes.hunter : {};
     const warrior = isRecord(classes.warrior) ? classes.warrior : {};
     const collector = isRecord(classes.collector) ? classes.collector : {};
     const chestRewards = isRecord(chests.rewards) ? chests.rewards : {};
+    const worldMapSize = readNumber(world.mapSize, DEFAULT_BALANCE_CONFIG.world.mapSize, "world.mapSize");
 
     const resolved: BalanceConfig = {
         world: {
-            mapSize: readNumber(world.mapSize, DEFAULT_BALANCE_CONFIG.world.mapSize, "world.mapSize"),
+            mapSize: worldMapSize,
         },
         server: {
             maxPlayers: readNumber(server.maxPlayers, DEFAULT_BALANCE_CONFIG.server.maxPlayers, "server.maxPlayers"),
@@ -486,6 +989,96 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 controls.joystickFollowSpeed,
                 DEFAULT_BALANCE_CONFIG.controls.joystickFollowSpeed,
                 "controls.joystickFollowSpeed"
+            ),
+            inputTimeoutMs: readNumber(
+                controls.inputTimeoutMs,
+                DEFAULT_BALANCE_CONFIG.controls.inputTimeoutMs,
+                "controls.inputTimeoutMs"
+            ),
+        },
+        slimeConfigs: {
+            base: readSlimeConfig(baseSlime, DEFAULT_BALANCE_CONFIG.slimeConfigs.base, "slimeConfigs.base"),
+            hunter: readSlimeConfig(hunterSlime, DEFAULT_BALANCE_CONFIG.slimeConfigs.hunter, "slimeConfigs.hunter"),
+            warrior: readSlimeConfig(warriorSlime, DEFAULT_BALANCE_CONFIG.slimeConfigs.warrior, "slimeConfigs.warrior"),
+            collector: readSlimeConfig(
+                collectorSlime,
+                DEFAULT_BALANCE_CONFIG.slimeConfigs.collector,
+                "slimeConfigs.collector"
+            ),
+        },
+        worldPhysics: {
+            linearDragK: readNumber(
+                worldPhysics.linearDragK,
+                DEFAULT_BALANCE_CONFIG.worldPhysics.linearDragK,
+                "worldPhysics.linearDragK"
+            ),
+            angularDragK: readNumber(
+                worldPhysics.angularDragK,
+                DEFAULT_BALANCE_CONFIG.worldPhysics.angularDragK,
+                "worldPhysics.angularDragK"
+            ),
+            restitution: readNumber(
+                worldPhysics.restitution,
+                DEFAULT_BALANCE_CONFIG.worldPhysics.restitution,
+                "worldPhysics.restitution"
+            ),
+            maxPositionCorrectionM: readNumber(
+                worldPhysics.maxPositionCorrectionM,
+                DEFAULT_BALANCE_CONFIG.worldPhysics.maxPositionCorrectionM,
+                "worldPhysics.maxPositionCorrectionM"
+            ),
+            worldShape,
+            widthM: readNumber(
+                worldPhysics.widthM,
+                worldMapSize,
+                "worldPhysics.widthM"
+            ),
+            heightM: readNumber(
+                worldPhysics.heightM,
+                worldMapSize,
+                "worldPhysics.heightM"
+            ),
+            radiusM: readNumber(
+                worldPhysics.radiusM,
+                worldMapSize / 2,
+                "worldPhysics.radiusM"
+            ),
+        },
+        clientNetSmoothing: {
+            lookAheadMs: readNumber(
+                clientNetSmoothing.lookAheadMs,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.lookAheadMs,
+                "clientNetSmoothing.lookAheadMs"
+            ),
+            maxDeviationM: readNumber(
+                clientNetSmoothing.maxDeviationM,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxDeviationM,
+                "clientNetSmoothing.maxDeviationM"
+            ),
+            catchUpMin: readNumber(
+                clientNetSmoothing.catchUpMin,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpMin,
+                "clientNetSmoothing.catchUpMin"
+            ),
+            catchUpMax: readNumber(
+                clientNetSmoothing.catchUpMax,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpMax,
+                "clientNetSmoothing.catchUpMax"
+            ),
+            maxExtrapolationMs: readNumber(
+                clientNetSmoothing.maxExtrapolationMs,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxExtrapolationMs,
+                "clientNetSmoothing.maxExtrapolationMs"
+            ),
+            transitionDurationMs: readNumber(
+                clientNetSmoothing.transitionDurationMs,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.transitionDurationMs,
+                "clientNetSmoothing.transitionDurationMs"
+            ),
+            angleMaxDeviationRad: readNumber(
+                clientNetSmoothing.angleMaxDeviationRad,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleMaxDeviationRad,
+                "clientNetSmoothing.angleMaxDeviationRad"
             ),
         },
         slime: {

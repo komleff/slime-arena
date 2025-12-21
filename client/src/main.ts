@@ -3,7 +3,7 @@ import {
     DEFAULT_BALANCE_CONFIG,
     type BalanceConfig,
     getOrbRadius,
-    getSlimeRadius,
+    getSlimeRadiusFromConfig,
     FLAG_IS_REBEL,
     FLAG_LAST_BREATH,
     FLAG_IS_DEAD,
@@ -201,7 +201,8 @@ joystickLayer.appendChild(joystickKnob);
 document.body.appendChild(joystickLayer);
 
 let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
-let mapSize = balanceConfig.world.mapSize;
+let worldWidth = balanceConfig.worldPhysics.widthM ?? balanceConfig.world.mapSize;
+let worldHeight = balanceConfig.worldPhysics.heightM ?? balanceConfig.world.mapSize;
 let orbMinRadius = balanceConfig.orbs.minRadius;
 let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
@@ -213,7 +214,7 @@ const chestStyles = [
 ];
 
 const keyState = { up: false, down: false, left: false, right: false };
-const camera = { x: mapSize / 2, y: mapSize / 2 };
+const camera = { x: 0, y: 0 };
 const cameraLerp = 0.15;
 const desiredView = { width: 900, height: 700 };
 let hasFocus = true;
@@ -275,15 +276,31 @@ const spriteCache = new Map<
 const playerSpriteById = new Map<string, string>();
 const spriteMeasureCanvas = document.createElement("canvas");
 const spriteMeasureCtx = spriteMeasureCanvas.getContext("2d", { willReadFrequently: true });
+const updateWorldBounds = () => {
+    const shape = balanceConfig.worldPhysics.worldShape;
+    if (shape === "circle") {
+        const radius = balanceConfig.worldPhysics.radiusM ?? balanceConfig.world.mapSize / 2;
+        worldWidth = radius * 2;
+        worldHeight = radius * 2;
+    } else {
+        worldWidth = balanceConfig.worldPhysics.widthM ?? balanceConfig.world.mapSize;
+        worldHeight = balanceConfig.worldPhysics.heightM ?? balanceConfig.world.mapSize;
+    }
+};
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
-    mapSize = config.world.mapSize;
+    updateWorldBounds();
+    lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
+    maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
+    transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
+    angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
+    interpolationDelayMs = Math.max(interpolationDelayMs, lookAheadMs);
     orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
     collectorRadiusMult = config.classes.collector.radiusMult;
-    camera.x = Math.min(Math.max(camera.x, 0), mapSize);
-    camera.y = Math.min(Math.max(camera.y, 0), mapSize);
+    camera.x = Math.min(Math.max(camera.x, -worldWidth / 2), worldWidth / 2);
+    camera.y = Math.min(Math.max(camera.y, -worldHeight / 2), worldHeight / 2);
     updateJoystickConfig();
 };
 
@@ -406,7 +423,8 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     updateJoystickVisual();
 };
 
-const joystickLandscapeTopExclusionRatio = 0.25;
+// No top exclusion while HUD/abilities are not implemented.
+const joystickLandscapeTopExclusionRatio = 0;
 
 const getJoystickActivationGate = () => {
     const rect = canvas.getBoundingClientRect();
@@ -427,6 +445,7 @@ type SnapshotPlayer = {
     vx: number;
     vy: number;
     angle: number;
+    angVel: number;
     mass: number;
     hp: number;
     maxHp: number;
@@ -484,9 +503,12 @@ type RenderState = {
 
 const snapshotBuffer: Snapshot[] = [];
 const snapshotBufferLimit = 30;
-let interpolationDelayMs = 100;
+let lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
+let interpolationDelayMs = lookAheadMs;
 const interpolationDelayClamp = { min: 60, max: 200 };
-const maxExtrapolationMs = 120;
+let maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
+let transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
+let angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
 const hermiteMaxDistance = 300;
 const hermiteMaxDtMs = 120;
 let lastSnapshotTime: number | null = null;
@@ -495,13 +517,20 @@ const resetSnapshotBuffer = () => {
     snapshotBuffer.length = 0;
     lastSnapshotTime = null;
     avgSnapshotIntervalMs = 100;
-    interpolationDelayMs = 100;
+    interpolationDelayMs = lookAheadMs;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const wrapAngle = (angle: number) => {
+    let value = angle;
+    const twoPi = Math.PI * 2;
+    while (value < -Math.PI) value += twoPi;
+    while (value > Math.PI) value -= twoPi;
+    return value;
+};
 const lerpAngle = (a: number, b: number, t: number) => {
-    const delta = ((b - a + 540) % 360) - 180;
+    const delta = wrapAngle(b - a);
     return a + delta * t;
 };
 const shouldUseHermite = (dx: number, dy: number, dtMs: number) => {
@@ -549,6 +578,7 @@ const captureSnapshot = (state: GameStateLike) => {
             vx: Number(player.vx ?? 0),
             vy: Number(player.vy ?? 0),
             angle: Number(player.angle ?? 0),
+            angVel: Number(player.angVel ?? 0),
             mass: Number(player.mass ?? 0),
             hp: Number(player.hp ?? 0),
             maxHp: Number(player.maxHp ?? 0),
@@ -595,10 +625,9 @@ const captureSnapshot = (state: GameStateLike) => {
         const dt = now - lastSnapshotTime;
         if (dt > 0) {
             avgSnapshotIntervalMs = avgSnapshotIntervalMs * 0.9 + dt * 0.1;
-            interpolationDelayMs = clamp(
-                avgSnapshotIntervalMs * 2,
-                interpolationDelayClamp.min,
-                interpolationDelayClamp.max
+            interpolationDelayMs = Math.max(
+                lookAheadMs,
+                clamp(avgSnapshotIntervalMs * 2, interpolationDelayClamp.min, interpolationDelayClamp.max)
             );
         }
     }
@@ -619,18 +648,28 @@ const extrapolateMotion = <T extends { x: number; y: number; vx: number; vy: num
     y: entity.y + entity.vy * dtSec,
 });
 
+const extrapolatePlayer = (player: SnapshotPlayer, dtSec: number): RenderPlayer => ({
+    ...player,
+    x: player.x + player.vx * dtSec,
+    y: player.y + player.vy * dtSec,
+    angle: wrapAngle(player.angle + player.angVel * dtSec),
+});
+
 const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: number, dtSec: number): RenderPlayer => {
     const dtMs = dtSec * 1000;
     const dx = newer.x - older.x;
     const dy = newer.y - older.y;
     const useHermite = shouldUseHermite(dx, dy, dtMs);
+    const angleDelta = Math.abs(wrapAngle(newer.angle - older.angle));
+    const angleT = angleDelta > angleMaxDeviationRad ? clamp(t * 1.5, 0, 1) : t;
     return {
         ...newer,
         x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
         y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
         vx: lerp(older.vx, newer.vx, t),
         vy: lerp(older.vy, newer.vy, t),
-        angle: lerpAngle(older.angle, newer.angle, t),
+        angle: lerpAngle(older.angle, newer.angle, angleT),
+        angVel: lerp(older.angVel, newer.angVel, angleT),
         mass: lerp(older.mass, newer.mass, t),
         hp: lerp(older.hp, newer.hp, t),
         maxHp: lerp(older.maxHp, newer.maxHp, t),
@@ -712,7 +751,7 @@ const extrapolateState = (snapshot: Snapshot, dtSec: number): RenderState => {
     const chests = new Map<string, RenderChest>();
     const hotZones = new Map<string, RenderHotZone>();
     for (const [id, player] of snapshot.players.entries()) {
-        players.set(id, extrapolateMotion(player, dtSec));
+        players.set(id, extrapolatePlayer(player, dtSec));
     }
     for (const [id, orb] of snapshot.orbs.entries()) {
         orbs.set(id, extrapolateMotion(orb, dtSec));
@@ -723,6 +762,60 @@ const extrapolateState = (snapshot: Snapshot, dtSec: number): RenderState => {
     for (const [id, zone] of snapshot.hotZones.entries()) {
         hotZones.set(id, { ...zone });
     }
+    return {
+        players,
+        orbs,
+        chests,
+        hotZones,
+    };
+};
+
+const extrapolateStateWithDecay = (
+    snapshot: Snapshot,
+    extrapolateSec: number,
+    extraSec: number,
+    decay: number
+): RenderState => {
+    const players = new Map<string, RenderPlayer>();
+    const orbs = new Map<string, RenderOrb>();
+    const chests = new Map<string, RenderChest>();
+    const hotZones = new Map<string, RenderHotZone>();
+    const extraScale = extraSec > 0 ? extraSec * (1 + decay) * 0.5 : 0;
+    const totalSec = extrapolateSec + extraScale;
+
+    for (const [id, player] of snapshot.players.entries()) {
+        players.set(id, {
+            ...player,
+            x: player.x + player.vx * totalSec,
+            y: player.y + player.vy * totalSec,
+            vx: player.vx * decay,
+            vy: player.vy * decay,
+            angVel: player.angVel * decay,
+            angle: wrapAngle(player.angle + player.angVel * totalSec),
+        });
+    }
+    for (const [id, orb] of snapshot.orbs.entries()) {
+        orbs.set(id, {
+            ...orb,
+            x: orb.x + orb.vx * totalSec,
+            y: orb.y + orb.vy * totalSec,
+            vx: orb.vx * decay,
+            vy: orb.vy * decay,
+        });
+    }
+    for (const [id, chest] of snapshot.chests.entries()) {
+        chests.set(id, {
+            ...chest,
+            x: chest.x + chest.vx * totalSec,
+            y: chest.y + chest.vy * totalSec,
+            vx: chest.vx * decay,
+            vy: chest.vy * decay,
+        });
+    }
+    for (const [id, zone] of snapshot.hotZones.entries()) {
+        hotZones.set(id, { ...zone });
+    }
+
     return {
         players,
         orbs,
@@ -799,8 +892,20 @@ const getRenderState = (renderTimeMs: number): RenderState | null => {
     }
 
     if (renderTimeMs >= newest.time) {
-        const dtMs = Math.min(renderTimeMs - newest.time, maxExtrapolationMs);
-        return extrapolateState(newest, dtMs / 1000);
+        const dtMs = renderTimeMs - newest.time;
+        if (dtMs <= maxExtrapolationMs || transitionDurationMs <= 0) {
+            const clamped = Math.min(dtMs, maxExtrapolationMs);
+            return extrapolateState(newest, clamped / 1000);
+        }
+        const excessMs = dtMs - maxExtrapolationMs;
+        const cappedExcessMs = Math.min(excessMs, transitionDurationMs);
+        const decay = clamp(1 - cappedExcessMs / transitionDurationMs, 0, 1);
+        return extrapolateStateWithDecay(
+            newest,
+            maxExtrapolationMs / 1000,
+            cappedExcessMs / 1000,
+            decay
+        );
     }
 
     if (snapshotBuffer.length < 2) {
@@ -891,6 +996,19 @@ function pickSpriteForPlayer(sessionId: string): string {
     return slimeSpriteNames[hash % slimeSpriteNames.length];
 }
 
+function getSlimeConfigForPlayer(classId: number) {
+    switch (classId) {
+        case 1:
+            return balanceConfig.slimeConfigs.warrior;
+        case 2:
+            return balanceConfig.slimeConfigs.collector;
+        case 0:
+            return balanceConfig.slimeConfigs.hunter;
+        default:
+            return balanceConfig.slimeConfigs.base;
+    }
+}
+
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -902,7 +1020,7 @@ window.addEventListener("resize", resizeCanvas);
 function worldToScreen(x: number, y: number, scale: number, camX: number, camY: number, cw: number, ch: number) {
     return {
         x: (x - camX) * scale + cw / 2,
-        y: (y - camY) * scale + ch / 2,
+        y: (camY - y) * scale + ch / 2,
     };
 }
 
@@ -910,10 +1028,12 @@ function drawGrid(scale: number, camX: number, camY: number, cw: number, ch: num
     const step = 200;
     const halfW = cw / scale / 2;
     const halfH = ch / scale / 2;
-    const startX = Math.max(0, Math.floor((camX - halfW) / step) * step);
-    const endX = Math.min(mapSize, Math.ceil((camX + halfW) / step) * step);
-    const startY = Math.max(0, Math.floor((camY - halfH) / step) * step);
-    const endY = Math.min(mapSize, Math.ceil((camY + halfH) / step) * step);
+    const worldHalfW = worldWidth / 2;
+    const worldHalfH = worldHeight / 2;
+    const startX = Math.max(-worldHalfW, Math.floor((camX - halfW) / step) * step);
+    const endX = Math.min(worldHalfW, Math.ceil((camX + halfW) / step) * step);
+    const startY = Math.max(-worldHalfH, Math.floor((camY - halfH) / step) * step);
+    const endY = Math.min(worldHalfH, Math.ceil((camY + halfH) / step) * step);
     canvasCtx.strokeStyle = "rgba(255,255,255,0.03)";
     canvasCtx.lineWidth = 1;
     for (let x = startX; x <= endX; x += step) {
@@ -989,17 +1109,16 @@ function drawSprite(
     x: number,
     y: number,
     radius: number,
-    angleDeg: number,
+    angleRad: number,
     fallbackFill: string,
     fallbackStroke: string,
     spriteScale = 1
 ) {
     if (ready) {
         const size = radius * 2 * spriteScale;
-        const angleRad = (angleDeg * Math.PI) / 180;
         canvasCtx.save();
         canvasCtx.translate(x, y);
-        canvasCtx.rotate(angleRad);
+        canvasCtx.rotate(-angleRad);
         canvasCtx.drawImage(img, -size / 2, -size / 2, size, size);
         canvasCtx.restore();
     } else {
@@ -1180,7 +1299,7 @@ async function main() {
 
         const computeMoveInput = () => {
             if (joystickState.active) {
-                return { x: joystickState.moveX, y: joystickState.moveY };
+                return { x: joystickState.moveX, y: -joystickState.moveY };
             }
             let x = 0;
             let y = 0;
@@ -1196,7 +1315,7 @@ async function main() {
                 x = 0;
                 y = 0;
             }
-            return { x, y };
+            return { x, y: -y };
         };
 
         let lastSentInput = { x: 0, y: 0 };
@@ -1221,8 +1340,10 @@ async function main() {
             const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
             const halfWorldW = cw / scale / 2;
             const halfWorldH = ch / scale / 2;
+            const worldHalfW = worldWidth / 2;
+            const worldHalfH = worldHeight / 2;
 
-            const renderState = getRenderState(performance.now() - interpolationDelayMs);
+            const renderState = getRenderState(performance.now() - interpolationDelayMs + lookAheadMs);
             renderStateForHud = renderState;
             const playersView = renderState ? renderState.players : room.state.players;
             const orbsView = renderState ? renderState.orbs : room.state.orbs;
@@ -1230,10 +1351,12 @@ async function main() {
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
 
             const cameraTarget = renderState?.players.get(room.sessionId) ?? localPlayer;
-            const targetX = cameraTarget ? cameraTarget.x : mapSize / 2;
-            const targetY = cameraTarget ? cameraTarget.y : mapSize / 2;
-            const clampX = Math.max(halfWorldW, Math.min(mapSize - halfWorldW, targetX));
-            const clampY = Math.max(halfWorldH, Math.min(mapSize - halfWorldH, targetY));
+            const targetX = cameraTarget ? cameraTarget.x : 0;
+            const targetY = cameraTarget ? cameraTarget.y : 0;
+            const maxCamX = Math.max(0, worldHalfW - halfWorldW);
+            const maxCamY = Math.max(0, worldHalfH - halfWorldH);
+            const clampX = clamp(targetX, -maxCamX, maxCamX);
+            const clampY = clamp(targetY, -maxCamY, maxCamY);
             camera.x += (clampX - camera.x) * cameraLerp;
             camera.y += (clampY - camera.y) * cameraLerp;
 
@@ -1293,21 +1416,22 @@ async function main() {
                 if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
                 const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
                 const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
-                const baseRadius = getSlimeRadius(player.mass, balanceConfig.formulas);
+                const slimeConfig = getSlimeConfigForPlayer(player.classId);
+                const baseRadius = getSlimeRadiusFromConfig(player.mass, slimeConfig);
                 const radius = baseRadius * classRadiusMult * scale;
                 const isSelf = id === room.sessionId;
                 const isRebel = id === room.state.rebelId || (player.flags & FLAG_IS_REBEL) !== 0;
                 const color = isSelf ? "#6fd6ff" : "#9be070";
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
-                const r = Math.max(radius, 12);
-                const angleDeg = player.angle ?? 0;
+                const r = radius;
+                const angleRad = player.angle ?? 0;
                 const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(id);
                 const sprite = loadSprite(spriteName);
                 const alpha = player.alpha ?? 1;
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
-                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleDeg, color, stroke, sprite.scale);
+                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
 
                 canvasCtx.fillStyle = "#e6f3ff";
                 canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
@@ -1353,9 +1477,10 @@ async function main() {
                 const dx = chest.x - camera.x;
                 const dy = chest.y - camera.y;
                 if (Math.abs(dx) <= halfWorldW && Math.abs(dy) <= halfWorldH) continue;
-                const angle = Math.atan2(dy, dx);
-                const edgeX = Math.cos(angle) * (halfWorldW - 40);
-                const edgeY = Math.sin(angle) * (halfWorldH - 40);
+                const worldAngle = Math.atan2(dy, dx);
+                const screenAngle = Math.atan2(-dy, dx);
+                const edgeX = Math.cos(worldAngle) * (halfWorldW - 40);
+                const edgeY = Math.sin(worldAngle) * (halfWorldH - 40);
                 const screen = worldToScreen(camera.x + edgeX, camera.y + edgeY, scale, camera.x, camera.y, cw, ch);
                 const style = chestStyles[chest.type] ?? chestStyles[0];
                 const alpha = chest.alpha ?? 1;
@@ -1363,7 +1488,7 @@ async function main() {
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
                 canvasCtx.translate(screen.x, screen.y);
-                canvasCtx.rotate(angle);
+                canvasCtx.rotate(screenAngle);
                 canvasCtx.fillStyle = style.fill;
                 canvasCtx.strokeStyle = style.stroke;
                 canvasCtx.lineWidth = 2;
@@ -1386,9 +1511,10 @@ async function main() {
                     const dx = king.x - camera.x;
                     const dy = king.y - camera.y;
                     if (Math.abs(dx) > halfWorldW || Math.abs(dy) > halfWorldH) {
-                        const angle = Math.atan2(dy, dx);
-                        const edgeX = Math.cos(angle) * (halfWorldW - 54);
-                        const edgeY = Math.sin(angle) * (halfWorldH - 54);
+                        const worldAngle = Math.atan2(dy, dx);
+                        const screenAngle = Math.atan2(-dy, dx);
+                        const edgeX = Math.cos(worldAngle) * (halfWorldW - 54);
+                        const edgeY = Math.sin(worldAngle) * (halfWorldH - 54);
                         const screen = worldToScreen(
                             camera.x + edgeX,
                             camera.y + edgeY,
@@ -1403,7 +1529,7 @@ async function main() {
                             canvasCtx.save();
                             canvasCtx.globalAlpha = alpha;
                             canvasCtx.translate(screen.x, screen.y);
-                            canvasCtx.rotate(angle);
+                            canvasCtx.rotate(screenAngle);
 
                             canvasCtx.fillStyle = "#ff4d4d";
                             canvasCtx.strokeStyle = "#ffe8a3";

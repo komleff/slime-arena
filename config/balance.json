@@ -35,7 +35,216 @@
     "joystickRadius": 100,
     "joystickDeadzone": 0.1,
     "joystickSensitivity": 1.0,
-    "joystickFollowSpeed": 0.8
+    "joystickFollowSpeed": 0.8,
+    "inputTimeoutMs": 200
+  },
+  "slimeConfigs": {
+    "base": {
+      "id": "base",
+      "name": "Base Slime",
+      "geometry": {
+        "baseMassKg": 100,
+        "baseRadiusM": 1.0,
+        "inertiaFactor": 0.5
+      },
+      "propulsion": {
+        "thrustForwardN": 9000,
+        "thrustReverseN": 6750,
+        "thrustLateralN": 8500,
+        "turnTorqueNm": 175
+      },
+      "limits": {
+        "speedLimitForwardMps": 260,
+        "speedLimitReverseMps": 180,
+        "speedLimitLateralMps": 220,
+        "angularSpeedLimitDegps": 80
+      },
+      "assist": {
+        "comfortableBrakingTimeS": 3.5,
+        "angularStopTimeS": 1.0,
+        "autoBrakeMaxThrustFraction": 0.6,
+        "overspeedDampingRate": 0.2,
+        "yawFullDeflectionAngleDeg": 90,
+        "yawOscillationWindowFrames": 12,
+        "yawOscillationSignFlipsThreshold": 4,
+        "yawDampingBoostFactor": 2.0,
+        "yawCmdEps": 0.001
+      },
+      "combat": {
+        "biteDamagePctOfMass": 0.02,
+        "orbBitePctOfMass": 0.05
+      },
+      "massScaling": {
+        "minMassFactor": 0.1,
+        "thrustForwardN": { "type": "power", "exp": 0.5 },
+        "thrustReverseN": { "type": "power", "exp": 0.5 },
+        "thrustLateralN": { "type": "power", "exp": 0.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "speedLimitForwardMps": { "type": "power", "exp": 0 },
+        "speedLimitReverseMps": { "type": "power", "exp": 0 },
+        "speedLimitLateralMps": { "type": "power", "exp": 0 },
+        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+      }
+    },
+    "hunter": {
+      "id": "hunter",
+      "name": "Hunter",
+      "geometry": {
+        "baseMassKg": 100,
+        "baseRadiusM": 1.0,
+        "inertiaFactor": 0.5
+      },
+      "propulsion": {
+        "thrustForwardN": 9000,
+        "thrustReverseN": 6750,
+        "thrustLateralN": 8500,
+        "turnTorqueNm": 175
+      },
+      "limits": {
+        "speedLimitForwardMps": 260,
+        "speedLimitReverseMps": 180,
+        "speedLimitLateralMps": 220,
+        "angularSpeedLimitDegps": 80
+      },
+      "assist": {
+        "comfortableBrakingTimeS": 3.5,
+        "angularStopTimeS": 1.0,
+        "autoBrakeMaxThrustFraction": 0.6,
+        "overspeedDampingRate": 0.2,
+        "yawFullDeflectionAngleDeg": 90,
+        "yawOscillationWindowFrames": 12,
+        "yawOscillationSignFlipsThreshold": 4,
+        "yawDampingBoostFactor": 2.0,
+        "yawCmdEps": 0.001
+      },
+      "combat": {
+        "biteDamagePctOfMass": 0.02,
+        "orbBitePctOfMass": 0.05
+      },
+      "massScaling": {
+        "minMassFactor": 0.1,
+        "thrustForwardN": { "type": "power", "exp": 0.5 },
+        "thrustReverseN": { "type": "power", "exp": 0.5 },
+        "thrustLateralN": { "type": "power", "exp": 0.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "speedLimitForwardMps": { "type": "power", "exp": 0 },
+        "speedLimitReverseMps": { "type": "power", "exp": 0 },
+        "speedLimitLateralMps": { "type": "power", "exp": 0 },
+        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+      }
+    },
+    "warrior": {
+      "id": "warrior",
+      "name": "Warrior",
+      "geometry": {
+        "baseMassKg": 100,
+        "baseRadiusM": 1.0,
+        "inertiaFactor": 0.5
+      },
+      "propulsion": {
+        "thrustForwardN": 9000,
+        "thrustReverseN": 6750,
+        "thrustLateralN": 8500,
+        "turnTorqueNm": 175
+      },
+      "limits": {
+        "speedLimitForwardMps": 260,
+        "speedLimitReverseMps": 180,
+        "speedLimitLateralMps": 220,
+        "angularSpeedLimitDegps": 80
+      },
+      "assist": {
+        "comfortableBrakingTimeS": 3.5,
+        "angularStopTimeS": 1.0,
+        "autoBrakeMaxThrustFraction": 0.6,
+        "overspeedDampingRate": 0.2,
+        "yawFullDeflectionAngleDeg": 90,
+        "yawOscillationWindowFrames": 12,
+        "yawOscillationSignFlipsThreshold": 4,
+        "yawDampingBoostFactor": 2.0,
+        "yawCmdEps": 0.001
+      },
+      "combat": {
+        "biteDamagePctOfMass": 0.02,
+        "orbBitePctOfMass": 0.05
+      },
+      "massScaling": {
+        "minMassFactor": 0.1,
+        "thrustForwardN": { "type": "power", "exp": 0.5 },
+        "thrustReverseN": { "type": "power", "exp": 0.5 },
+        "thrustLateralN": { "type": "power", "exp": 0.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "speedLimitForwardMps": { "type": "power", "exp": 0 },
+        "speedLimitReverseMps": { "type": "power", "exp": 0 },
+        "speedLimitLateralMps": { "type": "power", "exp": 0 },
+        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+      }
+    },
+    "collector": {
+      "id": "collector",
+      "name": "Collector",
+      "geometry": {
+        "baseMassKg": 100,
+        "baseRadiusM": 1.0,
+        "inertiaFactor": 0.5
+      },
+      "propulsion": {
+        "thrustForwardN": 9000,
+        "thrustReverseN": 6750,
+        "thrustLateralN": 8500,
+        "turnTorqueNm": 175
+      },
+      "limits": {
+        "speedLimitForwardMps": 260,
+        "speedLimitReverseMps": 180,
+        "speedLimitLateralMps": 220,
+        "angularSpeedLimitDegps": 80
+      },
+      "assist": {
+        "comfortableBrakingTimeS": 3.5,
+        "angularStopTimeS": 1.0,
+        "autoBrakeMaxThrustFraction": 0.6,
+        "overspeedDampingRate": 0.2,
+        "yawFullDeflectionAngleDeg": 90,
+        "yawOscillationWindowFrames": 12,
+        "yawOscillationSignFlipsThreshold": 4,
+        "yawDampingBoostFactor": 2.0,
+        "yawCmdEps": 0.001
+      },
+      "combat": {
+        "biteDamagePctOfMass": 0.02,
+        "orbBitePctOfMass": 0.05
+      },
+      "massScaling": {
+        "minMassFactor": 0.1,
+        "thrustForwardN": { "type": "power", "exp": 0.5 },
+        "thrustReverseN": { "type": "power", "exp": 0.5 },
+        "thrustLateralN": { "type": "power", "exp": 0.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "speedLimitForwardMps": { "type": "power", "exp": 0 },
+        "speedLimitReverseMps": { "type": "power", "exp": 0 },
+        "speedLimitLateralMps": { "type": "power", "exp": 0 },
+        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+      }
+    }
+  },
+  "worldPhysics": {
+    "linearDragK": 0.1,
+    "angularDragK": 0.0,
+    "restitution": 0.9,
+    "maxPositionCorrectionM": 0.5,
+    "worldShape": "rectangle",
+    "widthM": 2000,
+    "heightM": 2000
+  },
+  "clientNetSmoothing": {
+    "lookAheadMs": 100,
+    "maxDeviationM": 2.0,
+    "catchUpMin": 0.9,
+    "catchUpMax": 1.2,
+    "maxExtrapolationMs": 250,
+    "transitionDurationMs": 200,
+    "angleMaxDeviationRad": 0.35
   },
   "slime": {
     "initialMass": 100,

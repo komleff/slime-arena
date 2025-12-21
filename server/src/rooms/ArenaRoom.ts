@@ -3,17 +3,17 @@ import { GameState, Player, Orb, Chest, HotZone } from "./schema/GameState";
 import {
     InputCommand,
     MatchPhaseId,
-    getSlimeDamage,
-    getSlimeHp,
-    getSlimeRadius,
+    getSlimeBiteDamage,
+    getSlimeInertia,
+    getSlimeRadiusFromConfig,
+    scaleSlimeValue,
     getOrbRadius,
-    getSpeedMultiplier,
-    getTurnRateDeg,
     FLAG_RESPAWN_SHIELD,
     FLAG_LAST_BREATH,
     FLAG_IS_REBEL,
     FLAG_IS_DEAD,
     ResolvedBalanceConfig,
+    SlimeConfig,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
@@ -21,8 +21,6 @@ import { Rng } from "../utils/rng";
 type ContactZone = "mouth" | "tail" | "side";
 
 interface ClassStats {
-    speedMult: number;
-    hpMult: number;
     radiusMult: number;
     damageMult: number;
     swallowLimit: number;
@@ -59,6 +57,7 @@ export class ArenaRoom extends Room<GameState> {
     private chestSpawnIntervalTicks = 0;
     private lastBreathTicks = 0;
     private rebelUpdateIntervalTicks = 0;
+    private inputTimeoutTicks = 0;
 
     onCreate(options: { seed?: number } = {}) {
         this.balance = loadBalanceConfig();
@@ -76,6 +75,7 @@ export class ArenaRoom extends Room<GameState> {
         this.chestSpawnIntervalTicks = this.secondsToTicks(this.balance.chests.spawnIntervalSec);
         this.lastBreathTicks = this.secondsToTicks(this.balance.combat.lastBreathDurationSec);
         this.rebelUpdateIntervalTicks = this.secondsToTicks(this.balance.rebel.updateIntervalSec);
+        this.inputTimeoutTicks = this.msToTicks(this.balance.controls.inputTimeoutMs);
         this.metricsIntervalTicks = this.balance.server.tickRate;
 
         this.setState(new GameState());
@@ -109,6 +109,7 @@ export class ArenaRoom extends Room<GameState> {
 
             player.inputX = moveX;
             player.inputY = moveY;
+            player.lastInputTick = this.tick;
 
             const abilitySlot = data.abilitySlot;
             if (
@@ -153,9 +154,11 @@ export class ArenaRoom extends Room<GameState> {
         player.classId = this.balance.slime.initialClassId;
         player.talentsAvailable = 0;
         player.angle = 0;
+        player.angVel = 0;
         player.isDead = false;
         player.isDrifting = false;
         player.gcdReadyTick = this.tick;
+        player.lastInputTick = this.tick;
         this.updateMaxHpForMass(player);
         player.hp = player.maxHp;
         this.state.players.set(client.sessionId, player);
@@ -184,8 +187,8 @@ export class ArenaRoom extends Room<GameState> {
         this.abilitySystem();
         this.updateOrbs();
         this.updateChests();
-        this.movementSystem();
-        this.boundsSystem();
+        this.flightAssistSystem();
+        this.physicsSystem();
         this.collisionSystem();
         this.chestSystem();
         this.pickupSystem();
@@ -202,13 +205,34 @@ export class ArenaRoom extends Room<GameState> {
 
     private applyInputs() {
         const deadzone = this.balance.controls.joystickDeadzone;
+        const timeoutTick = this.inputTimeoutTicks > 0 ? this.tick - this.inputTimeoutTicks : null;
         for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const len = Math.hypot(player.inputX, player.inputY);
-            if (len < deadzone) {
+            if (player.isDead) {
                 player.inputX = 0;
                 player.inputY = 0;
+                continue;
             }
+            if (timeoutTick !== null && player.lastInputTick <= timeoutTick) {
+                player.inputX = 0;
+                player.inputY = 0;
+                continue;
+            }
+
+            let x = player.inputX;
+            let y = player.inputY;
+            const len = Math.hypot(x, y);
+            if (len <= deadzone) {
+                player.inputX = 0;
+                player.inputY = 0;
+                continue;
+            }
+
+            const normalized = 1 / Math.max(len, 1e-6);
+            const mag = Math.min(1, (len - deadzone) / Math.max(1 - deadzone, 1e-6));
+            x = x * normalized * mag;
+            y = y * normalized * mag;
+            player.inputX = x;
+            player.inputY = y;
         }
     }
 
@@ -257,10 +281,7 @@ export class ArenaRoom extends Room<GameState> {
     private applyTalentChoice(player: Player, choice: number) {
         const applyMassBonus = (bonus: number) => {
             if (bonus <= 0) return;
-            const hpRatio = player.maxHp > 0 ? player.hp / player.maxHp : 1;
-            player.mass += player.mass * bonus;
-            this.updateMaxHpForMass(player);
-            player.hp = Math.min(player.maxHp, player.maxHp * hpRatio);
+            this.applyMassDelta(player, player.mass * bonus);
         };
 
         switch (choice) {
@@ -284,144 +305,283 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private movementSystem() {
+    private flightAssistSystem() {
         const dt = 1 / this.balance.server.tickRate;
         for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
+            if (player.isDead) {
+                player.assistFx = 0;
+                player.assistFy = 0;
+                player.assistTorque = 0;
+                continue;
+            }
 
+            const slimeConfig = this.getSlimeConfig(player);
             const classStats = this.getClassStats(player);
-            const speedMult = getSpeedMultiplier(player.mass, this.balance.formulas) * classStats.speedMult;
-            const turnRateDeg = getTurnRateDeg(
-                player.mass,
-                this.balance.movement.baseTurnRateDeg,
-                this.balance.movement.turnDivisor
+            const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
+
+            let thrustForward = scaleSlimeValue(
+                slimeConfig.propulsion.thrustForwardN,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.thrustForwardN
+            );
+            let thrustReverse = scaleSlimeValue(
+                slimeConfig.propulsion.thrustReverseN,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.thrustReverseN
+            );
+            let thrustLateral = scaleSlimeValue(
+                slimeConfig.propulsion.thrustLateralN,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.thrustLateralN
+            );
+            let turnTorque = scaleSlimeValue(
+                slimeConfig.propulsion.turnTorqueNm,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.turnTorqueNm
+            );
+            let speedLimitForward = scaleSlimeValue(
+                slimeConfig.limits.speedLimitForwardMps,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.speedLimitForwardMps
+            );
+            let speedLimitReverse = scaleSlimeValue(
+                slimeConfig.limits.speedLimitReverseMps,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.speedLimitReverseMps
+            );
+            let speedLimitLateral = scaleSlimeValue(
+                slimeConfig.limits.speedLimitLateralMps,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.speedLimitLateralMps
             );
 
-            if (player.inputX !== 0 || player.inputY !== 0) {
-                const targetAngle = Math.atan2(player.inputY, player.inputX) * (180 / Math.PI);
-                let diff = this.normalizeAngle(targetAngle - player.angle);
+            if (player.isLastBreath) {
+                const penalty = this.balance.combat.lastBreathSpeedPenalty;
+                thrustForward *= penalty;
+                thrustReverse *= penalty;
+                thrustLateral *= penalty;
+                speedLimitForward *= penalty;
+                speedLimitReverse *= penalty;
+                speedLimitLateral *= penalty;
+            }
 
-                if (
-                    !player.isDrifting &&
-                    this.tick >= player.driftCooldownEndTick &&
-                    Math.abs(diff) > this.balance.movement.driftThresholdAngleDeg
-                ) {
-                    player.isDrifting = true;
-                    player.driftEndTick = this.tick + this.driftDurationTicks;
-                    player.driftCooldownEndTick = this.tick + this.driftDurationTicks + this.driftCooldownTicks;
-                    const loss = Math.max(0, 1 - this.balance.movement.driftSpeedLoss);
-                    player.vx *= loss;
-                    player.vy *= loss;
+            const forwardX = Math.cos(player.angle);
+            const forwardY = Math.sin(player.angle);
+            const rightX = -forwardY;
+            const rightY = forwardX;
+
+            const inputX = player.inputX;
+            const inputY = player.inputY;
+            const mag = Math.hypot(inputX, inputY);
+            const hasInput = mag > 1e-6;
+            const dirX = hasInput ? inputX / mag : 0;
+            const dirY = hasInput ? inputY / mag : 0;
+
+            let yawCmd = 0;
+            if (hasInput) {
+                const targetAngle = Math.atan2(dirY, dirX);
+                const delta = this.normalizeAngle(targetAngle - player.angle);
+                const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
+                if (yawFull > 1e-6) {
+                    yawCmd = this.clamp(delta / yawFull, -1, 1);
+                }
+                yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
+            } else {
+                player.yawSignHistory.length = 0;
+            }
+
+            let forceForward = 0;
+            let forceRight = 0;
+
+            if (hasInput) {
+                forceForward += mag * thrustForward;
+            } else {
+                const brakeTime = slimeConfig.assist.comfortableBrakingTimeS;
+                if (brakeTime > 0) {
+                    const ax = -player.vx / brakeTime;
+                    const ay = -player.vy / brakeTime;
+                    const fDesX = mass * ax;
+                    const fDesY = mass * ay;
+                    const fForward = fDesX * forwardX + fDesY * forwardY;
+                    const fRight = fDesX * rightX + fDesY * rightY;
+                    const fraction = slimeConfig.assist.autoBrakeMaxThrustFraction;
+                    forceForward += this.clamp(fForward, -thrustReverse, thrustForward) * fraction;
+                    forceRight += this.clamp(fRight, -thrustLateral, thrustLateral) * fraction;
+                }
+            }
+
+            const overspeedRate = slimeConfig.assist.overspeedDampingRate;
+            if (overspeedRate > 0) {
+                const vForward = player.vx * forwardX + player.vy * forwardY;
+                const forwardLimit = vForward >= 0 ? speedLimitForward : speedLimitReverse;
+                const forwardExcess = Math.abs(vForward) - forwardLimit;
+                if (forwardExcess > 0) {
+                    const dvTarget = -Math.sign(vForward) * forwardExcess * overspeedRate;
+                    const aTarget = dvTarget / dt;
+                    const fReq = mass * aTarget;
+                    const maxBrake = vForward >= 0 ? thrustReverse : thrustForward;
+                    let brake = this.clamp(fReq, -maxBrake, maxBrake);
+                    if (!hasInput) {
+                        brake *= slimeConfig.assist.autoBrakeMaxThrustFraction;
+                    }
+                    forceForward += brake;
                 }
 
-                let currentTurnRate = turnRateDeg;
-                if (player.isDrifting) {
-                    currentTurnRate = this.balance.movement.driftTurnRateDeg;
+                const vRight = player.vx * rightX + player.vy * rightY;
+                const lateralExcess = Math.abs(vRight) - speedLimitLateral;
+                if (lateralExcess > 0) {
+                    const dvTarget = -Math.sign(vRight) * lateralExcess * overspeedRate;
+                    const aTarget = dvTarget / dt;
+                    const fReq = mass * aTarget;
+                    let brake = this.clamp(fReq, -thrustLateral, thrustLateral);
+                    if (!hasInput) {
+                        brake *= slimeConfig.assist.autoBrakeMaxThrustFraction;
+                    }
+                    forceRight += brake;
                 }
+            }
 
-                const maxTurn = currentTurnRate * dt;
-                if (Math.abs(diff) <= maxTurn) {
-                    player.angle = targetAngle;
+            forceForward = this.clamp(forceForward, -thrustReverse, thrustForward);
+            forceRight = this.clamp(forceRight, -thrustLateral, thrustLateral);
+
+            const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
+            const yawCmdEps = slimeConfig.assist.yawCmdEps;
+            const noYawInput = !hasInput || Math.abs(yawCmd) < yawCmdEps;
+            const angularStopTime = slimeConfig.assist.angularStopTimeS;
+            let dampingTorque = 0;
+            if (Math.abs(player.angVel) > 1e-6) {
+                if (angularStopTime > 0) {
+                    dampingTorque = inertia * (-player.angVel / angularStopTime);
+                    dampingTorque = this.clamp(dampingTorque, -turnTorque, turnTorque);
                 } else {
-                    player.angle += Math.sign(diff) * maxTurn;
+                    dampingTorque = -Math.sign(player.angVel) * turnTorque;
                 }
-                player.angle = this.normalizeAngle(player.angle);
             }
 
-            if (player.isDrifting && this.tick >= player.driftEndTick) {
-                player.isDrifting = false;
+            let torque = 0;
+            if (!noYawInput) {
+                const inputTorque = yawCmd * turnTorque;
+                torque = inputTorque + dampingTorque;
+            } else {
+                torque = dampingTorque;
             }
 
-            const inputMag = Math.hypot(player.inputX, player.inputY);
-            if (inputMag > 0) {
-                const baseSpeed = this.balance.movement.baseSpeed;
-                let accel = baseSpeed * speedMult * inputMag;
-                let maxSpeed = this.balance.physics.maxSlimeSpeed * speedMult;
-                if (player.isLastBreath) {
-                    accel *= this.balance.combat.lastBreathSpeedPenalty;
-                    maxSpeed *= this.balance.combat.lastBreathSpeedPenalty;
-                }
-                const angleRad = player.angle * (Math.PI / 180);
-                player.vx += Math.cos(angleRad) * accel * dt;
-                player.vy += Math.sin(angleRad) * accel * dt;
-
-                this.applySpeedCap(player, maxSpeed);
-            }
-
-            const damping = Math.max(
-                0,
-                1 - this.balance.physics.environmentDrag - this.balance.physics.slimeLinearDamping
-            );
-            player.vx *= damping;
-            player.vy *= damping;
-
-            player.x += player.vx * dt;
-            player.y += player.vy * dt;
+            const forceWorldX = forwardX * forceForward + rightX * forceRight;
+            const forceWorldY = forwardY * forceForward + rightY * forceRight;
+            player.assistFx = forceWorldX;
+            player.assistFy = forceWorldY;
+            player.assistTorque = this.clamp(torque, -turnTorque, turnTorque);
         }
     }
 
-    private boundsSystem() {
-        const mapSize = this.balance.world.mapSize;
+    private physicsSystem() {
+        const dt = 1 / this.balance.server.tickRate;
+        const world = this.balance.worldPhysics;
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
-            const radius = this.getPlayerRadius(player);
-            this.applyBounds(player, radius, mapSize);
-        }
-        for (const orb of this.state.orbs.values()) {
-            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
-            this.applyBounds(orb, radius, mapSize);
-        }
-        for (const chest of this.state.chests.values()) {
-            this.applyBounds(chest, this.balance.chests.radius, mapSize);
+
+            const slimeConfig = this.getSlimeConfig(player);
+            const classStats = this.getClassStats(player);
+            const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
+            const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
+
+            const dragFx = -mass * world.linearDragK * player.vx;
+            const dragFy = -mass * world.linearDragK * player.vy;
+            const dragTorque = -inertia * world.angularDragK * player.angVel;
+
+            const totalFx = player.assistFx + dragFx;
+            const totalFy = player.assistFy + dragFy;
+            player.vx += (totalFx / mass) * dt;
+            player.vy += (totalFy / mass) * dt;
+            player.x += player.vx * dt;
+            player.y += player.vy * dt;
+
+            const totalTorque = player.assistTorque + dragTorque;
+            player.angVel += (totalTorque / Math.max(inertia, 1e-6)) * dt;
+            const angularLimit = scaleSlimeValue(
+                slimeConfig.limits.angularSpeedLimitRadps,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.angularSpeedLimitRadps
+            );
+            if (angularLimit > 0 && Math.abs(player.angVel) > angularLimit) {
+                player.angVel = Math.sign(player.angVel) * angularLimit;
+            }
+            player.angle = this.normalizeAngle(player.angle + player.angVel * dt);
         }
     }
 
     private collisionSystem() {
         const players = Array.from(this.state.players.values());
-        for (let i = 0; i < players.length; i += 1) {
-            const p1 = players[i];
-            if (p1.isDead) continue;
-            for (let j = i + 1; j < players.length; j += 1) {
-                const p2 = players[j];
-                if (p2.isDead) continue;
-                const dx = p2.x - p1.x;
-                const dy = p2.y - p1.y;
-                const r1 = this.getPlayerRadius(p1);
-                const r2 = this.getPlayerRadius(p2);
-                const minDist = r1 + r2;
-                const distSq = dx * dx + dy * dy;
-                if (distSq >= minDist * minDist) continue;
+        const iterations = 4;
+        const slop = 0.001;
+        const percent = 0.8;
+        const restitution = this.balance.worldPhysics.restitution;
+        const maxCorrection = this.balance.worldPhysics.maxPositionCorrectionM;
 
-                const dist = Math.sqrt(distSq) || 1;
-                const nx = dx / dist;
-                const ny = dy / dist;
-                const overlap = minDist - dist;
-                const totalMass = p1.mass + p2.mass;
-                const p1Ratio = p2.mass / totalMass;
-                const p2Ratio = p1.mass / totalMass;
-                p1.x -= nx * overlap * p1Ratio;
-                p1.y -= ny * overlap * p1Ratio;
-                p2.x += nx * overlap * p2Ratio;
-                p2.y += ny * overlap * p2Ratio;
+        for (let iter = 0; iter < iterations; iter += 1) {
+            for (let i = 0; i < players.length; i += 1) {
+                const p1 = players[i];
+                if (p1.isDead) continue;
+                for (let j = i + 1; j < players.length; j += 1) {
+                    const p2 = players[j];
+                    if (p2.isDead) continue;
 
-                const rvx = p2.vx - p1.vx;
-                const rvy = p2.vy - p1.vy;
-                const velAlongNormal = rvx * nx + rvy * ny;
-                if (velAlongNormal < 0) {
-                    let impulse = -(1 + this.balance.physics.collisionRestitution) * velAlongNormal;
-                    impulse /= 1 / p1.mass + 1 / p2.mass;
-                    impulse = Math.min(impulse, this.balance.physics.collisionImpulseCap);
-                    const ix = impulse * nx;
-                    const iy = impulse * ny;
-                    p1.vx -= (1 / p1.mass) * ix;
-                    p1.vy -= (1 / p1.mass) * iy;
-                    p2.vx += (1 / p2.mass) * ix;
-                    p2.vy += (1 / p2.mass) * iy;
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const r1 = this.getPlayerRadius(p1);
+                    const r2 = this.getPlayerRadius(p2);
+                    const minDist = r1 + r2;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(distSq);
+                    const nx = dist > 0 ? dx / dist : 1;
+                    const ny = dist > 0 ? dy / dist : 0;
+                    const penetration = minDist - (dist || 0);
+                    const invMass1 = p1.mass > 0 ? 1 / p1.mass : 0;
+                    const invMass2 = p2.mass > 0 ? 1 / p2.mass : 0;
+                    const invMassSum = invMass1 + invMass2;
+
+                    if (invMassSum > 0) {
+                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
+                        const corrMag = Math.min(corrRaw, maxCorrection);
+                        const corrX = nx * corrMag;
+                        const corrY = ny * corrMag;
+                        p1.x -= corrX * invMass1;
+                        p1.y -= corrY * invMass1;
+                        p2.x += corrX * invMass2;
+                        p2.y += corrY * invMass2;
+
+                        const rvx = p2.vx - p1.vx;
+                        const rvy = p2.vy - p1.vy;
+                        const velAlongNormal = rvx * nx + rvy * ny;
+                        if (velAlongNormal <= 0) {
+                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
+                            const impulseX = nx * jImpulse;
+                            const impulseY = ny * jImpulse;
+                            p1.vx -= impulseX * invMass1;
+                            p1.vy -= impulseY * invMass1;
+                            p2.vx += impulseX * invMass2;
+                            p2.vy += impulseY * invMass2;
+                        }
+                    }
+
+                    this.processCombat(p1, p2, dx, dy);
+                    this.processCombat(p2, p1, -dx, -dy);
                 }
+            }
 
-                this.processCombat(p1, p2, dx, dy);
-                this.processCombat(p2, p1, -dx, -dy);
+            for (const player of players) {
+                if (player.isDead) continue;
+                this.applyWorldBounds(player, this.getPlayerRadius(player));
             }
         }
     }
@@ -442,8 +602,10 @@ export class ArenaRoom extends Room<GameState> {
             damageMultiplier = 0.5;
         }
 
+        const slimeConfig = this.getSlimeConfig(attacker);
         const classStats = this.getClassStats(attacker);
-        let damage = getSlimeDamage(attacker.mass, this.balance.formulas) * damageMultiplier * classStats.damageMult;
+        let damage =
+            getSlimeBiteDamage(attacker.mass, slimeConfig) * damageMultiplier * classStats.damageMult;
         if (attacker.isLastBreath) {
             damage *= this.balance.combat.lastBreathDamageMult;
         }
@@ -466,10 +628,10 @@ export class ArenaRoom extends Room<GameState> {
         defender.hp = Math.max(0, defender.hp - damage);
 
         const stolenMass = damage * this.balance.combat.massStealPercent;
-        attacker.mass += stolenMass;
-        defender.mass = Math.max(this.balance.physics.minSlimeMass, defender.mass - stolenMass);
-        this.updateMaxHpForMass(attacker);
-        this.updateMaxHpForMass(defender);
+        if (stolenMass > 0) {
+            this.applyMassDelta(attacker, stolenMass);
+            this.applyMassDelta(defender, -stolenMass);
+        }
 
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
     }
@@ -481,10 +643,11 @@ export class ArenaRoom extends Room<GameState> {
             if (player.isDead) continue;
             if (this.tick < player.lastBiteTick + this.biteCooldownTicks) continue;
 
+            const slimeConfig = this.getSlimeConfig(player);
             const classStats = this.getClassStats(player);
             const playerRadius = this.getPlayerRadius(player);
-            const mouthHalf = (this.balance.combat.mouthArcDeg / 2) * (Math.PI / 180);
-            const playerAngleRad = player.angle * (Math.PI / 180);
+            const mouthHalf = (this.balance.combat.mouthArcDeg * Math.PI) / 360;
+            const playerAngleRad = player.angle;
 
             for (const [orbId, orb] of orbEntries) {
                 if (!this.state.orbs.has(orbId)) continue;
@@ -506,24 +669,20 @@ export class ArenaRoom extends Room<GameState> {
 
                 const biteFraction = Math.min(1, classStats.biteFraction * classStats.eatingPowerMult);
                 const canSwallow = orb.mass <= classStats.swallowLimit;
-                const biteMass = canSwallow ? orb.mass : orb.mass * biteFraction;
+                const maxBite = Math.max(0, player.mass * slimeConfig.combat.orbBitePctOfMass);
+                const biteMassRaw = canSwallow ? orb.mass : orb.mass * biteFraction;
+                const biteMass = maxBite > 0 ? Math.min(biteMassRaw, maxBite) : biteMassRaw;
 
                 if (orb.mass - biteMass <= this.balance.orbs.minMass) {
-                    player.mass += orb.mass;
+                    this.applyMassDelta(player, orb.mass);
                     this.state.orbs.delete(orbId);
                 } else {
                     orb.mass -= biteMass;
-                    player.mass += biteMass;
+                    this.applyMassDelta(player, biteMass);
                     const dist = Math.sqrt(distSq) || 1;
                     const push = this.balance.orbs.pushForce;
                     orb.vx += (dx / dist) * push * dt;
                     orb.vy += (dy / dist) * push * dt;
-                }
-
-                player.mass = Math.max(this.balance.physics.minSlimeMass, player.mass);
-                this.updateMaxHpForMass(player);
-                if (player.hp > player.maxHp) {
-                    player.hp = player.maxHp;
                 }
             }
         }
@@ -535,8 +694,8 @@ export class ArenaRoom extends Room<GameState> {
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
             const playerRadius = this.getPlayerRadius(player);
-            const playerAngleRad = player.angle * (Math.PI / 180);
-            const mouthHalf = (this.balance.combat.mouthArcDeg / 2) * (Math.PI / 180);
+            const playerAngleRad = player.angle;
+            const mouthHalf = (this.balance.combat.mouthArcDeg * Math.PI) / 360;
 
             for (const [chestId, chest] of chestEntries) {
                 if (!this.state.chests.has(chestId)) continue;
@@ -572,11 +731,7 @@ export class ArenaRoom extends Room<GameState> {
             const rewards = this.balance.chests.rewards.massPercent;
             const rewardIndex = this.rng.int(0, rewards.length);
             const gain = player.mass * rewards[rewardIndex];
-            player.mass += gain;
-            this.updateMaxHpForMass(player);
-            if (player.hp > player.maxHp) {
-                player.hp = player.maxHp;
-            }
+            this.applyMassDelta(player, gain);
         }
 
         this.state.chests.delete(chestId);
@@ -645,13 +800,14 @@ export class ArenaRoom extends Room<GameState> {
             player.mass * (1 - this.balance.death.massLostPercent)
         );
         player.mass = respawnMass;
-        this.updateMaxHpForMass(player);
+        player.maxHp = Math.max(0, player.mass);
         player.hp = player.maxHp;
         const spawn = this.randomPointInMap();
         player.x = spawn.x;
         player.y = spawn.y;
         player.vx = 0;
         player.vy = 0;
+        player.angVel = 0;
         player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
         player.gcdReadyTick = this.tick;
         player.queuedAbilitySlot = null;
@@ -680,6 +836,7 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         for (const orb of this.state.orbs.values()) {
+            // Orbs keep the simplified damping model to avoid extra force calculations.
             const damping = Math.max(
                 0,
                 1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
@@ -689,6 +846,9 @@ export class ArenaRoom extends Room<GameState> {
             this.applySpeedCap(orb, this.balance.physics.maxOrbSpeed);
             orb.x += orb.vx * dt;
             orb.y += orb.vy * dt;
+            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
+            const radius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
+            this.applyWorldBounds(orb, radius);
         }
     }
 
@@ -711,6 +871,7 @@ export class ArenaRoom extends Room<GameState> {
             chest.vy *= damping;
             chest.x += chest.vx * dt;
             chest.y += chest.vy * dt;
+            this.applyWorldBounds(chest, this.balance.chests.radius);
         }
     }
 
@@ -730,11 +891,9 @@ export class ArenaRoom extends Room<GameState> {
                 this.balance.hunger.baseDrainPerSec + this.balance.hunger.scalingPerMass * (player.mass / 100)
             );
             const drain = drainPerSec * dt;
-            player.mass = Math.max(this.balance.hunger.minMass, player.mass - drain);
-            this.updateMaxHpForMass(player);
-            if (player.hp > player.maxHp) {
-                player.hp = player.maxHp;
-            }
+            const minMass = Math.max(this.balance.hunger.minMass, this.balance.physics.minSlimeMass);
+            const targetMass = Math.max(minMass, player.mass - drain);
+            this.applyMassDelta(player, targetMass - player.mass);
         }
     }
 
@@ -826,14 +985,13 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private spawnHotZones(count: number, spawnMultiplier: number, centerFirst = false) {
-        const mapSize = this.balance.world.mapSize;
         const radius = this.balance.hotZones.radius;
         for (let i = 0; i < count; i += 1) {
             const zone = new HotZone();
             zone.id = `hot_${this.hotZoneIdCounter++}`;
             if (centerFirst && i === 0) {
-                zone.x = mapSize / 2;
-                zone.y = mapSize / 2;
+                zone.x = 0;
+                zone.y = 0;
             } else {
                 const point = this.randomPointInMap();
                 zone.x = point.x;
@@ -872,10 +1030,7 @@ export class ArenaRoom extends Room<GameState> {
             const radius = Math.sqrt(this.rng.next()) * zone.radius;
             const x = zone.x + Math.cos(angle) * radius;
             const y = zone.y + Math.sin(angle) * radius;
-            return {
-                x: Math.max(0, Math.min(this.balance.world.mapSize, x)),
-                y: Math.max(0, Math.min(this.balance.world.mapSize, y)),
-            };
+            return this.clampPointToWorld(x, y);
         }
         return this.randomPointInMap();
     }
@@ -890,11 +1045,12 @@ export class ArenaRoom extends Room<GameState> {
 
     private spawnOrb(x?: number, y?: number, massOverride?: number): Orb | null {
         if (this.state.orbs.size >= this.balance.orbs.maxCount) return null;
+        const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
         const orb = new Orb();
         orb.id = `orb_${this.orbIdCounter++}`;
-        orb.x = x ?? this.rng.range(0, this.balance.world.mapSize);
-        orb.y = y ?? this.rng.range(0, this.balance.world.mapSize);
+        orb.x = x ?? spawn.x;
+        orb.y = y ?? spawn.y;
         orb.mass =
             massOverride ??
             this.rng.range(typePick.type.massRange[0], typePick.type.massRange[1]);
@@ -934,16 +1090,15 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private getPlayerRadius(player: Player): number {
+        const slimeConfig = this.getSlimeConfig(player);
         const classStats = this.getClassStats(player);
-        return getSlimeRadius(player.mass, this.balance.formulas) * classStats.radiusMult;
+        return getSlimeRadiusFromConfig(player.mass, slimeConfig) * classStats.radiusMult;
     }
 
     private getClassStats(player: Player): ClassStats {
         switch (player.classId) {
             case 1:
                 return {
-                    speedMult: this.balance.classes.warrior.speedMult,
-                    hpMult: this.balance.classes.warrior.hpMult,
                     radiusMult: 1,
                     damageMult: this.balance.classes.warrior.damageVsSlimeMult,
                     swallowLimit: this.balance.classes.warrior.swallowLimit,
@@ -952,8 +1107,6 @@ export class ArenaRoom extends Room<GameState> {
                 };
             case 2:
                 return {
-                    speedMult: 1,
-                    hpMult: 1,
                     radiusMult: this.balance.classes.collector.radiusMult,
                     damageMult: 1,
                     swallowLimit: this.balance.classes.collector.swallowLimit,
@@ -963,8 +1116,6 @@ export class ArenaRoom extends Room<GameState> {
             case 0:
             default:
                 return {
-                    speedMult: this.balance.classes.hunter.speedMult,
-                    hpMult: this.balance.classes.hunter.hpMult,
                     radiusMult: 1,
                     damageMult: 1,
                     swallowLimit: this.balance.classes.hunter.swallowLimit,
@@ -975,8 +1126,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private updateMaxHpForMass(player: Player) {
-        const classStats = this.getClassStats(player);
-        const maxHp = getSlimeHp(player.mass, this.balance.formulas) * classStats.hpMult;
+        const maxHp = Math.max(0, player.mass);
         if (player.maxHp !== maxHp) {
             player.maxHp = maxHp;
         }
@@ -986,20 +1136,92 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private getContactZone(attacker: Player, dx: number, dy: number): ContactZone {
-        const angleToTarget = Math.atan2(dy, dx) * (180 / Math.PI);
+        const angleToTarget = Math.atan2(dy, dx);
         const diff = this.normalizeAngle(angleToTarget - attacker.angle);
-        const mouthHalf = this.balance.combat.mouthArcDeg / 2;
-        const tailHalf = this.balance.combat.tailArcDeg / 2;
+        const mouthHalf = (this.balance.combat.mouthArcDeg * Math.PI) / 360;
+        const tailHalf = (this.balance.combat.tailArcDeg * Math.PI) / 360;
         if (Math.abs(diff) <= mouthHalf) return "mouth";
-        if (Math.abs(diff) >= 180 - tailHalf) return "tail";
+        if (Math.abs(diff) >= Math.PI - tailHalf) return "tail";
         return "side";
     }
 
     private normalizeAngle(angle: number): number {
         let value = angle;
-        while (value < -180) value += 360;
-        while (value > 180) value -= 360;
+        while (value < -Math.PI) value += Math.PI * 2;
+        while (value > Math.PI) value -= Math.PI * 2;
         return value;
+    }
+
+    private applyYawOscillationDamping(player: Player, yawCmd: number, slimeConfig: SlimeConfig): number {
+        const windowFrames = slimeConfig.assist.yawOscillationWindowFrames;
+        const threshold = slimeConfig.assist.yawOscillationSignFlipsThreshold;
+        const boost = slimeConfig.assist.yawDampingBoostFactor;
+        if (windowFrames <= 0 || threshold <= 0 || boost <= 1) return yawCmd;
+
+        const sign = yawCmd === 0 ? 0 : Math.sign(yawCmd);
+        if (sign === 0) return yawCmd;
+
+        const history = player.yawSignHistory;
+        history.push(sign);
+        if (history.length > windowFrames) {
+            history.splice(0, history.length - windowFrames);
+        }
+
+        let flips = 0;
+        let lastSign = 0;
+        for (const s of history) {
+            if (s === 0) continue;
+            if (lastSign !== 0 && s !== lastSign) {
+                flips += 1;
+            }
+            lastSign = s;
+        }
+
+        if (flips >= threshold) {
+            return yawCmd / boost;
+        }
+
+        return yawCmd;
+    }
+
+    private getSlimeConfig(player: Player): SlimeConfig {
+        switch (player.classId) {
+            case 1:
+                return this.balance.slimeConfigs.warrior;
+            case 2:
+                return this.balance.slimeConfigs.collector;
+            case 0:
+                return this.balance.slimeConfigs.hunter;
+            default:
+                return this.balance.slimeConfigs.base;
+        }
+    }
+
+    private getSlimeInertiaForPlayer(player: Player, config: SlimeConfig, classStats: ClassStats): number {
+        const baseInertia = getSlimeInertia(player.mass, config);
+        const radiusMult = Math.max(classStats.radiusMult, 0.01);
+        const inertia = baseInertia * radiusMult * radiusMult;
+        return Math.max(inertia, 1e-6);
+    }
+
+    private applyMassDelta(player: Player, delta: number) {
+        if (!Number.isFinite(delta) || delta === 0) return;
+        const minMass = this.balance.physics.minSlimeMass;
+        const nextMass = Math.max(minMass, player.mass + delta);
+        const applied = nextMass - player.mass;
+        if (applied === 0) return;
+
+        player.mass = nextMass;
+        player.maxHp = Math.max(0, player.mass);
+        if (applied > 0) {
+            player.hp = Math.min(player.maxHp, player.hp + applied);
+        } else if (player.hp > player.maxHp) {
+            player.hp = player.maxHp;
+        }
+    }
+
+    private clamp(value: number, min: number, max: number): number {
+        return Math.max(min, Math.min(max, value));
     }
 
     private secondsToTicks(seconds: number): number {
@@ -1007,28 +1229,86 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(1, Math.round(seconds * this.balance.server.tickRate));
     }
 
+    private msToTicks(ms: number): number {
+        if (!Number.isFinite(ms) || ms <= 0) return 0;
+        const msPerTick = 1000 / this.balance.server.tickRate;
+        return Math.max(1, Math.round(ms / msPerTick));
+    }
+
     private randomPointInMap() {
-        const size = this.balance.world.mapSize;
+        const world = this.balance.worldPhysics;
+        if (world.worldShape === "circle") {
+            const radius = world.radiusM ?? this.balance.world.mapSize / 2;
+            const angle = this.rng.range(0, Math.PI * 2);
+            const r = Math.sqrt(this.rng.next()) * radius;
+            return {
+                x: Math.cos(angle) * r,
+                y: Math.sin(angle) * r,
+            };
+        }
+
+        const width = world.widthM ?? this.balance.world.mapSize;
+        const height = world.heightM ?? this.balance.world.mapSize;
         return {
-            x: this.rng.range(0, size),
-            y: this.rng.range(0, size),
+            x: this.rng.range(-width / 2, width / 2),
+            y: this.rng.range(-height / 2, height / 2),
         };
     }
 
-    private applyBounds(entity: { x: number; y: number; vx: number; vy: number }, radius: number, mapSize: number) {
-        const restitution = this.balance.physics.collisionRestitution;
-        if (entity.x - radius < 0) {
-            entity.x = radius;
+    private clampPointToWorld(x: number, y: number) {
+        const world = this.balance.worldPhysics;
+        if (world.worldShape === "circle") {
+            const radius = world.radiusM ?? this.balance.world.mapSize / 2;
+            const dist = Math.hypot(x, y);
+            if (dist > radius && dist > 0) {
+                const scale = radius / dist;
+                return { x: x * scale, y: y * scale };
+            }
+            return { x, y };
+        }
+
+        const width = world.widthM ?? this.balance.world.mapSize;
+        const height = world.heightM ?? this.balance.world.mapSize;
+        return {
+            x: this.clamp(x, -width / 2, width / 2),
+            y: this.clamp(y, -height / 2, height / 2),
+        };
+    }
+
+    private applyWorldBounds(entity: { x: number; y: number; vx: number; vy: number }, radius: number) {
+        const world = this.balance.worldPhysics;
+        const restitution = world.restitution;
+        if (world.worldShape === "circle") {
+            const limit = world.radiusM ?? this.balance.world.mapSize / 2;
+            const dist = Math.hypot(entity.x, entity.y);
+            if (dist + radius > limit) {
+                const nx = dist > 1e-6 ? entity.x / dist : 1;
+                const ny = dist > 1e-6 ? entity.y / dist : 0;
+                entity.x = nx * (limit - radius);
+                entity.y = ny * (limit - radius);
+                const velAlongNormal = entity.vx * nx + entity.vy * ny;
+                entity.vx -= (1 + restitution) * velAlongNormal * nx;
+                entity.vy -= (1 + restitution) * velAlongNormal * ny;
+            }
+            return;
+        }
+
+        const width = world.widthM ?? this.balance.world.mapSize;
+        const height = world.heightM ?? this.balance.world.mapSize;
+        const halfW = width / 2;
+        const halfH = height / 2;
+        if (entity.x - radius < -halfW) {
+            entity.x = -halfW + radius;
             entity.vx = Math.abs(entity.vx) * restitution;
-        } else if (entity.x + radius > mapSize) {
-            entity.x = mapSize - radius;
+        } else if (entity.x + radius > halfW) {
+            entity.x = halfW - radius;
             entity.vx = -Math.abs(entity.vx) * restitution;
         }
-        if (entity.y - radius < 0) {
-            entity.y = radius;
+        if (entity.y - radius < -halfH) {
+            entity.y = -halfH + radius;
             entity.vy = Math.abs(entity.vy) * restitution;
-        } else if (entity.y + radius > mapSize) {
-            entity.y = mapSize - radius;
+        } else if (entity.y + radius > halfH) {
+            entity.y = halfH - radius;
             entity.vy = -Math.abs(entity.vy) * restitution;
         }
     }
