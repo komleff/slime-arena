@@ -1,0 +1,343 @@
+# Slime Arena - .gitignore
+
+# ===========================
+# Operating System Files
+# ===========================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ===========================
+# IDE and Editor Files
+# ===========================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains IDEs (WebStorm, PyCharm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+.\#*
+.projectile
+
+# ===========================
+# Node.js / JavaScript
+# ===========================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# ===========================
+# Python
+# ===========================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+pipenv/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# ===========================
+# Unity (if using Unity)
+# ===========================
+
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Asset meta data
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta files
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity3D generated file on crash reports
+sysinfo.txt
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# Crashlytics
+crashlytics-build.properties
+
+# ===========================
+# Godot (if using Godot)
+# ===========================
+
+# Godot-specific ignores
+.import/
+export.cfg
+export_presets.cfg
+
+# Imported translations
+*.translation
+
+# Mono-specific ignores
+mono_crash.*
+
+# ===========================
+# Game Assets (temporary/generated)
+# ===========================
+
+# Temporary asset files
+*.tmp
+*.temp
+*.cache
+
+# Generated sprite sheets
+*-autogen.*
+
+# Audio working files
+*.aup
+*.aup3
+
+# Video working files
+*.prproj
+*.aep
+
+# ===========================
+# Build Tools
+# ===========================
+
+# Webpack
+.webpack/
+
+# Parcel
+.parcel-cache/
+
+# Rollup
+.rollup.cache/
+
+# Vite
+.vite/
+
+# ===========================
+# Logs
+# ===========================
+
+# General logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# ===========================
+# Temporary Files
+# ===========================
+
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.tmp
+
+# ===========================
+# Security
+# ===========================
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.envrc
+secrets/
+*.pem
+*.key
+*.cert
+*.crt
+
+# ===========================
+# Database
+# ===========================
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# ===========================
+# Compiled / Generated
+# ===========================
+
+# Compiled binaries
+*.exe
+*.dll
+*.out
+*.app
+*.wasm
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ===========================
+# Documentation
+# ===========================
+
+# Generated documentation
+docs/_build/
+site/
+
+# ===========================
+# Testing
+# ===========================
+
+# Test results
+test-results/
+.jest/
