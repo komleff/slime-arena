@@ -1,5 +1,12 @@
 # GitHub Actions CI/CD Workflow для Slime Arena
-# Этот файл является шаблоном и будет активирован после выбора технологического стека
+# 
+# ВАЖНО: Все jobs отключены по умолчанию (if: false), чтобы избежать ошибок CI.
+# Включайте jobs по мере добавления соответствующих файлов:
+# - lint-js, test-js, build: после создания package.json и настройки проекта
+# - lint-python, test-python: после создания requirements.txt
+# - deploy: после включения зависимостей (build, test-js, lint-js, security)
+#
+# Для включения job удалите или закомментируйте строку "if: false"
 
 name: CI/CD Pipeline
 
@@ -320,6 +327,7 @@ jobs:
   # ============================================
   deploy:
     name: Deploy
+    # ВАЖНО: Перед включением этой job, включите также: build, test-js, lint-js, security
     needs: [build, test-js, lint-js, security]
     runs-on: ubuntu-latest
     # Включить когда будет готов к деплою
