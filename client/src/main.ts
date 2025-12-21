@@ -509,8 +509,8 @@ const interpolationDelayClamp = { min: 60, max: 200 };
 let maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
 let transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
 let angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
-const hermiteMaxDistance = 300;
-const hermiteMaxDtMs = 120;
+const hermiteMaxDistance = 500;
+const hermiteMaxDtMs = 200;
 let lastSnapshotTime: number | null = null;
 let avgSnapshotIntervalMs = 100;
 const resetSnapshotBuffer = () => {
@@ -1343,7 +1343,7 @@ async function main() {
             const worldHalfW = worldWidth / 2;
             const worldHalfH = worldHeight / 2;
 
-            const renderState = getRenderState(performance.now() - interpolationDelayMs + lookAheadMs);
+            const renderState = getRenderState(performance.now() - interpolationDelayMs);
             renderStateForHud = renderState;
             const playersView = renderState ? renderState.players : room.state.players;
             const orbsView = renderState ? renderState.orbs : room.state.orbs;

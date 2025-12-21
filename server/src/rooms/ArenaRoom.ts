@@ -320,12 +320,24 @@ export class ArenaRoom extends Room<GameState> {
             const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
             const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
 
-            // Масштабируем параметры по массе
-            const maxThrust = scaleSlimeValue(
+            // Масштабируем параметры тяги по массе
+            let thrustForward = scaleSlimeValue(
                 slimeConfig.propulsion.thrustForwardN,
                 mass,
                 slimeConfig,
                 slimeConfig.massScaling.thrustForwardN
+            );
+            let thrustReverse = scaleSlimeValue(
+                slimeConfig.propulsion.thrustReverseN,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.thrustReverseN
+            );
+            let thrustLateral = scaleSlimeValue(
+                slimeConfig.propulsion.thrustLateralN,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.thrustLateralN
             );
             const turnTorque = scaleSlimeValue(
                 slimeConfig.propulsion.turnTorqueNm,
@@ -333,22 +345,47 @@ export class ArenaRoom extends Room<GameState> {
                 slimeConfig,
                 slimeConfig.massScaling.turnTorqueNm
             );
-            let maxSpeed = scaleSlimeValue(
+
+            // Масштабируем лимиты скорости по массе
+            let speedLimitForward = scaleSlimeValue(
                 slimeConfig.limits.speedLimitForwardMps,
                 mass,
                 slimeConfig,
                 slimeConfig.massScaling.speedLimitForwardMps
             );
-            const angularLimit = scaleSlimeValue(
+            let speedLimitReverse = scaleSlimeValue(
+                slimeConfig.limits.speedLimitReverseMps,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.speedLimitReverseMps
+            );
+            let speedLimitLateral = scaleSlimeValue(
+                slimeConfig.limits.speedLimitLateralMps,
+                mass,
+                slimeConfig,
+                slimeConfig.massScaling.speedLimitLateralMps
+            );
+            let angularLimit = scaleSlimeValue(
                 slimeConfig.limits.angularSpeedLimitRadps,
                 mass,
                 slimeConfig,
                 slimeConfig.massScaling.angularSpeedLimitRadps
             );
 
+            // Штраф last-breath применяется ко всем лимитам
             if (player.isLastBreath) {
-                maxSpeed *= this.balance.combat.lastBreathSpeedPenalty;
+                const penalty = this.balance.combat.lastBreathSpeedPenalty;
+                thrustForward *= penalty;
+                thrustReverse *= penalty;
+                thrustLateral *= penalty;
+                speedLimitForward *= penalty;
+                speedLimitReverse *= penalty;
+                speedLimitLateral *= penalty;
+                angularLimit *= penalty;
             }
+
+            // Максимальное угловое ускорение из ТТХ
+            const maxAngularAccel = turnTorque / inertia;
 
             // Читаем ввод джойстика
             const inputX = player.inputX;
@@ -356,62 +393,101 @@ export class ArenaRoom extends Room<GameState> {
             const inputMag = Math.hypot(inputX, inputY);
             const hasInput = inputMag > 0.01;
 
-            // === ПОВОРОТ (fly-by-wire) ===
-            // Джойстик задаёт желаемое направление, FA поворачивает к нему
+            // Локальные оси слайма
+            const forwardX = Math.cos(player.angle);
+            const forwardY = Math.sin(player.angle);
+            const rightX = -forwardY;
+            const rightY = forwardX;
+
+            // === ПОВОРОТ (fly-by-wire с честной физикой) ===
             let torque = 0;
             if (hasInput) {
                 const targetAngle = Math.atan2(inputY, inputX);
                 const angleDelta = this.normalizeAngle(targetAngle - player.angle);
                 
-                // Желаемая угловая скорость пропорциональна отклонению от цели
-                // При большом отклонении — максимальная скорость, при малом — пропорционально
                 const angularDeadzone = 0.02; // ~1 градус
                 if (Math.abs(angleDelta) > angularDeadzone) {
-                    // Плавная кривая: быстро при большом отклонении, медленно при малом
-                    const normalizedDelta = this.clamp(angleDelta / Math.PI, -1, 1);
-                    const desiredAngVel = normalizedDelta * angularLimit;
-                    
-                    // PD-контроллер для плавного достижения желаемой угловой скорости
+                    // Желаемая угловая скорость: пропорциональна отклонению, но не выше лимита
+                    const desiredAngVel = this.clamp(angleDelta * 2.0, -angularLimit, angularLimit);
                     const angVelError = desiredAngVel - player.angVel;
-                    const kP = 8.0; // Пропорциональный коэффициент
-                    const desiredAlpha = kP * angVelError;
-                    torque = this.clamp(inertia * desiredAlpha, -turnTorque, turnTorque);
+                    
+                    // Ускорение для достижения желаемой скорости за время реакции
+                    const reactionTime = 0.15; // 150мс — отзывчиво, но не резко
+                    const desiredAlpha = angVelError / reactionTime;
+                    
+                    // Ограничиваем физическими возможностями двигателя
+                    const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
+                    torque = inertia * clampedAlpha;
                 }
             }
-            // Без ввода — гасим вращение
+            
+            // Без ввода — гасим вращение за angularStopTimeS
             if (!hasInput && Math.abs(player.angVel) > 0.01) {
-                const kDamp = 5.0;
-                const dampAlpha = -kDamp * player.angVel;
-                torque = this.clamp(inertia * dampAlpha, -turnTorque, turnTorque);
+                const brakeTime = Math.max(slimeConfig.assist.angularStopTimeS, dt);
+                const desiredAlpha = -player.angVel / brakeTime;
+                const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
+                torque = inertia * clampedAlpha;
             }
 
-            // === ДВИЖЕНИЕ (fly-by-wire) ===
-            // Джойстик задаёт желаемую скорость в мировых координатах
-            // FA вычисляет силу для достижения этой скорости
-            const desiredSpeed = inputMag * maxSpeed;
-            const desiredVx = hasInput ? (inputX / inputMag) * desiredSpeed : 0;
-            const desiredVy = hasInput ? (inputY / inputMag) * desiredSpeed : 0;
+            // === ДВИЖЕНИЕ (fly-by-wire с честной физикой) ===
+            // Проецируем желаемую скорость на локальные оси слайма
+            let desiredVx = 0;
+            let desiredVy = 0;
+            
+            if (hasInput) {
+                const inputDirX = inputX / inputMag;
+                const inputDirY = inputY / inputMag;
+                
+                // Проекция направления ввода на оси слайма
+                const inputForward = inputDirX * forwardX + inputDirY * forwardY;
+                const inputRight = inputDirX * rightX + inputDirY * rightY;
+                
+                // Желаемая скорость по каждой оси с учётом лимитов
+                const desiredForwardSpeed = inputForward >= 0 
+                    ? inputForward * inputMag * speedLimitForward 
+                    : inputForward * inputMag * speedLimitReverse;
+                const desiredLateralSpeed = inputRight * inputMag * speedLimitLateral;
+                
+                // Переводим обратно в мировые координаты
+                desiredVx = forwardX * desiredForwardSpeed + rightX * desiredLateralSpeed;
+                desiredVy = forwardY * desiredForwardSpeed + rightY * desiredLateralSpeed;
+            }
 
-            // Ошибка скорости
+            // Ошибка скорости в мировых координатах
             const vErrorX = desiredVx - player.vx;
             const vErrorY = desiredVy - player.vy;
 
-            // PD-контроллер для скорости
-            const kV = 3.0; // Коэффициент коррекции скорости
-            const desiredAx = kV * vErrorX;
-            const desiredAy = kV * vErrorY;
+            // Проецируем ошибку на локальные оси
+            const errorForward = vErrorX * forwardX + vErrorY * forwardY;
+            const errorRight = vErrorX * rightX + vErrorY * rightY;
 
-            // Желаемая сила
-            let forceX = mass * desiredAx;
-            let forceY = mass * desiredAy;
+            let forceForward = 0;
+            let forceRight = 0;
 
-            // Ограничиваем суммарную силу
-            const forceMag = Math.hypot(forceX, forceY);
-            if (forceMag > maxThrust) {
-                const scale = maxThrust / forceMag;
-                forceX *= scale;
-                forceY *= scale;
+            // Время разгона/торможения
+            const accelTime = hasInput ? 0.5 : slimeConfig.assist.comfortableBrakingTimeS;
+
+            // Сила по оси forward (вперёд/назад)
+            if (Math.abs(errorForward) > 0.1) {
+                const desiredAccelForward = errorForward / Math.max(accelTime, dt);
+                // Выбираем лимит тяги в зависимости от направления
+                const thrustLimit = errorForward >= 0 ? thrustForward : thrustReverse;
+                const maxAccelForward = thrustLimit / mass;
+                const clampedAccelForward = this.clamp(desiredAccelForward, -maxAccelForward, maxAccelForward);
+                forceForward = mass * clampedAccelForward;
             }
+
+            // Сила по оси right (боковое движение)
+            if (Math.abs(errorRight) > 0.1) {
+                const desiredAccelRight = errorRight / Math.max(accelTime, dt);
+                const maxAccelRight = thrustLateral / mass;
+                const clampedAccelRight = this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
+                forceRight = mass * clampedAccelRight;
+            }
+
+            // Переводим силу в мировые координаты
+            const forceX = forwardX * forceForward + rightX * forceRight;
+            const forceY = forwardY * forceForward + rightY * forceRight;
 
             player.assistFx = forceX;
             player.assistFy = forceY;
