@@ -1,0 +1,42 @@
+name: Branch Protection
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-protection:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check if push is from merged PR
+        run: |
+          echo "Проверка источника отправки в ветку main..."
+
+          # Проверяем сообщение фиксации
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+
+          # Слияние через GitHub PR начинается с "Merge pull request"
+          if [[ "$COMMIT_MSG" =~ ^Merge\ pull\ request ]]; then
+            echo "✅ Отправка из слитого запроса на слияние"
+            exit 0
+          fi
+
+          # Слияние через squash содержит номер PR в формате (#123)
+          if [[ "$COMMIT_MSG" =~ \(#[0-9]+\) ]]; then
+            echo "✅ Отправка из слитого запроса (squash merge)"
+            exit 0
+          fi
+
+          # Если не обнаружено слияние - предупреждение
+          echo "⚠️ ПРЕДУПРЕЖДЕНИЕ: Обнаружена прямая отправка в ветку main"
+          echo ""
+          echo "Для защиты ветки настройте правила в GitHub:"
+          echo "1. Откройте Settings > Branches"
+          echo "2. Добавьте правило защиты для 'main'"
+          echo "3. Включите 'Require a pull request before merging'"
+          echo "4. Включите 'Require status checks to pass before merging'"
+          echo ""
+          echo "Фиксация: $COMMIT_MSG"

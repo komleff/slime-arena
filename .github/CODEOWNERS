@@ -1,0 +1,23 @@
+# Файл CODEOWNERS
+# Определяет ответственных за проверку изменений в разных частях кода
+
+# Владелец по умолчанию для всех файлов
+* @overmobile
+
+# Серверный код
+/server/ @overmobile
+
+# Клиентский код
+/client/ @overmobile
+
+# Общий код
+/shared/ @overmobile
+
+# Файлы настроек
+/config/ @overmobile
+
+# Документация
+/docs/ @overmobile
+
+# Процессы GitHub (требуют особого внимания)
+/.github/ @overmobile
