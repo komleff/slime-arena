@@ -13,9 +13,10 @@ export function getSlimeRadius(mass: number, formulas: BalanceConfig["formulas"]
     return formulas.radius.base * Math.sqrt(1 + (formulas.radius.scale * mass) / divisor);
 }
 
-export function getOrbRadius(orbMass: number, density: number, minRadius: number): number {
-    const safeDensity = density > 0 ? density : 1;
-    return minRadius * Math.sqrt(orbMass / safeDensity);
+export function getOrbRadius(orbMass: number, _density: number, minRadius: number): number {
+    // Размер зависит только от массы, не от плотности
+    // Плотность влияет только на цвет (см. GDD)
+    return minRadius * Math.sqrt(orbMass);
 }
 
 export function getSpeedMultiplier(mass: number, formulas: BalanceConfig["formulas"]): number {

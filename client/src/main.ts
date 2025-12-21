@@ -216,7 +216,7 @@ const chestStyles = [
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
 const cameraLerp = 0.15;
-const desiredView = { width: 900, height: 700 };
+const desiredView = { width: 200, height: 200 };
 let hasFocus = true;
 const joystickState = {
     active: false,

@@ -1,6 +1,6 @@
 {
   "world": {
-    "mapSize": 2000
+    "mapSize": 1000
   },
   "server": {
     "maxPlayers": 20,
@@ -44,14 +44,14 @@
       "name": "Base Slime",
       "geometry": {
         "baseMassKg": 100,
-        "baseRadiusM": 1.0,
+        "baseRadiusM": 10.0,
         "inertiaFactor": 0.5
       },
       "propulsion": {
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 175
+        "turnTorqueNm": 17500
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -91,14 +91,14 @@
       "name": "Hunter",
       "geometry": {
         "baseMassKg": 100,
-        "baseRadiusM": 1.0,
+        "baseRadiusM": 10.0,
         "inertiaFactor": 0.5
       },
       "propulsion": {
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 175
+        "turnTorqueNm": 17500
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -138,14 +138,14 @@
       "name": "Warrior",
       "geometry": {
         "baseMassKg": 100,
-        "baseRadiusM": 1.0,
+        "baseRadiusM": 10.0,
         "inertiaFactor": 0.5
       },
       "propulsion": {
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 175
+        "turnTorqueNm": 17500
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -185,14 +185,14 @@
       "name": "Collector",
       "geometry": {
         "baseMassKg": 100,
-        "baseRadiusM": 1.0,
+        "baseRadiusM": 10.0,
         "inertiaFactor": 0.5
       },
       "propulsion": {
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 175
+        "turnTorqueNm": 17500
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -234,8 +234,8 @@
     "restitution": 0.9,
     "maxPositionCorrectionM": 0.5,
     "worldShape": "rectangle",
-    "widthM": 2000,
-    "heightM": 2000
+    "widthM": 1000,
+    "heightM": 1000
   },
   "clientNetSmoothing": {
     "lookAheadMs": 100,
@@ -286,7 +286,7 @@
     "maxCount": 150,
     "respawnIntervalSec": 0.5,
     "minMass": 3,
-    "minRadius": 5,
+    "minRadius": 2.5,
     "pushForce": 100,
     "types": [
       { "id": "green",  "weight": 40, "density": 0.8, "massRange": [5, 15] },
@@ -326,7 +326,7 @@
     "maxCount": 3,
     "spawnIntervalSec": 20,
     "mass": 200,
-    "radius": 28,
+    "radius": 14,
     "rewards": {
       "massPercent": [0.1, 0.2, 0.3],
       "talentChance": 0.4
@@ -335,7 +335,7 @@
   "hotZones": {
     "chaosCount": 2,
     "finalCount": 1,
-    "radius": 220,
+    "radius": 110,
     "spawnMultiplierChaos": 3,
     "spawnMultiplierFinal": 5
   },

@@ -246,7 +246,7 @@ export interface ResolvedBalanceConfig extends BalanceConfig {
 
 export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     world: {
-        mapSize: 2000,
+        mapSize: 1000,
     },
     server: {
         maxPlayers: 20,
@@ -290,14 +290,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             name: "Base Slime",
             geometry: {
                 baseMassKg: 100,
-                baseRadiusM: 1.0,
+                baseRadiusM: 10.0,
                 inertiaFactor: 0.5,
             },
             propulsion: {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 175,
+                turnTorqueNm: 17500,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -337,14 +337,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             name: "Hunter",
             geometry: {
                 baseMassKg: 100,
-                baseRadiusM: 1.0,
+                baseRadiusM: 10.0,
                 inertiaFactor: 0.5,
             },
             propulsion: {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 175,
+                turnTorqueNm: 17500,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -384,14 +384,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             name: "Warrior",
             geometry: {
                 baseMassKg: 100,
-                baseRadiusM: 1.0,
+                baseRadiusM: 10.0,
                 inertiaFactor: 0.5,
             },
             propulsion: {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 175,
+                turnTorqueNm: 17500,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -431,14 +431,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             name: "Collector",
             geometry: {
                 baseMassKg: 100,
-                baseRadiusM: 1.0,
+                baseRadiusM: 10.0,
                 inertiaFactor: 0.5,
             },
             propulsion: {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 175,
+                turnTorqueNm: 17500,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -532,7 +532,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         maxCount: 150,
         respawnIntervalSec: 0.5,
         minMass: 3,
-        minRadius: 5,
+        minRadius: 2.5,
         pushForce: 100,
         types: [
             { id: "green", weight: 40, density: 0.8, massRange: [5, 15] },
@@ -572,7 +572,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         maxCount: 3,
         spawnIntervalSec: 20,
         mass: 200,
-        radius: 28,
+        radius: 14,
         rewards: {
             massPercent: [0.1, 0.2, 0.3],
             talentChance: 0.4,
@@ -581,7 +581,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     hotZones: {
         chaosCount: 2,
         finalCount: 1,
-        radius: 220,
+        radius: 110,
         spawnMultiplierChaos: 3,
         spawnMultiplierFinal: 5,
     },
