@@ -62,16 +62,14 @@ echo "🔒 Применение правил защиты ветки $BRANCH..."
 echo "   Репозиторий: $REPO_OWNER/$REPO_NAME"
 echo ""
 
-# Чтение конфигурации
-PROTECTION_CONFIG=$(jq '.protection' "$CONFIG_FILE")
-
-# Применение правил через GitHub API
-RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+# Применение правил через GitHub API (передаём JSON через stdin для безопасности)
+RESPONSE=$(jq '.protection' "$CONFIG_FILE" | curl -s -w "\n%{http_code}" -X PUT \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
+  -H "Content-Type: application/json" \
   "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/branches/$BRANCH/protection" \
-  -d "$PROTECTION_CONFIG")
+  -d @-)
 
 # Разделение ответа и кода статуса
 HTTP_BODY=$(echo "$RESPONSE" | sed '$d')
