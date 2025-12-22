@@ -1,6 +1,6 @@
 # Automation Scripts - Slime Arena
 
-Collection of scripts for convenient server management.
+Collection of scripts for convenient server management and repository configuration.
 
 ## Windows
 
@@ -155,3 +155,23 @@ Open two terminals in VS Code:
 ### 3. Stop
 
 Press `Ctrl+C` in each terminal, or use stop scripts above
+
+## Branch Protection Setup
+
+### Apply branch protection rules to main branch
+
+Requires GitHub token with `repo` permissions.
+
+```bash
+# Create token at: https://github.com/settings/tokens
+export GITHUB_TOKEN=your_token_here
+./scripts/apply-branch-protection.sh
+```
+
+This will automatically configure the main branch to:
+- Require pull requests for all changes
+- Require code owner approval
+- Require CI checks to pass
+- Prevent force pushes and direct commits
+
+See `.github/BRANCH_PROTECTION.md` for detailed documentation.
