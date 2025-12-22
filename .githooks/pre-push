@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# Git hook для защиты ветки main от прямой отправки изменений
+# Этот hook проверяет, не пытается ли пользователь отправить изменения напрямую в main
+
+# Цвета для вывода
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Читаем параметры: куда отправляем и откуда
+remote="$1"
+url="$2"
+
+# Читаем из stdin информацию о том, что отправляется
+while read local_ref local_sha remote_ref remote_sha
+do
+    # Проверяем, отправляется ли ветка main или master
+    if [ "$remote_ref" = "refs/heads/main" ] || [ "$remote_ref" = "refs/heads/master" ]; then
+        echo "${RED}================================${NC}"
+        echo "${RED}ОШИБКА: Прямая отправка в $remote_ref запрещена!${NC}"
+        echo "${RED}================================${NC}"
+        echo ""
+        echo "${YELLOW}Ветка main защищена от прямых изменений.${NC}"
+        echo ""
+        echo "Для внесения изменений используйте Pull Request:"
+        echo ""
+        echo "  1. Создайте новую ветку:"
+        echo "     ${YELLOW}git checkout -b feature/my-feature${NC}"
+        echo ""
+        echo "  2. Внесите изменения и зафиксируйте:"
+        echo "     ${YELLOW}git add .${NC}"
+        echo "     ${YELLOW}git commit -m 'Описание изменений'${NC}"
+        echo ""
+        echo "  3. Отправьте ветку на GitHub:"
+        echo "     ${YELLOW}git push origin feature/my-feature${NC}"
+        echo ""
+        echo "  4. Создайте Pull Request на GitHub"
+        echo ""
+        echo "Подробнее: .github/BRANCH_PROTECTION.md"
+        echo ""
+        exit 1
+    fi
+done
+
+exit 0
