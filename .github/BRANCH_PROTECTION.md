@@ -42,6 +42,17 @@
    ./scripts/apply-branch-protection.sh
    ```
 
+   Для другого репозитория можно переопределить параметры:
+   ```bash
+   REPO_OWNER=myorg REPO_NAME=myrepo ./scripts/apply-branch-protection.sh
+   ```
+
+**Требования:**
+- Установлена утилита `jq` (для обработки JSON)
+  - Ubuntu/Debian: `sudo apt-get install jq`
+  - macOS: `brew install jq`
+  - Windows (Git Bash): `choco install jq`
+
 Скрипт автоматически применит все правила из файла конфигурации `.github/branch-protection-config.json`.
 
 **Настройки, которые будут применены:**

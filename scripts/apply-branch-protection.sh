@@ -1,14 +1,28 @@
 #!/bin/bash
 
 # Скрипт для применения правил защиты ветки main через GitHub API
-# Требует: GITHUB_TOKEN с правами repo
+# Требует: GITHUB_TOKEN с правами repo, jq
 
 set -e
 
-REPO_OWNER="komleff"
-REPO_NAME="slime-arena"
-BRANCH="main"
-CONFIG_FILE=".github/branch-protection-config.json"
+# Конфигурация (можно переопределить через переменные окружения)
+REPO_OWNER="${REPO_OWNER:-komleff}"
+REPO_NAME="${REPO_NAME:-slime-arena}"
+BRANCH="${BRANCH:-main}"
+CONFIG_FILE="${CONFIG_FILE:-.github/branch-protection-config.json}"
+
+# Проверка наличия jq
+if ! command -v jq &> /dev/null; then
+  echo "❌ Ошибка: утилита jq не установлена"
+  echo ""
+  echo "Для установки:"
+  echo "  Ubuntu/Debian: sudo apt-get install jq"
+  echo "  macOS: brew install jq"
+  echo "  Windows (Git Bash): choco install jq"
+  echo ""
+  echo "Подробнее: https://stedolan.github.io/jq/download/"
+  exit 1
+fi
 
 # Проверка наличия токена
 if [ -z "$GITHUB_TOKEN" ]; then
@@ -32,11 +46,24 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 1
 fi
 
+# Валидация JSON конфигурации
+if ! jq empty "$CONFIG_FILE" 2>/dev/null; then
+  echo "❌ Ошибка: файл конфигурации содержит невалидный JSON: $CONFIG_FILE"
+  exit 1
+fi
+
+# Проверка наличия ключа protection
+if ! jq -e '.protection' "$CONFIG_FILE" > /dev/null 2>&1; then
+  echo "❌ Ошибка: файл конфигурации не содержит ключ 'protection': $CONFIG_FILE"
+  exit 1
+fi
+
 echo "🔒 Применение правил защиты ветки $BRANCH..."
+echo "   Репозиторий: $REPO_OWNER/$REPO_NAME"
 echo ""
 
 # Чтение конфигурации
-PROTECTION_CONFIG=$(cat "$CONFIG_FILE" | jq '.protection')
+PROTECTION_CONFIG=$(jq '.protection' "$CONFIG_FILE")
 
 # Применение правил через GitHub API
 RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
