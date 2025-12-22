@@ -7,3 +7,5 @@ client/dist/
 server/dist/
 shared/dist/
 .vscode/
+.obsidian/workspace.json
+.obsidian/workspace
