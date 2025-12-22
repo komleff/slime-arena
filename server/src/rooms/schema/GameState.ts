@@ -73,6 +73,7 @@ export class HotZone extends Schema {
 export class GameState extends Schema {
     @type("string") phase: string = "Spawn";
     @type("number") timeRemaining: number = 0;
+    @type("number") serverTick: number = 0;
     @type("string") rebelId: string = "";
     @type({ map: Player }) players = new MapSchema<Player>();
     @type({ map: Orb }) orbs = new MapSchema<Orb>();

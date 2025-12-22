@@ -180,6 +180,7 @@ export class ArenaRoom extends Room<GameState> {
     private onTick() {
         const tickStartMs = Date.now();
         this.tick += 1;
+        this.state.serverTick = this.tick;
 
         this.updateMatchPhase();
         this.collectInputs();

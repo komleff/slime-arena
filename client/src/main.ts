@@ -215,7 +215,8 @@ const chestStyles = [
 
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
-const cameraLerp = 0.15;
+const cameraSmoothTime = 0.08;
+let lastFrameTime = performance.now();
 const desiredView = { width: 200, height: 200 };
 let hasFocus = true;
 const joystickState = {
@@ -290,11 +291,9 @@ const updateWorldBounds = () => {
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     updateWorldBounds();
-    lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
     maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
     transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
     angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
-    interpolationDelayMs = Math.max(interpolationDelayMs, lookAheadMs);
     orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
@@ -502,22 +501,13 @@ type RenderState = {
 };
 
 const snapshotBuffer: Snapshot[] = [];
-const snapshotBufferLimit = 30;
-let lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
-let interpolationDelayMs = lookAheadMs;
-const interpolationDelayClamp = { min: 60, max: 200 };
+const snapshotBufferLimit = 20;
+const interpolationDelayMs = 100;
 let maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
 let transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
 let angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
-const hermiteMaxDistance = 500;
-const hermiteMaxDtMs = 200;
-let lastSnapshotTime: number | null = null;
-let avgSnapshotIntervalMs = 100;
 const resetSnapshotBuffer = () => {
     snapshotBuffer.length = 0;
-    lastSnapshotTime = null;
-    avgSnapshotIntervalMs = 100;
-    interpolationDelayMs = lookAheadMs;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -533,20 +523,6 @@ const lerpAngle = (a: number, b: number, t: number) => {
     const delta = wrapAngle(b - a);
     return a + delta * t;
 };
-const shouldUseHermite = (dx: number, dy: number, dtMs: number) => {
-    if (dtMs <= 0 || dtMs > hermiteMaxDtMs) return false;
-    return dx * dx + dy * dy <= hermiteMaxDistance * hermiteMaxDistance;
-};
-
-const hermiteInterpolate = (p0: number, v0: number, p1: number, v1: number, t: number, dt: number) => {
-    const t2 = t * t;
-    const t3 = t2 * t;
-    const h00 = 2 * t3 - 3 * t2 + 1;
-    const h10 = t3 - 2 * t2 + t;
-    const h01 = -2 * t3 + 3 * t2;
-    const h11 = t3 - t2;
-    return p0 * h00 + v0 * dt * h10 + p1 * h01 + v1 * dt * h11;
-};
 
 type CollectionLike<T> = {
     entries(): IterableIterator<[string, T]>;
@@ -561,6 +537,12 @@ type GameStateLike = {
 
 const captureSnapshot = (state: GameStateLike) => {
     const now = performance.now();
+    
+    if (snapshotBuffer.length > 0) {
+        const last = snapshotBuffer[snapshotBuffer.length - 1];
+        if (now - last.time < 10) return;
+    }
+    
     const snapshot: Snapshot = {
         time: now,
         players: new Map(),
@@ -621,18 +603,6 @@ const captureSnapshot = (state: GameStateLike) => {
         });
     }
 
-    if (lastSnapshotTime !== null) {
-        const dt = now - lastSnapshotTime;
-        if (dt > 0) {
-            avgSnapshotIntervalMs = avgSnapshotIntervalMs * 0.9 + dt * 0.1;
-            interpolationDelayMs = Math.max(
-                lookAheadMs,
-                clamp(avgSnapshotIntervalMs * 2, interpolationDelayClamp.min, interpolationDelayClamp.max)
-            );
-        }
-    }
-    lastSnapshotTime = now;
-
     snapshotBuffer.push(snapshot);
     if (snapshotBuffer.length > snapshotBufferLimit) {
         snapshotBuffer.shift();
@@ -655,17 +625,13 @@ const extrapolatePlayer = (player: SnapshotPlayer, dtSec: number): RenderPlayer 
     angle: wrapAngle(player.angle + player.angVel * dtSec),
 });
 
-const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: number, dtSec: number): RenderPlayer => {
-    const dtMs = dtSec * 1000;
-    const dx = newer.x - older.x;
-    const dy = newer.y - older.y;
-    const useHermite = shouldUseHermite(dx, dy, dtMs);
+const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: number): RenderPlayer => {
     const angleDelta = Math.abs(wrapAngle(newer.angle - older.angle));
     const angleT = angleDelta > angleMaxDeviationRad ? clamp(t * 1.5, 0, 1) : t;
     return {
         ...newer,
-        x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
-        y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
+        x: lerp(older.x, newer.x, t),
+        y: lerp(older.y, newer.y, t),
         vx: lerp(older.vx, newer.vx, t),
         vy: lerp(older.vy, newer.vy, t),
         angle: lerpAngle(older.angle, newer.angle, angleT),
@@ -676,34 +642,22 @@ const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: numb
     };
 };
 
-const interpolateOrb = (older: SnapshotOrb, newer: SnapshotOrb, t: number, dtSec: number): RenderOrb => {
-    const dtMs = dtSec * 1000;
-    const dx = newer.x - older.x;
-    const dy = newer.y - older.y;
-    const useHermite = shouldUseHermite(dx, dy, dtMs);
-    return {
-        ...newer,
-        x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
-        y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
-        vx: lerp(older.vx, newer.vx, t),
-        vy: lerp(older.vy, newer.vy, t),
-        mass: lerp(older.mass, newer.mass, t),
-    };
-};
+const interpolateOrb = (older: SnapshotOrb, newer: SnapshotOrb, t: number): RenderOrb => ({
+    ...newer,
+    x: lerp(older.x, newer.x, t),
+    y: lerp(older.y, newer.y, t),
+    vx: lerp(older.vx, newer.vx, t),
+    vy: lerp(older.vy, newer.vy, t),
+    mass: lerp(older.mass, newer.mass, t),
+});
 
-const interpolateChest = (older: SnapshotChest, newer: SnapshotChest, t: number, dtSec: number): RenderChest => {
-    const dtMs = dtSec * 1000;
-    const dx = newer.x - older.x;
-    const dy = newer.y - older.y;
-    const useHermite = shouldUseHermite(dx, dy, dtMs);
-    return {
-        ...newer,
-        x: useHermite ? hermiteInterpolate(older.x, older.vx, newer.x, newer.vx, t, dtSec) : lerp(older.x, newer.x, t),
-        y: useHermite ? hermiteInterpolate(older.y, older.vy, newer.y, newer.vy, t, dtSec) : lerp(older.y, newer.y, t),
-        vx: lerp(older.vx, newer.vx, t),
-        vy: lerp(older.vy, newer.vy, t),
-    };
-};
+const interpolateChest = (older: SnapshotChest, newer: SnapshotChest, t: number): RenderChest => ({
+    ...newer,
+    x: lerp(older.x, newer.x, t),
+    y: lerp(older.y, newer.y, t),
+    vx: lerp(older.vx, newer.vx, t),
+    vy: lerp(older.vy, newer.vy, t),
+});
 
 const interpolateHotZone = (older: SnapshotHotZone, newer: SnapshotHotZone, t: number): RenderHotZone => ({
     ...newer,
@@ -824,7 +778,7 @@ const extrapolateStateWithDecay = (
     };
 };
 
-const interpolateState = (older: Snapshot, newer: Snapshot, t: number, dtSec: number): RenderState => {
+const interpolateState = (older: Snapshot, newer: Snapshot, t: number): RenderState => {
     const players = new Map<string, RenderPlayer>();
     const orbs = new Map<string, RenderOrb>();
     const chests = new Map<string, RenderChest>();
@@ -832,15 +786,15 @@ const interpolateState = (older: Snapshot, newer: Snapshot, t: number, dtSec: nu
 
     for (const [id, player] of newer.players.entries()) {
         const prev = older.players.get(id);
-        players.set(id, prev ? interpolatePlayer(prev, player, t, dtSec) : { ...player });
+        players.set(id, prev ? interpolatePlayer(prev, player, t) : { ...player });
     }
     for (const [id, orb] of newer.orbs.entries()) {
         const prev = older.orbs.get(id);
-        orbs.set(id, prev ? interpolateOrb(prev, orb, t, dtSec) : { ...orb });
+        orbs.set(id, prev ? interpolateOrb(prev, orb, t) : { ...orb });
     }
     for (const [id, chest] of newer.chests.entries()) {
         const prev = older.chests.get(id);
-        chests.set(id, prev ? interpolateChest(prev, chest, t, dtSec) : { ...chest });
+        chests.set(id, prev ? interpolateChest(prev, chest, t) : { ...chest });
     }
     for (const [id, zone] of newer.hotZones.entries()) {
         const prev = older.hotZones.get(id);
@@ -879,6 +833,7 @@ const interpolateState = (older: Snapshot, newer: Snapshot, t: number, dtSec: nu
 
 const getRenderState = (renderTimeMs: number): RenderState | null => {
     if (snapshotBuffer.length === 0) return null;
+    
     const oldest = snapshotBuffer[0];
     const newest = snapshotBuffer[snapshotBuffer.length - 1];
 
@@ -931,9 +886,9 @@ const getRenderState = (renderTimeMs: number): RenderState | null => {
     const older = snapshotBuffer[olderIndex];
     const newer = snapshotBuffer[Math.min(olderIndex + 1, snapshotBuffer.length - 1)];
 
-    const dtMs = Math.max(newer.time - older.time, 0.001);
-    const t = clamp((renderTimeMs - older.time) / dtMs, 0, 1);
-    return interpolateState(older, newer, t, dtMs / 1000);
+    const dtMs = newer.time - older.time;
+    const t = dtMs > 0 ? clamp((renderTimeMs - older.time) / dtMs, 0, 1) : 0;
+    return interpolateState(older, newer, t);
 };
 
 const computeSpriteScale = (img: HTMLImageElement) => {
@@ -1343,7 +1298,8 @@ async function main() {
             const worldHalfW = worldWidth / 2;
             const worldHalfH = worldHeight / 2;
 
-            const renderState = getRenderState(performance.now() - interpolationDelayMs);
+            const renderTime = performance.now() - interpolationDelayMs;
+            const renderState = getRenderState(renderTime);
             renderStateForHud = renderState;
             const playersView = renderState ? renderState.players : room.state.players;
             const orbsView = renderState ? renderState.orbs : room.state.orbs;
@@ -1357,6 +1313,10 @@ async function main() {
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);
             const clampY = clamp(targetY, -maxCamY, maxCamY);
+            const now = performance.now();
+            const frameDt = Math.min((now - lastFrameTime) / 1000, 0.1);
+            lastFrameTime = now;
+            const cameraLerp = 1 - Math.exp(-frameDt / cameraSmoothTime);
             camera.x += (clampX - camera.x) * cameraLerp;
             camera.y += (clampY - camera.y) * cameraLerp;
 
