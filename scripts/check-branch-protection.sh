@@ -74,22 +74,40 @@ echo ""
 
 # Проверка 5: Тест работы hook
 echo "5. Тест работы pre-push hook..."
+
+# Функция для тестирования hook
+test_hook() {
+    local branch_ref=$1
+    local expected_exit_code=$2
+    local test_description=$3
+    
+    # Используем реалистичные SHA (не нулевые)
+    echo "$branch_ref aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa $branch_ref bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" | \
+        "$HOOKS_PATH/pre-push" origin https://github.com/test/test.git >/dev/null 2>&1
+    local actual_exit_code=$?
+    
+    if [ $actual_exit_code -eq $expected_exit_code ]; then
+        echo "   ✅ $test_description"
+        return 0
+    else
+        echo "   ❌ $test_description (exit code: $actual_exit_code, expected: $expected_exit_code)"
+        return 1
+    fi
+}
+
 if [ -n "$HOOKS_PATH" ] && [ -f "$HOOKS_PATH/pre-push" ] && [ -x "$HOOKS_PATH/pre-push" ]; then
     # Тестируем блокировку main
-    TEST_OUTPUT=$(echo "refs/heads/main 0000000000000000000000000000000000000000 refs/heads/main 0000000000000000000000000000000000000000" | "$HOOKS_PATH/pre-push" origin https://github.com/test/test.git 2>&1)
-    if echo "$TEST_OUTPUT" | grep -q "ОШИБКА"; then
-        echo "   ✅ Hook корректно блокирует отправку в main"
-    else
-        echo "   ❌ Hook не блокирует отправку в main"
+    if ! test_hook "refs/heads/main" 1 "Hook корректно блокирует отправку в main"; then
+        ERRORS=$((ERRORS + 1))
+    fi
+    
+    # Тестируем блокировку master
+    if ! test_hook "refs/heads/master" 1 "Hook корректно блокирует отправку в master"; then
         ERRORS=$((ERRORS + 1))
     fi
     
     # Тестируем разрешение для feature веток
-    TEST_OUTPUT=$(echo "refs/heads/feature/test 0000000000000000000000000000000000000000 refs/heads/feature/test 0000000000000000000000000000000000000000" | "$HOOKS_PATH/pre-push" origin https://github.com/test/test.git 2>&1)
-    if ! echo "$TEST_OUTPUT" | grep -q "ОШИБКА"; then
-        echo "   ✅ Hook разрешает отправку в feature ветки"
-    else
-        echo "   ❌ Hook блокирует отправку в feature ветки"
+    if ! test_hook "refs/heads/feature/test" 0 "Hook разрешает отправку в feature ветки"; then
         ERRORS=$((ERRORS + 1))
     fi
 else

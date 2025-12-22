@@ -27,7 +27,12 @@ git config core.hooksPath "$HOOKS_DIR"
 
 # Делаем hooks исполняемыми
 echo "Настройка прав доступа..."
-chmod +x "$HOOKS_DIR"/*
+if [ -f "$HOOKS_DIR/pre-push" ]; then
+    chmod +x "$HOOKS_DIR/pre-push"
+fi
+if [ -f "$HOOKS_DIR/install.sh" ]; then
+    chmod +x "$HOOKS_DIR/install.sh"
+fi
 
 echo "✅ Git hooks установлены успешно!"
 echo ""
