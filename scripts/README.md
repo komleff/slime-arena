@@ -1,6 +1,18 @@
 # Automation Scripts - Slime Arena
 
-Collection of scripts for convenient server management.
+Collection of scripts for convenient server management and development tools.
+
+## Branch Protection
+
+### Check branch protection setup
+
+```bash
+npm run check:branch-protection
+# or
+./scripts/check-branch-protection.sh
+```
+
+Verifies that Git hooks and branch protection mechanisms are correctly installed and working.
 
 ## Windows
 

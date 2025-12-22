@@ -104,6 +104,7 @@ docker-compose -f docker/docker-compose.yml up
 | `npm run dev:client` | Запустить клиент (порт 5173) |
 | `npm run start:servers` | Запустить оба одной командой (может зависнуть на Win) |
 | `npm run stop:servers` | Остановить все серверы |
+| `npm run check:branch-protection` | Проверить настройку защиты ветки main |
 
 Более подробно см. [scripts/README.md](scripts/README.md).
 
