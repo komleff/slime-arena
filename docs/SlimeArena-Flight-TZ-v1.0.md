@@ -568,14 +568,14 @@ Deadzone применяется:
    - Если `error > TELEPORT_THRESHOLD` → мгновенный перенос
 
 4) Velocity Integration:
-   - `velocityMove = visual.v * dtSec`
+   - `velocityMove = targetV * dtSec`
 
 5) Catch-up коррекция:
    - `catchUpSpeed = min(error * CATCH_UP_SPEED, MAX_CATCH_UP_SPEED)`
    - `correction = направление_к_цели * catchUpSpeed * dtSec`
 
-6) Комбинирование:
-   - `visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT * 0.5)`
+6) Комбинирование (сумма весов = 1.0):
+   - `visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT)`
 
 7) Интерполяция velocity к серверной
 

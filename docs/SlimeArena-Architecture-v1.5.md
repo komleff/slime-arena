@@ -534,15 +534,15 @@ const visualOrbs = new Map<string, VisualEntity>();
 
 2. **Проверка телепорта** — если ошибка > `TELEPORT_THRESHOLD`, мгновенный перенос
 
-3. **Velocity Integration** — предсказуемое движение по скорости:
-   - `velocityMove = visual.v * dtSec`
+3. **Velocity Integration** — предсказуемое движение по целевой скорости:
+   - `velocityMove = targetV * dtSec`
 
 4. **Catch-up коррекция** — устранение ошибки:
    - `catchUpSpeed = min(error * CATCH_UP_SPEED, MAX_CATCH_UP_SPEED)`
    - `correction = направление_к_цели * catchUpSpeed * dtSec`
 
-5. **Комбинирование**:
-   - `visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT * 0.5)`
+5. **Комбинирование** (сумма весов = 1.0):
+   - `visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT)`
 
 6. **Интерполяция velocity** к серверной (для следующего кадра)
 

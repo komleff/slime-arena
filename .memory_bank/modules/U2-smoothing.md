@@ -95,10 +95,10 @@ const ANGLE_CATCH_UP_SPEED = 12.0;
 ```
 1. Рассчитать ошибку позиции (error = расстояние от visual до target)
 2. Если error > TELEPORT_THRESHOLD: телепорт
-3. Интегрировать velocity: velocityMove = visual.v * dt
+3. Интегрировать velocity: velocityMove = targetV * dt
 4. Рассчитать коррекцию: correction = направление_к_цели * catchUpSpeed * dt
-5. Комбинировать: visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT * 0.5)
-6. Интерполировать velocity к целевой
+5. Комбинировать: visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT)
+6. Интерполировать visual.velocity к целевой
 7. Сгладить угол с ANGLE_CATCH_UP_SPEED
 ```
 
@@ -129,9 +129,10 @@ const smoothStep = (
         return;
     }
     
-    // Интегрируем velocity (предсказуемое движение)
-    const velocityMoveX = visual.vx * dtSec;
-    const velocityMoveY = visual.vy * dtSec;
+    // Интегрируем целевую velocity (предсказуемое движение по серверной скорости)
+    // Используем targetVx, а не visual.vx, чтобы первый кадр был корректным
+    const velocityMoveX = targetVx * dtSec;
+    const velocityMoveY = targetVy * dtSec;
     
     // Вычисляем catch-up коррекцию (устранение ошибки)
     let correctionX = 0;
@@ -146,11 +147,11 @@ const smoothStep = (
         if (Math.abs(correctionY) > Math.abs(dy)) correctionY = dy;
     }
     
-    // Комбинируем движение и коррекцию
-    visual.x += velocityMoveX * VELOCITY_WEIGHT + correctionX * (1 - VELOCITY_WEIGHT * 0.5);
-    visual.y += velocityMoveY * VELOCITY_WEIGHT + correctionY * (1 - VELOCITY_WEIGHT * 0.5);
+    // Комбинируем движение и коррекцию (сумма весов = 1.0)
+    visual.x += velocityMoveX * VELOCITY_WEIGHT + correctionX * (1 - VELOCITY_WEIGHT);
+    visual.y += velocityMoveY * VELOCITY_WEIGHT + correctionY * (1 - VELOCITY_WEIGHT);
     
-    // Интерполируем velocity к целевой
+    // Интерполируем visual velocity к серверной (для следующей итерации)
     const velocityLerp = clamp(dtSec * 8, 0, 1);
     visual.vx = lerp(visual.vx, targetVx, velocityLerp);
     visual.vy = lerp(visual.vy, targetVy, velocityLerp);

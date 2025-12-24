@@ -518,7 +518,7 @@ let lastRenderMs = 0;
 
 // Smoothing config - баланс между точностью и плавностью
 // VELOCITY_WEIGHT: 0 = только catch-up, 1 = только интеграция velocity
-// Оптимально 0.6-0.8 для Slime Arena (точнее чем U2, но всё ещё плавно)
+// Оптимально 0.6-0.8 для Slime Arena: хороший баланс между точностью и плавностью
 const VELOCITY_WEIGHT = 0.7; // Вес интеграции скорости vs catch-up коррекции
 const CATCH_UP_SPEED = 10.0; // Units per second per unit of error (увеличено для точности)
 const MAX_CATCH_UP_SPEED = 800; // Max correction speed in m/s
@@ -558,10 +558,10 @@ const smoothStep = (
         return;
     }
     
-    // Сначала интегрируем velocity (предсказуемое движение)
-    // Это даёт точное отображение направления движения
-    const velocityMoveX = visual.vx * dtSec;
-    const velocityMoveY = visual.vy * dtSec;
+    // Интегрируем целевую velocity (предсказуемое движение по серверной скорости)
+    // Используем targetVx, а не visual.vx, чтобы первый кадр после телепорта был корректным
+    const velocityMoveX = targetVx * dtSec;
+    const velocityMoveY = targetVy * dtSec;
     
     // Затем вычисляем catch-up коррекцию (устранение ошибки)
     let correctionX = 0;
@@ -577,11 +577,11 @@ const smoothStep = (
     }
     
     // Комбинируем: velocity движение + взвешенная коррекция
-    // VELOCITY_WEIGHT контролирует баланс точности/плавности
-    visual.x += velocityMoveX * VELOCITY_WEIGHT + correctionX * (1 - VELOCITY_WEIGHT * 0.5);
-    visual.y += velocityMoveY * VELOCITY_WEIGHT + correctionY * (1 - VELOCITY_WEIGHT * 0.5);
+    // VELOCITY_WEIGHT контролирует баланс: при 0.7 это 70% velocity + 30% коррекция
+    visual.x += velocityMoveX * VELOCITY_WEIGHT + correctionX * (1 - VELOCITY_WEIGHT);
+    visual.y += velocityMoveY * VELOCITY_WEIGHT + correctionY * (1 - VELOCITY_WEIGHT);
     
-    // Smoothly interpolate velocity towards target (для следующего кадра)
+    // Плавно приближаем visual velocity к серверной (для следующей итерации сглаживания)
     const velocityLerp = clamp(dtSec * 8, 0, 1);
     visual.vx = lerp(visual.vx, targetVx, velocityLerp);
     visual.vy = lerp(visual.vy, targetVy, velocityLerp);
