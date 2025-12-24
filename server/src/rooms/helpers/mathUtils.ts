@@ -24,6 +24,7 @@ export function normalizeAngle(angle: number): number {
  */
 export function secondsToTicks(seconds: number, tickRate: number): number {
     if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+    if (!Number.isFinite(tickRate) || tickRate <= 0) return 0;
     return Math.max(1, Math.round(seconds * tickRate));
 }
 

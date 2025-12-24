@@ -14,7 +14,9 @@ export function getSlimeRadius(mass: number, formulas: BalanceConfig["formulas"]
 }
 
 export function getOrbRadius(orbMass: number, _density: number, minRadius: number): number {
-    // Размер зависит от массы орба, плотность влияет на физическую массу/инерцию.
+    // Размер зависит от массы орба.
+    // Плотность (_density) передаётся для совместимости, но не влияет на радиус.
+    // Физическая масса с учётом плотности рассчитывается в ArenaRoom.pickupSystem.
     return minRadius * Math.sqrt(Math.max(0, orbMass));
 }
 

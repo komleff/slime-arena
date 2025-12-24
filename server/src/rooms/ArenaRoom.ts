@@ -442,7 +442,8 @@ export class ArenaRoom extends Room<GameState> {
             if (hasYawInput) {
                 const desiredAngVel = yawCmd * angularLimit;
                 const angVelError = desiredAngVel - player.angVel;
-                const reactionTime = Math.max(slimeConfig.assist.reactionTimeS, dt);
+                // Минимум 1мс для избежания деления на слишком малое значение
+                const reactionTime = Math.max(slimeConfig.assist.reactionTimeS, 0.001);
                 const desiredAlpha = angVelError / reactionTime;
                 const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
                 torque = inertia * clampedAlpha;
@@ -1497,10 +1498,11 @@ export class ArenaRoom extends Room<GameState> {
             this.metricsMaxTickMs = dt;
         }
         
-        // Warn if tick takes too long (>20ms is concerning at 30Hz)
+        // Предупреждаем, если тик стабильно приближается к исчерпанию бюджета (≈85%)
         const tickBudgetMs = this.balance.server.simulationIntervalMs;
-        if (dt > tickBudgetMs * 0.6) {
-            console.warn(`[PERF] tick=${this.tick} took ${dt.toFixed(1)}ms (budget: ${tickBudgetMs.toFixed(1)}ms)`);
+        const warnThresholdMs = tickBudgetMs * 0.85;
+        if (dt > warnThresholdMs) {
+            console.warn(`[PERF] tick=${this.tick} took ${dt.toFixed(1)}ms (budget: ${tickBudgetMs.toFixed(1)}ms, warn ≥ ${warnThresholdMs.toFixed(1)}ms)`);
         }
         
         if (this.metricsTickCount >= this.metricsIntervalTicks) {
