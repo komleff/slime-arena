@@ -516,11 +516,14 @@ const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
-// Smoothing config
-const CATCH_UP_SPEED = 8.0; // Units per second per unit of error
-const MAX_CATCH_UP_SPEED = 500; // Max correction speed in m/s
+// Smoothing config - баланс между точностью и плавностью
+// VELOCITY_WEIGHT: 0 = только catch-up, 1 = только интеграция velocity
+// Оптимально 0.6-0.8 для Slime Arena (точнее чем U2, но всё ещё плавно)
+const VELOCITY_WEIGHT = 0.7; // Вес интеграции скорости vs catch-up коррекции
+const CATCH_UP_SPEED = 10.0; // Units per second per unit of error (увеличено для точности)
+const MAX_CATCH_UP_SPEED = 800; // Max correction speed in m/s
 const TELEPORT_THRESHOLD = 100; // Teleport if error > this (meters)
-const ANGLE_CATCH_UP_SPEED = 10.0; // Radians per second per radian of error
+const ANGLE_CATCH_UP_SPEED = 12.0; // Radians per second per radian of error
 
 const resetSnapshotBuffer = () => {
     snapshotBuffer.length = 0;
@@ -529,7 +532,8 @@ const resetSnapshotBuffer = () => {
     lastRenderMs = 0;
 };
 
-// Smoothly move visual state towards target
+// Smoothly move visual state towards target with velocity integration
+// Гибрид: интегрируем velocity для предсказуемости + catch-up для коррекции ошибки
 const smoothStep = (
     visual: VisualEntity,
     targetX: number,
@@ -554,30 +558,33 @@ const smoothStep = (
         return;
     }
     
-    // Calculate catch-up velocity
-    // The idea: move towards target with speed proportional to error
-    // This creates smooth exponential decay of error
+    // Сначала интегрируем velocity (предсказуемое движение)
+    // Это даёт точное отображение направления движения
+    const velocityMoveX = visual.vx * dtSec;
+    const velocityMoveY = visual.vy * dtSec;
+    
+    // Затем вычисляем catch-up коррекцию (устранение ошибки)
+    let correctionX = 0;
+    let correctionY = 0;
     if (error > 0.01) {
         const catchUpSpeed = Math.min(error * CATCH_UP_SPEED, MAX_CATCH_UP_SPEED);
-        const correctionX = (dx / error) * catchUpSpeed * dtSec;
-        const correctionY = (dy / error) * catchUpSpeed * dtSec;
+        correctionX = (dx / error) * catchUpSpeed * dtSec;
+        correctionY = (dy / error) * catchUpSpeed * dtSec;
         
-        // Don't overshoot
-        if (Math.abs(correctionX) > Math.abs(dx)) {
-            visual.x = targetX;
-        } else {
-            visual.x += correctionX;
-        }
-        if (Math.abs(correctionY) > Math.abs(dy)) {
-            visual.y = targetY;
-        } else {
-            visual.y += correctionY;
-        }
+        // Don't overshoot with correction
+        if (Math.abs(correctionX) > Math.abs(dx)) correctionX = dx;
+        if (Math.abs(correctionY) > Math.abs(dy)) correctionY = dy;
     }
     
-    // Smoothly interpolate velocity (for visual continuity)
-    visual.vx = lerp(visual.vx, targetVx, clamp(dtSec * 5, 0, 1));
-    visual.vy = lerp(visual.vy, targetVy, clamp(dtSec * 5, 0, 1));
+    // Комбинируем: velocity движение + взвешенная коррекция
+    // VELOCITY_WEIGHT контролирует баланс точности/плавности
+    visual.x += velocityMoveX * VELOCITY_WEIGHT + correctionX * (1 - VELOCITY_WEIGHT * 0.5);
+    visual.y += velocityMoveY * VELOCITY_WEIGHT + correctionY * (1 - VELOCITY_WEIGHT * 0.5);
+    
+    // Smoothly interpolate velocity towards target (для следующего кадра)
+    const velocityLerp = clamp(dtSec * 8, 0, 1);
+    visual.vx = lerp(visual.vx, targetVx, velocityLerp);
+    visual.vy = lerp(visual.vy, targetVy, velocityLerp);
     
     // Smooth angle interpolation
     const angleDelta = wrapAngle(targetAngle - visual.angle);

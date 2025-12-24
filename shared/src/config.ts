@@ -90,12 +90,6 @@ export interface WorldPhysicsConfig {
 
 export interface ClientNetSmoothingConfig {
     lookAheadMs: number;
-    maxDeviationM: number;
-    catchUpMin: number;
-    catchUpMax: number;
-    maxExtrapolationMs: number;
-    transitionDurationMs: number;
-    angleMaxDeviationRad: number;
 }
 
 export interface BalanceConfig {
@@ -520,12 +514,6 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     clientNetSmoothing: {
         lookAheadMs: 150,
-        maxDeviationM: 2.0,
-        catchUpMin: 0.9,
-        catchUpMax: 1.2,
-        maxExtrapolationMs: 300,
-        transitionDurationMs: 250,
-        angleMaxDeviationRad: 0.35,
     },
     slime: {
         initialMass: 100,
@@ -1124,36 +1112,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 clientNetSmoothing.lookAheadMs,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.lookAheadMs,
                 "clientNetSmoothing.lookAheadMs"
-            ),
-            maxDeviationM: readNumber(
-                clientNetSmoothing.maxDeviationM,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxDeviationM,
-                "clientNetSmoothing.maxDeviationM"
-            ),
-            catchUpMin: readNumber(
-                clientNetSmoothing.catchUpMin,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpMin,
-                "clientNetSmoothing.catchUpMin"
-            ),
-            catchUpMax: readNumber(
-                clientNetSmoothing.catchUpMax,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpMax,
-                "clientNetSmoothing.catchUpMax"
-            ),
-            maxExtrapolationMs: readNumber(
-                clientNetSmoothing.maxExtrapolationMs,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxExtrapolationMs,
-                "clientNetSmoothing.maxExtrapolationMs"
-            ),
-            transitionDurationMs: readNumber(
-                clientNetSmoothing.transitionDurationMs,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.transitionDurationMs,
-                "clientNetSmoothing.transitionDurationMs"
-            ),
-            angleMaxDeviationRad: readNumber(
-                clientNetSmoothing.angleMaxDeviationRad,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleMaxDeviationRad,
-                "clientNetSmoothing.angleMaxDeviationRad"
             ),
         },
         slime: {
