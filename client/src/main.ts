@@ -291,9 +291,7 @@ const updateWorldBounds = () => {
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     updateWorldBounds();
-    maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
-    transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
-    angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
+    lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
     orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
@@ -502,12 +500,96 @@ type RenderState = {
 
 const snapshotBuffer: Snapshot[] = [];
 const snapshotBufferLimit = 20;
-const interpolationDelayMs = 100;
-let maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
-let transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
-let angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
+let lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
+
+// === Visual State System (U2-style predictive smoothing) ===
+// Visual state is what we actually draw - it smoothly catches up to server state
+type VisualEntity = {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    angle: number;
+    lastUpdateMs: number;
+};
+const visualPlayers = new Map<string, VisualEntity>();
+const visualOrbs = new Map<string, VisualEntity>();
+let lastRenderMs = 0;
+
+// Smoothing config
+const CATCH_UP_SPEED = 8.0; // Units per second per unit of error
+const MAX_CATCH_UP_SPEED = 500; // Max correction speed in m/s
+const TELEPORT_THRESHOLD = 100; // Teleport if error > this (meters)
+const ANGLE_CATCH_UP_SPEED = 10.0; // Radians per second per radian of error
+
 const resetSnapshotBuffer = () => {
     snapshotBuffer.length = 0;
+    visualPlayers.clear();
+    visualOrbs.clear();
+    lastRenderMs = 0;
+};
+
+// Smoothly move visual state towards target
+const smoothStep = (
+    visual: VisualEntity,
+    targetX: number,
+    targetY: number,
+    targetVx: number,
+    targetVy: number,
+    targetAngle: number,
+    dtSec: number
+): void => {
+    // Calculate position error
+    const dx = targetX - visual.x;
+    const dy = targetY - visual.y;
+    const error = Math.sqrt(dx * dx + dy * dy);
+    
+    // Teleport if error is too large (e.g., respawn)
+    if (error > TELEPORT_THRESHOLD) {
+        visual.x = targetX;
+        visual.y = targetY;
+        visual.vx = targetVx;
+        visual.vy = targetVy;
+        visual.angle = targetAngle;
+        return;
+    }
+    
+    // Calculate catch-up velocity
+    // The idea: move towards target with speed proportional to error
+    // This creates smooth exponential decay of error
+    if (error > 0.01) {
+        const catchUpSpeed = Math.min(error * CATCH_UP_SPEED, MAX_CATCH_UP_SPEED);
+        const correctionX = (dx / error) * catchUpSpeed * dtSec;
+        const correctionY = (dy / error) * catchUpSpeed * dtSec;
+        
+        // Don't overshoot
+        if (Math.abs(correctionX) > Math.abs(dx)) {
+            visual.x = targetX;
+        } else {
+            visual.x += correctionX;
+        }
+        if (Math.abs(correctionY) > Math.abs(dy)) {
+            visual.y = targetY;
+        } else {
+            visual.y += correctionY;
+        }
+    }
+    
+    // Smoothly interpolate velocity (for visual continuity)
+    visual.vx = lerp(visual.vx, targetVx, clamp(dtSec * 5, 0, 1));
+    visual.vy = lerp(visual.vy, targetVy, clamp(dtSec * 5, 0, 1));
+    
+    // Smooth angle interpolation
+    const angleDelta = wrapAngle(targetAngle - visual.angle);
+    const angleError = Math.abs(angleDelta);
+    if (angleError > 0.001) {
+        const angleCatchUp = Math.min(angleError * ANGLE_CATCH_UP_SPEED, Math.PI * 4) * dtSec;
+        if (angleCatchUp >= angleError) {
+            visual.angle = targetAngle;
+        } else {
+            visual.angle = wrapAngle(visual.angle + Math.sign(angleDelta) * angleCatchUp);
+        }
+    }
 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -518,10 +600,6 @@ const wrapAngle = (angle: number) => {
     while (value < -Math.PI) value += twoPi;
     while (value > Math.PI) value -= twoPi;
     return value;
-};
-const lerpAngle = (a: number, b: number, t: number) => {
-    const delta = wrapAngle(b - a);
-    return a + delta * t;
 };
 
 type CollectionLike<T> = {
@@ -609,286 +687,139 @@ const captureSnapshot = (state: GameStateLike) => {
     }
 };
 
-const extrapolateMotion = <T extends { x: number; y: number; vx: number; vy: number }>(
-    entity: T,
-    dtSec: number
-): T => ({
-    ...entity,
-    x: entity.x + entity.vx * dtSec,
-    y: entity.y + entity.vy * dtSec,
-});
-
-const extrapolatePlayer = (player: SnapshotPlayer, dtSec: number): RenderPlayer => ({
-    ...player,
-    x: player.x + player.vx * dtSec,
-    y: player.y + player.vy * dtSec,
-    angle: wrapAngle(player.angle + player.angVel * dtSec),
-});
-
-const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: number): RenderPlayer => {
-    const angleDelta = Math.abs(wrapAngle(newer.angle - older.angle));
-    const angleT = angleDelta > angleMaxDeviationRad ? clamp(t * 1.5, 0, 1) : t;
-    return {
-        ...newer,
-        x: lerp(older.x, newer.x, t),
-        y: lerp(older.y, newer.y, t),
-        vx: lerp(older.vx, newer.vx, t),
-        vy: lerp(older.vy, newer.vy, t),
-        angle: lerpAngle(older.angle, newer.angle, angleT),
-        angVel: lerp(older.angVel, newer.angVel, angleT),
-        mass: lerp(older.mass, newer.mass, t),
-        hp: lerp(older.hp, newer.hp, t),
-        maxHp: lerp(older.maxHp, newer.maxHp, t),
-    };
-};
-
-const interpolateOrb = (older: SnapshotOrb, newer: SnapshotOrb, t: number): RenderOrb => ({
-    ...newer,
-    x: lerp(older.x, newer.x, t),
-    y: lerp(older.y, newer.y, t),
-    vx: lerp(older.vx, newer.vx, t),
-    vy: lerp(older.vy, newer.vy, t),
-    mass: lerp(older.mass, newer.mass, t),
-});
-
-const interpolateChest = (older: SnapshotChest, newer: SnapshotChest, t: number): RenderChest => ({
-    ...newer,
-    x: lerp(older.x, newer.x, t),
-    y: lerp(older.y, newer.y, t),
-    vx: lerp(older.vx, newer.vx, t),
-    vy: lerp(older.vy, newer.vy, t),
-});
-
-const interpolateHotZone = (older: SnapshotHotZone, newer: SnapshotHotZone, t: number): RenderHotZone => ({
-    ...newer,
-    x: lerp(older.x, newer.x, t),
-    y: lerp(older.y, newer.y, t),
-    radius: lerp(older.radius, newer.radius, t),
-    spawnMultiplier: lerp(older.spawnMultiplier, newer.spawnMultiplier, t),
-});
-
-const clonePlayers = (source: Map<string, SnapshotPlayer>): Map<string, RenderPlayer> => {
-    const result = new Map<string, RenderPlayer>();
-    for (const [id, player] of source.entries()) {
-        result.set(id, { ...player });
-    }
-    return result;
-};
-
-const cloneOrbs = (source: Map<string, SnapshotOrb>): Map<string, RenderOrb> => {
-    const result = new Map<string, RenderOrb>();
-    for (const [id, orb] of source.entries()) {
-        result.set(id, { ...orb });
-    }
-    return result;
-};
-
-const cloneChests = (source: Map<string, SnapshotChest>): Map<string, RenderChest> => {
-    const result = new Map<string, RenderChest>();
-    for (const [id, chest] of source.entries()) {
-        result.set(id, { ...chest });
-    }
-    return result;
-};
-
-const cloneHotZones = (source: Map<string, SnapshotHotZone>): Map<string, RenderHotZone> => {
-    const result = new Map<string, RenderHotZone>();
-    for (const [id, zone] of source.entries()) {
-        result.set(id, { ...zone });
-    }
-    return result;
-};
-
-const extrapolateState = (snapshot: Snapshot, dtSec: number): RenderState => {
-    const players = new Map<string, RenderPlayer>();
-    const orbs = new Map<string, RenderOrb>();
-    const chests = new Map<string, RenderChest>();
-    const hotZones = new Map<string, RenderHotZone>();
-    for (const [id, player] of snapshot.players.entries()) {
-        players.set(id, extrapolatePlayer(player, dtSec));
-    }
-    for (const [id, orb] of snapshot.orbs.entries()) {
-        orbs.set(id, extrapolateMotion(orb, dtSec));
-    }
-    for (const [id, chest] of snapshot.chests.entries()) {
-        chests.set(id, extrapolateMotion(chest, dtSec));
-    }
-    for (const [id, zone] of snapshot.hotZones.entries()) {
-        hotZones.set(id, { ...zone });
-    }
-    return {
-        players,
-        orbs,
-        chests,
-        hotZones,
-    };
-};
-
-const extrapolateStateWithDecay = (
-    snapshot: Snapshot,
-    extrapolateSec: number,
-    extraSec: number,
-    decay: number
-): RenderState => {
-    const players = new Map<string, RenderPlayer>();
-    const orbs = new Map<string, RenderOrb>();
-    const chests = new Map<string, RenderChest>();
-    const hotZones = new Map<string, RenderHotZone>();
-    const extraScale = extraSec > 0 ? extraSec * (1 + decay) * 0.5 : 0;
-    const totalSec = extrapolateSec + extraScale;
-
-    for (const [id, player] of snapshot.players.entries()) {
-        players.set(id, {
-            ...player,
-            x: player.x + player.vx * totalSec,
-            y: player.y + player.vy * totalSec,
-            vx: player.vx * decay,
-            vy: player.vy * decay,
-            angVel: player.angVel * decay,
-            angle: wrapAngle(player.angle + player.angVel * totalSec),
-        });
-    }
-    for (const [id, orb] of snapshot.orbs.entries()) {
-        orbs.set(id, {
-            ...orb,
-            x: orb.x + orb.vx * totalSec,
-            y: orb.y + orb.vy * totalSec,
-            vx: orb.vx * decay,
-            vy: orb.vy * decay,
-        });
-    }
-    for (const [id, chest] of snapshot.chests.entries()) {
-        chests.set(id, {
-            ...chest,
-            x: chest.x + chest.vx * totalSec,
-            y: chest.y + chest.vy * totalSec,
-            vx: chest.vx * decay,
-            vy: chest.vy * decay,
-        });
-    }
-    for (const [id, zone] of snapshot.hotZones.entries()) {
-        hotZones.set(id, { ...zone });
-    }
-
-    return {
-        players,
-        orbs,
-        chests,
-        hotZones,
-    };
-};
-
-const interpolateState = (older: Snapshot, newer: Snapshot, t: number): RenderState => {
-    const players = new Map<string, RenderPlayer>();
-    const orbs = new Map<string, RenderOrb>();
-    const chests = new Map<string, RenderChest>();
-    const hotZones = new Map<string, RenderHotZone>();
-
-    for (const [id, player] of newer.players.entries()) {
-        const prev = older.players.get(id);
-        players.set(id, prev ? interpolatePlayer(prev, player, t) : { ...player });
-    }
-    for (const [id, orb] of newer.orbs.entries()) {
-        const prev = older.orbs.get(id);
-        orbs.set(id, prev ? interpolateOrb(prev, orb, t) : { ...orb });
-    }
-    for (const [id, chest] of newer.chests.entries()) {
-        const prev = older.chests.get(id);
-        chests.set(id, prev ? interpolateChest(prev, chest, t) : { ...chest });
-    }
-    for (const [id, zone] of newer.hotZones.entries()) {
-        const prev = older.hotZones.get(id);
-        hotZones.set(id, prev ? interpolateHotZone(prev, zone, t) : { ...zone });
-    }
-
-    const fadeAlpha = clamp(1 - t, 0, 1);
-    for (const [id, player] of older.players.entries()) {
-        if (!newer.players.has(id)) {
-            players.set(id, { ...player, alpha: fadeAlpha });
-        }
-    }
-    for (const [id, orb] of older.orbs.entries()) {
-        if (!newer.orbs.has(id)) {
-            orbs.set(id, { ...orb, alpha: fadeAlpha });
-        }
-    }
-    for (const [id, chest] of older.chests.entries()) {
-        if (!newer.chests.has(id)) {
-            chests.set(id, { ...chest, alpha: fadeAlpha });
-        }
-    }
-    for (const [id, zone] of older.hotZones.entries()) {
-        if (!newer.hotZones.has(id)) {
-            hotZones.set(id, { ...zone, alpha: fadeAlpha });
-        }
-    }
-
-    return {
-        players,
-        orbs,
-        chests,
-        hotZones,
-    };
-};
-
-const getRenderState = (renderTimeMs: number): RenderState | null => {
+// U2-style predictive smoothing: visual state catches up to target
+const getSmoothedRenderState = (nowMs: number): RenderState | null => {
     if (snapshotBuffer.length === 0) return null;
     
-    const oldest = snapshotBuffer[0];
     const newest = snapshotBuffer[snapshotBuffer.length - 1];
-
-    if (renderTimeMs <= oldest.time) {
-        return {
-            players: clonePlayers(oldest.players),
-            orbs: cloneOrbs(oldest.orbs),
-            chests: cloneChests(oldest.chests),
-            hotZones: cloneHotZones(oldest.hotZones),
-        };
-    }
-
-    if (renderTimeMs >= newest.time) {
-        const dtMs = renderTimeMs - newest.time;
-        if (dtMs <= maxExtrapolationMs || transitionDurationMs <= 0) {
-            const clamped = Math.min(dtMs, maxExtrapolationMs);
-            return extrapolateState(newest, clamped / 1000);
+    
+    // Calculate frame delta
+    const dtSec = lastRenderMs > 0 ? Math.min((nowMs - lastRenderMs) / 1000, 0.1) : 0;
+    lastRenderMs = nowMs;
+    
+    // Predict target position: last known position + velocity * lookAhead
+    const lookAheadSec = lookAheadMs / 1000;
+    
+    // Result maps
+    const players = new Map<string, RenderPlayer>();
+    const orbs = new Map<string, RenderOrb>();
+    const chests = new Map<string, RenderChest>();
+    const hotZones = new Map<string, RenderHotZone>();
+    
+    // Process players with visual smoothing
+    for (const [id, player] of newest.players.entries()) {
+        // Get or create visual state
+        let visual = visualPlayers.get(id);
+        if (!visual) {
+            visual = {
+                x: player.x,
+                y: player.y,
+                vx: player.vx,
+                vy: player.vy,
+                angle: player.angle,
+                lastUpdateMs: nowMs,
+            };
+            visualPlayers.set(id, visual);
         }
-        const excessMs = dtMs - maxExtrapolationMs;
-        const cappedExcessMs = Math.min(excessMs, transitionDurationMs);
-        const decay = clamp(1 - cappedExcessMs / transitionDurationMs, 0, 1);
-        return extrapolateStateWithDecay(
-            newest,
-            maxExtrapolationMs / 1000,
-            cappedExcessMs / 1000,
-            decay
-        );
+        
+        // Calculate target position (server pos + velocity * lookAhead)
+        const targetX = player.x + player.vx * lookAheadSec;
+        const targetY = player.y + player.vy * lookAheadSec;
+        const targetAngle = wrapAngle(player.angle + player.angVel * lookAheadSec);
+        
+        // Smooth visual towards target
+        if (dtSec > 0) {
+            smoothStep(visual, targetX, targetY, player.vx, player.vy, targetAngle, dtSec);
+        }
+        
+        // Build render player from visual state
+        players.set(id, {
+            ...player,
+            x: visual.x,
+            y: visual.y,
+            vx: visual.vx,
+            vy: visual.vy,
+            angle: visual.angle,
+        });
     }
-
-    if (snapshotBuffer.length < 2) {
-        return {
-            players: clonePlayers(newest.players),
-            orbs: cloneOrbs(newest.orbs),
-            chests: cloneChests(newest.chests),
-            hotZones: cloneHotZones(newest.hotZones),
-        };
-    }
-
-    let low = 0;
-    let high = snapshotBuffer.length - 1;
-    while (low <= high) {
-        const mid = (low + high) >> 1;
-        if (snapshotBuffer[mid].time <= renderTimeMs) {
-            low = mid + 1;
-        } else {
-            high = mid - 1;
+    
+    // Clean up removed players
+    for (const id of visualPlayers.keys()) {
+        if (!newest.players.has(id)) {
+            visualPlayers.delete(id);
         }
     }
-    const olderIndex = Math.max(0, low - 1);
-    const older = snapshotBuffer[olderIndex];
-    const newer = snapshotBuffer[Math.min(olderIndex + 1, snapshotBuffer.length - 1)];
-
-    const dtMs = newer.time - older.time;
-    const t = dtMs > 0 ? clamp((renderTimeMs - older.time) / dtMs, 0, 1) : 0;
-    return interpolateState(older, newer, t);
+    
+    // Process orbs with visual smoothing (simplified - less critical)
+    for (const [id, orb] of newest.orbs.entries()) {
+        let visual = visualOrbs.get(id);
+        if (!visual) {
+            visual = {
+                x: orb.x,
+                y: orb.y,
+                vx: orb.vx,
+                vy: orb.vy,
+                angle: 0,
+                lastUpdateMs: nowMs,
+            };
+            visualOrbs.set(id, visual);
+        }
+        
+        // Orbs use simpler smoothing (just position)
+        const targetX = orb.x + orb.vx * lookAheadSec;
+        const targetY = orb.y + orb.vy * lookAheadSec;
+        
+        if (dtSec > 0) {
+            // Faster catch-up for orbs
+            const dx = targetX - visual.x;
+            const dy = targetY - visual.y;
+            const error = Math.sqrt(dx * dx + dy * dy);
+            
+            if (error > TELEPORT_THRESHOLD) {
+                visual.x = targetX;
+                visual.y = targetY;
+            } else if (error > 0.01) {
+                const catchUpSpeed = Math.min(error * CATCH_UP_SPEED * 1.5, MAX_CATCH_UP_SPEED);
+                const t = Math.min(catchUpSpeed * dtSec / error, 1);
+                visual.x = lerp(visual.x, targetX, t);
+                visual.y = lerp(visual.y, targetY, t);
+            }
+            visual.vx = orb.vx;
+            visual.vy = orb.vy;
+        }
+        
+        orbs.set(id, {
+            ...orb,
+            x: visual.x,
+            y: visual.y,
+            vx: visual.vx,
+            vy: visual.vy,
+        });
+    }
+    
+    // Clean up removed orbs
+    for (const id of visualOrbs.keys()) {
+        if (!newest.orbs.has(id)) {
+            visualOrbs.delete(id);
+        }
+    }
+    
+    // Chests - use direct values (they don't move fast)
+    for (const [id, chest] of newest.chests.entries()) {
+        chests.set(id, { ...chest });
+    }
+    
+    // Hot zones - use direct values
+    for (const [id, zone] of newest.hotZones.entries()) {
+        hotZones.set(id, { ...zone });
+    }
+    
+    return {
+        players,
+        orbs,
+        chests,
+        hotZones,
+    };
 };
 
 const computeSpriteScale = (img: HTMLImageElement) => {
@@ -1290,6 +1221,7 @@ async function main() {
 
         const render = () => {
             if (!isRendering) return;
+            const now = performance.now();
             const cw = canvas.width;
             const ch = canvas.height;
             const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
@@ -1298,8 +1230,8 @@ async function main() {
             const worldHalfW = worldWidth / 2;
             const worldHalfH = worldHeight / 2;
 
-            const renderTime = performance.now() - interpolationDelayMs;
-            const renderState = getRenderState(renderTime);
+            // Use U2-style predictive smoothing
+            const renderState = getSmoothedRenderState(now);
             renderStateForHud = renderState;
             const playersView = renderState ? renderState.players : room.state.players;
             const orbsView = renderState ? renderState.orbs : room.state.orbs;
@@ -1313,7 +1245,6 @@ async function main() {
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);
             const clampY = clamp(targetY, -maxCamY, maxCamY);
-            const now = performance.now();
             const frameDt = Math.min((now - lastFrameTime) / 1000, 0.1);
             lastFrameTime = now;
             const cameraLerp = 1 - Math.exp(-frameDt / cameraSmoothTime);

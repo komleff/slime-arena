@@ -11,6 +11,8 @@
   },
   "match": {
     "durationSec": 150,
+    "resultsDurationSec": 10,
+    "restartDelaySec": 3,
     "phases": [
       { "id": "Spawn", "startSec": 0, "endSec": 15 },
       { "id": "Collect", "startSec": 15, "endSec": 60 },
@@ -68,7 +70,13 @@
         "yawOscillationWindowFrames": 12,
         "yawOscillationSignFlipsThreshold": 4,
         "yawDampingBoostFactor": 2.0,
-        "yawCmdEps": 0.001
+        "yawCmdEps": 0.001,
+        "angularDeadzoneRad": 0.02,
+        "yawRateGain": 2.0,
+        "reactionTimeS": 0.15,
+        "accelTimeS": 0.5,
+        "velocityErrorThreshold": 0.1,
+        "inputMagnitudeThreshold": 0.01
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
@@ -115,7 +123,13 @@
         "yawOscillationWindowFrames": 12,
         "yawOscillationSignFlipsThreshold": 4,
         "yawDampingBoostFactor": 2.0,
-        "yawCmdEps": 0.001
+        "yawCmdEps": 0.001,
+        "angularDeadzoneRad": 0.02,
+        "yawRateGain": 2.0,
+        "reactionTimeS": 0.15,
+        "accelTimeS": 0.5,
+        "velocityErrorThreshold": 0.1,
+        "inputMagnitudeThreshold": 0.01
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
@@ -162,7 +176,13 @@
         "yawOscillationWindowFrames": 12,
         "yawOscillationSignFlipsThreshold": 4,
         "yawDampingBoostFactor": 2.0,
-        "yawCmdEps": 0.001
+        "yawCmdEps": 0.001,
+        "angularDeadzoneRad": 0.02,
+        "yawRateGain": 2.0,
+        "reactionTimeS": 0.15,
+        "accelTimeS": 0.5,
+        "velocityErrorThreshold": 0.1,
+        "inputMagnitudeThreshold": 0.01
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
@@ -209,7 +229,13 @@
         "yawOscillationWindowFrames": 12,
         "yawOscillationSignFlipsThreshold": 4,
         "yawDampingBoostFactor": 2.0,
-        "yawCmdEps": 0.001
+        "yawCmdEps": 0.001,
+        "angularDeadzoneRad": 0.02,
+        "yawRateGain": 2.0,
+        "reactionTimeS": 0.15,
+        "accelTimeS": 0.5,
+        "velocityErrorThreshold": 0.1,
+        "inputMagnitudeThreshold": 0.01
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,

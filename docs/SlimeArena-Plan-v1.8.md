@@ -4,7 +4,7 @@
 **Автор:** Claude Opus  
 **Дата:** декабрь 2025  
 
-План обновлён в соответствии с `SlimeArena-GDD-v2_4.md` и `slime_arena_flight_tz_merged.md`.  
+План обновлён в соответствии с `SlimeArena-GDD-v2_4.md` и `SlimeArena-Flight-TZ-v1.0.md`.  
 Техническая архитектура — в `SlimeArena-Architecture-v1.5.md`.
 
 ---
@@ -13,7 +13,7 @@
 
 - Обновлена ссылка на GDD: `SlimeArena-GDD-v2_4.md`.
 - Обновлена ссылка на архитектуру: `SlimeArena-Architecture-v1.5.md`.
-- Добавлен инженерный источник правды по управлению/полёту: `slime_arena_flight_tz_merged.md`.
+- Добавлен инженерный источник правды по управлению/полёту: `SlimeArena-Flight-TZ-v1.0.md`.
 - В прототипе ядра обновлены задачи и критический путь: вместо абстрактного модуля движения — реализация `FlightAssistSystem + PhysicsSystem + CollisionSystem` по Flight_TZ (силы/моменты, Semi‑Implicit Euler, импульсные коллизии, overspeed‑damping).
 - Уточнено, что параметры движения/мира/сглаживания хранятся в отдельных конфиг‑структурах (`SlimeConfig`, `WorldPhysicsConfig`, `ClientNetSmoothingConfig`).
 
@@ -24,7 +24,7 @@
 | Документ | Содержание |
 |----------|------------|
 | `SlimeArena-GDD-v2_4.md` | Дизайн, правила, баланс, интерфейсы, Приложение D |
-| `slime_arena_flight_tz_merged.md` | Инженерное ТЗ: управление/движение, FlightAssist/Physics/Collision, конфиги движения/мира/сглаживания |
+| `SlimeArena-Flight-TZ-v1.0.md` | Инженерное ТЗ: управление/движение, FlightAssist/Physics/Collision, конфиги движения/мира/сглаживания |
 | `SlimeArena-Architecture-v1.5.md` | Архитектура, модули, протокол, хранение |
 | Этот документ | Этапы, оценки, зависимости, критерии |
 
@@ -67,7 +67,7 @@
 |--------|--------|------------|-----------|
 | Сервер: Colyseus room + tick loop (30 Гц, фиксированный dt) | 2 дня | — | Всё |
 | Shared: схемы конфигов `SlimeConfig/WorldPhysicsConfig/ClientNetSmoothingConfig` + загрузка/валидация | 2 дня | — | Физика/движение |
-| Сервер: `FlightAssistSystem` по `slime_arena_flight_tz_merged.md` (forces/torque, drift‑brake, overspeed) | 3 дня | Room+Config | Управляемость/бой |
+| Сервер: `FlightAssistSystem` по `SlimeArena-Flight-TZ-v1.0.md` (forces/torque, drift‑brake, overspeed) | 3 дня | Room+Config | Управляемость/бой |
 | Сервер: `PhysicsSystem` (Semi‑Implicit Euler + drag, правило изменения массы) | 2 дня | FlightAssist | Коллизии/бой |
 | Сервер: `CollisionSystem` (круг‑круг + круг‑границы, импульсы + коррекция, 4 итерации) | 3 дня | Physics | Бой/пузырь/сундук |
 | Пузыри: спавн, цвет, плотность, физика | 2 дня | Collision | Укус |
