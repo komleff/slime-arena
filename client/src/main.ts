@@ -1279,12 +1279,12 @@ async function main() {
                 const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
                 const isSelf = playerId === room.sessionId;
                 const crown = isKing ? "👑 " : "";
-                const spriteName = playerSpriteById.get(playerId) ?? "";
-                const spriteIcon = spriteName ? `🟢 ` : "";
                 const highlight = isSelf ? "color: #6fd6ff; font-weight: bold;" : "";
                 const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+                // Экранируем имя для безопасности
+                const safeName = player.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-                leaderboardHtml += `<div style="padding: 4px 0; ${highlight}">${medal} ${crown}${spriteIcon}${player.name} - ${player.mass.toFixed(0)} масса</div>`;
+                leaderboardHtml += `<div style="padding: 4px 0; ${highlight}">${medal} ${crown}${safeName} - ${player.mass.toFixed(0)} масса</div>`;
             }
             resultsLeaderboard.innerHTML = leaderboardHtml;
 
