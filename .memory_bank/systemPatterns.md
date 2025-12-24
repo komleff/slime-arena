@@ -11,7 +11,15 @@
 ## Архитектура
 - **Authoritative Server**: Сервер является единственным источником истины. Клиент отправляет только команды ввода.
 - **Fixed Timestep**: Игровой цикл работает с фиксированным шагом (30 FPS) для обеспечения детерминизма.
-- **Snapshot Interpolation**: Клиент использует буфер снапшотов для плавного отображения состояний, полученных от сервера.
+- **U2-style Predictive Smoothing**: Клиент использует visual state system с velocity integration для плавного отображения.
+
+## U2-стиль сглаживания (v1.0)
+- **Visual State System**: Визуальное состояние (`visualPlayers`, `visualOrbs`) отделено от серверного.
+- **Velocity Integration**: `VELOCITY_WEIGHT = 0.7` — движение по скорости из снапшота.
+- **Catch-up коррекция**: `CATCH_UP_SPEED = 10.0` — плавное догоняние целевой позиции.
+- **Предиктивная экстраполяция**: `targetPos = server_pos + velocity * lookAheadMs`.
+- **Единственный параметр в конфиге**: `lookAheadMs = 150` (остальные захардкожены).
+- **Документация**: `.memory_bank/modules/U2-smoothing.md`
 
 ## Пайплайны и гарантии доставки
 - **CI (Continuous Integration)**:

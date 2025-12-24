@@ -264,13 +264,7 @@
     "heightM": 1000
   },
   "clientNetSmoothing": {
-    "lookAheadMs": 150,
-    "maxDeviationM": 2.0,
-    "catchUpMin": 0.9,
-    "catchUpMax": 1.2,
-    "maxExtrapolationMs": 300,
-    "transitionDurationMs": 250,
-    "angleMaxDeviationRad": 0.35
+    "lookAheadMs": 150
   },
   "slime": {
     "initialMass": 100,
