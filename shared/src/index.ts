@@ -40,3 +40,18 @@ export {
     loadClassSprites,
     getPlayerSprite,
 } from "./sprites.js";
+export {
+    generateName,
+    generateRandomName,
+    getNameCombinationsCount,
+} from "./nameGenerator.js";
+export {
+    clamp,
+    lerp,
+    wrapAngle,
+    normalizeAngle,
+    degToRad,
+    radToDeg,
+    distance,
+    distanceSq,
+} from "./mathUtils.js";

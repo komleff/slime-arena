@@ -292,7 +292,9 @@
     "lastBreathDurationSec": 0.5,
     "lastBreathDamageMult": 0.5,
     "lastBreathSpeedPenalty": 0.8,
-    "massStealPercent": 0.1
+    "massStealPercent": 0.1,
+    "pvpBiteDamageAttackerMassPct": 0.05,
+    "pvpBiteDamageVictimMassPct": 0.03
   },
   "death": {
     "respawnDelaySec": 2,

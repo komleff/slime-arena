@@ -14,6 +14,7 @@ import {
     FLAG_IS_DEAD,
     ResolvedBalanceConfig,
     SlimeConfig,
+    generateName,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
@@ -152,7 +153,14 @@ export class ArenaRoom extends Room<GameState> {
     onJoin(client: Client, options: { name?: string } = {}) {
         const player = new Player();
         player.id = client.sessionId;
-        player.name = options.name ?? `Slime_${client.sessionId.slice(0, 4)}`;
+        // Генерируем юмористическое имя если не указано
+        if (options.name && options.name.trim().length > 0) {
+            player.name = options.name.trim().slice(0, 20);
+        } else {
+            // Используем seed от RNG для детерминированности
+            const nameSeed = this.rng.int(0, 2147483647);
+            player.name = generateName(nameSeed);
+        }
         const spawn = this.randomPointInMap();
         player.x = spawn.x;
         player.y = spawn.y;
@@ -681,8 +689,13 @@ export class ArenaRoom extends Room<GameState> {
 
         const slimeConfig = this.getSlimeConfig(attacker);
         const classStats = this.getClassStats(attacker);
-        let damage =
-            getSlimeBiteDamage(attacker.mass, slimeConfig) * damageMultiplier * classStats.damageMult;
+        
+        // Усиленный PvP урон: % от массы атакующего + % от массы жертвы
+        const baseDamage = getSlimeBiteDamage(attacker.mass, slimeConfig);
+        const pvpAttackerBonus = attacker.mass * this.balance.combat.pvpBiteDamageAttackerMassPct;
+        const pvpVictimBonus = defender.mass * this.balance.combat.pvpBiteDamageVictimMassPct;
+        let damage = (baseDamage + pvpAttackerBonus + pvpVictimBonus) * damageMultiplier * classStats.damageMult;
+        
         if (attacker.isLastBreath) {
             damage *= this.balance.combat.lastBreathDamageMult;
         }
@@ -1007,7 +1020,7 @@ export class ArenaRoom extends Room<GameState> {
         const sorted = Array.from(this.state.players.values())
             .filter((player) => !player.isDead)
             .sort((a, b) => b.mass - a.mass)
-            .slice(0, 3);
+            .slice(0, 10);
         this.state.leaderboard.length = 0;
         for (const player of sorted) {
             this.state.leaderboard.push(player.id);
