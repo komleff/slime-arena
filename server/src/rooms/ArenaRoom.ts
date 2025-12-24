@@ -578,12 +578,16 @@ export class ArenaRoom extends Room<GameState> {
 
             const totalTorque = player.assistTorque + dragTorque;
             player.angVel += (totalTorque / Math.max(inertia, 1e-6)) * dt;
-            const angularLimit = scaleSlimeValue(
+            let angularLimit = scaleSlimeValue(
                 slimeConfig.limits.angularSpeedLimitRadps,
                 mass,
                 slimeConfig,
                 slimeConfig.massScaling.angularSpeedLimitRadps
             );
+            // Штраф last-breath применяется и к угловому лимиту
+            if (player.isLastBreath) {
+                angularLimit *= this.balance.combat.lastBreathSpeedPenalty;
+            }
             if (angularLimit > 0 && Math.abs(player.angVel) > angularLimit) {
                 player.angVel = Math.sign(player.angVel) * angularLimit;
             }

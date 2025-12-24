@@ -52,11 +52,16 @@ export function createJoystickConfig(
     mode: string,
     followSpeed: number
 ): JoystickConfig {
+    // Валидация mode: только "adaptive" или "fixed", иначе fallback
+    const validModes: JoystickConfig["mode"][] = ["adaptive", "fixed"];
+    const validatedMode: JoystickConfig["mode"] = validModes.includes(mode as JoystickConfig["mode"])
+        ? (mode as JoystickConfig["mode"])
+        : "adaptive";
     return {
         radius,
         deadzone,
         sensitivity,
-        mode: (mode as JoystickConfig["mode"]) || "adaptive",
+        mode: validatedMode,
         followSpeed,
         knobRadius: radius * 0.45,
     };
