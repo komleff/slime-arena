@@ -14,9 +14,10 @@ export function getSlimeRadius(mass: number, formulas: BalanceConfig["formulas"]
 }
 
 export function getOrbRadius(orbMass: number, _density: number, minRadius: number): number {
-    // Размер зависит только от массы, не от плотности
-    // Плотность влияет только на цвет (см. GDD)
-    return minRadius * Math.sqrt(orbMass);
+    // Размер зависит от массы орба.
+    // Плотность (_density) передаётся для совместимости, но не влияет на радиус.
+    // Физическая масса с учётом плотности рассчитывается в ArenaRoom.pickupSystem.
+    return minRadius * Math.sqrt(Math.max(0, orbMass));
 }
 
 export function getSpeedMultiplier(mass: number, formulas: BalanceConfig["formulas"]): number {

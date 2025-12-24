@@ -52,6 +52,13 @@ export interface SlimeConfig {
         yawOscillationSignFlipsThreshold: number;
         yawDampingBoostFactor: number;
         yawCmdEps: number;
+        // Параметры fly-by-wire управления
+        angularDeadzoneRad: number;
+        yawRateGain: number;
+        reactionTimeS: number;
+        accelTimeS: number;
+        velocityErrorThreshold: number;
+        inputMagnitudeThreshold: number;
     };
     combat: {
         biteDamagePctOfMass: number;
@@ -104,6 +111,8 @@ export interface BalanceConfig {
     };
     match: {
         durationSec: number;
+        resultsDurationSec: number;
+        restartDelaySec: number;
         phases: MatchPhaseConfig[];
     };
     physics: {
@@ -257,6 +266,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     match: {
         durationSec: 150,
+        resultsDurationSec: 10,
+        restartDelaySec: 3,
         phases: [
             { id: "Spawn", startSec: 0, endSec: 15 },
             { id: "Collect", startSec: 15, endSec: 60 },
@@ -315,6 +326,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -362,6 +379,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -409,6 +432,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -456,6 +485,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -790,6 +825,36 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
                 `${path}.assist.yawDampingBoostFactor`
             ),
             yawCmdEps: readNumber(assist.yawCmdEps, fallback.assist.yawCmdEps, `${path}.assist.yawCmdEps`),
+            angularDeadzoneRad: readNumber(
+                assist.angularDeadzoneRad,
+                fallback.assist.angularDeadzoneRad,
+                `${path}.assist.angularDeadzoneRad`
+            ),
+            yawRateGain: readNumber(
+                assist.yawRateGain,
+                fallback.assist.yawRateGain,
+                `${path}.assist.yawRateGain`
+            ),
+            reactionTimeS: readNumber(
+                assist.reactionTimeS,
+                fallback.assist.reactionTimeS,
+                `${path}.assist.reactionTimeS`
+            ),
+            accelTimeS: readNumber(
+                assist.accelTimeS,
+                fallback.assist.accelTimeS,
+                `${path}.assist.accelTimeS`
+            ),
+            velocityErrorThreshold: readNumber(
+                assist.velocityErrorThreshold,
+                fallback.assist.velocityErrorThreshold,
+                `${path}.assist.velocityErrorThreshold`
+            ),
+            inputMagnitudeThreshold: readNumber(
+                assist.inputMagnitudeThreshold,
+                fallback.assist.inputMagnitudeThreshold,
+                `${path}.assist.inputMagnitudeThreshold`
+            ),
         },
         combat: {
             biteDamagePctOfMass: readNumber(
@@ -915,6 +980,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         },
         match: {
             durationSec: readNumber(match.durationSec, DEFAULT_BALANCE_CONFIG.match.durationSec, "match.durationSec"),
+            resultsDurationSec: readNumber(
+                match.resultsDurationSec,
+                DEFAULT_BALANCE_CONFIG.match.resultsDurationSec,
+                "match.resultsDurationSec"
+            ),
+            restartDelaySec: readNumber(
+                match.restartDelaySec,
+                DEFAULT_BALANCE_CONFIG.match.restartDelaySec,
+                "match.restartDelaySec"
+            ),
             phases: readPhases(match.phases, DEFAULT_BALANCE_CONFIG.match.phases, "match.phases"),
         },
         physics: {

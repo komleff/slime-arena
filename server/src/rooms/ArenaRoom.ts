@@ -44,6 +44,7 @@ export class ArenaRoom extends Room<GameState> {
     private metricsAccumulatorMs = 0;
     private metricsTickCount = 0;
     private metricsIntervalTicks = 0;
+    private metricsMaxTickMs = 0;
     private maxTalentQueue = 3;
 
     private attackCooldownTicks = 0;
@@ -58,6 +59,10 @@ export class ArenaRoom extends Room<GameState> {
     private lastBreathTicks = 0;
     private rebelUpdateIntervalTicks = 0;
     private inputTimeoutTicks = 0;
+    private resultsDurationTicks = 0;
+    private restartDelayTicks = 0;
+    private resultsStartTick = 0;
+    private isMatchEnded = false;
 
     onCreate(options: { seed?: number } = {}) {
         this.balance = loadBalanceConfig();
@@ -76,6 +81,8 @@ export class ArenaRoom extends Room<GameState> {
         this.lastBreathTicks = this.secondsToTicks(this.balance.combat.lastBreathDurationSec);
         this.rebelUpdateIntervalTicks = this.secondsToTicks(this.balance.rebel.updateIntervalSec);
         this.inputTimeoutTicks = this.msToTicks(this.balance.controls.inputTimeoutMs);
+        this.resultsDurationTicks = this.secondsToTicks(this.balance.match.resultsDurationSec);
+        this.restartDelayTicks = this.secondsToTicks(this.balance.match.restartDelaySec);
         this.metricsIntervalTicks = this.balance.server.tickRate;
 
         this.setState(new GameState());
@@ -205,6 +212,15 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private applyInputs() {
+        // Блокируем ввод во время фазы Results
+        if (this.isMatchEnded) {
+            for (const player of this.state.players.values()) {
+                player.inputX = 0;
+                player.inputY = 0;
+            }
+            return;
+        }
+
         const deadzone = this.balance.controls.joystickDeadzone;
         const timeoutTick = this.inputTimeoutTicks > 0 ? this.tick - this.inputTimeoutTicks : null;
         for (const player of this.state.players.values()) {
@@ -392,7 +408,7 @@ export class ArenaRoom extends Room<GameState> {
             const inputX = player.inputX;
             const inputY = player.inputY;
             const inputMag = Math.hypot(inputX, inputY);
-            const hasInput = inputMag > 0.01;
+            const hasInput = inputMag > slimeConfig.assist.inputMagnitudeThreshold;
 
             // Локальные оси слайма
             const forwardX = Math.cos(player.angle);
@@ -401,29 +417,37 @@ export class ArenaRoom extends Room<GameState> {
             const rightY = forwardX;
 
             // === ПОВОРОТ (fly-by-wire с честной физикой) ===
-            let torque = 0;
+            let yawCmd = 0;
             if (hasInput) {
                 const targetAngle = Math.atan2(inputY, inputX);
                 const angleDelta = this.normalizeAngle(targetAngle - player.angle);
-                
-                const angularDeadzone = 0.02; // ~1 градус
+
+                const angularDeadzone = slimeConfig.assist.angularDeadzoneRad;
                 if (Math.abs(angleDelta) > angularDeadzone) {
-                    // Желаемая угловая скорость: пропорциональна отклонению, но не выше лимита
-                    const desiredAngVel = this.clamp(angleDelta * 2.0, -angularLimit, angularLimit);
-                    const angVelError = desiredAngVel - player.angVel;
-                    
-                    // Ускорение для достижения желаемой скорости за время реакции
-                    const reactionTime = 0.15; // 150мс — отзывчиво, но не резко
-                    const desiredAlpha = angVelError / reactionTime;
-                    
-                    // Ограничиваем физическими возможностями двигателя
-                    const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
-                    torque = inertia * clampedAlpha;
+                    const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
+                    if (yawFull > 1e-6) {
+                        yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
+                        yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
+                        yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
+                    }
+                } else {
+                    player.yawSignHistory.length = 0;
                 }
+            } else {
+                player.yawSignHistory.length = 0;
             }
-            
-            // Без ввода — гасим вращение за angularStopTimeS
-            if (!hasInput && Math.abs(player.angVel) > 0.01) {
+
+            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps;
+            let torque = 0;
+            if (hasYawInput) {
+                const desiredAngVel = yawCmd * angularLimit;
+                const angVelError = desiredAngVel - player.angVel;
+                // Минимум 1мс для избежания деления на слишком малое значение
+                const reactionTime = Math.max(slimeConfig.assist.reactionTimeS, 0.001);
+                const desiredAlpha = angVelError / reactionTime;
+                const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
+                torque = inertia * clampedAlpha;
+            } else if (Math.abs(player.angVel) > 1e-3) {
                 const brakeTime = Math.max(slimeConfig.assist.angularStopTimeS, dt);
                 const desiredAlpha = -player.angVel / brakeTime;
                 const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
@@ -466,10 +490,10 @@ export class ArenaRoom extends Room<GameState> {
             let forceRight = 0;
 
             // Время разгона/торможения
-            const accelTime = hasInput ? 0.5 : slimeConfig.assist.comfortableBrakingTimeS;
+            const accelTime = hasInput ? slimeConfig.assist.accelTimeS : slimeConfig.assist.comfortableBrakingTimeS;
 
             // Сила по оси forward (вперёд/назад)
-            if (Math.abs(errorForward) > 0.1) {
+            if (Math.abs(errorForward) > slimeConfig.assist.velocityErrorThreshold) {
                 const desiredAccelForward = errorForward / Math.max(accelTime, dt);
                 // Выбираем лимит тяги в зависимости от направления
                 const thrustLimit = errorForward >= 0 ? thrustForward : thrustReverse;
@@ -479,12 +503,46 @@ export class ArenaRoom extends Room<GameState> {
             }
 
             // Сила по оси right (боковое движение)
-            if (Math.abs(errorRight) > 0.1) {
+            if (Math.abs(errorRight) > slimeConfig.assist.velocityErrorThreshold) {
                 const desiredAccelRight = errorRight / Math.max(accelTime, dt);
                 const maxAccelRight = thrustLateral / mass;
                 const clampedAccelRight = this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
                 forceRight = mass * clampedAccelRight;
             }
+
+            const overspeedRate = slimeConfig.assist.overspeedDampingRate;
+            if (overspeedRate > 0) {
+                const vForward = player.vx * forwardX + player.vy * forwardY;
+                const forwardLimit = vForward >= 0 ? speedLimitForward : speedLimitReverse;
+                const forwardExcess = Math.abs(vForward) - forwardLimit;
+                if (forwardExcess > 0) {
+                    const dvTarget = -Math.sign(vForward) * forwardExcess * overspeedRate;
+                    const desiredAccelForward = dvTarget / dt;
+                    const thrustLimit = vForward >= 0 ? thrustReverse : thrustForward;
+                    const maxAccelForward = thrustLimit / mass;
+                    let brakeForce = mass * this.clamp(desiredAccelForward, -maxAccelForward, maxAccelForward);
+                    if (!hasInput) {
+                        brakeForce *= slimeConfig.assist.autoBrakeMaxThrustFraction;
+                    }
+                    forceForward += brakeForce;
+                }
+
+                const vRight = player.vx * rightX + player.vy * rightY;
+                const lateralExcess = Math.abs(vRight) - speedLimitLateral;
+                if (lateralExcess > 0) {
+                    const dvTarget = -Math.sign(vRight) * lateralExcess * overspeedRate;
+                    const desiredAccelRight = dvTarget / dt;
+                    const maxAccelRight = thrustLateral / mass;
+                    let brakeForce = mass * this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
+                    if (!hasInput) {
+                        brakeForce *= slimeConfig.assist.autoBrakeMaxThrustFraction;
+                    }
+                    forceRight += brakeForce;
+                }
+            }
+
+            forceForward = this.clamp(forceForward, -thrustReverse, thrustForward);
+            forceRight = this.clamp(forceRight, -thrustLateral, thrustLateral);
 
             // Переводим силу в мировые координаты
             const forceX = forwardX * forceForward + rightX * forceRight;
@@ -520,12 +578,16 @@ export class ArenaRoom extends Room<GameState> {
 
             const totalTorque = player.assistTorque + dragTorque;
             player.angVel += (totalTorque / Math.max(inertia, 1e-6)) * dt;
-            const angularLimit = scaleSlimeValue(
+            let angularLimit = scaleSlimeValue(
                 slimeConfig.limits.angularSpeedLimitRadps,
                 mass,
                 slimeConfig,
                 slimeConfig.massScaling.angularSpeedLimitRadps
             );
+            // Штраф last-breath применяется и к угловому лимиту
+            if (player.isLastBreath) {
+                angularLimit *= this.balance.combat.lastBreathSpeedPenalty;
+            }
             if (angularLimit > 0 && Math.abs(player.angVel) > angularLimit) {
                 player.angVel = Math.sign(player.angVel) * angularLimit;
             }
@@ -696,8 +758,11 @@ export class ArenaRoom extends Room<GameState> {
                     this.applyMassDelta(player, biteMass);
                     const dist = Math.sqrt(distSq) || 1;
                     const push = this.balance.orbs.pushForce;
-                    orb.vx += (dx / dist) * push * dt;
-                    orb.vy += (dy / dist) * push * dt;
+                    const density = type.density > 0 ? type.density : 1;
+                    const physicsMass = Math.max(orb.mass * density, this.balance.orbs.minMass);
+                    const accel = push / Math.max(physicsMass, 1e-6);
+                    orb.vx += (dx / dist) * accel * dt;
+                    orb.vy += (dy / dist) * accel * dt;
                 }
             }
         }
@@ -969,8 +1034,26 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private updateMatchPhase() {
+        // Если матч завершён и в фазе Results — проверяем время для перезапуска
+        if (this.isMatchEnded) {
+            const ticksSinceResults = this.tick - this.resultsStartTick;
+            const totalResultsTicks = this.resultsDurationTicks + this.restartDelayTicks;
+            this.state.timeRemaining = Math.max(0, (totalResultsTicks - ticksSinceResults) / this.balance.server.tickRate);
+            
+            if (ticksSinceResults >= totalResultsTicks) {
+                this.restartMatch();
+            }
+            return;
+        }
+
         const elapsedSec = this.tick / this.balance.server.tickRate;
         this.state.timeRemaining = Math.max(0, this.balance.match.durationSec - elapsedSec);
+
+        // Проверяем завершение матча
+        if (elapsedSec >= this.balance.match.durationSec) {
+            this.endMatch();
+            return;
+        }
 
         let nextPhase: MatchPhaseId = "Final";
         for (const phase of this.balance.match.phases) {
@@ -988,6 +1071,78 @@ export class ArenaRoom extends Room<GameState> {
         } else {
             this.state.phase = nextPhase;
         }
+    }
+
+    private endMatch() {
+        this.isMatchEnded = true;
+        this.resultsStartTick = this.tick;
+        this.state.phase = "Results";
+        this.lastPhaseId = "Results";
+        this.updateLeaderboard();
+        console.log("Match ended! Phase: Results");
+        
+        // Останавливаем всех игроков
+        for (const player of this.state.players.values()) {
+            player.inputX = 0;
+            player.inputY = 0;
+            player.vx = 0;
+            player.vy = 0;
+            player.angVel = 0;
+        }
+    }
+
+    private restartMatch() {
+        console.log("Restarting match...");
+        this.isMatchEnded = false;
+        this.resultsStartTick = 0;
+        this.tick = 0;
+        this.lastPhaseId = null;
+        this.lastOrbSpawnTick = 0;
+        this.lastChestSpawnTick = 0;
+        this.lastRebelUpdateTick = 0;
+        this.orbIdCounter = 0;
+        this.chestIdCounter = 0;
+        this.hotZoneIdCounter = 0;
+
+        // Очистка состояния
+        this.state.orbs.clear();
+        this.state.chests.clear();
+        this.state.hotZones.clear();
+        this.state.rebelId = "";
+        this.state.phase = "Spawn";
+        this.state.timeRemaining = this.balance.match.durationSec;
+        this.state.serverTick = 0;
+
+        // Респавн всех игроков
+        for (const player of this.state.players.values()) {
+            const spawn = this.randomPointInMap();
+            player.x = spawn.x;
+            player.y = spawn.y;
+            player.vx = 0;
+            player.vy = 0;
+            player.angVel = 0;
+            player.angle = 0;
+            player.mass = this.balance.slime.initialMass;
+            player.level = this.balance.slime.initialLevel;
+            player.isDead = false;
+            player.isLastBreath = false;
+            player.lastBreathEndTick = 0;
+            player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
+            player.respawnAtTick = 0;
+            player.gcdReadyTick = this.tick;
+            player.queuedAbilitySlot = null;
+            player.talentsAvailable = 0;
+            player.lastAttackTick = 0;
+            player.lastBiteTick = 0;
+            player.inputX = 0;
+            player.inputY = 0;
+            this.updateMaxHpForMass(player);
+            player.hp = player.maxHp;
+        }
+
+        this.spawnInitialOrbs();
+        this.updateLeaderboard();
+        console.log("Match restarted!");
     }
 
     private handlePhaseChange(phase: MatchPhaseId) {
@@ -1343,13 +1498,25 @@ export class ArenaRoom extends Room<GameState> {
         const dt = Date.now() - startMs;
         this.metricsAccumulatorMs += dt;
         this.metricsTickCount += 1;
+        if (dt > this.metricsMaxTickMs) {
+            this.metricsMaxTickMs = dt;
+        }
+        
+        // Предупреждаем, если тик стабильно приближается к исчерпанию бюджета (≈85%)
+        const tickBudgetMs = this.balance.server.simulationIntervalMs;
+        const warnThresholdMs = tickBudgetMs * 0.85;
+        if (dt > warnThresholdMs) {
+            console.warn(`[PERF] tick=${this.tick} took ${dt.toFixed(1)}ms (budget: ${tickBudgetMs.toFixed(1)}ms, warn ≥ ${warnThresholdMs.toFixed(1)}ms)`);
+        }
+        
         if (this.metricsTickCount >= this.metricsIntervalTicks) {
             const avg = this.metricsAccumulatorMs / this.metricsTickCount;
             console.log(
-                `tick=${this.tick} dt_avg_ms=${avg.toFixed(2)} players=${this.state.players.size} orbs=${this.state.orbs.size}`
+                `tick=${this.tick} dt_avg=${avg.toFixed(2)}ms dt_max=${this.metricsMaxTickMs.toFixed(2)}ms players=${this.state.players.size} orbs=${this.state.orbs.size} chests=${this.state.chests.size}`
             );
             this.metricsAccumulatorMs = 0;
             this.metricsTickCount = 0;
+            this.metricsMaxTickMs = 0;
         }
     }
 }
