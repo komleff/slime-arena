@@ -27,6 +27,8 @@ export {
     FLAG_LAST_BREATH,
     FLAG_IS_REBEL,
     FLAG_IS_DEAD,
+    FLAG_DASHING,
+    FLAG_MAGNETIZING,
 } from "./constants.js";
 export type { SlimeSprite } from "./sprites.js";
 export {

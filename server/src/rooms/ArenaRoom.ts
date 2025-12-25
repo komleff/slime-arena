@@ -8,9 +8,12 @@ import {
     scaleSlimeValue,
     getOrbRadius,
     FLAG_RESPAWN_SHIELD,
+    FLAG_ABILITY_SHIELD,
     FLAG_LAST_BREATH,
     FLAG_IS_REBEL,
     FLAG_IS_DEAD,
+    FLAG_DASHING,
+    FLAG_MAGNETIZING,
     ResolvedBalanceConfig,
     SlimeConfig,
     generateUniqueName,
@@ -114,16 +117,18 @@ export class ArenaRoom extends Room<GameState> {
             player.inputY = moveY;
             player.lastInputTick = this.tick;
 
-            const abilitySlot = data.abilitySlot;
-            if (
-                typeof abilitySlot === "number" &&
-                Number.isInteger(abilitySlot) &&
-                abilitySlot >= 0 &&
-                abilitySlot <= 2
-            ) {
-                player.abilitySlotPressed = abilitySlot;
-            } else {
-                player.abilitySlotPressed = null;
+            // Обрабатываем abilitySlot только если он явно передан в пакете
+            // Не сбрасываем, если поле отсутствует — чтобы обычные input'ы движения не перезатирали нажатие
+            if ("abilitySlot" in data) {
+                const abilitySlot = data.abilitySlot;
+                if (
+                    typeof abilitySlot === "number" &&
+                    Number.isInteger(abilitySlot) &&
+                    abilitySlot >= 0 &&
+                    abilitySlot <= 2
+                ) {
+                    player.abilitySlotPressed = abilitySlot;
+                }
             }
 
             const talentChoice = data.talentChoice;
@@ -145,12 +150,12 @@ export class ArenaRoom extends Room<GameState> {
         console.log("ArenaRoom created!");
     }
 
-    onJoin(client: Client, options: { name?: string } = {}) {
+    onJoin(client: Client, options: { name?: string; classId?: number } = {}) {
         const player = new Player();
         player.id = client.sessionId;
         // Генерируем юмористическое имя если не указано
         if (options.name && options.name.trim().length > 0) {
-            player.name = options.name.trim().slice(0, 20);
+            player.name = options.name.trim().slice(0, 24);
         } else {
             // Собираем существующие имена для проверки уникальности
             const existingNames: string[] = [];
@@ -169,7 +174,11 @@ export class ArenaRoom extends Room<GameState> {
         player.y = spawn.y;
         player.mass = this.balance.slime.initialMass;
         player.level = this.balance.slime.initialLevel;
-        player.classId = this.balance.slime.initialClassId;
+        
+        // Класс: 0 = Hunter, 1 = Warrior, 2 = Collector (по умолчанию Hunter)
+        const rawClassId = typeof options.classId === "number" ? options.classId : this.balance.slime.initialClassId;
+        player.classId = Math.max(0, Math.min(2, Math.floor(rawClassId)));
+        
         player.talentsAvailable = 0;
         player.angle = 0;
         player.angVel = 0;
@@ -299,9 +308,84 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private activateAbility(player: Player, slot: number) {
+        // Slot 0 = class ability
+        if (slot !== 0) return;
+        
+        // Проверка кулдауна способности
+        if (this.tick < player.abilityCooldownTick) return;
+        
+        const abilities = this.balance.abilities;
+        const tickRate = this.balance.server.tickRate;
+        
+        switch (player.classId) {
+            case 0: // Hunter - Dash
+                this.activateDash(player, abilities.dash, tickRate);
+                break;
+            case 1: // Warrior - Shield
+                this.activateShield(player, abilities.shield, tickRate);
+                break;
+            case 2: // Collector - Magnet
+                this.activateMagnet(player, abilities.magnet, tickRate);
+                break;
+        }
+        
         player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
         player.queuedAbilitySlot = null;
-        console.log(`Player ${player.id} used ability ${slot}`);
+    }
+    
+    private activateDash(player: Player, config: typeof this.balance.abilities.dash, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Расчёт направления рывка (по текущему углу слайма)
+        const angle = player.angle;
+        const distance = config.distanceM;
+        player.dashTargetX = player.x + Math.cos(angle) * distance;
+        player.dashTargetY = player.y + Math.sin(angle) * distance;
+        player.dashEndTick = this.tick + Math.round(config.durationSec * tickRate);
+        
+        // Устанавливаем флаг
+        player.flags |= FLAG_DASHING;
+    }
+    
+    private activateShield(player: Player, config: typeof this.balance.abilities.shield, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Устанавливаем длительность щита
+        player.shieldEndTick = this.tick + Math.round(config.durationSec * tickRate);
+        
+        // Устанавливаем флаг
+        player.flags |= FLAG_ABILITY_SHIELD;
+    }
+    
+    private activateMagnet(player: Player, config: typeof this.balance.abilities.magnet, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Устанавливаем длительность притяжения
+        player.magnetEndTick = this.tick + Math.round(config.durationSec * tickRate);
+        
+        // Устанавливаем флаг
+        player.flags |= FLAG_MAGNETIZING;
     }
 
     private applyTalentChoice(player: Player, choice: number) {
@@ -568,6 +652,26 @@ export class ArenaRoom extends Room<GameState> {
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
 
+            // Dash movement: линейная интерполяция к цели
+            if ((player.flags & FLAG_DASHING) !== 0 && player.dashEndTick > 0) {
+                const dashConfig = this.balance.abilities.dash;
+                const dashDurationTicks = Math.round(dashConfig.durationSec * this.balance.server.tickRate);
+                const ticksRemaining = player.dashEndTick - this.tick;
+                const progress = 1 - ticksRemaining / dashDurationTicks;
+                
+                // Линейное движение к цели
+                const startX = player.dashTargetX - Math.cos(player.angle) * dashConfig.distanceM;
+                const startY = player.dashTargetY - Math.sin(player.angle) * dashConfig.distanceM;
+                player.x = startX + (player.dashTargetX - startX) * progress;
+                player.y = startY + (player.dashTargetY - startY) * progress;
+                
+                // Обнуляем скорость во время рывка, потом восстановим в направлении
+                const dashSpeed = dashConfig.distanceM / dashConfig.durationSec;
+                player.vx = Math.cos(player.angle) * dashSpeed;
+                player.vy = Math.sin(player.angle) * dashSpeed;
+                continue;
+            }
+
             const slimeConfig = this.getSlimeConfig(player);
             const classStats = this.getClassStats(player);
             const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
@@ -833,6 +937,13 @@ export class ArenaRoom extends Room<GameState> {
         if (attacker.isDead || defender.isDead) return;
         if (this.tick < attacker.lastAttackTick + this.attackCooldownTicks) return;
         if (this.tick < defender.invulnerableUntilTick) return;
+        
+        // Щит блокирует урон полностью
+        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
+            // Щит снимается при атаке (согласно GDD)
+            defender.shieldEndTick = 0;
+            return;
+        }
 
         const attackerZone = this.getContactZone(attacker, dx, dy);
         if (attackerZone !== "mouth") return;
@@ -1066,7 +1177,33 @@ export class ArenaRoom extends Room<GameState> {
             this.lastOrbSpawnTick = this.tick;
         }
 
+        // Притяжение орбов к игрокам с активным магнитом
+        const magnetConfig = this.balance.abilities.magnet;
+        const magnetPlayers: Player[] = [];
+        for (const player of this.state.players.values()) {
+            if (!player.isDead && (player.flags & FLAG_MAGNETIZING) !== 0) {
+                magnetPlayers.push(player);
+            }
+        }
+
         for (const orb of this.state.orbs.values()) {
+            // Magnet pull
+            for (const player of magnetPlayers) {
+                const dx = player.x - orb.x;
+                const dy = player.y - orb.y;
+                const distSq = dx * dx + dy * dy;
+                const magnetRadiusSq = magnetConfig.radiusM * magnetConfig.radiusM;
+                
+                if (distSq < magnetRadiusSq && distSq > 1) {
+                    const dist = Math.sqrt(distSq);
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    // Сила притяжения
+                    orb.vx += nx * magnetConfig.pullSpeedMps * dt * 2;
+                    orb.vy += ny * magnetConfig.pullSpeedMps * dt * 2;
+                }
+            }
+            
             // Orbs keep the simplified damping model to avoid extra force calculations.
             const damping = Math.max(
                 0,
@@ -1201,6 +1338,29 @@ export class ArenaRoom extends Room<GameState> {
             if (this.state.rebelId && player.id === this.state.rebelId) {
                 flags |= FLAG_IS_REBEL;
             }
+            
+            // Ability flags
+            if (this.tick < player.dashEndTick) {
+                flags |= FLAG_DASHING;
+            } else if (player.dashEndTick > 0) {
+                // Dash ended
+                player.dashEndTick = 0;
+            }
+            
+            if (this.tick < player.shieldEndTick) {
+                flags |= FLAG_ABILITY_SHIELD;
+            } else if (player.shieldEndTick > 0) {
+                // Shield ended
+                player.shieldEndTick = 0;
+            }
+            
+            if (this.tick < player.magnetEndTick) {
+                flags |= FLAG_MAGNETIZING;
+            } else if (player.magnetEndTick > 0) {
+                // Magnet ended
+                player.magnetEndTick = 0;
+            }
+            
             player.flags = flags;
         }
     }

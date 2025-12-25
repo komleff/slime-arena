@@ -323,11 +323,13 @@
   "classes": {
     "hunter": {
       "speedMult": 1.15,
+      "hpMult": 0.9,
       "swallowLimit": 50,
       "biteFraction": 0.3
     },
     "warrior": {
       "speedMult": 0.9,
+      "hpMult": 1.15,
       "damageVsSlimeMult": 1.1,
       "swallowLimit": 45,
       "biteFraction": 0.35
@@ -337,6 +339,27 @@
       "eatingPowerMult": 1.15,
       "swallowLimit": 70,
       "biteFraction": 0.5
+    }
+  },
+  "abilities": {
+    "dash": {
+      "massCostPct": 0.03,
+      "cooldownSec": 5,
+      "distanceM": 80,
+      "durationSec": 0.3,
+      "collisionDamageMult": 1.5
+    },
+    "shield": {
+      "massCostPct": 0.04,
+      "cooldownSec": 8,
+      "durationSec": 3.0
+    },
+    "magnet": {
+      "massCostPct": 0.015,
+      "cooldownSec": 6,
+      "durationSec": 1.5,
+      "radiusM": 150,
+      "pullSpeedMps": 50
     }
   },
   "chests": {
