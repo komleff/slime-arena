@@ -699,10 +699,11 @@ export class ArenaRoom extends Room<GameState> {
         const classStats = this.getClassStats(attacker);
         
         // Укус отнимает mass * biteDamagePctOfMass от жертвы (не HP урон, а прямая потеря массы)
-        // Охотник получает часть украденной массы
+        // Атакующий получает часть украденной массы
         const safeAttackerMass = Math.max(0, attacker.mass);
         const safeDefenderMass = Math.max(0, defender.mass);
-        const victimMassLoss = safeDefenderMass * slimeConfig.combat.biteDamagePctOfMass;
+        // Применяем множители зоны контакта и класса атакующего
+        const victimMassLoss = safeDefenderMass * slimeConfig.combat.biteDamagePctOfMass * damageMultiplier * classStats.damageMult;
         const attackerMassGain = victimMassLoss * slimeConfig.combat.biteVictimMassGainPct;
         
         attacker.lastAttackTick = this.tick;
@@ -711,6 +712,8 @@ export class ArenaRoom extends Room<GameState> {
         if (victimMassLoss > 0) {
             this.applyMassDelta(defender, -victimMassLoss);
             this.applyMassDelta(attacker, attackerMassGain);
+            // Временная неуязвимость жертвы после получения урона
+            defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
         }
 
         // Если масса жертвы упала ниже минимума, она мертва

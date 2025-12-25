@@ -342,7 +342,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.5,
+                biteDamagePctOfMass: 0.15,
                 biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
@@ -396,7 +396,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.5,
+                biteDamagePctOfMass: 0.15,
                 biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
@@ -450,7 +450,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.5,
+                biteDamagePctOfMass: 0.15,
                 biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
@@ -504,7 +504,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.5,
+                biteDamagePctOfMass: 0.15,
                 biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },

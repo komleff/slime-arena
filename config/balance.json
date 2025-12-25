@@ -81,7 +81,7 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.5,
+        "biteDamagePctOfMass": 0.15,
         "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
@@ -135,7 +135,7 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.5,
+        "biteDamagePctOfMass": 0.15,
         "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
@@ -189,7 +189,7 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.5,
+        "biteDamagePctOfMass": 0.15,
         "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
@@ -243,7 +243,7 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.5,
+        "biteDamagePctOfMass": 0.15,
         "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },

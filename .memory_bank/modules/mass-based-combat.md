@@ -1,7 +1,7 @@
 # Mass-based Combat System
 
 ## Статус
-✅ **РЕАЛИЗОВАНО** — Коммит b0f4910, PR #4 обновлён
+✅ **РЕАЛИЗОВАНО** — PR #4, с учётом Copilot ревью фиксов
 
 ## Обзор
 Новая система боевого взаимодействия, в которой урон наносится напрямую потерей массы, а не уменьшением HP.
@@ -16,8 +16,12 @@
 
 ### Логика в processCombat()
 ```typescript
-// Вычисляем потерю массы жертвы
-const victimMassLoss = defender.mass * slimeConfig.combat.biteDamagePctOfMass;
+// Вычисляем потерю массы жертвы с учётом множителей
+const victimMassLoss = 
+    defender.mass * 
+    slimeConfig.combat.biteDamagePctOfMass * 
+    damageMultiplier *      // зона контакта: tail=1.5, mouth=0.5, side=1.0
+    classStats.damageMult;  // warrior bonus: 1.1
 
 // Вычисляем прибыль массы атакующего
 const attackerMassGain = victimMassLoss * slimeConfig.combat.biteVictimMassGainPct;
@@ -26,6 +30,8 @@ const attackerMassGain = victimMassLoss * slimeConfig.combat.biteVictimMassGainP
 if (victimMassLoss > 0) {
     this.applyMassDelta(defender, -victimMassLoss);
     this.applyMassDelta(attacker, attackerMassGain);
+    // Временная неуязвимость жертвы
+    defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
 }
 
 // Смерть при недостаточной массе
@@ -41,44 +47,80 @@ if (defender.mass <= this.balance.physics.minSlimeMass) {
 ### SlimeConfig.combat
 | Параметр | Тип | Значение | Описание |
 |----------|-----|---------|---------|
-| biteDamagePctOfMass | number | 0.5 | % массы жертвы, теряемой при укусе |
+| biteDamagePctOfMass | number | 0.15 | Базовый % массы жертвы (до применения множителей) |
 | biteVictimMassGainPct | number | 0.25 | % украденной массы, получаемой атакующим |
 | orbBitePctOfMass | number | 0.05 | % массы шарика, теряемого при укусе |
+
+### Множители урона
+| Зона контакта | Множитель | Описание |
+|---------------|-----------|---------|
+| tail | 1.5 | Атака в хвост (tailDamageMultiplier) |
+| mouth | 0.5 | Атака в рот (взаимный укус) |
+| side | 1.0 | Атака в бок |
+
+| Класс | damageMult | Описание |
+|-------|------------|---------|
+| warrior | 1.1 | Бонус к урону в PvP |
+| hunter | 1.0 | Стандартный урон |
+| collector | 1.0 | Стандартный урон |
+| base | 1.0 | Стандартный урон |
 
 ### Physics
 | Параметр | Тип | Значение | Описание |
 |----------|-----|---------|---------|
 | minSlimeMass | number | 50 | Минимальная масса (при <= смерть) |
 
-## Значения для всех слаймов
-Все типы (base, hunter, warrior, collector) используют одинаковые:
-- `biteDamagePctOfMass`: 0.5
-- `biteVictimMassGainPct`: 0.25
-
 ## Примеры расчётов
 
-### Пример 1: Маленький слайм кусает большого
+### Пример 1: Обычная атака в бок
 ```
-Атакующий: 100 масса
+Атакующий: base, 100 масса
 Жертва: 200 масса
+Зона: side (1.0)
 
-victimMassLoss = 200 × 0.5 = 100
-attackerMassGain = 100 × 0.25 = 25
+victimMassLoss = 200 × 0.15 × 1.0 × 1.0 = 30
+attackerMassGain = 30 × 0.25 = 7.5
 
 Результат:
-- Жертва: 200 - 100 = 100 (выживает)
-- Атакующий: 100 + 25 = 125 (получил 25% украденной массы)
+- Жертва: 200 - 30 = 170 (выживает)
+- Атакующий: 100 + 7.5 = 107.5
 ```
 
-### Пример 2: Слайм на минимуме жизни
+### Пример 2: Warrior атакует в хвост
 ```
-Жертва: 50 масса (минимум)
-victimMassLoss = 50 × 0.5 = 25
+Атакующий: warrior, 100 масса
+Жертва: 200 масса
+Зона: tail (1.5)
+Class bonus: 1.1
+
+victimMassLoss = 200 × 0.15 × 1.5 × 1.1 = 49.5
+attackerMassGain = 49.5 × 0.25 = 12.4
+
+Результат:
+- Жертва: 200 - 49.5 = 150.5 (выживает)
+- Атакующий: 100 + 12.4 = 112.4
+```
+
+### Пример 3: Слайм на минимуме жизни
+```
+Жертва: 60 масса
+victimMassLoss = 60 × 0.15 = 9 (side, base)
 
 После укуса:
-- Жертва: 50 - 25 = 25 < 50 (minSlimeMass)
-- СМЕРТЬ!
+- Жертва: 60 - 9 = 51 > 50 (minSlimeMass)
+- Выживает! Потребуется ещё ~2 укуса для убийства
 ```
+
+## Механики защиты
+
+### Временная неуязвимость (invulnerableUntilTick)
+- Флаг `invulnerableUntilTick` проверяется при каждой атаке (строка 685)
+- После получения урона устанавливается: `defender.invulnerableUntilTick = this.tick + this.invulnerableTicks`
+- Длительность: `damageInvulnSec` из balance.json (0.2 секунды = 6 тиков при 30 FPS)
+
+### Cooldown атакующего (lastAttackTick)
+- Атакующий не может атаковать чаще чем `attackCooldownTicks`
+- Длительность: `attackCooldownSec` из balance.json (0.2 секунды)
 
 ## Удалённые механики
 
@@ -88,66 +130,46 @@ victimMassLoss = 50 × 0.5 = 25
 if (defender.hp - damage <= 0 && !defender.isLastBreath && this.lastBreathTicks > 0) {
     defender.isLastBreath = true;
     defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
-    // Слайм может продолжить бороться с нулевым HP
+    // Слайм мог продолжить бороться с нулевым HP
 }
 ```
 
-**Теперь:** Просто смерть при недостаточной массе.
+**Теперь:** Смерть наступает строго при `mass <= minSlimeMass`.
 
-### HP-инвулнерабельность
-**Было:**
-```typescript
-defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
-```
-
-**Теперь:** Удалена (масса = единственный показатель урона).
+### HP как отдельный показатель
+- HP больше не используется в боевой логике
+- Масса является единственным показателем здоровья слайма
 
 ## Файлы изменений
 
 ### server/src/rooms/ArenaRoom.ts
-- processCombat() упрощена (~40 строк удалено)
-- Логика смерти централизована: `mass <= minSlimeMass`
-- Удалены проверки HP
+- processCombat() переписана на mass-based логику
+- Добавлены множители `damageMultiplier * classStats.damageMult`
+- Восстановлена установка `invulnerableUntilTick` после атаки
+- Исправлен комментарий: "Охотник" → "Атакующий"
 
 ### shared/src/config.ts
 - Интерфейс `SlimeConfig.combat`:
   - Добавлен `biteVictimMassGainPct: number`
-- Значения по умолчанию для всех 4 слаймов
-- Функция `readSlimeConfig()`:
-  - Добавлена парсинг `biteVictimMassGainPct`
+- Значения по умолчанию: `biteDamagePctOfMass: 0.15`
 
 ### config/balance.json
-- Обновлены все 4 конфига слаймов:
-  - `biteDamagePctOfMass`: 0.02 → 0.5
+- Все 4 конфига слаймов:
+  - `biteDamagePctOfMass`: 0.15 (было 0.02, затем 0.5)
   - `biteVictimMassGainPct`: 0.25 (новый)
-
-### client/package.json
-- Порт разработки: 5173 → 5174
 
 ## Детерминизм
 
 ✅ **Система полностью детерминированна:**
 - Нет случайных вычислений в боевой логике
 - Потеря массы вычисляется детерминированно
-- Условие смерти детерминировано (масса <= минимум)
+- Все множители детерминированы (зона контакта, класс)
 - RNG не используется в processCombat()
 
-## Тестирование
-
-### npm run test
-Убедиться:
-1. Детерминизм сохранён (determinism test)
-2. Боевая логика работает корректно
-3. Смерть наступает при `mass <= 50`
-4. Атакующий получает корректную прибыль массы
-
-### Сценарии для вручную тестирования
-1. **Маленький vs Большой**: Укусы не должны убивать большого сразу
-2. **Минимальная масса**: Слайм с массой 50+ должен выжить, с <50 должен умереть
-3. **Множественные укусы**: Накопление урона через несколько укусов должно привести к смерти
-4. **Восстановление**: После смерти и респавна масса должна быть меньше (см. deathSystem)
-
 ## История изменений
-- **PR #4**: Полная реализация (коммит b0f4910)
-- **Проблема**: Первоначально PR описание не совпадало с диффом (только порт, без боя)
-- **Решение**: Полное переписание PR с реальными изменениями боевой системы
+- **PR #4 v1**: biteDamagePctOfMass = 0.5 (слишком агрессивно)
+- **PR #4 v2 (Copilot review)**: 
+  - biteDamagePctOfMass снижен до 0.15
+  - Добавлены множители damageMultiplier и classStats.damageMult
+  - Восстановлена invulnerableUntilTick защита
+  - Исправлен комментарий "Охотник" → "Атакующий"
