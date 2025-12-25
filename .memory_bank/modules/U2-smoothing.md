@@ -50,6 +50,9 @@ type VisualEntity = {
 // Хранилище визуальных состояний
 const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
+
+// U2-стиль: только последний снапшот (не буфер!)
+let latestSnapshot: Snapshot | null = null;
 ```
 
 ### 2.2. Константы сглаживания

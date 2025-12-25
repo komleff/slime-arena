@@ -568,6 +568,9 @@ const snapshotBuffer: Snapshot[] = [];
 const snapshotBufferLimit = 20;
 let lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
 
+// U2-стиль: храним только последний снапшот
+let latestSnapshot: Snapshot | null = null;
+
 // === Visual State System (U2-style predictive smoothing) ===
 // Visual state is what we actually draw - it smoothly catches up to server state
 type VisualEntity = {
@@ -595,6 +598,7 @@ const getSmoothingConfig = () => balanceConfig?.clientNetSmoothing ?? {
 
 const resetSnapshotBuffer = () => {
     snapshotBuffer.length = 0;
+    latestSnapshot = null;
     visualPlayers.clear();
     visualOrbs.clear();
     lastRenderMs = 0;
@@ -750,6 +754,10 @@ const captureSnapshot = (state: GameStateLike) => {
         });
     }
 
+    // U2-стиль: сохраняем только последний снапшот
+    latestSnapshot = snapshot;
+    
+    // Legacy: сохраняем в буфер для совместимости (можно удалить позже)
     snapshotBuffer.push(snapshot);
     if (snapshotBuffer.length > snapshotBufferLimit) {
         snapshotBuffer.shift();
@@ -758,9 +766,10 @@ const captureSnapshot = (state: GameStateLike) => {
 
 // U2-style predictive smoothing: visual state catches up to target
 const getSmoothedRenderState = (nowMs: number): RenderState | null => {
-    if (snapshotBuffer.length === 0) return null;
+    // U2-стиль: используем только последний снапшот
+    if (!latestSnapshot) return null;
     
-    const newest = snapshotBuffer[snapshotBuffer.length - 1];
+    const newest = latestSnapshot;
     
     // Calculate frame delta
     const dtSec = lastRenderMs > 0 ? Math.min((nowMs - lastRenderMs) / 1000, 0.1) : 0;
