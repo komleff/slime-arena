@@ -550,7 +550,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         massLostPercent: 0.5,
         massToOrbsPercent: 0.3,
         orbsCount: 4,
-        minRespawnMass: 100,
+        minRespawnMass: 50,
     },
     orbs: {
         initialCount: 100,

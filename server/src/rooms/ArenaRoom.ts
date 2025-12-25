@@ -315,7 +315,7 @@ export class ArenaRoom extends Room<GameState> {
                 applyMassBonus(0.05);
                 break;
             case 1:
-                // Mass Surge (ранее Vital Burst): +30% массы
+                // Mass Boost (ранее Vital Burst): +30% массы
                 applyMassBonus(0.30);
                 break;
             case 2:
