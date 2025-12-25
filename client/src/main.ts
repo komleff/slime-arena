@@ -7,9 +7,13 @@ import {
     FLAG_IS_REBEL,
     FLAG_LAST_BREATH,
     FLAG_IS_DEAD,
+    FLAG_ABILITY_SHIELD,
+    FLAG_DASHING,
+    FLAG_MAGNETIZING,
     clamp,
     lerp,
     wrapAngle,
+    generateRandomName,
 } from "@slime-arena/shared";
 
 const root = document.createElement("div");
@@ -249,6 +253,390 @@ joystickKnob.style.transform = "translate(-50%, -50%)";
 joystickLayer.appendChild(joystickBase);
 joystickLayer.appendChild(joystickKnob);
 document.body.appendChild(joystickLayer);
+
+// ============================================
+// ABILITY BUTTON — кнопка способности класса
+// ============================================
+
+const abilityButton = document.createElement("button");
+abilityButton.type = "button";
+abilityButton.style.position = "fixed";
+abilityButton.style.right = "20px";
+abilityButton.style.bottom = "20px";
+abilityButton.style.width = "70px";
+abilityButton.style.height = "70px";
+abilityButton.style.borderRadius = "50%";
+abilityButton.style.background = "linear-gradient(135deg, #2d4a6d, #1b2c45)";
+abilityButton.style.border = "3px solid #4a90c2";
+abilityButton.style.color = "#e6f3ff";
+abilityButton.style.fontSize = "28px";
+abilityButton.style.cursor = "pointer";
+abilityButton.style.zIndex = "50";
+abilityButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
+abilityButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
+abilityButton.style.display = "none"; // Скрыта до входа в игру
+abilityButton.title = "1";
+
+// Span для иконки способности (чтобы не использовать textContent и не удалять детей)
+const abilityButtonIcon = document.createElement("span");
+abilityButtonIcon.style.fontSize = "28px";
+abilityButtonIcon.style.pointerEvents = "none";
+abilityButtonIcon.style.zIndex = "1";
+abilityButton.appendChild(abilityButtonIcon);
+
+// Подпись с цифрой на кнопке
+const abilityButtonLabel = document.createElement("span");
+abilityButtonLabel.textContent = "1";
+abilityButtonLabel.style.position = "absolute";
+abilityButtonLabel.style.bottom = "2px";
+abilityButtonLabel.style.right = "6px";
+abilityButtonLabel.style.fontSize = "16px";
+abilityButtonLabel.style.fontWeight = "bold";
+abilityButtonLabel.style.color = "#fff";
+abilityButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
+abilityButtonLabel.style.pointerEvents = "none";
+abilityButton.appendChild(abilityButtonLabel);
+
+// Тёмный оверлей кулдауна
+const abilityButtonCooldown = document.createElement("div");
+abilityButtonCooldown.style.position = "absolute";
+abilityButtonCooldown.style.inset = "0";
+abilityButtonCooldown.style.borderRadius = "50%";
+abilityButtonCooldown.style.background = "rgba(0, 0, 0, 0.8)";
+abilityButtonCooldown.style.pointerEvents = "none";
+abilityButtonCooldown.style.display = "none";
+abilityButton.appendChild(abilityButtonCooldown);
+
+// Яркая полоска прогресса восстановления (SVG дуга)
+const abilityButtonProgress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+abilityButtonProgress.setAttribute("viewBox", "0 0 100 100");
+abilityButtonProgress.style.position = "absolute";
+abilityButtonProgress.style.inset = "0";
+abilityButtonProgress.style.width = "100%";
+abilityButtonProgress.style.height = "100%";
+abilityButtonProgress.style.transform = "rotate(-90deg)";
+abilityButtonProgress.style.pointerEvents = "none";
+
+const abilityProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+abilityProgressCircle.setAttribute("cx", "50");
+abilityProgressCircle.setAttribute("cy", "50");
+abilityProgressCircle.setAttribute("r", "45");
+abilityProgressCircle.setAttribute("fill", "none");
+abilityProgressCircle.setAttribute("stroke", "#4fc3f7");
+abilityProgressCircle.setAttribute("stroke-width", "6");
+abilityProgressCircle.setAttribute("stroke-linecap", "round");
+abilityProgressCircle.setAttribute("stroke-dasharray", "283"); // 2 * PI * 45
+abilityProgressCircle.setAttribute("stroke-dashoffset", "283");
+abilityProgressCircle.style.filter = "drop-shadow(0 0 4px #4fc3f7)";
+abilityButtonProgress.appendChild(abilityProgressCircle);
+abilityButton.appendChild(abilityButtonProgress);
+
+// Текст таймера кулдауна
+const abilityButtonTimer = document.createElement("span");
+abilityButtonTimer.style.position = "absolute";
+abilityButtonTimer.style.top = "50%";
+abilityButtonTimer.style.left = "50%";
+abilityButtonTimer.style.transform = "translate(-50%, -50%)";
+abilityButtonTimer.style.fontSize = "18px";
+abilityButtonTimer.style.fontWeight = "bold";
+abilityButtonTimer.style.color = "#fff";
+abilityButtonTimer.style.textShadow = "0 0 4px #000";
+abilityButtonTimer.style.pointerEvents = "none";
+abilityButtonTimer.style.display = "none";
+abilityButton.appendChild(abilityButtonTimer);
+
+document.body.appendChild(abilityButton);
+
+// Иконки способностей по классам
+const abilityIcons: Record<number, string> = {
+    0: "⚡", // Hunter - Dash
+    1: "🛡️", // Warrior - Shield
+    2: "🧲", // Collector - Magnet
+};
+
+// Иконки классов для отображения у имени
+const classIcons: Record<number, string> = {
+    0: "🏹", // Hunter
+    1: "⚔️", // Warrior
+    2: "🧲", // Collector
+};
+
+// Длительность кулдауна способности по классам (секунды)
+function getAbilityCooldownSec(classId: number): number {
+    switch (classId) {
+        case 0: return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
+        case 1: return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
+        case 2: return balanceConfig.abilities?.magnet?.cooldownSec ?? 6;
+        default: return 5;
+    }
+}
+
+// Обновление индикатора кулдауна на кнопке способности
+function updateAbilityCooldown(player: { abilityCooldownTick?: number; classId?: number } | null, serverTick: number, tickRate: number) {
+    if (!player) {
+        abilityButtonCooldown.style.display = "none";
+        abilityButtonTimer.style.display = "none";
+        abilityProgressCircle.setAttribute("stroke-dashoffset", "0");
+        abilityButton.style.opacity = "1";
+        abilityButton.style.boxShadow = "0 0 15px 5px rgba(100, 220, 255, 0.7), inset 0 0 15px rgba(100, 220, 255, 0.3)";
+        abilityButton.style.border = "3px solid #64dcff";
+        return;
+    }
+    
+    const cooldownTick = player.abilityCooldownTick ?? 0;
+    if (cooldownTick <= serverTick) {
+        // Способность готова - яркое свечение
+        abilityButtonCooldown.style.display = "none";
+        abilityButtonTimer.style.display = "none";
+        abilityProgressCircle.setAttribute("stroke-dashoffset", "0");
+        abilityButton.style.opacity = "1";
+        abilityButton.style.boxShadow = "0 0 15px 5px rgba(100, 220, 255, 0.7), inset 0 0 15px rgba(100, 220, 255, 0.3)";
+        abilityButton.style.border = "3px solid #64dcff";
+        return;
+    }
+    
+    const ticksRemaining = cooldownTick - serverTick;
+    const secondsRemaining = ticksRemaining / tickRate;
+    const totalCooldownSec = getAbilityCooldownSec(player.classId ?? 0);
+    const totalTicks = totalCooldownSec * tickRate;
+    const progress = 1 - Math.min(1, ticksRemaining / totalTicks); // 0 = начало кд, 1 = готово
+    
+    // Тёмный оверлей и убираем яркое свечение
+    abilityButtonCooldown.style.display = "block";
+    abilityButton.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.5)";
+    abilityButton.style.border = "3px solid #333";
+    
+    // Яркая полоска прогресса (283 = полный круг)
+    const circumference = 283;
+    const offset = circumference * (1 - progress);
+    abilityProgressCircle.setAttribute("stroke-dashoffset", String(offset));
+    
+    // Показываем оставшееся время
+    abilityButtonTimer.textContent = secondsRemaining.toFixed(1);
+    abilityButtonTimer.style.display = "block";
+    abilityButton.style.opacity = "1";
+}
+
+// Функция для получения отображаемого имени с иконкой класса
+// Если игрок — Король (Rebel), показываем корону вместо класса
+function getDisplayName(name: string, classId: number, isRebel: boolean): string {
+    const icon = isRebel ? "👑" : (classIcons[classId] ?? "");
+    return `${icon} ${name}`;
+}
+
+// ============================================
+// JOIN SCREEN — экран выбора перед входом в игру
+// ============================================
+
+const joinScreen = document.createElement("div");
+joinScreen.style.position = "fixed";
+joinScreen.style.inset = "0";
+joinScreen.style.display = "flex";
+joinScreen.style.flexDirection = "column";
+joinScreen.style.alignItems = "center";
+joinScreen.style.justifyContent = "center";
+joinScreen.style.background = "linear-gradient(160deg, #0a0e14, #151c28)";
+joinScreen.style.zIndex = "2000";
+joinScreen.style.fontFamily = "\"IBM Plex Mono\", monospace";
+joinScreen.style.color = "#e6f3ff";
+joinScreen.style.padding = "20px";
+
+const joinTitle = document.createElement("h1");
+joinTitle.textContent = "🟢 Slime Arena";
+joinTitle.style.fontSize = "clamp(28px, 6vw, 42px)";
+joinTitle.style.marginBottom = "8px";
+joinTitle.style.color = "#9be070";
+joinTitle.style.textShadow = "0 0 20px rgba(155, 224, 112, 0.4)";
+
+const joinSubtitle = document.createElement("div");
+joinSubtitle.textContent = "Выбери класс и вперёд!";
+joinSubtitle.style.fontSize = "14px";
+joinSubtitle.style.color = "#9fb5cc";
+joinSubtitle.style.marginBottom = "24px";
+
+// Контейнер для имени
+const nameContainer = document.createElement("div");
+nameContainer.style.display = "flex";
+nameContainer.style.gap = "8px";
+nameContainer.style.marginBottom = "20px";
+nameContainer.style.width = "min(320px, 90vw)";
+
+const nameInput = document.createElement("input");
+nameInput.type = "text";
+nameInput.placeholder = "Твоё имя...";
+nameInput.maxLength = 24;
+nameInput.style.flex = "1";
+nameInput.style.padding = "12px 14px";
+nameInput.style.fontSize = "15px";
+nameInput.style.background = "#111b2a";
+nameInput.style.border = "1px solid #2d4a6d";
+nameInput.style.borderRadius = "10px";
+nameInput.style.color = "#e6f3ff";
+nameInput.style.outline = "none";
+nameInput.value = generateRandomName();
+
+const randomNameBtn = document.createElement("button");
+randomNameBtn.type = "button";
+randomNameBtn.textContent = "🎲";
+randomNameBtn.style.padding = "12px 16px";
+randomNameBtn.style.fontSize = "18px";
+randomNameBtn.style.background = "#1b2c45";
+randomNameBtn.style.border = "1px solid #2d4a6d";
+randomNameBtn.style.borderRadius = "10px";
+randomNameBtn.style.cursor = "pointer";
+randomNameBtn.style.transition = "background 150ms";
+randomNameBtn.addEventListener("mouseenter", () => { randomNameBtn.style.background = "#2a3f5f"; });
+randomNameBtn.addEventListener("mouseleave", () => { randomNameBtn.style.background = "#1b2c45"; });
+randomNameBtn.addEventListener("click", () => {
+    nameInput.value = generateRandomName();
+});
+
+nameContainer.appendChild(nameInput);
+nameContainer.appendChild(randomNameBtn);
+
+// Карточки классов
+const classesData = [
+    { 
+        id: 0, 
+        name: "Охотник", 
+        emoji: "🏹",
+        desc: "+15% скорость", 
+        ability: "Рывок",
+        color: "#4ade80"
+    },
+    { 
+        id: 1, 
+        name: "Воин", 
+        emoji: "⚔️",
+        desc: "+15% HP, +10% урон", 
+        ability: "Щит",
+        color: "#f87171"
+    },
+    { 
+        id: 2, 
+        name: "Собиратель", 
+        emoji: "🧲",
+        desc: "+25% радиус сбора", 
+        ability: "Притяжение",
+        color: "#60a5fa"
+    },
+];
+
+let selectedClassId = 0;
+
+const classCardsContainer = document.createElement("div");
+classCardsContainer.style.display = "flex";
+classCardsContainer.style.gap = "12px";
+classCardsContainer.style.marginBottom = "24px";
+classCardsContainer.style.flexWrap = "wrap";
+classCardsContainer.style.justifyContent = "center";
+
+const classCards: HTMLButtonElement[] = [];
+
+for (const cls of classesData) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.style.width = "min(140px, 28vw)";
+    card.style.padding = "16px 12px";
+    card.style.background = cls.id === selectedClassId ? "#1b2c45" : "#111b2a";
+    card.style.border = cls.id === selectedClassId ? `2px solid ${cls.color}` : "2px solid #2d4a6d";
+    card.style.borderRadius = "14px";
+    card.style.cursor = "pointer";
+    card.style.transition = "transform 150ms, background 150ms, border 150ms";
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    card.style.alignItems = "center";
+    card.style.gap = "8px";
+    card.dataset.classId = String(cls.id);
+
+    const emoji = document.createElement("div");
+    emoji.textContent = cls.emoji;
+    emoji.style.fontSize = "32px";
+
+    const name = document.createElement("div");
+    name.textContent = cls.name;
+    name.style.fontSize = "15px";
+    name.style.fontWeight = "600";
+    name.style.color = cls.color;
+
+    const desc = document.createElement("div");
+    desc.textContent = cls.desc;
+    desc.style.fontSize = "11px";
+    desc.style.color = "#9fb5cc";
+
+    const ability = document.createElement("div");
+    ability.textContent = `⚡ ${cls.ability}`;
+    ability.style.fontSize = "11px";
+    ability.style.color = "#6fd6ff";
+    ability.style.marginTop = "4px";
+
+    card.appendChild(emoji);
+    card.appendChild(name);
+    card.appendChild(desc);
+    card.appendChild(ability);
+
+    card.addEventListener("mouseenter", () => {
+        if (cls.id !== selectedClassId) {
+            card.style.background = "#182538";
+        }
+    });
+    card.addEventListener("mouseleave", () => {
+        if (cls.id !== selectedClassId) {
+            card.style.background = "#111b2a";
+        }
+    });
+    card.addEventListener("click", () => {
+        selectedClassId = cls.id;
+        classCards.forEach((c, i) => {
+            const clsData = classesData[i];
+            c.style.background = i === selectedClassId ? "#1b2c45" : "#111b2a";
+            c.style.border = i === selectedClassId ? `2px solid ${clsData.color}` : "2px solid #2d4a6d";
+            c.style.transform = i === selectedClassId ? "scale(1.05)" : "scale(1)";
+        });
+    });
+
+    classCardsContainer.appendChild(card);
+    classCards.push(card);
+}
+
+// Кнопка "Играть"
+const playButton = document.createElement("button");
+playButton.type = "button";
+playButton.textContent = "▶ ИГРАТЬ";
+playButton.style.padding = "16px 48px";
+playButton.style.fontSize = "18px";
+playButton.style.fontWeight = "700";
+playButton.style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+playButton.style.border = "none";
+playButton.style.borderRadius = "12px";
+playButton.style.color = "#0a0e14";
+playButton.style.cursor = "pointer";
+playButton.style.transition = "transform 150ms, box-shadow 150ms";
+playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
+playButton.addEventListener("mouseenter", () => {
+    playButton.style.transform = "scale(1.05)";
+    playButton.style.boxShadow = "0 12px 32px rgba(74, 222, 128, 0.4)";
+});
+playButton.addEventListener("mouseleave", () => {
+    playButton.style.transform = "scale(1)";
+    playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
+});
+
+// Собираем экран
+joinScreen.appendChild(joinTitle);
+joinScreen.appendChild(joinSubtitle);
+joinScreen.appendChild(nameContainer);
+joinScreen.appendChild(classCardsContainer);
+joinScreen.appendChild(playButton);
+document.body.appendChild(joinScreen);
+
+// Скрываем canvas и HUD до входа в игру
+canvas.style.display = "none";
+hud.style.display = "none";
+
+// ============================================
+// END JOIN SCREEN
+// ============================================
 
 let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
 let worldWidth = balanceConfig.worldPhysics.widthM ?? balanceConfig.world.mapSize;
@@ -1070,7 +1458,18 @@ function drawSprite(
     }
 }
 
-async function main() {
+async function connectToServer(playerName: string, classId: number) {
+    // Показываем canvas и HUD
+    canvas.style.display = "block";
+    hud.style.display = "block";
+    joinScreen.style.display = "none";
+    
+    // Показываем кнопку способности и устанавливаем иконку
+    abilityButton.style.display = "flex";
+    abilityButton.style.alignItems = "center";
+    abilityButton.style.justifyContent = "center";
+    abilityButtonIcon.textContent = abilityIcons[classId] ?? "⚡";
+
     hud.textContent = "Подключение к серверу...";
 
     const env = import.meta as { env?: { BASE_URL?: string; VITE_WS_URL?: string } };
@@ -1089,8 +1488,11 @@ async function main() {
     const client = new Colyseus.Client(wsUrl);
 
         try {
-            // Сервер сам генерирует юмористическое имя
-            const room = await client.joinOrCreate<any>("arena", {});
+            // Отправляем выбор игрока на сервер
+            const room = await client.joinOrCreate<any>("arena", {
+                name: playerName,
+                classId,
+            });
             hud.textContent = "Подключено к серверу";
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
@@ -1117,15 +1519,44 @@ async function main() {
         room.onStateChange(handleStateChange);
         captureSnapshot(room.state);
 
+        // Таймер автовыбора таланта (7 секунд)
+        const TALENT_AUTO_SELECT_MS = 7000;
+        let talentAutoSelectTimer: ReturnType<typeof setTimeout> | null = null;
+        let talentAutoSelectStartTime = 0;
+
+        const clearTalentAutoSelect = () => {
+            if (talentAutoSelectTimer !== null) {
+                clearTimeout(talentAutoSelectTimer);
+                talentAutoSelectTimer = null;
+            }
+        };
+
+        const startTalentAutoSelect = () => {
+            clearTalentAutoSelect();
+            talentAutoSelectStartTime = Date.now();
+            talentAutoSelectTimer = setTimeout(() => {
+                // Автовыбор случайного таланта (0, 1 или 2)
+                const randomChoice = Math.floor(Math.random() * 3);
+                sendTalentChoice(randomChoice);
+            }, TALENT_AUTO_SELECT_MS);
+        };
+
         const refreshTalentModal = () => {
             if (!localPlayer) {
                 talentModal.style.display = "none";
+                clearTalentAutoSelect();
                 return;
             }
             const available = Number(localPlayer.talentsAvailable || 0);
             if (available !== lastTalentsAvailable) {
                 talentSelectionInFlight = false;
                 lastTalentsAvailable = available;
+                // Новый талант доступен — запускаем таймер автовыбора
+                if (available > 0) {
+                    startTalentAutoSelect();
+                } else {
+                    clearTalentAutoSelect();
+                }
             }
             if (available <= 0) {
                 talentModal.style.display = "none";
@@ -1133,7 +1564,12 @@ async function main() {
             }
 
             talentModal.style.display = "flex";
-            talentCount.textContent = `Available talents: ${available}`;
+            
+            // Показываем оставшееся время до автовыбора
+            const elapsed = Date.now() - talentAutoSelectStartTime;
+            const remaining = Math.max(0, Math.ceil((TALENT_AUTO_SELECT_MS - elapsed) / 1000));
+            talentCount.textContent = `Таланты: ${available} (авто через ${remaining}с)`;
+            
             const canSelect = !talentSelectionInFlight;
             for (const button of talentButtonsList) {
                 button.disabled = !canSelect;
@@ -1145,6 +1581,7 @@ async function main() {
         const sendTalentChoice = (choice: number) => {
             if (talentSelectionInFlight) return;
             talentSelectionInFlight = true;
+            clearTalentAutoSelect();
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, talentChoice: choice });
             setTimeout(() => {
@@ -1300,8 +1737,8 @@ async function main() {
 
                 const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
                 const isSelf = playerId === room.sessionId;
-                const crown = isKing ? "👑 " : "";
                 const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+                const displayName = getDisplayName(player.name, player.classId ?? 0, isKing);
                 
                 const row = document.createElement("div");
                 row.style.padding = "4px 0";
@@ -1310,7 +1747,7 @@ async function main() {
                     row.style.fontWeight = "bold";
                 }
                 // textContent безопасно экранирует имя
-                row.textContent = `${medal} ${crown}${player.name} - ${player.mass.toFixed(0)} масса`;
+                row.textContent = `${medal} ${displayName} - ${player.mass.toFixed(0)} масса`;
                 resultsLeaderboard.appendChild(row);
             }
 
@@ -1503,22 +1940,92 @@ async function main() {
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
-                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
-
-                canvasCtx.fillStyle = "#e6f3ff";
-                canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
-                canvasCtx.textAlign = "center";
-                canvasCtx.fillText(player.name, p.x, p.y - r - 6);
-                if (isRebel) {
-                    const markerY = p.y - r - 18;
-                    canvasCtx.fillStyle = "#ff4d4d";
+                
+                // Визуализация рывка охотника — реактивные следы
+                if ((player.flags & FLAG_DASHING) !== 0) {
+                    const trailCount = 5;
+                    const trailSpacing = r * 0.6;
+                    const dirX = Math.cos(angleRad);
+                    const dirY = -Math.sin(angleRad);
+                    for (let i = 1; i <= trailCount; i++) {
+                        const trailAlpha = 0.4 - i * 0.07;
+                        const trailSize = r * (1 - i * 0.12);
+                        const offsetX = -dirX * trailSpacing * i;
+                        const offsetY = -dirY * trailSpacing * i;
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(p.x + offsetX, p.y + offsetY, trailSize, 0, Math.PI * 2);
+                        canvasCtx.fillStyle = `rgba(255, 200, 100, ${trailAlpha})`;
+                        canvasCtx.fill();
+                    }
+                    // Огненный хвост
                     canvasCtx.beginPath();
-                    canvasCtx.moveTo(p.x, markerY);
-                    canvasCtx.lineTo(p.x - 7, markerY + 12);
-                    canvasCtx.lineTo(p.x + 7, markerY + 12);
-                    canvasCtx.closePath();
+                    canvasCtx.arc(p.x - dirX * r * 0.5, p.y - dirY * r * 0.5, r * 0.4, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = "rgba(255, 100, 50, 0.6)";
+                    canvasCtx.shadowColor = "#ff6600";
+                    canvasCtx.shadowBlur = 15;
+                    canvasCtx.fill();
+                    canvasCtx.shadowBlur = 0;
+                }
+                
+                // Визуализация магнитного поля собирателя
+                if ((player.flags & FLAG_MAGNETIZING) !== 0) {
+                    const magnetRadius = (balanceConfig.abilities?.magnet?.radiusM ?? 150) * scale;
+                    // Внешний круг
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, magnetRadius, 0, Math.PI * 2);
+                    canvasCtx.strokeStyle = "rgba(138, 43, 226, 0.6)";
+                    canvasCtx.lineWidth = 3;
+                    canvasCtx.setLineDash([10, 5]);
+                    canvasCtx.stroke();
+                    canvasCtx.setLineDash([]);
+                    // Внутреннее свечение
+                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, magnetRadius);
+                    gradient.addColorStop(0, "rgba(138, 43, 226, 0.2)");
+                    gradient.addColorStop(0.7, "rgba(138, 43, 226, 0.1)");
+                    gradient.addColorStop(1, "rgba(138, 43, 226, 0)");
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, magnetRadius, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = gradient;
+                    canvasCtx.fill();
+                    // Магнитные линии
+                    canvasCtx.strokeStyle = "rgba(200, 100, 255, 0.4)";
+                    canvasCtx.lineWidth = 1;
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * Math.PI * 2;
+                        const innerR = r * 1.5;
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(p.x + Math.cos(angle) * innerR, p.y + Math.sin(angle) * innerR);
+                        canvasCtx.lineTo(p.x + Math.cos(angle) * magnetRadius * 0.9, p.y + Math.sin(angle) * magnetRadius * 0.9);
+                        canvasCtx.stroke();
+                    }
+                }
+                
+                // Визуализация щита воина
+                if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                    const shieldRadius = r * 1.4;
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, shieldRadius, 0, Math.PI * 2);
+                    canvasCtx.strokeStyle = "#4fc3f7";
+                    canvasCtx.lineWidth = 4;
+                    canvasCtx.shadowColor = "#4fc3f7";
+                    canvasCtx.shadowBlur = 15;
+                    canvasCtx.stroke();
+                    canvasCtx.shadowBlur = 0;
+                    // Внутреннее свечение
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, shieldRadius, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = "rgba(79, 195, 247, 0.15)";
                     canvasCtx.fill();
                 }
+                
+                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
+
+                // Имя с иконкой класса (или короной для Короля)
+                const displayName = getDisplayName(player.name, player.classId ?? 0, isRebel);
+                canvasCtx.fillStyle = isRebel ? "#ffc857" : "#e6f3ff";
+                canvasCtx.font = "12px \"IBM Plex Mono\", monospace";
+                canvasCtx.textAlign = "center";
+                canvasCtx.fillText(displayName, p.x, p.y - r - 6);
 
                 const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
                 const otherFlags: string[] = [];
@@ -1537,10 +2044,6 @@ async function main() {
                     canvasCtx.fillText(otherFlags.join(" "), p.x, p.y + r + 12);
                 }
 
-                if ((player.flags & FLAG_IS_REBEL) !== 0) {
-                    const crownSize = Math.max(14, Math.min(26, r * 0.9));
-                    drawCrown(p.x, p.y - r - crownSize * 0.25, crownSize, "#ffc857", "#ffe8a3");
-                }
                 canvasCtx.restore();
             }
 
@@ -1622,6 +2125,10 @@ async function main() {
                 }
             }
 
+            // Обновление индикатора кулдауна способности
+            const tickRate = balanceConfig.server?.tickRate ?? 30;
+            updateAbilityCooldown(localPlayer, room.state.serverTick ?? 0, tickRate);
+
             rafId = requestAnimationFrame(render);
         };
 
@@ -1633,7 +2140,17 @@ async function main() {
 
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.repeat) return;
-            switch (event.key.toLowerCase()) {
+            const key = event.key.toLowerCase();
+            
+            // Способность активируется клавишей 1 (slot 0 — классовая способность)
+            if (key === "1") {
+                inputSeq += 1;
+                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+                event.preventDefault();
+                return;
+            }
+            
+            switch (key) {
                 case "arrowup":
                 case "w":
                     keyState.up = true;
@@ -1813,6 +2330,13 @@ async function main() {
             mouseState.moveX = 0;
             mouseState.moveY = 0;
         };
+        
+        // Обработчик кнопки способности
+        const onAbilityButtonClick = () => {
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+        };
+        abilityButton.addEventListener("click", onAbilityButtonClick);
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
@@ -1849,11 +2373,26 @@ async function main() {
             canvas.removeEventListener("mouseleave", onMouseLeave);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
+            abilityButton.removeEventListener("click", onAbilityButtonClick);
+            
+            // Показываем экран выбора при отключении
+            canvas.style.display = "none";
+            hud.style.display = "none";
+            abilityButton.style.display = "none";
+            joinScreen.style.display = "flex";
         });
     } catch (e) {
         hud.textContent = `Ошибка подключения: ${e}`;
         console.error(e);
+        // Вернём экран выбора при ошибке
+        canvas.style.display = "none";
+        hud.style.display = "none";
+        joinScreen.style.display = "flex";
     }
 }
 
-main();
+// Обработчик кнопки "Играть"
+playButton.addEventListener("click", () => {
+    const name = nameInput.value.trim() || generateRandomName();
+    connectToServer(name, selectedClassId);
+});

@@ -194,11 +194,13 @@ export interface BalanceConfig {
     classes: {
         hunter: {
             speedMult: number;
+            hpMult: number;
             swallowLimit: number;
             biteFraction: number;
         };
         warrior: {
             speedMult: number;
+            hpMult: number;
             damageVsSlimeMult: number;
             swallowLimit: number;
             biteFraction: number;
@@ -208,6 +210,27 @@ export interface BalanceConfig {
             eatingPowerMult: number;
             swallowLimit: number;
             biteFraction: number;
+        };
+    };
+    abilities: {
+        dash: {
+            massCostPct: number;
+            cooldownSec: number;
+            distanceM: number;
+            durationSec: number;
+            collisionDamageMult: number;
+        };
+        shield: {
+            massCostPct: number;
+            cooldownSec: number;
+            durationSec: number;
+        };
+        magnet: {
+            massCostPct: number;
+            cooldownSec: number;
+            durationSec: number;
+            radiusM: number;
+            pullSpeedMps: number;
         };
     };
     chests: {
@@ -574,11 +597,13 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     classes: {
         hunter: {
             speedMult: 1.15,
+            hpMult: 0.9,
             swallowLimit: 50,
             biteFraction: 0.3,
         },
         warrior: {
             speedMult: 0.9,
+            hpMult: 1.15,
             damageVsSlimeMult: 1.1,
             swallowLimit: 45,
             biteFraction: 0.35,
@@ -588,6 +613,27 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             eatingPowerMult: 1.15,
             swallowLimit: 70,
             biteFraction: 0.5,
+        },
+    },
+    abilities: {
+        dash: {
+            massCostPct: 0.03,
+            cooldownSec: 5,
+            distanceM: 150,
+            durationSec: 0.2,
+            collisionDamageMult: 1.5,
+        },
+        shield: {
+            massCostPct: 0.04,
+            cooldownSec: 8,
+            durationSec: 2.0,
+        },
+        magnet: {
+            massCostPct: 0.015,
+            cooldownSec: 6,
+            durationSec: 1.5,
+            radiusM: 150,
+            pullSpeedMps: 50,
         },
     },
     chests: {
@@ -1315,6 +1361,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     DEFAULT_BALANCE_CONFIG.classes.hunter.speedMult,
                     "classes.hunter.speedMult"
                 ),
+                hpMult: readNumber(
+                    hunter.hpMult,
+                    DEFAULT_BALANCE_CONFIG.classes.hunter.hpMult,
+                    "classes.hunter.hpMult"
+                ),
                 swallowLimit: readNumber(
                     hunter.swallowLimit,
                     DEFAULT_BALANCE_CONFIG.classes.hunter.swallowLimit,
@@ -1331,6 +1382,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     warrior.speedMult,
                     DEFAULT_BALANCE_CONFIG.classes.warrior.speedMult,
                     "classes.warrior.speedMult"
+                ),
+                hpMult: readNumber(
+                    warrior.hpMult,
+                    DEFAULT_BALANCE_CONFIG.classes.warrior.hpMult,
+                    "classes.warrior.hpMult"
                 ),
                 damageVsSlimeMult: readNumber(
                     warrior.damageVsSlimeMult,
@@ -1371,6 +1427,33 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 ),
             },
         },
+        abilities: (() => {
+            const abilities = isRecord(data.abilities) ? data.abilities : {};
+            const dash = isRecord(abilities.dash) ? abilities.dash : {};
+            const shield = isRecord(abilities.shield) ? abilities.shield : {};
+            const magnet = isRecord(abilities.magnet) ? abilities.magnet : {};
+            return {
+                dash: {
+                    massCostPct: readNumber(dash.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.dash.massCostPct, "abilities.dash.massCostPct"),
+                    cooldownSec: readNumber(dash.cooldownSec, DEFAULT_BALANCE_CONFIG.abilities.dash.cooldownSec, "abilities.dash.cooldownSec"),
+                    distanceM: readNumber(dash.distanceM, DEFAULT_BALANCE_CONFIG.abilities.dash.distanceM, "abilities.dash.distanceM"),
+                    durationSec: readNumber(dash.durationSec, DEFAULT_BALANCE_CONFIG.abilities.dash.durationSec, "abilities.dash.durationSec"),
+                    collisionDamageMult: readNumber(dash.collisionDamageMult, DEFAULT_BALANCE_CONFIG.abilities.dash.collisionDamageMult, "abilities.dash.collisionDamageMult"),
+                },
+                shield: {
+                    massCostPct: readNumber(shield.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.shield.massCostPct, "abilities.shield.massCostPct"),
+                    cooldownSec: readNumber(shield.cooldownSec, DEFAULT_BALANCE_CONFIG.abilities.shield.cooldownSec, "abilities.shield.cooldownSec"),
+                    durationSec: readNumber(shield.durationSec, DEFAULT_BALANCE_CONFIG.abilities.shield.durationSec, "abilities.shield.durationSec"),
+                },
+                magnet: {
+                    massCostPct: readNumber(magnet.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.magnet.massCostPct, "abilities.magnet.massCostPct"),
+                    cooldownSec: readNumber(magnet.cooldownSec, DEFAULT_BALANCE_CONFIG.abilities.magnet.cooldownSec, "abilities.magnet.cooldownSec"),
+                    durationSec: readNumber(magnet.durationSec, DEFAULT_BALANCE_CONFIG.abilities.magnet.durationSec, "abilities.magnet.durationSec"),
+                    radiusM: readNumber(magnet.radiusM, DEFAULT_BALANCE_CONFIG.abilities.magnet.radiusM, "abilities.magnet.radiusM"),
+                    pullSpeedMps: readNumber(magnet.pullSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.magnet.pullSpeedMps, "abilities.magnet.pullSpeedMps"),
+                },
+            };
+        })(),
         chests: {
             maxCount: readNumber(chests.maxCount, DEFAULT_BALANCE_CONFIG.chests.maxCount, "chests.maxCount"),
             spawnIntervalSec: readNumber(

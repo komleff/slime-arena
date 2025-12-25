@@ -14,6 +14,7 @@ export class Player extends Schema {
     @type("number") classId: number = 0;
     @type("number") talentsAvailable: number = 0;
     @type("number") flags: number = 0;
+    @type("number") abilityCooldownTick: number = 0;
 
     // Server-only state (not synced)
     inputX: number = 0;
@@ -39,6 +40,13 @@ export class Player extends Schema {
     assistFx: number = 0;
     assistFy: number = 0;
     assistTorque: number = 0;
+    
+    // Ability state (server-only)
+    dashEndTick: number = 0;
+    dashTargetX: number = 0;
+    dashTargetY: number = 0;
+    shieldEndTick: number = 0;
+    magnetEndTick: number = 0;
 }
 
 export class Orb extends Schema {
