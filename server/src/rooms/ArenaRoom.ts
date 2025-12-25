@@ -698,46 +698,31 @@ export class ArenaRoom extends Room<GameState> {
         const slimeConfig = this.getSlimeConfig(attacker);
         const classStats = this.getClassStats(attacker);
         
-        // Усиленный PvP урон: % от массы атакующего + % от массы жертвы
-        const baseDamage = getSlimeBiteDamage(attacker.mass, slimeConfig);
+        // Укус отнимает mass * biteDamagePctOfMass от жертвы (не HP урон, а прямая потеря массы)
+        // Атакующий получает часть украденной массы
         const safeAttackerMass = Math.max(0, attacker.mass);
         const safeDefenderMass = Math.max(0, defender.mass);
-        const pvpAttackerBonus = safeAttackerMass * this.balance.combat.pvpBiteDamageAttackerMassPct;
-        const pvpVictimBonus = safeDefenderMass * this.balance.combat.pvpBiteDamageVictimMassPct;
-        let damage = (baseDamage + pvpAttackerBonus + pvpVictimBonus) * damageMultiplier * classStats.damageMult;
+        // Применяем множители зоны контакта и класса атакующего
+        const victimMassLoss = safeDefenderMass * slimeConfig.combat.biteDamagePctOfMass * damageMultiplier * classStats.damageMult;
+        const attackerMassGain = victimMassLoss * slimeConfig.combat.biteVictimMassGainPct;
         
-        if (attacker.isLastBreath) {
-            damage *= this.balance.combat.lastBreathDamageMult;
-        }
-
         attacker.lastAttackTick = this.tick;
 
-        if (
-            defender.hp - damage <= 0 &&
-            !defender.isLastBreath &&
-            this.lastBreathTicks > 0 &&
-            !defender.isDead
-        ) {
-            defender.isLastBreath = true;
-            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
-            defender.invulnerableUntilTick = defender.lastBreathEndTick;
-            defender.hp = 0;
-            return;
-        }
-
-        defender.hp = Math.max(0, defender.hp - damage);
-
-        // PvP кража массы: пропорциональна урону (чем сильнее укус — больше кража)
-        // damagePct = damage / defender.maxHp — доля нанесённого урона
-        const damagePct = defender.maxHp > 0 ? Math.min(1, damage / defender.maxHp) : 0;
-        const victimMassLoss = safeDefenderMass * this.balance.combat.pvpVictimMassLossPct * damagePct;
-        const attackerMassGain = safeDefenderMass * this.balance.combat.pvpAttackerMassGainPct * damagePct;
+        // При укусе жертва теряет массу (не HP)
         if (victimMassLoss > 0) {
             this.applyMassDelta(defender, -victimMassLoss);
             this.applyMassDelta(attacker, attackerMassGain);
+            // Временная неуязвимость жертвы после получения урона
+            defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
         }
 
-        defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+        // Если масса жертвы упала ниже минимума, она мертва
+        if (defender.mass <= this.balance.physics.minSlimeMass) {
+            if (!defender.isDead) {
+                this.handlePlayerDeath(defender);
+            }
+            return;
+        }
     }
 
     private pickupSystem() {
