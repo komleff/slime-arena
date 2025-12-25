@@ -81,7 +81,8 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.02,
+        "biteDamagePctOfMass": 0.5,
+        "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
       "massScaling": {
@@ -134,7 +135,8 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.02,
+        "biteDamagePctOfMass": 0.5,
+        "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
       "massScaling": {
@@ -187,7 +189,8 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.02,
+        "biteDamagePctOfMass": 0.5,
+        "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
       "massScaling": {
@@ -240,7 +243,8 @@
         "inputMagnitudeThreshold": 0.01
       },
       "combat": {
-        "biteDamagePctOfMass": 0.02,
+        "biteDamagePctOfMass": 0.5,
+        "biteVictimMassGainPct": 0.25,
         "orbBitePctOfMass": 0.05
       },
       "massScaling": {
