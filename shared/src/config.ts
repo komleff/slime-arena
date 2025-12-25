@@ -149,16 +149,6 @@ export interface BalanceConfig {
         initialLevel: number;
         initialClassId: number;
     };
-    movement: {
-        baseSpeed: number;
-        baseTurnRateDeg: number;
-        turnDivisor: number;
-        driftTurnRateDeg: number;
-        driftThresholdAngleDeg: number;
-        driftDurationSec: number;
-        driftSpeedLoss: number;
-        driftCooldownSec: number;
-    };
     combat: {
         mouthArcDeg: number;
         tailArcDeg: number;
@@ -168,13 +158,12 @@ export interface BalanceConfig {
         biteCooldownSec: number;
         respawnShieldSec: number;
         lastBreathDurationSec: number;
-        lastBreathDamageMult: number;
         lastBreathSpeedPenalty: number;
-        massStealPercent: number;
-        pvpBiteDamageAttackerMassPct: number;
-        pvpBiteDamageVictimMassPct: number;
-        pvpVictimMassLossPct: number;
-        pvpAttackerMassGainPct: number;
+        pvpBiteVictimLossPct: number;
+        pvpBiteAttackerGainPct: number;
+        pvpBiteScatterPct: number;
+        pvpBiteScatterOrbCount: number;
+        pvpBiteScatterSpeed: number;
     };
     death: {
         respawnDelaySec: number;
@@ -198,7 +187,6 @@ export interface BalanceConfig {
         }>;
     };
     formulas: {
-        hp: FormulaConfig;
         damage: FormulaConfig;
         speed: FormulaConfig;
         radius: FormulaConfig;
@@ -206,13 +194,11 @@ export interface BalanceConfig {
     classes: {
         hunter: {
             speedMult: number;
-            hpMult: number;
             swallowLimit: number;
             biteFraction: number;
         };
         warrior: {
             speedMult: number;
-            hpMult: number;
             damageVsSlimeMult: number;
             swallowLimit: number;
             biteFraction: number;
@@ -543,16 +529,6 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         initialLevel: 1,
         initialClassId: 0,
     },
-    movement: {
-        baseSpeed: 300,
-        baseTurnRateDeg: 180,
-        turnDivisor: 200,
-        driftTurnRateDeg: 720,
-        driftThresholdAngleDeg: 120,
-        driftDurationSec: 0.3,
-        driftSpeedLoss: 0.5,
-        driftCooldownSec: 0.5,
-    },
     combat: {
         mouthArcDeg: 120,
         tailArcDeg: 120,
@@ -562,20 +538,19 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         biteCooldownSec: 0.1,
         respawnShieldSec: 5,
         lastBreathDurationSec: 0.5,
-        lastBreathDamageMult: 0.5,
         lastBreathSpeedPenalty: 0.8,
-        massStealPercent: 0.1,
-        pvpBiteDamageAttackerMassPct: 0.05,
-        pvpBiteDamageVictimMassPct: 0.03,
-        pvpVictimMassLossPct: 0.50,
-        pvpAttackerMassGainPct: 0.25,
+        pvpBiteVictimLossPct: 0.20,
+        pvpBiteAttackerGainPct: 0.10,
+        pvpBiteScatterPct: 0.10,
+        pvpBiteScatterOrbCount: 3,
+        pvpBiteScatterSpeed: 200,
     },
     death: {
         respawnDelaySec: 2,
         massLostPercent: 0.5,
         massToOrbsPercent: 0.3,
         orbsCount: 4,
-        minRespawnMass: 50,
+        minRespawnMass: 100,
     },
     orbs: {
         initialCount: 100,
@@ -592,7 +567,6 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         ],
     },
     formulas: {
-        hp: { base: 50, scale: 50, divisor: 100 },
         damage: { base: 10, scale: 10, divisor: 100 },
         speed: { base: 1.0, scale: 1.0, divisor: 500 },
         radius: { base: 10, scale: 1.0, divisor: 50 },
@@ -600,13 +574,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     classes: {
         hunter: {
             speedMult: 1.15,
-            hpMult: 0.9,
             swallowLimit: 50,
             biteFraction: 0.3,
         },
         warrior: {
             speedMult: 0.9,
-            hpMult: 1.15,
             damageVsSlimeMult: 1.1,
             swallowLimit: 45,
             biteFraction: 0.35,
@@ -950,7 +922,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const worldPhysics = isRecord(data.worldPhysics) ? data.worldPhysics : {};
     const clientNetSmoothing = isRecord(data.clientNetSmoothing) ? data.clientNetSmoothing : {};
     const slime = isRecord(data.slime) ? data.slime : {};
-    const movement = isRecord(data.movement) ? data.movement : {};
     const combat = isRecord(data.combat) ? data.combat : {};
     const death = isRecord(data.death) ? data.death : {};
     const orbs = isRecord(data.orbs) ? data.orbs : {};
@@ -1198,48 +1169,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 "slime.initialClassId"
             ),
         },
-        movement: {
-            baseSpeed: readNumber(
-                movement.baseSpeed,
-                DEFAULT_BALANCE_CONFIG.movement.baseSpeed,
-                "movement.baseSpeed"
-            ),
-            baseTurnRateDeg: readNumber(
-                movement.baseTurnRateDeg,
-                DEFAULT_BALANCE_CONFIG.movement.baseTurnRateDeg,
-                "movement.baseTurnRateDeg"
-            ),
-            turnDivisor: readNumber(
-                movement.turnDivisor,
-                DEFAULT_BALANCE_CONFIG.movement.turnDivisor,
-                "movement.turnDivisor"
-            ),
-            driftTurnRateDeg: readNumber(
-                movement.driftTurnRateDeg,
-                DEFAULT_BALANCE_CONFIG.movement.driftTurnRateDeg,
-                "movement.driftTurnRateDeg"
-            ),
-            driftThresholdAngleDeg: readNumber(
-                movement.driftThresholdAngleDeg,
-                DEFAULT_BALANCE_CONFIG.movement.driftThresholdAngleDeg,
-                "movement.driftThresholdAngleDeg"
-            ),
-            driftDurationSec: readNumber(
-                movement.driftDurationSec,
-                DEFAULT_BALANCE_CONFIG.movement.driftDurationSec,
-                "movement.driftDurationSec"
-            ),
-            driftSpeedLoss: readNumber(
-                movement.driftSpeedLoss,
-                DEFAULT_BALANCE_CONFIG.movement.driftSpeedLoss,
-                "movement.driftSpeedLoss"
-            ),
-            driftCooldownSec: readNumber(
-                movement.driftCooldownSec,
-                DEFAULT_BALANCE_CONFIG.movement.driftCooldownSec,
-                "movement.driftCooldownSec"
-            ),
-        },
         combat: {
             mouthArcDeg: readNumber(
                 combat.mouthArcDeg,
@@ -1281,40 +1210,35 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.combat.lastBreathDurationSec,
                 "combat.lastBreathDurationSec"
             ),
-            lastBreathDamageMult: readNumber(
-                combat.lastBreathDamageMult,
-                DEFAULT_BALANCE_CONFIG.combat.lastBreathDamageMult,
-                "combat.lastBreathDamageMult"
-            ),
             lastBreathSpeedPenalty: readNumber(
                 combat.lastBreathSpeedPenalty ?? combat.lastBreathSpeedMult,
                 DEFAULT_BALANCE_CONFIG.combat.lastBreathSpeedPenalty,
                 "combat.lastBreathSpeedPenalty"
             ),
-            massStealPercent: readNumber(
-                combat.massStealPercent,
-                DEFAULT_BALANCE_CONFIG.combat.massStealPercent,
-                "combat.massStealPercent"
+            pvpBiteVictimLossPct: readNumber(
+                combat.pvpBiteVictimLossPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteVictimLossPct,
+                "combat.pvpBiteVictimLossPct"
             ),
-            pvpBiteDamageAttackerMassPct: readNumber(
-                combat.pvpBiteDamageAttackerMassPct,
-                DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageAttackerMassPct,
-                "combat.pvpBiteDamageAttackerMassPct"
+            pvpBiteAttackerGainPct: readNumber(
+                combat.pvpBiteAttackerGainPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteAttackerGainPct,
+                "combat.pvpBiteAttackerGainPct"
             ),
-            pvpBiteDamageVictimMassPct: readNumber(
-                combat.pvpBiteDamageVictimMassPct,
-                DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageVictimMassPct,
-                "combat.pvpBiteDamageVictimMassPct"
+            pvpBiteScatterPct: readNumber(
+                combat.pvpBiteScatterPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteScatterPct,
+                "combat.pvpBiteScatterPct"
             ),
-            pvpVictimMassLossPct: readNumber(
-                combat.pvpVictimMassLossPct,
-                DEFAULT_BALANCE_CONFIG.combat.pvpVictimMassLossPct,
-                "combat.pvpVictimMassLossPct"
+            pvpBiteScatterOrbCount: readNumber(
+                combat.pvpBiteScatterOrbCount,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteScatterOrbCount,
+                "combat.pvpBiteScatterOrbCount"
             ),
-            pvpAttackerMassGainPct: readNumber(
-                combat.pvpAttackerMassGainPct,
-                DEFAULT_BALANCE_CONFIG.combat.pvpAttackerMassGainPct,
-                "combat.pvpAttackerMassGainPct"
+            pvpBiteScatterSpeed: readNumber(
+                combat.pvpBiteScatterSpeed,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteScatterSpeed,
+                "combat.pvpBiteScatterSpeed"
             ),
         },
         death: {
@@ -1380,7 +1304,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             pushForce: readNumber(orbs.pushForce, DEFAULT_BALANCE_CONFIG.orbs.pushForce, "orbs.pushForce"),
         },
         formulas: {
-            hp: readFormula(formulas.hp, DEFAULT_BALANCE_CONFIG.formulas.hp, "formulas.hp"),
             damage: readFormula(formulas.damage, DEFAULT_BALANCE_CONFIG.formulas.damage, "formulas.damage"),
             speed: readFormula(formulas.speed, DEFAULT_BALANCE_CONFIG.formulas.speed, "formulas.speed"),
             radius: readFormula(formulas.radius, DEFAULT_BALANCE_CONFIG.formulas.radius, "formulas.radius"),
@@ -1391,11 +1314,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     hunter.speedMult,
                     DEFAULT_BALANCE_CONFIG.classes.hunter.speedMult,
                     "classes.hunter.speedMult"
-                ),
-                hpMult: readNumber(
-                    hunter.hpMult,
-                    DEFAULT_BALANCE_CONFIG.classes.hunter.hpMult,
-                    "classes.hunter.hpMult"
                 ),
                 swallowLimit: readNumber(
                     hunter.swallowLimit,
@@ -1413,11 +1331,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     warrior.speedMult,
                     DEFAULT_BALANCE_CONFIG.classes.warrior.speedMult,
                     "classes.warrior.speedMult"
-                ),
-                hpMult: readNumber(
-                    warrior.hpMult,
-                    DEFAULT_BALANCE_CONFIG.classes.warrior.hpMult,
-                    "classes.warrior.hpMult"
                 ),
                 damageVsSlimeMult: readNumber(
                     warrior.damageVsSlimeMult,

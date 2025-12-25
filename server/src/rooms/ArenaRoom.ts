@@ -3,7 +3,6 @@ import { GameState, Player, Orb, Chest, HotZone } from "./schema/GameState";
 import {
     InputCommand,
     MatchPhaseId,
-    getSlimeBiteDamage,
     getSlimeInertia,
     getSlimeRadiusFromConfig,
     scaleSlimeValue,
@@ -53,8 +52,6 @@ export class ArenaRoom extends Room<GameState> {
     private biteCooldownTicks = 0;
     private respawnShieldTicks = 0;
     private respawnDelayTicks = 0;
-    private driftDurationTicks = 0;
-    private driftCooldownTicks = 0;
     private orbSpawnIntervalTicks = 0;
     private chestSpawnIntervalTicks = 0;
     private lastBreathTicks = 0;
@@ -75,8 +72,6 @@ export class ArenaRoom extends Room<GameState> {
         this.biteCooldownTicks = this.secondsToTicks(this.balance.combat.biteCooldownSec);
         this.respawnShieldTicks = this.secondsToTicks(this.balance.combat.respawnShieldSec);
         this.respawnDelayTicks = this.secondsToTicks(this.balance.death.respawnDelaySec);
-        this.driftDurationTicks = this.secondsToTicks(this.balance.movement.driftDurationSec);
-        this.driftCooldownTicks = this.secondsToTicks(this.balance.movement.driftCooldownSec);
         this.orbSpawnIntervalTicks = this.secondsToTicks(this.balance.orbs.respawnIntervalSec);
         this.chestSpawnIntervalTicks = this.secondsToTicks(this.balance.chests.spawnIntervalSec);
         this.lastBreathTicks = this.secondsToTicks(this.balance.combat.lastBreathDurationSec);
@@ -182,8 +177,6 @@ export class ArenaRoom extends Room<GameState> {
         player.isDrifting = false;
         player.gcdReadyTick = this.tick;
         player.lastInputTick = this.tick;
-        this.updateMaxHpForMass(player);
-        player.hp = player.maxHp;
         this.state.players.set(client.sessionId, player);
         this.updateLeaderboard();
         client.send("balance", this.balance);
@@ -206,6 +199,16 @@ export class ArenaRoom extends Room<GameState> {
         this.state.serverTick = this.tick;
 
         this.updateMatchPhase();
+        
+        // Results phase: полная заморозка симуляции
+        if (this.isMatchEnded) {
+            // Только обновляем orbs для визуального эффекта (они замедляются)
+            this.updateOrbsVisual();
+            this.updatePlayerFlags();
+            this.reportMetrics(tickStartMs);
+            return;
+        }
+        
         this.collectInputs();
         this.applyInputs();
         this.abilitySystem();
@@ -215,7 +218,6 @@ export class ArenaRoom extends Room<GameState> {
         this.physicsSystem();
         this.collisionSystem();
         this.chestSystem();
-        this.pickupSystem();
         this.deathSystem();
         this.hungerSystem();
         this.rebelSystem();
@@ -228,15 +230,6 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private applyInputs() {
-        // Блокируем ввод во время фазы Results
-        if (this.isMatchEnded) {
-            for (const player of this.state.players.values()) {
-                player.inputX = 0;
-                player.inputY = 0;
-            }
-            return;
-        }
-
         const deadzone = this.balance.controls.joystickDeadzone;
         const timeoutTick = this.inputTimeoutTicks > 0 ? this.tick - this.inputTimeoutTicks : null;
         for (const player of this.state.players.values()) {
@@ -321,11 +314,10 @@ export class ArenaRoom extends Room<GameState> {
             case 0:
                 applyMassBonus(0.05);
                 break;
-            case 1: {
-                const heal = player.maxHp * 0.3;
-                player.hp = Math.min(player.maxHp, player.hp + heal);
+            case 1:
+                // Mass Boost (ранее Vital Burst): +30% массы
+                applyMassBonus(0.30);
                 break;
-            }
             case 2:
                 applyMassBonus(0.03);
                 player.invulnerableUntilTick = Math.max(
@@ -613,6 +605,7 @@ export class ArenaRoom extends Room<GameState> {
 
     private collisionSystem() {
         const players = Array.from(this.state.players.values());
+        const orbs = Array.from(this.state.orbs.entries());
         const iterations = 4;
         const slop = 0.001;
         const percent = 0.8;
@@ -620,6 +613,7 @@ export class ArenaRoom extends Room<GameState> {
         const maxCorrection = this.balance.worldPhysics.maxPositionCorrectionM;
 
         for (let iter = 0; iter < iterations; iter += 1) {
+            // Столкновения слайм-слайм
             for (let i = 0; i < players.length; i += 1) {
                 const p1 = players[i];
                 if (p1.isDead) continue;
@@ -672,9 +666,165 @@ export class ArenaRoom extends Room<GameState> {
                 }
             }
 
+            // Столкновения слайм-орб (физика + поедание ртом)
+            for (const player of players) {
+                if (player.isDead) continue;
+                const playerRadius = this.getPlayerRadius(player);
+                const playerAngleRad = player.angle;
+                const mouthHalf = (this.balance.combat.mouthArcDeg * Math.PI) / 360;
+
+                for (const [orbId, orb] of orbs) {
+                    if (!this.state.orbs.has(orbId)) continue;
+
+                    const dx = orb.x - player.x;
+                    const dy = orb.y - player.y;
+                    const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
+                    const orbRadius = getOrbRadius(orb.mass, type.density);
+                    const minDist = playerRadius + orbRadius;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(distSq);
+                    const nx = dist > 0 ? dx / dist : 1;
+                    const ny = dist > 0 ? dy / dist : 0;
+                    const penetration = minDist - (dist || 0);
+
+                    // Физическая масса орба = пищевая масса (без множителя density)
+                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
+                    const invMassOrb = orb.mass > 0 ? 1 / orb.mass : 0;
+                    const invMassSum = invMassPlayer + invMassOrb;
+
+                    if (invMassSum > 0) {
+                        // Позиционная коррекция
+                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
+                        const corrMag = Math.min(corrRaw, maxCorrection);
+                        const corrX = nx * corrMag;
+                        const corrY = ny * corrMag;
+                        player.x -= corrX * invMassPlayer;
+                        player.y -= corrY * invMassPlayer;
+                        orb.x += corrX * invMassOrb;
+                        orb.y += corrY * invMassOrb;
+
+                        // Импульсное отталкивание (закон сохранения импульса)
+                        const rvx = orb.vx - player.vx;
+                        const rvy = orb.vy - player.vy;
+                        const velAlongNormal = rvx * nx + rvy * ny;
+                        if (velAlongNormal <= 0) {
+                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
+                            const impulseX = nx * jImpulse;
+                            const impulseY = ny * jImpulse;
+                            player.vx -= impulseX * invMassPlayer;
+                            player.vy -= impulseY * invMassPlayer;
+                            orb.vx += impulseX * invMassOrb;
+                            orb.vy += impulseY * invMassOrb;
+                        }
+                    }
+
+                    // Проверка поедания ртом
+                    const angleToOrb = Math.atan2(dy, dx);
+                    let angleDiff = angleToOrb - playerAngleRad;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
+
+                    if (isMouthHit && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
+                        this.tryEatOrb(player, orbId, orb);
+                    }
+                }
+            }
+
             for (const player of players) {
                 if (player.isDead) continue;
                 this.applyWorldBounds(player, this.getPlayerRadius(player));
+            }
+
+            // Столкновения орб-орб
+            this.orbOrbCollisions(restitution);
+        }
+    }
+
+    /**
+     * Попытка съесть орб (вызывается при столкновении ртом).
+     */
+    private tryEatOrb(player: Player, orbId: string, orb: Orb) {
+        player.lastBiteTick = this.tick;
+
+        const slimeConfig = this.getSlimeConfig(player);
+        const bitePct = slimeConfig.combat.orbBitePctOfMass;
+
+        // Если orb.mass <= bitePct * player.mass → проглотить целиком
+        // Иначе → откусить bitePct * player.mass
+        const swallowThreshold = player.mass * bitePct;
+        const canSwallow = orb.mass <= swallowThreshold;
+
+        if (canSwallow || orb.mass <= this.balance.orbs.minMass) {
+            this.applyMassDelta(player, orb.mass);
+            this.state.orbs.delete(orbId);
+        } else {
+            const biteMass = swallowThreshold;
+            orb.mass -= biteMass;
+            this.applyMassDelta(player, biteMass);
+        }
+    }
+
+    /**
+     * Обрабатывает столкновения между орбами.
+     */
+    private orbOrbCollisions(restitution: number) {
+        const orbs = Array.from(this.state.orbs.values());
+        const slop = 0.001;
+        const percent = 0.8;
+
+        for (let i = 0; i < orbs.length; i++) {
+            const o1 = orbs[i];
+            const type1 = this.balance.orbs.types[o1.colorId] ?? this.balance.orbs.types[0];
+            const r1 = getOrbRadius(o1.mass, type1.density);
+
+            for (let j = i + 1; j < orbs.length; j++) {
+                const o2 = orbs[j];
+                const type2 = this.balance.orbs.types[o2.colorId] ?? this.balance.orbs.types[0];
+                const r2 = getOrbRadius(o2.mass, type2.density);
+
+                const dx = o2.x - o1.x;
+                const dy = o2.y - o1.y;
+                const minDist = r1 + r2;
+                const distSq = dx * dx + dy * dy;
+                if (distSq >= minDist * minDist) continue;
+
+                const dist = Math.sqrt(distSq);
+                const nx = dist > 0 ? dx / dist : 1;
+                const ny = dist > 0 ? dy / dist : 0;
+                const penetration = minDist - (dist || 0);
+
+                // Физическая масса = пищевая масса
+                const invMass1 = o1.mass > 0 ? 1 / o1.mass : 0;
+                const invMass2 = o2.mass > 0 ? 1 / o2.mass : 0;
+                const invMassSum = invMass1 + invMass2;
+
+                if (invMassSum > 0) {
+                    // Позиционная коррекция
+                    const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
+                    const corrX = nx * corrRaw;
+                    const corrY = ny * corrRaw;
+                    o1.x -= corrX * invMass1;
+                    o1.y -= corrY * invMass1;
+                    o2.x += corrX * invMass2;
+                    o2.y += corrY * invMass2;
+
+                    // Импульсное отталкивание
+                    const rvx = o2.vx - o1.vx;
+                    const rvy = o2.vy - o1.vy;
+                    const velAlongNormal = rvx * nx + rvy * ny;
+                    if (velAlongNormal <= 0) {
+                        const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
+                        const impulseX = nx * jImpulse;
+                        const impulseY = ny * jImpulse;
+                        o1.vx -= impulseX * invMass1;
+                        o1.vy -= impulseY * invMass1;
+                        o2.vx += impulseX * invMass2;
+                        o2.vy += impulseY * invMass2;
+                    }
+                }
             }
         }
     }
@@ -688,95 +838,79 @@ export class ArenaRoom extends Room<GameState> {
         if (attackerZone !== "mouth") return;
 
         const defenderZone = this.getContactZone(defender, -dx, -dy);
-        let damageMultiplier = 1;
+        let zoneMultiplier = 1;
         if (defenderZone === "tail") {
-            damageMultiplier = this.balance.combat.tailDamageMultiplier;
+            zoneMultiplier = this.balance.combat.tailDamageMultiplier;
         } else if (defenderZone === "mouth") {
-            damageMultiplier = 0.5;
+            zoneMultiplier = 0.5;
         }
 
-        const slimeConfig = this.getSlimeConfig(attacker);
         const classStats = this.getClassStats(attacker);
+        const minSlimeMass = this.balance.physics.minSlimeMass;
         
-        // Укус отнимает mass * biteDamagePctOfMass от жертвы (не HP урон, а прямая потеря массы)
-        // Атакующий получает часть украденной массы
-        const safeAttackerMass = Math.max(0, attacker.mass);
-        const safeDefenderMass = Math.max(0, defender.mass);
-        // Применяем множители зоны контакта и класса атакующего
-        const victimMassLoss = safeDefenderMass * slimeConfig.combat.biteDamagePctOfMass * damageMultiplier * classStats.damageMult;
-        const attackerMassGain = victimMassLoss * slimeConfig.combat.biteVictimMassGainPct;
-        
+        // Mass-as-HP: укус отбирает % массы жертвы
+        // damageMult применяется ко всем трём значениям для сохранения баланса массы в системе:
+        // massLoss = attackerGain + scatterMass (при одинаковых zoneMultiplier и damageMult)
+        const victimMassBefore = Math.max(0, defender.mass);
+        const multiplier = zoneMultiplier * classStats.damageMult;
+        const massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier;
+        const attackerGain = victimMassBefore * this.balance.combat.pvpBiteAttackerGainPct * multiplier;
+        const scatterMass = victimMassBefore * this.balance.combat.pvpBiteScatterPct * multiplier;
+
         attacker.lastAttackTick = this.tick;
 
-        // При укусе жертва теряет массу (не HP)
-        if (victimMassLoss > 0) {
-            this.applyMassDelta(defender, -victimMassLoss);
-            this.applyMassDelta(attacker, attackerMassGain);
-            // Временная неуязвимость жертвы после получения урона
-            defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+        // Проверка Last Breath: если масса упадёт ниже минимума
+        const newDefenderMass = defender.mass - massLoss;
+        const triggersLastBreath =
+            newDefenderMass <= minSlimeMass &&
+            !defender.isLastBreath &&
+            this.lastBreathTicks > 0 &&
+            !defender.isDead;
+
+        // Применяем изменения массы (даже при Last Breath — атакующий получает награду)
+        if (triggersLastBreath) {
+            // При Last Breath жертва теряет всё до минимума
+            const actualLoss = defender.mass - minSlimeMass;
+            this.applyMassDelta(defender, -actualLoss);
+        } else {
+            this.applyMassDelta(defender, -massLoss);
+        }
+        this.applyMassDelta(attacker, attackerGain);
+        
+        // Scatter orbs: разлёт пузырей от укуса
+        if (scatterMass > 0) {
+            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass);
         }
 
-        // Если масса жертвы упала ниже минимума, она мертва
-        if (defender.mass <= this.balance.physics.minSlimeMass) {
-            if (!defender.isDead) {
-                this.handlePlayerDeath(defender);
-            }
+        // Активируем Last Breath после применения массы
+        if (triggersLastBreath) {
+            defender.isLastBreath = true;
+            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
+            defender.invulnerableUntilTick = defender.lastBreathEndTick;
             return;
         }
+
+        defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
     }
 
-    private pickupSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        const orbEntries = Array.from(this.state.orbs.entries());
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            if (this.tick < player.lastBiteTick + this.biteCooldownTicks) continue;
-
-            const slimeConfig = this.getSlimeConfig(player);
-            const classStats = this.getClassStats(player);
-            const playerRadius = this.getPlayerRadius(player);
-            const mouthHalf = (this.balance.combat.mouthArcDeg * Math.PI) / 360;
-            const playerAngleRad = player.angle;
-
-            for (const [orbId, orb] of orbEntries) {
-                if (!this.state.orbs.has(orbId)) continue;
-                const dx = orb.x - player.x;
-                const dy = orb.y - player.y;
-                const distSq = dx * dx + dy * dy;
-                const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-                const orbRadius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
-                const touchDist = playerRadius + orbRadius;
-                if (distSq > touchDist * touchDist) continue;
-
-                const angleToOrb = Math.atan2(dy, dx);
-                let angleDiff = angleToOrb - playerAngleRad;
-                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                if (Math.abs(angleDiff) > mouthHalf) continue;
-
-                player.lastBiteTick = this.tick;
-
-                const biteFraction = Math.min(1, classStats.biteFraction * classStats.eatingPowerMult);
-                const canSwallow = orb.mass <= classStats.swallowLimit;
-                const maxBite = Math.max(0, player.mass * slimeConfig.combat.orbBitePctOfMass);
-                const biteMassRaw = canSwallow ? orb.mass : orb.mass * biteFraction;
-                const biteMass = maxBite > 0 ? Math.min(biteMassRaw, maxBite) : biteMassRaw;
-
-                if (orb.mass - biteMass <= this.balance.orbs.minMass) {
-                    this.applyMassDelta(player, orb.mass);
-                    this.state.orbs.delete(orbId);
-                } else {
-                    orb.mass -= biteMass;
-                    this.applyMassDelta(player, biteMass);
-                    const dist = Math.sqrt(distSq) || 1;
-                    const push = this.balance.orbs.pushForce;
-                    const density = type.density > 0 ? type.density : 1;
-                    const physicsMass = Math.max(orb.mass * density, this.balance.orbs.minMass);
-                    const accel = push / Math.max(physicsMass, 1e-6);
-                    orb.vx += (dx / dist) * accel * dt;
-                    orb.vy += (dy / dist) * accel * dt;
-                }
-            }
+    /**
+     * Создаёт орбы, разлетающиеся от точки укуса PvP.
+     * Эти орбы игнорируют maxCount — боевая механика важнее лимита.
+     */
+    private spawnPvPBiteOrbs(x: number, y: number, totalMass: number): void {
+        const count = this.balance.combat.pvpBiteScatterOrbCount;
+        if (count <= 0 || totalMass <= 0) return;
+        
+        const perOrbMass = totalMass / count;
+        const angleStep = (Math.PI * 2) / count;
+        const speed = this.balance.combat.pvpBiteScatterSpeed;
+        
+        for (let i = 0; i < count; i++) {
+            const angle = i * angleStep + this.rng.range(-0.3, 0.3);
+            // Force spawn: scatter orbs игнорируют maxCount
+            const orb = this.forceSpawnOrb(x, y, perOrbMass);
+            orb.vx = Math.cos(angle) * speed;
+            orb.vy = Math.sin(angle) * speed;
         }
     }
 
@@ -836,12 +970,14 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private deathSystem() {
+        const minSlimeMass = this.balance.physics.minSlimeMass;
         for (const player of this.state.players.values()) {
             if (player.isLastBreath && this.tick >= player.lastBreathEndTick) {
                 player.isLastBreath = false;
             }
 
-            if (!player.isDead && player.hp <= 0 && !player.isLastBreath) {
+            // Mass-as-HP: смерть при массе <= minSlimeMass
+            if (!player.isDead && player.mass <= minSlimeMass && !player.isLastBreath) {
                 this.handlePlayerDeath(player);
             }
 
@@ -892,8 +1028,6 @@ export class ArenaRoom extends Room<GameState> {
             player.mass * (1 - this.balance.death.massLostPercent)
         );
         player.mass = respawnMass;
-        player.maxHp = Math.max(0, player.mass);
-        player.hp = player.maxHp;
         const spawn = this.randomPointInMap();
         player.x = spawn.x;
         player.y = spawn.y;
@@ -939,7 +1073,28 @@ export class ArenaRoom extends Room<GameState> {
             orb.x += orb.vx * dt;
             orb.y += orb.vy * dt;
             const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
+            const radius = getOrbRadius(orb.mass, type.density);
+            this.applyWorldBounds(orb, radius);
+        }
+    }
+
+    /**
+     * Визуальное обновление орбов во время фазы Results (без спауна).
+     * Орбы только замедляются и останавливаются у границ.
+     */
+    private updateOrbsVisual(): void {
+        const dt = 1 / this.balance.server.tickRate;
+        const damping = Math.max(
+            0,
+            1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
+        );
+        for (const orb of this.state.orbs.values()) {
+            orb.vx *= damping;
+            orb.vy *= damping;
+            orb.x += orb.vx * dt;
+            orb.y += orb.vy * dt;
+            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
+            const radius = getOrbRadius(orb.mass, type.density);
             this.applyWorldBounds(orb, radius);
         }
     }
@@ -1148,8 +1303,6 @@ export class ArenaRoom extends Room<GameState> {
             player.lastBiteTick = 0;
             player.inputX = 0;
             player.inputY = 0;
-            this.updateMaxHpForMass(player);
-            player.hp = player.maxHp;
         }
 
         this.spawnInitialOrbs();
@@ -1227,6 +1380,13 @@ export class ArenaRoom extends Room<GameState> {
 
     private spawnOrb(x?: number, y?: number, massOverride?: number): Orb | null {
         if (this.state.orbs.size >= this.balance.orbs.maxCount) return null;
+        return this.forceSpawnOrb(x, y, massOverride);
+    }
+
+    /**
+     * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
+     */
+    private forceSpawnOrb(x?: number, y?: number, massOverride?: number): Orb {
         const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
         const orb = new Orb();
@@ -1307,16 +1467,6 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private updateMaxHpForMass(player: Player) {
-        const maxHp = Math.max(0, player.mass);
-        if (player.maxHp !== maxHp) {
-            player.maxHp = maxHp;
-        }
-        if (player.hp > player.maxHp) {
-            player.hp = player.maxHp;
-        }
-    }
-
     private getContactZone(attacker: Player, dx: number, dy: number): ContactZone {
         const angleToTarget = Math.atan2(dy, dx);
         const diff = this.normalizeAngle(angleToTarget - attacker.angle);
@@ -1390,16 +1540,8 @@ export class ArenaRoom extends Room<GameState> {
         if (!Number.isFinite(delta) || delta === 0) return;
         const minMass = this.balance.physics.minSlimeMass;
         const nextMass = Math.max(minMass, player.mass + delta);
-        const applied = nextMass - player.mass;
-        if (applied === 0) return;
-
+        if (nextMass === player.mass) return;
         player.mass = nextMass;
-        player.maxHp = Math.max(0, player.mass);
-        if (applied > 0) {
-            player.hp = Math.min(player.maxHp, player.hp + applied);
-        } else if (player.hp > player.maxHp) {
-            player.hp = player.maxHp;
-        }
     }
 
     private clamp(value: number, min: number, max: number): number {

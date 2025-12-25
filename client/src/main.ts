@@ -117,9 +117,9 @@ talentButtons.style.display = "grid";
 talentButtons.style.gap = "10px";
 
 const talentChoices = [
-    { id: 0, name: "Mass Surge", detail: "+5% mass" },
-    { id: 1, name: "Vital Burst", detail: "+30% HP" },
-    { id: 2, name: "Guard Pulse", detail: "+3% mass + shield" },
+    { id: 0, name: "Mass Surge", detail: "+5% массы" },
+    { id: 1, name: "Mass Boost", detail: "+30% массы" },
+    { id: 2, name: "Guard Pulse", detail: "+3% массы + щит" },
 ];
 
 const talentButtonsList: HTMLButtonElement[] = [];
@@ -253,7 +253,6 @@ document.body.appendChild(joystickLayer);
 let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
 let worldWidth = balanceConfig.worldPhysics.widthM ?? balanceConfig.world.mapSize;
 let worldHeight = balanceConfig.worldPhysics.heightM ?? balanceConfig.world.mapSize;
-let orbMinRadius = balanceConfig.orbs.minRadius;
 let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
 let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
@@ -265,9 +264,7 @@ const chestStyles = [
 
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
-const cameraSmoothTime = 0.08;
-let lastFrameTime = performance.now();
-const desiredView = { width: 200, height: 200 };
+const desiredView = { width: 400, height: 400 };
 let hasFocus = true;
 
 // Кэш matchMedia для определения типа устройства
@@ -357,7 +354,6 @@ const updateWorldBounds = () => {
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     updateWorldBounds();
-    orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
     collectorRadiusMult = config.classes.collector.radiusMult;
@@ -509,8 +505,6 @@ type SnapshotPlayer = {
     angle: number;
     angVel: number;
     mass: number;
-    hp: number;
-    maxHp: number;
     classId: number;
     talentsAvailable: number;
     flags: number;
@@ -705,8 +699,6 @@ const captureSnapshot = (state: GameStateLike) => {
             angle: Number(player.angle ?? 0),
             angVel: Number(player.angVel ?? 0),
             mass: Number(player.mass ?? 0),
-            hp: Number(player.hp ?? 0),
-            maxHp: Number(player.maxHp ?? 0),
             classId: Number(player.classId ?? 0),
             talentsAvailable: Number(player.talentsAvailable ?? 0),
             flags: Number(player.flags ?? 0),
@@ -1113,6 +1105,9 @@ async function main() {
         let localPlayer: any = null;
         let renderStateForHud: RenderState | null = null;
         let lastTalentsAvailable = 0;
+        // Сглаженная позиция игрока для управления мышью
+        let smoothedPlayerX = 0;
+        let smoothedPlayerY = 0;
         let talentSelectionInFlight = false;
 
         // Логирование для отладки
@@ -1174,6 +1169,9 @@ async function main() {
 
             if (sessionId === room.sessionId) {
                 localPlayer = player;
+                // Сразу центрируем камеру на игроке
+                camera.x = player.x;
+                camera.y = player.y;
                 lastTalentsAvailable = Number(player.talentsAvailable || 0);
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
@@ -1240,7 +1238,7 @@ async function main() {
             const hudPlayer = renderStateForHud?.players.get(room.sessionId) ?? localPlayer;
             if (hudPlayer) {
                 lines.push(
-                    `Моя масса: ${hudPlayer.mass.toFixed(0)} | HP: ${hudPlayer.hp.toFixed(1)}/${hudPlayer.maxHp.toFixed(1)}`
+                    `Моя масса: ${hudPlayer.mass.toFixed(0)} кг`
                 );
                 if (hudPlayer.talentsAvailable > 0) {
                     lines.push(`Таланты: ${hudPlayer.talentsAvailable}`);
@@ -1321,18 +1319,22 @@ async function main() {
             resultsTimer.textContent = `Новый матч через ${Math.ceil(timeRemaining)}с...`;
         };
 
-        // Обновление управления мышью: вычисляем направление от игрока к курсору
+        // Обновление управления мышью: вычисляем направление от слайма к курсору
         const updateMouseControl = () => {
-            if (!mouseState.active) return;
+            if (!mouseState.active || !localPlayer) return;
             
             const cw = canvas.width;
             const ch = canvas.height;
+            const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
             
-            // Позиция курсора относительно центра экрана (где игрок)
-            const dx = mouseState.screenX - cw / 2;
-            const dy = mouseState.screenY - ch / 2;
+            // Позиция слайма на экране (используем сглаженные координаты, как и камера)
+            const playerScreen = worldToScreen(smoothedPlayerX, smoothedPlayerY, scale, camera.x, camera.y, cw, ch);
             
-            // Расстояние от центра (в пикселях)
+            // Позиция курсора относительно слайма на экране
+            const dx = mouseState.screenX - playerScreen.x;
+            const dy = mouseState.screenY - playerScreen.y;
+            
+            // Расстояние от слайма (в пикселях)
             const dist = Math.sqrt(dx * dx + dy * dy);
             
             // Мёртвая зона в центре (из конфига)
@@ -1415,18 +1417,20 @@ async function main() {
             const chestsView = renderState ? renderState.chests : room.state.chests;
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
 
-            const cameraTarget = renderState?.players.get(room.sessionId) ?? localPlayer;
-            const targetX = cameraTarget ? cameraTarget.x : 0;
-            const targetY = cameraTarget ? cameraTarget.y : 0;
+            // Камера следит за сглаженной позицией игрока (плавное движение)
+            const smoothedPlayer = renderState?.players.get(room.sessionId);
+            const targetX = smoothedPlayer ? smoothedPlayer.x : (localPlayer ? localPlayer.x : 0);
+            const targetY = smoothedPlayer ? smoothedPlayer.y : (localPlayer ? localPlayer.y : 0);
+            // Сохраняем сглаженную позицию для управления мышью
+            smoothedPlayerX = targetX;
+            smoothedPlayerY = targetY;
             const maxCamX = Math.max(0, worldHalfW - halfWorldW);
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);
             const clampY = clamp(targetY, -maxCamY, maxCamY);
-            const frameDt = Math.min((now - lastFrameTime) / 1000, 0.1);
-            lastFrameTime = now;
-            const cameraLerp = 1 - Math.exp(-frameDt / cameraSmoothTime);
-            camera.x += (clampX - camera.x) * cameraLerp;
-            camera.y += (clampY - camera.y) * cameraLerp;
+            // Камера всегда центрирована на игроке (стиль Agar.io)
+            camera.x = clampX;
+            camera.y = clampY;
 
             canvasCtx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
@@ -1448,7 +1452,7 @@ async function main() {
                 const p = worldToScreen(orb.x, orb.y, scale, camera.x, camera.y, cw, ch);
                 const orbType = balanceConfig.orbs.types[orb.colorId];
                 const density = orbType?.density ?? 1;
-                const r = Math.max(2, getOrbRadius(orb.mass, density, orbMinRadius) * scale);
+                const r = Math.max(2, getOrbRadius(orb.mass, density) * scale);
                 const alpha = orb.alpha ?? 1;
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();

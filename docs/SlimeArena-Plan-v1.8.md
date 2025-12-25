@@ -1,15 +1,28 @@
 # Slime Arena — План разработки
 
-**Версия:** 1.8.1  
-**Автор:** Claude Opus  
+**Версия:** 1.8.2  
+**Автор:** Claude Opus, Copilot  
 **Дата:** декабрь 2025  
 
-План обновлён в соответствии с `SlimeArena-GDD-v2_4.md` и `SlimeArena-Flight-TZ-v1.0.md`.  
-Техническая архитектура — в `SlimeArena-Architecture-v1.5.md`.
+План обновлён в соответствии с `SlimeArena-GDD-v2.5.md` и `SlimeArena-Flight-TZ-v1.0.md`.  
+Техническая архитектура — в `SlimeArena-Architecture-v1.5.md` (v1.5.2).
 
 ---
 
-## 0. Изменения версии 1.8.1
+## 0. Изменения версии 1.8.2
+
+- **Баланс орбов, физика, управление, камера/мышь финализированы (25.12.2025)**:
+  - Честная физика орбов с formula radius = baseRadius × √(mass / baseMass / density)
+  - Плотности: green=0.2, blue=0.3, red=0.4, gold=0.5 кг/м² (абсолютные, не относительные)
+  - Физика: environmentDrag 1%, orbLinearDamping 0, restitution 0.9
+  - Управление: turnTorqueNm 35000, angularSpeedLimit 180°/s, yawRateGain 4.0
+  - Камера: follows smoothedPlayer (плавная, без дёрганья)
+  - Мышь: привязана к позиции слайма на экране (корректна у краёв карты)
+  - GDD обновлён до v2.5.0
+- Коммиты: ae5b0d0, 92da9f6
+- PR #5: https://github.com/komleff/slime-arena/pull/5
+
+## 0.1. Изменения версии 1.8.1
 
 - **U2-стиль сглаживания реализован** — задача клиентской интерполяции выполнена:
   - Visual State System с velocity integration
@@ -20,7 +33,7 @@
 
 ## 0.1. Изменения версии 1.8
 
-- Обновлена ссылка на GDD: `SlimeArena-GDD-v2_4.md`.
+- Обновлена ссылка на GDD: `SlimeArena-GDD-v2.5.md`.
 - Обновлена ссылка на архитектуру: `SlimeArena-Architecture-v1.5.md`.
 - Добавлен инженерный источник правды по управлению/полёту: `SlimeArena-Flight-TZ-v1.0.md`.
 - В прототипе ядра обновлены задачи и критический путь: вместо абстрактного модуля движения — реализация `FlightAssistSystem + PhysicsSystem + CollisionSystem` по Flight_TZ (силы/моменты, Semi‑Implicit Euler, импульсные коллизии, overspeed‑damping).
@@ -32,10 +45,10 @@
 
 | Документ | Содержание |
 |----------|------------|
-| `SlimeArena-GDD-v2_4.md` | Дизайн, правила, баланс, интерфейсы, Приложение D (v2.4.1) |
+| `SlimeArena-GDD-v2.5.md` | Дизайн, правила, баланс, интерфейсы, Приложение D |
 | `SlimeArena-Flight-TZ-v1.0.md` | Инженерное ТЗ: управление/движение, FlightAssist/Physics/Collision, конфиги движения/мира/сглаживания (v1.0.1) |
-| `SlimeArena-Architecture-v1.5.md` | Архитектура, модули, протокол, хранение (v1.5.1) |
-| Этот документ | Этапы, оценки, зависимости, критерии (v1.8.1) |
+| `SlimeArena-Architecture-v1.5.md` | Архитектура, модули, протокол, хранение (v1.5.2) |
+| Этот документ | Этапы, оценки, зависимости, критерии (v1.8.2) |
 
 ---
 

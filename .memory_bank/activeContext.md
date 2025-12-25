@@ -3,97 +3,103 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**PR #4: Refactor — Mass-based combat system**
+**PR #5: Mass-as-HP + Orb Physics + Camera/Mouse (26 декабря 2025)**
 
-- Ветка: `refactor/mass-based-combat-system`
-- Последний коммит: 18c8854 (fix: align docker-compose port with client dev port)
-- Статус: Pull Request открыт, все замечания ревьюверов исправлены
-- URL: https://github.com/komleff/slime-arena/pull/4
+- Ветка: `refactor/cleanup-legacy`
+- PR: https://github.com/komleff/slime-arena/pull/5
+- Статус: Готов к мержу (все ревью исправлены)
 
-### Коммиты в PR
-1. `b0f4910` — refactor: mass-based combat system
-2. `0e3d47c` — docs: update Memory Bank after PR #4 refactor
-3. `de55c62` — fix: Copilot review fixes for mass-based combat
-4. `8ec5be9` — docs: update Memory Bank after Copilot review fixes
-5. `18c8854` — fix: align docker-compose port with client dev port (5174)
+### Коммиты в PR #5:
+1. `ae5b0d0` — feat: mass-as-hp + orb physics + camera centering
+2. `9a109f7` — fix: camera follows localPlayer directly
+3. `92da9f6` — fix: mouse control uses smoothed player position
+4. `12cb70c` — fix: Copilot review fixes (4 issues)
+5. `4898261` — fix: Last Breath now awards mass and spawns scatter orbs
+6. `066a1f8` — merge: resolve conflicts with main
+7. `d119e72` — docs: update Memory Bank
+8. `c47fb73` — fix: scatter orbs ignore maxCount limit + update GDD
+9. `d61c5f7` — balance: reduce scatter orb speed to 60 m/s
 
-## Полный список изменений
+## Баланс орбов v2.5.0
 
-### Рефакторинг боевой системы (ArenaRoom.ts)
-- **processCombat()** переписана на mass-based логику:
-  ```typescript
-  victimMassLoss = defender.mass 
-      * slimeConfig.combat.biteDamagePctOfMass  // 0.15
-      * damageMultiplier                         // tail=1.5, mouth=0.5, side=1.0
-      * classStats.damageMult                    // warrior=1.1, остальные=1.0
-  attackerMassGain = victimMassLoss * slimeConfig.combat.biteVictimMassGainPct
-  ```
-- **Смерть**: `mass <= minSlimeMass` (50)
-- **Защита**: `invulnerableUntilTick` устанавливается после урона
-- **Удалены**: LastBreath, HP-урон, HP-проверки
+### Честная физика орбов
+Формула радиуса: `radius = baseRadius × √(mass / baseMass / density)`
 
-### Обновление конфигурации
+Плотность — абсолютная величина (кг/м²). Для сравнения: плотность слайма ≈ 0.32 кг/м².
 
-#### balance.json
-Для всех типов слаймов (base, hunter, warrior, collector):
-```json
-"combat": {
-  "biteDamagePctOfMass": 0.15,     // базовый % (до множителей)
-  "biteVictimMassGainPct": 0.25,   // % украденной массы атакующему
-  "orbBitePctOfMass": 0.05
-}
-```
+| Тип | density | Масса (кг) | Частота | Радиус (м) |
+|-----|---------|------------|---------|------------|
+| green | 0.2 | 10–50 | 45% | 7.1–15.8 |
+| blue | 0.3 | 30–150 | 30% | 10.0–22.4 |
+| red | 0.4 | 80–400 | 20% | 14.1–31.6 |
+| gold | 0.5 | 200–1000 | 5% | 20.0–44.7 |
 
-#### Множители урона
-| Множитель | Значение | Источник |
-|-----------|----------|----------|
-| tailDamageMultiplier | 1.5 | Укус в хвост |
-| mouth | 0.5 | Взаимный укус |
-| side | 1.0 | Укус в бок |
-| warrior.damageMult | 1.1 | Класс warrior |
-
-#### client/package.json
-- Порт разработки: 5173 → 5174 (проксирование на overmobile.space)
-
-#### docker/docker-compose.yml
-- Порт клиента: 5173:5173 → 5174:5174 (синхронизация с client/package.json)
-
-## Механика боевого взаимодействия
-
+### Параметры физики (balance.json)
 | Параметр | Значение | Описание |
-|----------|----------|---------|
-| biteDamagePctOfMass | 0.15 | Базовый % массы жертвы за укус |
-| biteVictimMassGainPct | 0.25 | % украденной массы атакующему |
-| tailDamageMultiplier | 1.5 | Множитель урона в хвост |
-| minSlimeMass | 50 | Минимальная масса (ниже = смерть) |
-| damageInvulnSec | 0.2 | Временная неуязвимость после урона |
+|----------|----------|----------|
+| environmentDrag | 0.01 | 1% потери скорости за тик (единый для всех) |
+| orbLinearDamping | 0 | Убран как нефизическое явление |
+| restitution | 0.9 | 90% энергии сохраняется при столкновении |
+| initialCount | 10 | Начальное количество орбов |
+| maxCount | 15 | Максимальное количество орбов |
 
-## Примеры расчётов
+### Параметры управления (FlightAssist)
+| Параметр | Значение | Описание |
+|----------|----------|----------|
+| turnTorqueNm | 35000 | Крутящий момент поворота |
+| angularSpeedLimitDegps | 180 | Максимальная угловая скорость (°/с) |
+| angularStopTimeS | 0.3 | Время остановки вращения |
+| yawRateGain | 4.0 | Коэффициент усиления по курсу |
 
-### Обычный укус в бок (base vs base)
-```
-Жертва: 200 массы
-victimMassLoss = 200 × 0.15 × 1.0 × 1.0 = 30
-attackerMassGain = 30 × 0.25 = 7.5
-→ Жертва: 170, Атакующий: +7.5
-```
+### Камера (Agar.io стиль)
+| Параметр | Значение | Описание |
+|----------|----------|----------|
+| desiredView | 400×400 м | Область видимости (2x зум-аут) |
+| Следит за | smoothedPlayer | Сглаженная позиция (плавное движение) |
+| Центрирование | с clamp | Игрок в центре, но не выходит за края мира |
 
-### Warrior атакует в хвост
-```
-Жертва: 200 массы
-victimMassLoss = 200 × 0.15 × 1.5 × 1.1 = 49.5
-attackerMassGain = 49.5 × 0.25 = 12.4
-→ Жертва: 150.5, Атакующий: +12.4
-```
+### Управление мышью
+- Привязано к **позиции слайма на экране** (не к центру)
+- Вычисляется направление от слайма к курсору
+- Переменные `smoothedPlayerX/Y` синхронизированы с камерой
+- Корректно работает у краёв карты (нет инвертирования)
 
-## Статус PR #4
-- ✅ Код реализован с множителями урона
-- ✅ Copilot ревью: 7/7 замечаний исправлено
-- ✅ Документация обновлена
-- ⏳ Тесты: требуется `npm run test`
-- ⏳ Сборка: требуется `npm run build`
+### Поедание орбов
+- `orbBitePctOfMass` = 10% — орб можно проглотить, если его масса ≤ 10% массы слайма
 
-## Следующие шаги
-1. Запустить `npm run test` для проверки детерминизма
-2. Запустить `npm run build` для проверки сборки
-3. Мерж в main
+## Изменённые файлы (сессия 25.12.2025)
+1. **config/balance.json** — density, spawn counts, physics params, turn params
+2. **client/src/main.ts** — камера: desiredView 400×400, instant centering
+3. **server/src/rooms/ArenaRoom.ts** — tryEatOrb() использует orbBitePctOfMass
+4. **docs/SlimeArena-GDD-v2.5.md** — обновлён до v2.5.0
+
+## Предыдущие изменения
+
+### Mass-as-HP System
+- **HP удалён**: `Player.hp` и `Player.maxHp` убраны из схемы
+- **Масса = здоровье**: смерть при `mass <= minSlimeMass` (50 кг)
+- **PvP Bite**: -20% массы жертвы, +10% атакующему, +10% разлетается орбами
+- **Scatter Orbs**: 3 орба при укусе, разлёт 60 м/с (было 200)
+- **forceSpawnOrb**: scatter orbs игнорируют maxCount лимит
+- **Results Freeze**: полная заморозка симуляции при isMatchEnded
+
+### PR #4
+- Results overlay (победитель, лидерборд)
+- Mouse control (agar.io стиль)
+- Name generator (русские имена)
+- U2-стиль сглаживания
+
+## Проверки
+- ✅ npm run build — ok (gzip 32.17 kB)
+- ✅ npm run test (determinism) — PASSED
+- ✅ GDD v2.5.0 — обновлён, переименован в SlimeArena-GDD-v2.5.md
+- ✅ Камера: плавная, без дёрганья
+- ✅ Мышь: корректная у краёв карты
+- ✅ Copilot review: 4/4 замечаний исправлены
+
+## Коммиты (текущая сессия)
+- ae5b0d0: fix: camera follows localPlayer directly (не плавная)
+- 92da9f6: fix: mouse control uses smoothed player position (финальная)
+- 12cb70c: fix: Copilot review fixes (damageMult, getOrbRadius, GDD)
+- 4898261: fix: Last Breath now awards mass and spawns scatter orbs
+- 066a1f8: merge: resolve conflicts with main (keep mass-as-hp system)

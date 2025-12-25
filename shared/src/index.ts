@@ -12,7 +12,6 @@ export type {
 } from "./config.js";
 export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
 export {
-    getSlimeHp,
     getSlimeDamage,
     getSlimeRadius,
     getOrbRadius,
@@ -21,8 +20,6 @@ export {
     getSlimeRadiusFromConfig,
     getSlimeInertia,
     scaleSlimeValue,
-    getSlimeMaxHp,
-    getSlimeBiteDamage,
 } from "./formulas.js";
 export {
     FLAG_RESPAWN_SHIELD,

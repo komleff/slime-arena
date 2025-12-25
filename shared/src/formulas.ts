@@ -1,9 +1,5 @@
 import { BalanceConfig, SlimeConfig, MassCurveConfig } from "./config.js";
 
-export function getSlimeHp(mass: number, formulas: BalanceConfig["formulas"]): number {
-    return formulas.hp.base + formulas.hp.scale * Math.log(1 + mass / formulas.hp.divisor);
-}
-
 export function getSlimeDamage(mass: number, formulas: BalanceConfig["formulas"]): number {
     return formulas.damage.base + formulas.damage.scale * Math.log(1 + mass / formulas.damage.divisor);
 }
@@ -13,11 +9,16 @@ export function getSlimeRadius(mass: number, formulas: BalanceConfig["formulas"]
     return formulas.radius.base * Math.sqrt(1 + (formulas.radius.scale * mass) / divisor);
 }
 
-export function getOrbRadius(orbMass: number, _density: number, minRadius: number): number {
-    // Размер зависит от массы орба.
-    // Плотность (_density) передаётся для совместимости, но не влияет на радиус.
-    // Физическая масса с учётом плотности рассчитывается в ArenaRoom.pickupSystem.
-    return minRadius * Math.sqrt(Math.max(0, orbMass));
+export function getOrbRadius(orbMass: number, density: number): number {
+    // Честная физика: та же формула что у слайма, но с учётом плотности.
+    // Формула: radius = baseRadius × √(mass / baseMass / density)
+    // Слайм: baseMass=100 кг, baseRadius=10 м → плотность ≈ 0.318 кг/м²
+    // Орб с density=0.318 и mass=100 → radius=10 (как слайм)
+    // Орб с density=0.2 легче → крупнее при той же массе
+    const slimeBaseMass = 100;
+    const slimeBaseRadius = 10;
+    const safeDensity = density > 0 ? density : 1;
+    return slimeBaseRadius * Math.sqrt(Math.max(0, orbMass) / slimeBaseMass / safeDensity);
 }
 
 export function getSpeedMultiplier(mass: number, formulas: BalanceConfig["formulas"]): number {
@@ -64,12 +65,4 @@ export function scaleSlimeValue(
         value = Math.min(curve.maxValue, value);
     }
     return value;
-}
-
-export function getSlimeMaxHp(mass: number): number {
-    return Math.max(0, mass);
-}
-
-export function getSlimeBiteDamage(mass: number, config: SlimeConfig): number {
-    return mass * config.combat.biteDamagePctOfMass;
 }
