@@ -90,6 +90,11 @@ export interface WorldPhysicsConfig {
 
 export interface ClientNetSmoothingConfig {
     lookAheadMs: number;
+    velocityWeight: number;
+    catchUpSpeed: number;
+    maxCatchUpSpeed: number;
+    teleportThreshold: number;
+    angleCatchUpSpeed: number;
 }
 
 export interface BalanceConfig {
@@ -516,6 +521,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     clientNetSmoothing: {
         lookAheadMs: 150,
+        velocityWeight: 0.7,
+        catchUpSpeed: 10.0,
+        maxCatchUpSpeed: 800,
+        teleportThreshold: 100,
+        angleCatchUpSpeed: 12.0,
     },
     slime: {
         initialMass: 100,
@@ -1116,6 +1126,31 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 clientNetSmoothing.lookAheadMs,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.lookAheadMs,
                 "clientNetSmoothing.lookAheadMs"
+            ),
+            velocityWeight: readNumber(
+                clientNetSmoothing.velocityWeight,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.velocityWeight,
+                "clientNetSmoothing.velocityWeight"
+            ),
+            catchUpSpeed: readNumber(
+                clientNetSmoothing.catchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpSpeed,
+                "clientNetSmoothing.catchUpSpeed"
+            ),
+            maxCatchUpSpeed: readNumber(
+                clientNetSmoothing.maxCatchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxCatchUpSpeed,
+                "clientNetSmoothing.maxCatchUpSpeed"
+            ),
+            teleportThreshold: readNumber(
+                clientNetSmoothing.teleportThreshold,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.teleportThreshold,
+                "clientNetSmoothing.teleportThreshold"
+            ),
+            angleCatchUpSpeed: readNumber(
+                clientNetSmoothing.angleCatchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleCatchUpSpeed,
+                "clientNetSmoothing.angleCatchUpSpeed"
             ),
         },
         slime: {

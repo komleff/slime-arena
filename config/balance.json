@@ -264,7 +264,12 @@
     "heightM": 1000
   },
   "clientNetSmoothing": {
-    "lookAheadMs": 150
+    "lookAheadMs": 150,
+    "velocityWeight": 0.7,
+    "catchUpSpeed": 10.0,
+    "maxCatchUpSpeed": 800,
+    "teleportThreshold": 100,
+    "angleCatchUpSpeed": 12.0
   },
   "slime": {
     "initialMass": 100,

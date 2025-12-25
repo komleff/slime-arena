@@ -35,6 +35,18 @@
 - [x] Удалены неиспользуемые параметры из ClientNetSmoothingConfig
 - [x] Ветка `fix/smoothing-hermite-cleanup` создана и запушена
 
+## Задача: PR #4 Review Fixes (В ПРОГРЕССЕ)
+- [x] Шаг 1: Вынос констант сглаживания в balance.json
+  - Расширен `ClientNetSmoothingConfig` (+5 параметров)
+  - Обновлен `DEFAULT_BALANCE_CONFIG` и `resolveBalanceConfig`
+  - Клиент использует `getSmoothingConfig()` вместо констант
+- [ ] Шаг 2: Удалить lastUpdateMs
+- [ ] Шаг 4: Заменить "Блоб" на русское слово
+- [ ] Шаг 5: Оптимизировать wrapAngle
+- [ ] Шаг 6: Комментарий о приоритетах управления
+- [ ] Шаг 7: Кэширование matchMedia
+- [ ] Шаг 8: DEFER — рефакторинг модулей
+
 ## Задача: Документация U2-сглаживания (ЗАВЕРШЕНА ✓)
 - [x] Создан `.memory_bank/modules/U2-smoothing.md`
 - [x] Обновлён GDD до v2.4.1 (раздел 0.11)

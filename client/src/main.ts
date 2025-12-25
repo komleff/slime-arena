@@ -576,14 +576,17 @@ const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
-// Smoothing config - баланс между точностью и плавностью
-// VELOCITY_WEIGHT: 0 = только catch-up, 1 = только интеграция velocity
+// Smoothing config - читаем из balance.json
+// velocityWeight: 0 = только catch-up, 1 = только интеграция velocity
 // Оптимально 0.6-0.8 для Slime Arena: хороший баланс между точностью и плавностью
-const VELOCITY_WEIGHT = 0.7; // Вес интеграции скорости vs catch-up коррекции
-const CATCH_UP_SPEED = 10.0; // Units per second per unit of error (увеличено для точности)
-const MAX_CATCH_UP_SPEED = 800; // Max correction speed in m/s
-const TELEPORT_THRESHOLD = 100; // Teleport if error > this (meters)
-const ANGLE_CATCH_UP_SPEED = 12.0; // Radians per second per radian of error
+const getSmoothingConfig = () => balanceConfig?.clientNetSmoothing ?? {
+    lookAheadMs: 150,
+    velocityWeight: 0.7,
+    catchUpSpeed: 10.0,
+    maxCatchUpSpeed: 800,
+    teleportThreshold: 100,
+    angleCatchUpSpeed: 12.0
+};
 
 const resetSnapshotBuffer = () => {
     snapshotBuffer.length = 0;
@@ -603,13 +606,15 @@ const smoothStep = (
     targetAngle: number,
     dtSec: number
 ): void => {
+    const cfg = getSmoothingConfig();
+    
     // Calculate position error
     const dx = targetX - visual.x;
     const dy = targetY - visual.y;
     const error = Math.sqrt(dx * dx + dy * dy);
     
     // Teleport if error is too large (e.g., respawn)
-    if (error > TELEPORT_THRESHOLD) {
+    if (error > cfg.teleportThreshold) {
         visual.x = targetX;
         visual.y = targetY;
         visual.vx = targetVx;
@@ -627,7 +632,7 @@ const smoothStep = (
     let correctionX = 0;
     let correctionY = 0;
     if (error > 0.01) {
-        const catchUpSpeed = Math.min(error * CATCH_UP_SPEED, MAX_CATCH_UP_SPEED);
+        const catchUpSpeed = Math.min(error * cfg.catchUpSpeed, cfg.maxCatchUpSpeed);
         correctionX = (dx / error) * catchUpSpeed * dtSec;
         correctionY = (dy / error) * catchUpSpeed * dtSec;
         
@@ -637,9 +642,9 @@ const smoothStep = (
     }
     
     // Комбинируем: velocity движение + взвешенная коррекция
-    // VELOCITY_WEIGHT контролирует баланс: при 0.7 это 70% velocity + 30% коррекция
-    visual.x += velocityMoveX * VELOCITY_WEIGHT + correctionX * (1 - VELOCITY_WEIGHT);
-    visual.y += velocityMoveY * VELOCITY_WEIGHT + correctionY * (1 - VELOCITY_WEIGHT);
+    // velocityWeight контролирует баланс: при 0.7 это 70% velocity + 30% коррекция
+    visual.x += velocityMoveX * cfg.velocityWeight + correctionX * (1 - cfg.velocityWeight);
+    visual.y += velocityMoveY * cfg.velocityWeight + correctionY * (1 - cfg.velocityWeight);
     
     // Плавно приближаем visual velocity к серверной (для следующей итерации сглаживания)
     const velocityLerp = clamp(dtSec * 8, 0, 1);
@@ -650,7 +655,7 @@ const smoothStep = (
     const angleDelta = wrapAngle(targetAngle - visual.angle);
     const angleError = Math.abs(angleDelta);
     if (angleError > 0.001) {
-        const angleCatchUp = Math.min(angleError * ANGLE_CATCH_UP_SPEED, Math.PI * 4) * dtSec;
+        const angleCatchUp = Math.min(angleError * cfg.angleCatchUpSpeed, Math.PI * 4) * dtSec;
         if (angleCatchUp >= angleError) {
             visual.angle = targetAngle;
         } else {
@@ -830,15 +835,16 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         
         if (dtSec > 0) {
             // Faster catch-up for orbs
+            const cfg = getSmoothingConfig();
             const dx = targetX - visual.x;
             const dy = targetY - visual.y;
             const error = Math.sqrt(dx * dx + dy * dy);
             
-            if (error > TELEPORT_THRESHOLD) {
+            if (error > cfg.teleportThreshold) {
                 visual.x = targetX;
                 visual.y = targetY;
             } else if (error > 0.01) {
-                const catchUpSpeed = Math.min(error * CATCH_UP_SPEED * 1.5, MAX_CATCH_UP_SPEED);
+                const catchUpSpeed = Math.min(error * cfg.catchUpSpeed * 1.5, cfg.maxCatchUpSpeed);
                 const t = Math.min(catchUpSpeed * dtSec / error, 1);
                 visual.x = lerp(visual.x, targetX, t);
                 visual.y = lerp(visual.y, targetY, t);
