@@ -1085,9 +1085,18 @@ async function main() {
     hud.textContent = "Подключение к серверу...";
 
     const env = import.meta as { env?: { BASE_URL?: string; VITE_WS_URL?: string } };
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const defaultWsUrl = `${protocol}://${window.location.hostname}:2567`;
+    const isHttps = window.location.protocol === "https:";
+    const protocol = isHttps ? "wss" : "ws";
+    
+    let defaultWsUrl: string;
+    if (isHttps && window.location.hostname.includes("overmobile.space")) {
+        defaultWsUrl = `${protocol}://slime-arena-server.overmobile.space`;
+    } else {
+        defaultWsUrl = `${protocol}://${window.location.hostname}:2567`;
+    }
+    
     const wsUrl = env.env?.VITE_WS_URL ?? defaultWsUrl;
+    console.log("WebSocket URL:", wsUrl);
     const client = new Colyseus.Client(wsUrl);
 
         try {
