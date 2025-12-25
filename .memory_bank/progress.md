@@ -35,6 +35,67 @@
 - [x] Удалены неиспользуемые параметры из ClientNetSmoothingConfig
 - [x] Ветка `fix/smoothing-hermite-cleanup` создана и запушена
 
+## Задача: PR #4 Gameplay/UI Improvements (✅ ЗАВЕРШЕНА)
+
+### Фичи (10 задач)
+- [x] **Results screen** — overlay при завершении матча (победитель, лидерборд 10, таймер 3сек)
+- [x] **Name generator** — новый модуль shared/src/nameGenerator.ts (русские имена + уникальность)
+- [x] **PvP mass steal** — кража массы привязана к урону (damagePct)
+- [x] **Mouse control** — agar.io стиль, параметры из balance.json (mouseDeadzone, mouseMaxDist)
+- [x] **mathUtils** — новый модуль shared/src/mathUtils.ts (clamp, lerp, wrapAngle, distance)
+- [x] **Crown emoji** — 👑 перед именем KING в HUD и Results overlay
+- [x] **Leaderboard** — расширен до 10 записей, HUD показывает топ-5
+- [x] **Unique names** — гарантия уникальности имён в одной комнате
+- [x] **Codex High fix** — smoothing constants → balance.json с валидацией
+- [x] **Codex Medium fix** — удалён snapshotBuffer, только latestSnapshot
+
+### Codex Review Fixes Раунд 1 (7 issues)
+- [x] HIGH: smoothing constants → balance.json
+- [x] MEDIUM: buffer optimization (latestSnapshot)
+- [x] LOW: lastUpdateMs удалён
+- [x] LOW: "Блоб" → "Кисель"
+- [x] LOW: wrapAngle O(1)
+- [x] LOW: matchMedia кэширован
+- [x] LOW: Input priority комментарий
+
+### Codex Review Fixes Раунд 2 (4 issues)
+- [x] MEDIUM: JoystickConfig.mode — убран "dynamic"
+- [x] MEDIUM: Валидация smoothing params (velocityWeight [0..1], teleportThreshold >= 1)
+- [x] LOW: Удалён snapshotBuffer полностью (U2-стиль)
+- [x] LOW: lookAheadMs — один источник через getSmoothingConfig()
+
+### Copilot Review Fixes Раунд 1 (8 issues)
+- [x] DRY: createLcg() helper
+- [x] Safety: mass > 0 проверки
+- [x] Performance: Math.sqrt
+- [x] DOM API: Results leaderboard
+- [x] Unique names: generateUniqueName()
+- [x] HTML escaping
+- [x] Input priority
+- [x] Shared exports
+
+### Copilot Review Fixes Раунд 2 (6 issues)
+- [x] Удалён вводящий в заблуждение комментарий Math.sqrt vs Math.hypot
+- [x] PvP кража массы привязана к урону (damagePct)
+- [x] nameSeed из sessionId (не изменяет RNG симуляции)
+- [x] Баланс 50%/25% — оставлен (намеренный дизайн: масса "сгорает")
+- [x] Mouse control: mouseDeadzone, mouseMaxDist вынесены в balance.json
+- [x] HUD: топ-3 → топ-5, текст "Лидеры:"
+
+### Валидация
+- [x] npm run build PASS (0 errors, gzip 32.29 kB)
+- [x] npm run test PASS (determinism)
+- [x] 9 commits (0654687 HEAD):
+  - 10b2949: feat: gameplay-ui improvements
+  - 1ce75e8: fix: self-review
+  - 97c5976: smoothing constants → balance.json
+  - 011199a: review fixes раунд 1
+  - 05759b4: buffer optimization
+  - 824be93: Copilot fixes раунд 1
+  - 282835f: PvP balance
+  - ca57dec: docs: Memory Bank
+  - 0654687: fix: Codex/Copilot review раунд 2
+
 ## Задача: Документация U2-сглаживания (ЗАВЕРШЕНА ✓)
 - [x] Создан `.memory_bank/modules/U2-smoothing.md`
 - [x] Обновлён GDD до v2.4.1 (раздел 0.11)
@@ -50,7 +111,8 @@
 - `docker/docker-compose.yml`: Требует исправления (отсутствуют Dockerfiles).
 
 ## Планы
-- [ ] Смержить ветку `fix/smoothing-hermite-cleanup` в `main`
+- [x] **PR #4 завершена** — готово к мержу в main
+- [ ] Смержить ветку `feat/gameplay-ui-improvements` в `main`
 - [ ] Завершение модульного разделения `ArenaRoom.ts`.
 - [ ] Оптимизация `main.ts` на клиенте.
 - [ ] Внедрение Protobuf (согласно `docs/PROTOBUF_ADOPTION_PLAN.md`).

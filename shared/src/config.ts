@@ -90,6 +90,11 @@ export interface WorldPhysicsConfig {
 
 export interface ClientNetSmoothingConfig {
     lookAheadMs: number;
+    velocityWeight: number;
+    catchUpSpeed: number;
+    maxCatchUpSpeed: number;
+    teleportThreshold: number;
+    angleCatchUpSpeed: number;
 }
 
 export interface BalanceConfig {
@@ -127,6 +132,8 @@ export interface BalanceConfig {
         joystickSensitivity: number;
         joystickFollowSpeed: number;
         inputTimeoutMs: number;
+        mouseDeadzone: number;
+        mouseMaxDist: number;
     };
     slimeConfigs: {
         base: SlimeConfig;
@@ -163,6 +170,10 @@ export interface BalanceConfig {
         lastBreathDamageMult: number;
         lastBreathSpeedPenalty: number;
         massStealPercent: number;
+        pvpBiteDamageAttackerMassPct: number;
+        pvpBiteDamageVictimMassPct: number;
+        pvpVictimMassLossPct: number;
+        pvpAttackerMassGainPct: number;
     };
     death: {
         respawnDelaySec: number;
@@ -288,6 +299,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         joystickSensitivity: 1.0,
         joystickFollowSpeed: 0.8,
         inputTimeoutMs: 200,
+        mouseDeadzone: 30,
+        mouseMaxDist: 200,
     },
     slimeConfigs: {
         base: {
@@ -514,6 +527,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     clientNetSmoothing: {
         lookAheadMs: 150,
+        velocityWeight: 0.7,
+        catchUpSpeed: 10.0,
+        maxCatchUpSpeed: 800,
+        teleportThreshold: 100,
+        angleCatchUpSpeed: 12.0,
     },
     slime: {
         initialMass: 100,
@@ -542,6 +560,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         lastBreathDamageMult: 0.5,
         lastBreathSpeedPenalty: 0.8,
         massStealPercent: 0.1,
+        pvpBiteDamageAttackerMassPct: 0.05,
+        pvpBiteDamageVictimMassPct: 0.03,
+        pvpVictimMassLossPct: 0.50,
+        pvpAttackerMassGainPct: 0.25,
     },
     death: {
         respawnDelaySec: 2,
@@ -1058,6 +1080,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.controls.inputTimeoutMs,
                 "controls.inputTimeoutMs"
             ),
+            mouseDeadzone: Math.max(0, readNumber(
+                controls.mouseDeadzone,
+                DEFAULT_BALANCE_CONFIG.controls.mouseDeadzone,
+                "controls.mouseDeadzone"
+            )),
+            mouseMaxDist: Math.max(1, readNumber(
+                controls.mouseMaxDist,
+                DEFAULT_BALANCE_CONFIG.controls.mouseMaxDist,
+                "controls.mouseMaxDist"
+            )),
         },
         slimeConfigs: {
             base: readSlimeConfig(baseSlime, DEFAULT_BALANCE_CONFIG.slimeConfigs.base, "slimeConfigs.base"),
@@ -1108,11 +1140,36 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ),
         },
         clientNetSmoothing: {
-            lookAheadMs: readNumber(
+            lookAheadMs: Math.max(0, readNumber(
                 clientNetSmoothing.lookAheadMs,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.lookAheadMs,
                 "clientNetSmoothing.lookAheadMs"
-            ),
+            )),
+            velocityWeight: Math.max(0, Math.min(1, readNumber(
+                clientNetSmoothing.velocityWeight,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.velocityWeight,
+                "clientNetSmoothing.velocityWeight"
+            ))),
+            catchUpSpeed: Math.max(0, readNumber(
+                clientNetSmoothing.catchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpSpeed,
+                "clientNetSmoothing.catchUpSpeed"
+            )),
+            maxCatchUpSpeed: Math.max(0, readNumber(
+                clientNetSmoothing.maxCatchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxCatchUpSpeed,
+                "clientNetSmoothing.maxCatchUpSpeed"
+            )),
+            teleportThreshold: Math.max(1, readNumber(
+                clientNetSmoothing.teleportThreshold,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.teleportThreshold,
+                "clientNetSmoothing.teleportThreshold"
+            )),
+            angleCatchUpSpeed: Math.max(0, readNumber(
+                clientNetSmoothing.angleCatchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleCatchUpSpeed,
+                "clientNetSmoothing.angleCatchUpSpeed"
+            )),
         },
         slime: {
             initialMass: readNumber(
@@ -1228,6 +1285,26 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 combat.massStealPercent,
                 DEFAULT_BALANCE_CONFIG.combat.massStealPercent,
                 "combat.massStealPercent"
+            ),
+            pvpBiteDamageAttackerMassPct: readNumber(
+                combat.pvpBiteDamageAttackerMassPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageAttackerMassPct,
+                "combat.pvpBiteDamageAttackerMassPct"
+            ),
+            pvpBiteDamageVictimMassPct: readNumber(
+                combat.pvpBiteDamageVictimMassPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageVictimMassPct,
+                "combat.pvpBiteDamageVictimMassPct"
+            ),
+            pvpVictimMassLossPct: readNumber(
+                combat.pvpVictimMassLossPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpVictimMassLossPct,
+                "combat.pvpVictimMassLossPct"
+            ),
+            pvpAttackerMassGainPct: readNumber(
+                combat.pvpAttackerMassGainPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpAttackerMassGainPct,
+                "combat.pvpAttackerMassGainPct"
             ),
         },
         death: {

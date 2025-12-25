@@ -14,6 +14,7 @@ import {
     FLAG_IS_DEAD,
     ResolvedBalanceConfig,
     SlimeConfig,
+    generateUniqueName,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
@@ -152,7 +153,22 @@ export class ArenaRoom extends Room<GameState> {
     onJoin(client: Client, options: { name?: string } = {}) {
         const player = new Player();
         player.id = client.sessionId;
-        player.name = options.name ?? `Slime_${client.sessionId.slice(0, 4)}`;
+        // Генерируем юмористическое имя если не указано
+        if (options.name && options.name.trim().length > 0) {
+            player.name = options.name.trim().slice(0, 20);
+        } else {
+            // Собираем существующие имена для проверки уникальности
+            const existingNames: string[] = [];
+            this.state.players.forEach((p) => existingNames.push(p.name));
+            
+            // Генерируем seed из sessionId игрока, не изменяя состояние RNG симуляции
+            let nameSeed = 0;
+            for (let i = 0; i < client.sessionId.length; i++) {
+                nameSeed = (nameSeed * 31 + client.sessionId.charCodeAt(i)) >>> 0;
+            }
+            nameSeed = nameSeed % 2147483647;
+            player.name = generateUniqueName(nameSeed, existingNames);
+        }
         const spawn = this.randomPointInMap();
         player.x = spawn.x;
         player.y = spawn.y;
@@ -681,8 +697,15 @@ export class ArenaRoom extends Room<GameState> {
 
         const slimeConfig = this.getSlimeConfig(attacker);
         const classStats = this.getClassStats(attacker);
-        let damage =
-            getSlimeBiteDamage(attacker.mass, slimeConfig) * damageMultiplier * classStats.damageMult;
+        
+        // Усиленный PvP урон: % от массы атакующего + % от массы жертвы
+        const baseDamage = getSlimeBiteDamage(attacker.mass, slimeConfig);
+        const safeAttackerMass = Math.max(0, attacker.mass);
+        const safeDefenderMass = Math.max(0, defender.mass);
+        const pvpAttackerBonus = safeAttackerMass * this.balance.combat.pvpBiteDamageAttackerMassPct;
+        const pvpVictimBonus = safeDefenderMass * this.balance.combat.pvpBiteDamageVictimMassPct;
+        let damage = (baseDamage + pvpAttackerBonus + pvpVictimBonus) * damageMultiplier * classStats.damageMult;
+        
         if (attacker.isLastBreath) {
             damage *= this.balance.combat.lastBreathDamageMult;
         }
@@ -704,10 +727,14 @@ export class ArenaRoom extends Room<GameState> {
 
         defender.hp = Math.max(0, defender.hp - damage);
 
-        const stolenMass = damage * this.balance.combat.massStealPercent;
-        if (stolenMass > 0) {
-            this.applyMassDelta(attacker, stolenMass);
-            this.applyMassDelta(defender, -stolenMass);
+        // PvP кража массы: пропорциональна урону (чем сильнее укус — больше кража)
+        // damagePct = damage / defender.maxHp — доля нанесённого урона
+        const damagePct = defender.maxHp > 0 ? Math.min(1, damage / defender.maxHp) : 0;
+        const victimMassLoss = safeDefenderMass * this.balance.combat.pvpVictimMassLossPct * damagePct;
+        const attackerMassGain = safeDefenderMass * this.balance.combat.pvpAttackerMassGainPct * damagePct;
+        if (victimMassLoss > 0) {
+            this.applyMassDelta(defender, -victimMassLoss);
+            this.applyMassDelta(attacker, attackerMassGain);
         }
 
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
@@ -1007,7 +1034,7 @@ export class ArenaRoom extends Room<GameState> {
         const sorted = Array.from(this.state.players.values())
             .filter((player) => !player.isDead)
             .sort((a, b) => b.mass - a.mass)
-            .slice(0, 3);
+            .slice(0, 10);
         this.state.leaderboard.length = 0;
         for (const player of sorted) {
             this.state.leaderboard.push(player.id);

@@ -20,7 +20,7 @@ export interface JoystickConfig {
     radius: number;
     deadzone: number;
     sensitivity: number;
-    mode: "fixed" | "adaptive" | "dynamic";
+    mode: "fixed" | "adaptive";
     followSpeed: number;
     knobRadius: number;
 }

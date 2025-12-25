@@ -45,33 +45,34 @@ type VisualEntity = {
     vx: number;      // Интерполированная скорость X
     vy: number;      // Интерполированная скорость Y
     angle: number;   // Визуальный угол
-    lastUpdateMs: number;  // Время последнего обновления
 };
 
 // Хранилище визуальных состояний
 const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
+
+// U2-стиль: только последний снапшот (не буфер!)
+let latestSnapshot: Snapshot | null = null;
 ```
 
 ### 2.2. Константы сглаживания
 
 ```typescript
-// Вес интеграции скорости vs catch-up коррекции
-// 0 = только catch-up, 1 = только интеграция velocity
-// Оптимально 0.6-0.8 для Slime Arena
-const VELOCITY_WEIGHT = 0.7;
+// Все константы теперь в config/balance.json -> clientNetSmoothing
+// Клиент читает их через getSmoothingConfig()
 
-// Скорость догоняния (единиц/сек на единицу ошибки)
-const CATCH_UP_SPEED = 10.0;
+interface ClientNetSmoothingConfig {
+    lookAheadMs: number;        // Предсказание вперёд (мс)
+    velocityWeight: number;     // Вес velocity vs catch-up (0-1, оптимально 0.7)
+    catchUpSpeed: number;       // Скорость догоняния (единиц/сек/ошибку)
+    maxCatchUpSpeed: number;    // Макс. скорость коррекции (м/с)
+    teleportThreshold: number;  // Порог телепорта (м)
+    angleCatchUpSpeed: number;  // Скорость сглаживания угла (рад/сек/рад)
+}
 
-// Максимальная скорость коррекции (м/с)
-const MAX_CATCH_UP_SPEED = 800;
-
-// Порог телепорта (метры) - если ошибка больше, мгновенный перенос
-const TELEPORT_THRESHOLD = 100;
-
-// Скорость догоняния угла (рад/сек на радиан ошибки)
-const ANGLE_CATCH_UP_SPEED = 12.0;
+// Значения по умолчанию:
+// velocityWeight: 0.7, catchUpSpeed: 10.0, maxCatchUpSpeed: 800
+// teleportThreshold: 100, angleCatchUpSpeed: 12.0
 ```
 
 ### 2.3. Конфигурация в balance.json
@@ -79,12 +80,17 @@ const ANGLE_CATCH_UP_SPEED = 12.0;
 ```json
 {
   "clientNetSmoothing": {
-    "lookAheadMs": 150
+    "lookAheadMs": 150,
+    "velocityWeight": 0.7,
+    "catchUpSpeed": 10.0,
+    "maxCatchUpSpeed": 800,
+    "teleportThreshold": 100,
+    "angleCatchUpSpeed": 12.0
   }
 }
 ```
 
-**lookAheadMs** — единственный параметр из конфига. Остальные константы захардкожены в клиенте для простоты и оптимальности.
+Все параметры сглаживания теперь вынесены в balance.json для удобной настройки без перекомпиляции.
 
 ---
 

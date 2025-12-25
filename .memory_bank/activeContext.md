@@ -1,39 +1,72 @@
 # Active Context
+
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-U2-стиль предиктивного сглаживания полностью реализован и задокументирован. PR #2 смержен в `main`. Создана документация.
+**PR #4: gameplay/UI улучшения + Codex/Copilot ревью фиксы (раунд 2)**
 
-## Последние изменения (декабрь 2025)
+- Ветка: `feat/gameplay-ui-improvements`
+- Коммиты: 9 (текущий `0654687`)
+- Контроль изменений: main@main vs feat/gameplay-ui-improvements@0654687
 
-### U2-стиль сглаживания (v1.0)
-- **Visual State System** — визуальное состояние отделено от серверного
-- **Velocity Integration** — `VELOCITY_WEIGHT = 0.7` для точного направления движения
-- **Catch-up коррекция** — `CATCH_UP_SPEED = 10.0` для плавного догоняния
-- **Упрощён ClientNetSmoothingConfig** — остался только `lookAheadMs = 150`
-- **Документация** — создан `.memory_bank/modules/U2-smoothing.md`
+## Полный список изменений
 
-### Обновления документации (v2.4.1 / v1.5.1 / v1.8.1)
-- **GDD v2.4.1** — добавлен раздел 0.11 про U2-сглаживание
-- **Architecture v1.5.1** — раздел 10 полностью переписан под U2
-- **Plan v1.8.1** — задача сглаживания отмечена выполненной
-- **Flight-TZ v1.0.1** — раздел 13 обновлён под реализацию
+### Новые модули
+- **shared/src/nameGenerator.ts** — генератор русских имён (DRY: `createLcg()` helper)
+- **shared/src/mathUtils.ts** — математические утилиты (оптимизированные)
 
-### Код (ветка fix/smoothing-hermite-cleanup)
-- `client/src/main.ts` — smoothStep с velocity integration
-- `shared/src/config.ts` — очищен ClientNetSmoothingConfig
-- `config/balance.json` — только `lookAheadMs`
+### UI компоненты
+- **client/src/main.ts**:
+  - Results overlay (победитель, лидерборд 10, таймер)
+  - Mouse control (agar.io стиль, параметры из конфига)
+  - Crown для KING
+  - Уникальные имена
+  - DOM API вместо innerHTML (XSS-безопасность)
+  - HUD: лидерборд топ-5 (было топ-3)
 
-## Константы сглаживания (захардкожены в клиенте)
-| Константа | Значение | Назначение |
-|-----------|----------|-----------|
-| `VELOCITY_WEIGHT` | 0.7 | Вес velocity vs catch-up |
-| `CATCH_UP_SPEED` | 10.0 | Скорость догоняния |
-| `MAX_CATCH_UP_SPEED` | 800 | Макс. скорость коррекции |
-| `TELEPORT_THRESHOLD` | 100 | Порог телепорта |
-| `ANGLE_CATCH_UP_SPEED` | 12.0 | Скорость угла |
+### Оптимизации (раунд 1)
+- wrapAngle: O(n) while-циклы → O(1) modulo
+- Math.hypot → Math.sqrt
+- matchMedia кэширован в isCoarsePointer
+- latestSnapshot вместо snapshotBuffer
 
-## Ближайшие шаги
-- [ ] Смержить ветку `fix/smoothing-hermite-cleanup` в `main`
-- [ ] Тестирование на мобильных устройствах
-- [ ] Оптимизация `ArenaRoom.ts` (модульное разделение)
+### Исправления раунд 2 (Codex/Copilot)
+- **JoystickConfig.mode**: убран "dynamic", только "fixed" | "adaptive"
+- **Валидация smoothing**: velocityWeight [0..1], teleportThreshold >= 1
+- **Удалён snapshotBuffer**: U2-стиль, только latestSnapshot
+- **lookAheadMs**: один источник через getSmoothingConfig()
+- **nameSeed из sessionId**: не изменяет RNG симуляции (детерминизм)
+- **PvP кража массы**: привязана к урону (damagePct), не фиксированный %
+- **Mouse control config**: mouseDeadzone, mouseMaxDist в balance.json
+
+### Smoothing конфиг (с валидацией)
+| Параметр | Значение | Валидация |
+|----------|----------|-----------|
+| velocityWeight | 0.7 | [0..1] |
+| catchUpSpeed | 10.0 | >= 0 |
+| maxCatchUpSpeed | 800 | >= 0 |
+| teleportThreshold | 100 | >= 1 |
+| angleCatchUpSpeed | 12.0 | >= 0 |
+| lookAheadMs | 150 | >= 0 |
+
+### Controls конфиг
+| Параметр | Значение | Описание |
+|----------|----------|---------|
+| mouseDeadzone | 30 | Мёртвая зона мыши (px) |
+| mouseMaxDist | 200 | Макс. дистанция (px) |
+
+### PvP механика (привязана к урону)
+| Параметр | Значение | Описание |
+|----------|----------|---------|
+| pvpVictimMassLossPct | 0.50 | × damagePct |
+| pvpAttackerMassGainPct | 0.25 | × damagePct |
+
+## Проверки
+- ✅ npm run build — ok (0 errors, gzip 32.29 kB)
+- ✅ npm run test (determinism) — PASSED
+- ✅ Ветка чистая
+
+## Готовность к мержу
+- ✅ 9 коммитов (0654687 HEAD)
+- ✅ Все проверки пройдены
+- ✅ Статус: **READY FOR MERGE**
