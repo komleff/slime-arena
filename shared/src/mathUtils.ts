@@ -20,10 +20,11 @@ export function lerp(a: number, b: number, t: number): number {
  * Нормализует угол в диапазон [-PI, PI].
  */
 export function wrapAngle(angle: number): number {
-    let value = angle;
+    // O(1) версия вместо while-циклов
     const twoPi = Math.PI * 2;
-    while (value < -Math.PI) value += twoPi;
-    while (value > Math.PI) value -= twoPi;
+    let value = angle % twoPi;
+    if (value > Math.PI) value -= twoPi;
+    if (value < -Math.PI) value += twoPi;
     return value;
 }
 

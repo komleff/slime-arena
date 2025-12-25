@@ -42,6 +42,7 @@ export {
 } from "./sprites.js";
 export {
     generateName,
+    generateUniqueName,
     generateRandomName,
     getNameCombinationsCount,
 } from "./nameGenerator.js";

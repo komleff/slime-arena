@@ -14,7 +14,7 @@ import {
     FLAG_IS_DEAD,
     ResolvedBalanceConfig,
     SlimeConfig,
-    generateName,
+    generateUniqueName,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
@@ -157,9 +157,13 @@ export class ArenaRoom extends Room<GameState> {
         if (options.name && options.name.trim().length > 0) {
             player.name = options.name.trim().slice(0, 20);
         } else {
+            // Собираем существующие имена для проверки уникальности
+            const existingNames: string[] = [];
+            this.state.players.forEach((p) => existingNames.push(p.name));
+            
             // Используем seed от RNG для детерминированности
             const nameSeed = this.rng.int(0, 2147483647);
-            player.name = generateName(nameSeed);
+            player.name = generateUniqueName(nameSeed, existingNames);
         }
         const spawn = this.randomPointInMap();
         player.x = spawn.x;

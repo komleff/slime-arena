@@ -40,12 +40,13 @@
   - Расширен `ClientNetSmoothingConfig` (+5 параметров)
   - Обновлен `DEFAULT_BALANCE_CONFIG` и `resolveBalanceConfig`
   - Клиент использует `getSmoothingConfig()` вместо констант
-- [ ] Шаг 2: Удалить lastUpdateMs
-- [ ] Шаг 4: Заменить "Блоб" на русское слово
-- [ ] Шаг 5: Оптимизировать wrapAngle
-- [ ] Шаг 6: Комментарий о приоритетах управления
-- [ ] Шаг 7: Кэширование matchMedia
+- [x] Шаг 2: Удалить lastUpdateMs — удалено из VisualEntity
+- [x] Шаг 4: "Блоб" → "Кисель" в nameGenerator.ts
+- [x] Шаг 5: wrapAngle оптимизирован до O(1) через modulo
+- [x] Шаг 6: Комментарий "Приоритет: touch/joystick > mouse"
+- [x] Шаг 7: matchMedia закэширован в isCoarsePointer
 - [ ] Шаг 8: DEFER — рефакторинг модулей
+- [x] Шаг 9: Уникальные имена — generateUniqueName()
 
 ## Задача: Документация U2-сглаживания (ЗАВЕРШЕНА ✓)
 - [x] Создан `.memory_bank/modules/U2-smoothing.md`

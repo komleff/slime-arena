@@ -21,7 +21,7 @@ const ADJECTIVES = [
 const NOUNS = [
     // Слаймовые
     "Слайм", "Сгусток", "Клякса", "Шарик", "Комок",
-    "Желе", "Пузырь", "Капелька", "Лужица", "Блоб",
+    "Желе", "Пузырь", "Капелька", "Лужица", "Кисель",
     // Животные
     "Кот", "Пёс", "Хомяк", "Кролик", "Ёжик",
     "Лис", "Волк", "Медведь", "Енот", "Барсук",
@@ -49,6 +49,45 @@ export function generateName(seed: number): string {
     const nounIndex = nextRandom() % NOUNS.length;
 
     return `${ADJECTIVES[adjIndex]} ${NOUNS[nounIndex]}`;
+}
+
+/**
+ * Генерирует уникальное имя, не совпадающее с существующими.
+ * @param seed - начальное значение для генератора
+ * @param existingNames - массив уже занятых имён
+ * @param maxAttempts - максимум попыток (по умолчанию 100)
+ * @returns уникальное имя или имя с номером если все заняты
+ */
+export function generateUniqueName(
+    seed: number,
+    existingNames: string[],
+    maxAttempts: number = 100
+): string {
+    const existingSet = new Set(existingNames);
+    let hash = seed >>> 0;
+    
+    const nextRandom = () => {
+        hash = (hash * 1103515245 + 12345) >>> 0;
+        return hash;
+    };
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const adjIndex = nextRandom() % ADJECTIVES.length;
+        const nounIndex = nextRandom() % NOUNS.length;
+        const name = `${ADJECTIVES[adjIndex]} ${NOUNS[nounIndex]}`;
+        
+        if (!existingSet.has(name)) {
+            return name;
+        }
+    }
+    
+    // Если все попытки исчерпаны, добавляем номер
+    const baseName = generateName(seed);
+    let suffix = 2;
+    while (existingSet.has(`${baseName} ${suffix}`)) {
+        suffix++;
+    }
+    return `${baseName} ${suffix}`;
 }
 
 /**

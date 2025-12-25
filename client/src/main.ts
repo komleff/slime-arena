@@ -270,6 +270,12 @@ let lastFrameTime = performance.now();
 const desiredView = { width: 200, height: 200 };
 let hasFocus = true;
 
+// Кэш matchMedia для определения типа устройства
+let isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+window.matchMedia("(pointer: coarse)").addEventListener("change", (e) => {
+    isCoarsePointer = e.matches;
+});
+
 // Состояние управления мышью (agar.io style)
 const mouseState = {
     active: false,
@@ -570,7 +576,6 @@ type VisualEntity = {
     vx: number;
     vy: number;
     angle: number;
-    lastUpdateMs: number;
 };
 const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
@@ -781,7 +786,6 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
                 vx: player.vx,
                 vy: player.vy,
                 angle: player.angle,
-                lastUpdateMs: nowMs,
             };
             visualPlayers.set(id, visual);
         }
@@ -824,7 +828,6 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
                 vx: orb.vx,
                 vy: orb.vy,
                 angle: 0,
-                lastUpdateMs: nowMs,
             };
             visualOrbs.set(id, visual);
         }
@@ -1674,7 +1677,8 @@ async function main() {
         };
 
         const onPointerDown = (event: PointerEvent) => {
-            const isCoarse = window.matchMedia("(pointer: coarse)").matches;
+            // Кэшируем результат matchMedia
+            const isCoarse = isCoarsePointer;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
             const isPrimaryMouseButton = isMousePointer && event.button === 0;
@@ -1765,10 +1769,11 @@ async function main() {
         };
 
         // Управление мышью для ПК (agar.io style)
+        // Приоритет: touch/joystick > mouse
         const onMouseMove = (event: MouseEvent) => {
             // Активируем только если это настоящая мышь (не touch)
-            const isCoarse = window.matchMedia("(pointer: coarse)").matches;
-            if (isCoarse) return;
+            // Кэшируем результат matchMedia
+            if (isCoarsePointer) return;
             
             // Не активируем если уже активен джойстик
             if (joystickState.active) return;
