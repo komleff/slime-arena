@@ -62,6 +62,7 @@ export interface SlimeConfig {
     };
     combat: {
         biteDamagePctOfMass: number;
+        biteVictimMassGainPct: number;
         orbBitePctOfMass: number;
     };
     massScaling: {
@@ -327,7 +328,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.02,
+                biteDamagePctOfMass: 0.15,
+                biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
             massScaling: {
@@ -380,7 +382,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.02,
+                biteDamagePctOfMass: 0.15,
+                biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
             massScaling: {
@@ -433,7 +436,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.02,
+                biteDamagePctOfMass: 0.15,
+                biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
             massScaling: {
@@ -486,7 +490,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inputMagnitudeThreshold: 0.01,
             },
             combat: {
-                biteDamagePctOfMass: 0.02,
+                biteDamagePctOfMass: 0.15,
+                biteVictimMassGainPct: 0.25,
                 orbBitePctOfMass: 0.05,
             },
             massScaling: {
@@ -843,6 +848,11 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
                 combat.biteDamagePctOfMass,
                 fallback.combat.biteDamagePctOfMass,
                 `${path}.combat.biteDamagePctOfMass`
+            ),
+            biteVictimMassGainPct: readNumber(
+                combat.biteVictimMassGainPct,
+                fallback.combat.biteVictimMassGainPct,
+                `${path}.combat.biteVictimMassGainPct`
             ),
             orbBitePctOfMass: readNumber(
                 combat.orbBitePctOfMass,
