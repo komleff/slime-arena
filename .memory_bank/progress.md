@@ -35,18 +35,52 @@
 - [x] Удалены неиспользуемые параметры из ClientNetSmoothingConfig
 - [x] Ветка `fix/smoothing-hermite-cleanup` создана и запушена
 
-## Задача: PR #4 Review Fixes (В ПРОГРЕССЕ)
-- [x] Шаг 1: Вынос констант сглаживания в balance.json
+## Задача: PR #4 Gameplay/UI Improvements (✅ ЗАВЕРШЕНА)
+
+### Фичи (10 задач)
+- [x] **Results screen** — overlay при завершении матча (победитель, лидерборд 10, таймер 3сек)
+- [x] **Name generator** — новый модуль shared/src/nameGenerator.ts (русские имена + уникальность)
+- [x] **PvP mass steal** — кража массы (50% жертва теряет / 25% охотник получает)
+- [x] **Mouse control** — agar.io стиль управления мышью на ПК (mouseState обновления)
+- [x] **mathUtils** — новый модуль shared/src/mathUtils.ts (clamp, lerp, wrapAngle, distance)
+- [x] **Crown emoji** — 👑 перед именем KING в HUD и Results overlay
+- [x] **Leaderboard** — расширен до 10 записей вместо 5
+- [x] **Unique names** — гарантия уникальности имён в одной комнате
+- [x] **Codex High fix** — smoothing constants → balance.json
+- [x] **Codex Medium fix** — buffer optimization (latestSnapshot)
+
+### Codex Review Fixes (7 issues)
+- [x] HIGH: smoothing constants → balance.json
   - Расширен `ClientNetSmoothingConfig` (+5 параметров)
   - Обновлен `DEFAULT_BALANCE_CONFIG` и `resolveBalanceConfig`
   - Клиент использует `getSmoothingConfig()` вместо констант
-- [x] Шаг 2: Удалить lastUpdateMs — удалено из VisualEntity
-- [x] Шаг 4: "Блоб" → "Кисель" в nameGenerator.ts
-- [x] Шаг 5: wrapAngle оптимизирован до O(1) через modulo
-- [x] Шаг 6: Комментарий "Приоритет: touch/joystick > mouse"
-- [x] Шаг 7: matchMedia закэширован в isCoarsePointer
-- [ ] Шаг 8: DEFER — рефакторинг модулей
-- [x] Шаг 9: Уникальные имена — generateUniqueName()
+- [x] MEDIUM: buffer optimization (latestSnapshot вместо snapshotBuffer[length-1])
+- [x] LOW: Удалить lastUpdateMs — удалено из VisualEntity
+- [x] LOW: "Блоб" → "Кисель" в nameGenerator.ts
+- [x] LOW: wrapAngle оптимизирован до O(1) через modulo
+- [x] LOW: matchMedia закэширован в isCoarsePointer
+- [x] LOW: Комментарий "Приоритет: touch/joystick > mouse"
+
+### Copilot Review Fixes (8 issues)
+- [x] DRY: createLcg() helper вместо дублирования LCG логики
+- [x] Safety: mass > 0 проверки перед операциями
+- [x] Performance: Math.hypot → Math.sqrt где применимо
+- [x] DOM API: Results leaderboard генерируется через DOM (XSS-безопасность)
+- [x] Unique names: generateUniqueName() гарантирует уникальность
+- [x] HTML escaping: защита от XSS при отображении имён
+- [x] Input priority: комментарии о приоритетах управления
+- [x] Shared exports: добавлены в index.ts для новых модулей
+
+### Валидация
+- [x] npm run build PASS (0 errors)
+- [x] npm run test PASS (determinism проверен)
+- [x] 6 commits с чистой историей:
+  - 97c5976: smoothing constants → balance.json
+  - 011199a: 8 low fixes (lastUpdateMs, Кисель, wrapAngle, matchMedia, etc)
+  - 05759b4: buffer optimization (latestSnapshot)
+  - 824be93: DRY createLcg, Math.sqrt, DOM API results
+  - 282835f: PvP balance (pvpVictimMassLossPct=0.50, pvpAttackerMassGainPct=0.25)
+  - docs: Memory Bank update (pending commit)
 
 ## Задача: Документация U2-сглаживания (ЗАВЕРШЕНА ✓)
 - [x] Создан `.memory_bank/modules/U2-smoothing.md`
