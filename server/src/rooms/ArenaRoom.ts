@@ -861,26 +861,33 @@ export class ArenaRoom extends Room<GameState> {
 
         // Проверка Last Breath: если масса упадёт ниже минимума
         const newDefenderMass = defender.mass - massLoss;
-        if (
+        const triggersLastBreath =
             newDefenderMass <= minSlimeMass &&
             !defender.isLastBreath &&
             this.lastBreathTicks > 0 &&
-            !defender.isDead
-        ) {
-            defender.isLastBreath = true;
-            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
-            defender.invulnerableUntilTick = defender.lastBreathEndTick;
-            defender.mass = minSlimeMass;
-            return;
-        }
+            !defender.isDead;
 
-        // Применяем изменения массы
-        this.applyMassDelta(defender, -massLoss);
+        // Применяем изменения массы (даже при Last Breath — атакующий получает награду)
+        if (triggersLastBreath) {
+            // При Last Breath жертва теряет всё до минимума
+            const actualLoss = defender.mass - minSlimeMass;
+            this.applyMassDelta(defender, -actualLoss);
+        } else {
+            this.applyMassDelta(defender, -massLoss);
+        }
         this.applyMassDelta(attacker, attackerGain);
         
         // Scatter orbs: разлёт пузырей от укуса
         if (scatterMass > 0) {
             this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass);
+        }
+
+        // Активируем Last Breath после применения массы
+        if (triggersLastBreath) {
+            defender.isLastBreath = true;
+            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
+            defender.invulnerableUntilTick = defender.lastBreathEndTick;
+            return;
         }
 
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;

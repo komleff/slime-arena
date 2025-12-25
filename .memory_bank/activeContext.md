@@ -3,11 +3,11 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**Баланс орбов, физика, управление, камера/мышь — финализация (25 декабря 2025)**
+**Copilot Review Fixes (26 декабря 2025)**
 
 - Ветка: `refactor/cleanup-legacy` → PR #5
-- Статус: GDD v2.5.0, фиксы камеры/мыши завершены
-- Последние изменения: сглаженная камера, мышь привязана к позиции слайма
+- Статус: Исправления по ревью Copilot завершены
+- Последние изменения: damageMult consistency, getOrbRadius cleanup, GDD fixes
 
 ## Баланс орбов v2.5.0
 
@@ -78,12 +78,14 @@
 - U2-стиль сглаживания
 
 ## Проверки
-- ✅ npm run build — ok (gzip 32.18 kB)
+- ✅ npm run build — ok (gzip 32.17 kB)
 - ✅ npm run test (determinism) — PASSED
-- ✅ GDD v2.5.0 — обновлён
+- ✅ GDD v2.5.0 — обновлён, переименован в SlimeArena-GDD-v2.5.md
 - ✅ Камера: плавная, без дёрганья
 - ✅ Мышь: корректная у краёв карты
+- ✅ Copilot review: 4/4 замечаний исправлены
 
 ## Коммиты (текущая сессия)
 - ae5b0d0: fix: camera follows localPlayer directly (не плавная)
 - 92da9f6: fix: mouse control uses smoothed player position (финальная)
+- 12cb70c: fix: Copilot review fixes (damageMult, getOrbRadius, GDD)

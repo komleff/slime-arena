@@ -199,7 +199,15 @@
 - [x] Коммиты: ae5b0d0, 92da9f6
 - [x] PR #5 создана
 
-### Баланс орбов, физика, управление, камера (завершённая часть)
+### Copilot Review Fixes (26 декабря 2025) (✅ ЗАВЕРШЕНЫ)
+- [x] damageMult применялся только к massLoss → применяется ко всем трём значениям
+- [x] Неиспользуемый параметр _minRadius в getOrbRadius → удалён
+- [x] Дублированный заголовок таблицы в GDD 3.5.3 → удалён
+- [x] Неточность про импульс отталкивания в GDD 3.5.4 → удалена
+- [x] GDD переименован: SlimeArena-GDD-v2_4.md → SlimeArena-GDD-v2.5.md
+- [x] Коммит: 12cb70c
+
+## Задача: Баланс орбов, физика, управление, камера (завершённая часть)
 
 ### Орбы — честная физика
 - [x] Формула радиуса: `radius = baseRadius × √(mass / baseMass / density)`
@@ -240,8 +248,14 @@
 3. `server/src/rooms/ArenaRoom.ts` — tryEatOrb()
 4. `docs/SlimeArena-GDD-v2_4.md` — v2.5.0
 
-### Изменённые файлы (фиксы - 1)
+### Изменённые файлы (фиксы камеры/мыши - 1)
 1. `client/src/main.ts` — 2 фиксации (камера + мышь)
+
+### Изменённые файлы (Copilot review - 4)
+1. `server/src/rooms/ArenaRoom.ts` — damageMult consistency
+2. `shared/src/formulas.ts` — getOrbRadius cleanup
+3. `client/src/main.ts` — orbMinRadius removed
+4. `docs/SlimeArena-GDD-v2.5.md` — renamed, fixed duplicate + incorrect description
 
 ## Кандидаты на очистку (Candidate-for-cleanup)
 - `legacy/`: Старая версия проекта, не используется в текущем пайплайне.
