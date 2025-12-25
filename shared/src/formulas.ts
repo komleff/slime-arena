@@ -9,12 +9,12 @@ export function getSlimeRadius(mass: number, formulas: BalanceConfig["formulas"]
     return formulas.radius.base * Math.sqrt(1 + (formulas.radius.scale * mass) / divisor);
 }
 
-export function getOrbRadius(orbMass: number, density: number, _minRadius: number): number {
+export function getOrbRadius(orbMass: number, density: number): number {
     // Честная физика: та же формула что у слайма, но с учётом плотности.
-    // density=1.0 означает "такая же плотность как у слайма".
     // Формула: radius = baseRadius × √(mass / baseMass / density)
-    // Слайм: baseMass=100, baseRadius=10
-    // Орб с mass=100 и density=1.0 → radius=10 (как слайм)
+    // Слайм: baseMass=100 кг, baseRadius=10 м → плотность ≈ 0.318 кг/м²
+    // Орб с density=0.318 и mass=100 → radius=10 (как слайм)
+    // Орб с density=0.2 легче → крупнее при той же массе
     const slimeBaseMass = 100;
     const slimeBaseRadius = 10;
     const safeDensity = density > 0 ? density : 1;

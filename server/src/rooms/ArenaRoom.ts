@@ -679,7 +679,7 @@ export class ArenaRoom extends Room<GameState> {
                     const dx = orb.x - player.x;
                     const dy = orb.y - player.y;
                     const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-                    const orbRadius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
+                    const orbRadius = getOrbRadius(orb.mass, type.density);
                     const minDist = playerRadius + orbRadius;
                     const distSq = dx * dx + dy * dy;
                     if (distSq >= minDist * minDist) continue;
@@ -778,12 +778,12 @@ export class ArenaRoom extends Room<GameState> {
         for (let i = 0; i < orbs.length; i++) {
             const o1 = orbs[i];
             const type1 = this.balance.orbs.types[o1.colorId] ?? this.balance.orbs.types[0];
-            const r1 = getOrbRadius(o1.mass, type1.density, this.balance.orbs.minRadius);
+            const r1 = getOrbRadius(o1.mass, type1.density);
 
             for (let j = i + 1; j < orbs.length; j++) {
                 const o2 = orbs[j];
                 const type2 = this.balance.orbs.types[o2.colorId] ?? this.balance.orbs.types[0];
-                const r2 = getOrbRadius(o2.mass, type2.density, this.balance.orbs.minRadius);
+                const r2 = getOrbRadius(o2.mass, type2.density);
 
                 const dx = o2.x - o1.x;
                 const dy = o2.y - o1.y;
@@ -849,11 +849,13 @@ export class ArenaRoom extends Room<GameState> {
         const minSlimeMass = this.balance.physics.minSlimeMass;
         
         // Mass-as-HP: укус отбирает % массы жертвы
+        // damageMult применяется ко всем трём значениям для сохранения баланса массы в системе:
+        // massLoss = attackerGain + scatterMass (при одинаковых zoneMultiplier и damageMult)
         const victimMassBefore = Math.max(0, defender.mass);
-        const baseLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct;
-        const massLoss = baseLoss * zoneMultiplier * classStats.damageMult;
-        const attackerGain = victimMassBefore * this.balance.combat.pvpBiteAttackerGainPct * zoneMultiplier;
-        const scatterMass = victimMassBefore * this.balance.combat.pvpBiteScatterPct * zoneMultiplier;
+        const multiplier = zoneMultiplier * classStats.damageMult;
+        const massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier;
+        const attackerGain = victimMassBefore * this.balance.combat.pvpBiteAttackerGainPct * multiplier;
+        const scatterMass = victimMassBefore * this.balance.combat.pvpBiteScatterPct * multiplier;
 
         attacker.lastAttackTick = this.tick;
 
@@ -1064,7 +1066,7 @@ export class ArenaRoom extends Room<GameState> {
             orb.x += orb.vx * dt;
             orb.y += orb.vy * dt;
             const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
+            const radius = getOrbRadius(orb.mass, type.density);
             this.applyWorldBounds(orb, radius);
         }
     }
@@ -1085,7 +1087,7 @@ export class ArenaRoom extends Room<GameState> {
             orb.x += orb.vx * dt;
             orb.y += orb.vy * dt;
             const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density, this.balance.orbs.minRadius);
+            const radius = getOrbRadius(orb.mass, type.density);
             this.applyWorldBounds(orb, radius);
         }
     }

@@ -253,7 +253,6 @@ document.body.appendChild(joystickLayer);
 let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
 let worldWidth = balanceConfig.worldPhysics.widthM ?? balanceConfig.world.mapSize;
 let worldHeight = balanceConfig.worldPhysics.heightM ?? balanceConfig.world.mapSize;
-let orbMinRadius = balanceConfig.orbs.minRadius;
 let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
 let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
@@ -355,7 +354,6 @@ const updateWorldBounds = () => {
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     updateWorldBounds();
-    orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
     collectorRadiusMult = config.classes.collector.radiusMult;
@@ -1445,7 +1443,7 @@ async function main() {
                 const p = worldToScreen(orb.x, orb.y, scale, camera.x, camera.y, cw, ch);
                 const orbType = balanceConfig.orbs.types[orb.colorId];
                 const density = orbType?.density ?? 1;
-                const r = Math.max(2, getOrbRadius(orb.mass, density, orbMinRadius) * scale);
+                const r = Math.max(2, getOrbRadius(orb.mass, density) * scale);
                 const alpha = orb.alpha ?? 1;
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
