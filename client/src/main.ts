@@ -275,7 +275,6 @@ abilityButton.style.zIndex = "50";
 abilityButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 abilityButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
 abilityButton.style.display = "none"; // Скрыта до входа в игру
-abilityButton.style.position = "fixed"; // Уже fixed, но нужен relative контекст для детей
 abilityButton.title = "1";
 
 // Span для иконки способности (чтобы не использовать textContent и не удалять детей)
@@ -2143,8 +2142,8 @@ async function connectToServer(playerName: string, classId: number) {
             if (event.repeat) return;
             const key = event.key.toLowerCase();
             
-            // Способности активируются клавишами 1/2/3
-            if (key === "1" || key === "2" || key === "3") {
+            // Способность активируется клавишей 1 (slot 0 — классовая способность)
+            if (key === "1") {
                 inputSeq += 1;
                 room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
                 event.preventDefault();

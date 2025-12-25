@@ -942,6 +942,8 @@ export class ArenaRoom extends Room<GameState> {
         if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
             // Щит снимается при атаке (согласно GDD)
             defender.shieldEndTick = 0;
+            defender.flags &= ~FLAG_ABILITY_SHIELD; // Очищаем флаг сразу
+            attacker.lastAttackTick = this.tick; // Атака уходит на кулдаун
             return;
         }
 
