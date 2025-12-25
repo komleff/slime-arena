@@ -161,8 +161,12 @@ export class ArenaRoom extends Room<GameState> {
             const existingNames: string[] = [];
             this.state.players.forEach((p) => existingNames.push(p.name));
             
-            // Используем seed от RNG для детерминированности
-            const nameSeed = this.rng.int(0, 2147483647);
+            // Генерируем seed из sessionId игрока, не изменяя состояние RNG симуляции
+            let nameSeed = 0;
+            for (let i = 0; i < client.sessionId.length; i++) {
+                nameSeed = (nameSeed * 31 + client.sessionId.charCodeAt(i)) >>> 0;
+            }
+            nameSeed = nameSeed % 2147483647;
             player.name = generateUniqueName(nameSeed, existingNames);
         }
         const spawn = this.randomPointInMap();
@@ -723,9 +727,11 @@ export class ArenaRoom extends Room<GameState> {
 
         defender.hp = Math.max(0, defender.hp - damage);
 
-        // PvP кража массы: жертва теряет % своей массы, охотник получает часть
-        const victimMassLoss = safeDefenderMass * this.balance.combat.pvpVictimMassLossPct;
-        const attackerMassGain = safeDefenderMass * this.balance.combat.pvpAttackerMassGainPct;
+        // PvP кража массы: пропорциональна урону (чем сильнее укус — больше кража)
+        // damagePct = damage / defender.maxHp — доля нанесённого урона
+        const damagePct = defender.maxHp > 0 ? Math.min(1, damage / defender.maxHp) : 0;
+        const victimMassLoss = safeDefenderMass * this.balance.combat.pvpVictimMassLossPct * damagePct;
+        const attackerMassGain = safeDefenderMass * this.balance.combat.pvpAttackerMassGainPct * damagePct;
         if (victimMassLoss > 0) {
             this.applyMassDelta(defender, -victimMassLoss);
             this.applyMassDelta(attacker, attackerMassGain);

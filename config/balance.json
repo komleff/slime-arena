@@ -38,7 +38,9 @@
     "joystickDeadzone": 0.1,
     "joystickSensitivity": 1.0,
     "joystickFollowSpeed": 0.8,
-    "inputTimeoutMs": 200
+    "inputTimeoutMs": 200,
+    "mouseDeadzone": 30,
+    "mouseMaxDist": 200
   },
   "slimeConfigs": {
     "base": {

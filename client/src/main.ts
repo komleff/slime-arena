@@ -357,7 +357,6 @@ const updateWorldBounds = () => {
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     updateWorldBounds();
-    lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
     orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
@@ -564,10 +563,6 @@ type RenderState = {
     hotZones: Map<string, RenderHotZone>;
 };
 
-const snapshotBuffer: Snapshot[] = [];
-const snapshotBufferLimit = 20;
-let lookAheadMs = balanceConfig.clientNetSmoothing.lookAheadMs;
-
 // U2-стиль: храним только последний снапшот
 let latestSnapshot: Snapshot | null = null;
 
@@ -597,7 +592,6 @@ const getSmoothingConfig = () => balanceConfig?.clientNetSmoothing ?? {
 };
 
 const resetSnapshotBuffer = () => {
-    snapshotBuffer.length = 0;
     latestSnapshot = null;
     visualPlayers.clear();
     visualOrbs.clear();
@@ -689,10 +683,8 @@ type GameStateLike = {
 const captureSnapshot = (state: GameStateLike) => {
     const now = performance.now();
     
-    if (snapshotBuffer.length > 0) {
-        const last = snapshotBuffer[snapshotBuffer.length - 1];
-        if (now - last.time < 10) return;
-    }
+    // U2-стиль: проверяем дебаунс по последнему снапшоту
+    if (latestSnapshot && now - latestSnapshot.time < 10) return;
     
     const snapshot: Snapshot = {
         time: now,
@@ -757,11 +749,8 @@ const captureSnapshot = (state: GameStateLike) => {
     // U2-стиль: сохраняем только последний снапшот
     latestSnapshot = snapshot;
     
-    // Legacy: сохраняем в буфер для совместимости (можно удалить позже)
-    snapshotBuffer.push(snapshot);
-    if (snapshotBuffer.length > snapshotBufferLimit) {
-        snapshotBuffer.shift();
-    }
+    // U2-стиль: сохраняем только последний снапшот
+    latestSnapshot = snapshot;
 };
 
 // U2-style predictive smoothing: visual state catches up to target
@@ -776,7 +765,7 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
     lastRenderMs = nowMs;
     
     // Predict target position: last known position + velocity * lookAhead
-    const lookAheadSec = lookAheadMs / 1000;
+    const lookAheadSec = getSmoothingConfig().lookAheadMs / 1000;
     
     // Result maps
     const players = new Map<string, RenderPlayer>();
@@ -1249,8 +1238,8 @@ async function main() {
                 }
             }
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {
-                lines.push("Топ-3:");
-                for (let i = 0; i < Math.min(3, room.state.leaderboard.length); i += 1) {
+                lines.push("Лидеры:");
+                for (let i = 0; i < Math.min(5, room.state.leaderboard.length); i += 1) {
                     const playerId = room.state.leaderboard[i];
                     const pl = room.state.players.get(playerId);
                     if (pl) {
@@ -1335,11 +1324,10 @@ async function main() {
             const dy = mouseState.screenY - ch / 2;
             
             // Расстояние от центра (в пикселях)
-            // Используем Math.sqrt вместо Math.hypot для производительности
             const dist = Math.sqrt(dx * dx + dy * dy);
             
-            // Мёртвая зона в центре (30 пикселей)
-            const deadzone = 30;
+            // Мёртвая зона в центре (из конфига)
+            const deadzone = balanceConfig.controls.mouseDeadzone;
             if (dist < deadzone) {
                 mouseState.moveX = 0;
                 mouseState.moveY = 0;
@@ -1350,8 +1338,8 @@ async function main() {
             const nx = dx / dist;
             const ny = dy / dist;
             
-            // Интенсивность зависит от расстояния (линейно до maxDist)
-            const maxDist = 200;
+            // Интенсивность зависит от расстояния (линейно до maxDist из конфига)
+            const maxDist = balanceConfig.controls.mouseMaxDist;
             const intensity = Math.min(1, (dist - deadzone) / (maxDist - deadzone));
             
             mouseState.moveX = nx * intensity;

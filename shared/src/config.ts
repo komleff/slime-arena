@@ -132,6 +132,8 @@ export interface BalanceConfig {
         joystickSensitivity: number;
         joystickFollowSpeed: number;
         inputTimeoutMs: number;
+        mouseDeadzone: number;
+        mouseMaxDist: number;
     };
     slimeConfigs: {
         base: SlimeConfig;
@@ -297,6 +299,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         joystickSensitivity: 1.0,
         joystickFollowSpeed: 0.8,
         inputTimeoutMs: 200,
+        mouseDeadzone: 30,
+        mouseMaxDist: 200,
     },
     slimeConfigs: {
         base: {
@@ -1076,6 +1080,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.controls.inputTimeoutMs,
                 "controls.inputTimeoutMs"
             ),
+            mouseDeadzone: Math.max(0, readNumber(
+                controls.mouseDeadzone,
+                DEFAULT_BALANCE_CONFIG.controls.mouseDeadzone,
+                "controls.mouseDeadzone"
+            )),
+            mouseMaxDist: Math.max(1, readNumber(
+                controls.mouseMaxDist,
+                DEFAULT_BALANCE_CONFIG.controls.mouseMaxDist,
+                "controls.mouseMaxDist"
+            )),
         },
         slimeConfigs: {
             base: readSlimeConfig(baseSlime, DEFAULT_BALANCE_CONFIG.slimeConfigs.base, "slimeConfigs.base"),
@@ -1126,36 +1140,36 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ),
         },
         clientNetSmoothing: {
-            lookAheadMs: readNumber(
+            lookAheadMs: Math.max(0, readNumber(
                 clientNetSmoothing.lookAheadMs,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.lookAheadMs,
                 "clientNetSmoothing.lookAheadMs"
-            ),
-            velocityWeight: readNumber(
+            )),
+            velocityWeight: Math.max(0, Math.min(1, readNumber(
                 clientNetSmoothing.velocityWeight,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.velocityWeight,
                 "clientNetSmoothing.velocityWeight"
-            ),
-            catchUpSpeed: readNumber(
+            ))),
+            catchUpSpeed: Math.max(0, readNumber(
                 clientNetSmoothing.catchUpSpeed,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpSpeed,
                 "clientNetSmoothing.catchUpSpeed"
-            ),
-            maxCatchUpSpeed: readNumber(
+            )),
+            maxCatchUpSpeed: Math.max(0, readNumber(
                 clientNetSmoothing.maxCatchUpSpeed,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxCatchUpSpeed,
                 "clientNetSmoothing.maxCatchUpSpeed"
-            ),
-            teleportThreshold: readNumber(
+            )),
+            teleportThreshold: Math.max(1, readNumber(
                 clientNetSmoothing.teleportThreshold,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.teleportThreshold,
                 "clientNetSmoothing.teleportThreshold"
-            ),
-            angleCatchUpSpeed: readNumber(
+            )),
+            angleCatchUpSpeed: Math.max(0, readNumber(
                 clientNetSmoothing.angleCatchUpSpeed,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleCatchUpSpeed,
                 "clientNetSmoothing.angleCatchUpSpeed"
-            ),
+            )),
         },
         slime: {
             initialMass: readNumber(
