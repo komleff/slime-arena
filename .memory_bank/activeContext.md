@@ -3,11 +3,11 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**PR #4: gameplay/UI улучшения + Codex/Copilot ревью фиксы**
+**PR #4: gameplay/UI улучшения + Codex/Copilot ревью фиксы (раунд 2)**
 
 - Ветка: `feat/gameplay-ui-improvements`
-- Коммиты: 6 (текущий `282835f`)
-- Контроль изменений: main@main vs feat/gameplay-ui-improvements@282835f
+- Коммиты: 9 (текущий `0654687`)
+- Контроль изменений: main@main vs feat/gameplay-ui-improvements@0654687
 
 ## Полный список изменений
 
@@ -18,47 +18,55 @@
 ### UI компоненты
 - **client/src/main.ts**:
   - Results overlay (победитель, лидерборд 10, таймер)
-  - Mouse control (agar.io стиль)
+  - Mouse control (agar.io стиль, параметры из конфига)
   - Crown для KING
   - Уникальные имена
   - DOM API вместо innerHTML (XSS-безопасность)
+  - HUD: лидерборд топ-5 (было топ-3)
 
-### Оптимизации
+### Оптимизации (раунд 1)
 - wrapAngle: O(n) while-циклы → O(1) modulo
-- Math.hypot → Math.sqrt (производительность)
+- Math.hypot → Math.sqrt
 - matchMedia кэширован в isCoarsePointer
-- latestSnapshot вместо snapshotBuffer[length-1]
+- latestSnapshot вместо snapshotBuffer
 
-### Smoothing конфиг
-| Параметр | Значение |
-|----------|----------|
-| velocityWeight | 0.7 |
-| catchUpSpeed | 10.0 |
-| maxCatchUpSpeed | 800 |
-| teleportThreshold | 100 |
-| angleCatchUpSpeed | 12.0 |
-| lookAheadMs | 150 |
+### Исправления раунд 2 (Codex/Copilot)
+- **JoystickConfig.mode**: убран "dynamic", только "fixed" | "adaptive"
+- **Валидация smoothing**: velocityWeight [0..1], teleportThreshold >= 1
+- **Удалён snapshotBuffer**: U2-стиль, только latestSnapshot
+- **lookAheadMs**: один источник через getSmoothingConfig()
+- **nameSeed из sessionId**: не изменяет RNG симуляции (детерминизм)
+- **PvP кража массы**: привязана к урону (damagePct), не фиксированный %
+- **Mouse control config**: mouseDeadzone, mouseMaxDist в balance.json
 
-### PvP механика
+### Smoothing конфиг (с валидацией)
+| Параметр | Значение | Валидация |
+|----------|----------|-----------|
+| velocityWeight | 0.7 | [0..1] |
+| catchUpSpeed | 10.0 | >= 0 |
+| maxCatchUpSpeed | 800 | >= 0 |
+| teleportThreshold | 100 | >= 1 |
+| angleCatchUpSpeed | 12.0 | >= 0 |
+| lookAheadMs | 150 | >= 0 |
+
+### Controls конфиг
 | Параметр | Значение | Описание |
 |----------|----------|---------|
-| pvpBiteDamageAttackerMassPct | 0.05 | +5% урона от своей массы |
-| pvpBiteDamageVictimMassPct | 0.03 | +3% урона от массы жертвы |
-| **pvpVictimMassLossPct** | **0.50** | **Жертва теряет 50% массы** |
-| **pvpAttackerMassGainPct** | **0.25** | **Охотник получает 25% массы жертвы** |
+| mouseDeadzone | 30 | Мёртвая зона мыши (px) |
+| mouseMaxDist | 200 | Макс. дистанция (px) |
 
-## Модульность
-- Новые модули: nameGenerator, mathUtils
-- Экспорты унифицированы через shared/src/index.ts
-- DRY: дублированные генераторы работают через createLcg()
+### PvP механика (привязана к урону)
+| Параметр | Значение | Описание |
+|----------|----------|---------|
+| pvpVictimMassLossPct | 0.50 | × damagePct |
+| pvpAttackerMassGainPct | 0.25 | × damagePct |
 
 ## Проверки
-- ✅ npm run build — ok (0 errors, gzip 32.32 kB)
-- ✅ npm run test (determinism) — PASSED (determinism check passed)
-- ✅ Построение не рушит детерминизм
-- ✅ Ветка чистая (nothing to commit, working tree clean)
+- ✅ npm run build — ok (0 errors, gzip 32.29 kB)
+- ✅ npm run test (determinism) — PASSED
+- ✅ Ветка чистая
 
 ## Готовность к мержу
-- ✅ 7 коммитов + 1 документацией (fc71e17 HEAD)
+- ✅ 9 коммитов (0654687 HEAD)
 - ✅ Все проверки пройдены
-- ✅ Статус: **READY FOR MERGE** (ожидает ревью и мержа в main)
+- ✅ Статус: **READY FOR MERGE**

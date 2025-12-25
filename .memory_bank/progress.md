@@ -40,49 +40,61 @@
 ### Фичи (10 задач)
 - [x] **Results screen** — overlay при завершении матча (победитель, лидерборд 10, таймер 3сек)
 - [x] **Name generator** — новый модуль shared/src/nameGenerator.ts (русские имена + уникальность)
-- [x] **PvP mass steal** — кража массы (50% жертва теряет / 25% охотник получает)
-- [x] **Mouse control** — agar.io стиль управления мышью на ПК (mouseState обновления)
+- [x] **PvP mass steal** — кража массы привязана к урону (damagePct)
+- [x] **Mouse control** — agar.io стиль, параметры из balance.json (mouseDeadzone, mouseMaxDist)
 - [x] **mathUtils** — новый модуль shared/src/mathUtils.ts (clamp, lerp, wrapAngle, distance)
 - [x] **Crown emoji** — 👑 перед именем KING в HUD и Results overlay
-- [x] **Leaderboard** — расширен до 10 записей вместо 5
+- [x] **Leaderboard** — расширен до 10 записей, HUD показывает топ-5
 - [x] **Unique names** — гарантия уникальности имён в одной комнате
-- [x] **Codex High fix** — smoothing constants → balance.json
-- [x] **Codex Medium fix** — buffer optimization (latestSnapshot)
+- [x] **Codex High fix** — smoothing constants → balance.json с валидацией
+- [x] **Codex Medium fix** — удалён snapshotBuffer, только latestSnapshot
 
-### Codex Review Fixes (7 issues)
+### Codex Review Fixes Раунд 1 (7 issues)
 - [x] HIGH: smoothing constants → balance.json
-  - Расширен `ClientNetSmoothingConfig` (+5 параметров)
-  - Обновлен `DEFAULT_BALANCE_CONFIG` и `resolveBalanceConfig`
-  - Клиент использует `getSmoothingConfig()` вместо констант
-- [x] MEDIUM: buffer optimization (latestSnapshot вместо snapshotBuffer[length-1])
-- [x] LOW: Удалить lastUpdateMs — удалено из VisualEntity
-- [x] LOW: "Блоб" → "Кисель" в nameGenerator.ts
-- [x] LOW: wrapAngle оптимизирован до O(1) через modulo
-- [x] LOW: matchMedia закэширован в isCoarsePointer
-- [x] LOW: Комментарий "Приоритет: touch/joystick > mouse"
+- [x] MEDIUM: buffer optimization (latestSnapshot)
+- [x] LOW: lastUpdateMs удалён
+- [x] LOW: "Блоб" → "Кисель"
+- [x] LOW: wrapAngle O(1)
+- [x] LOW: matchMedia кэширован
+- [x] LOW: Input priority комментарий
 
-### Copilot Review Fixes (8 issues)
-- [x] DRY: createLcg() helper вместо дублирования LCG логики
-- [x] Safety: mass > 0 проверки перед операциями
-- [x] Performance: Math.hypot → Math.sqrt где применимо
-- [x] DOM API: Results leaderboard генерируется через DOM (XSS-безопасность)
-- [x] Unique names: generateUniqueName() гарантирует уникальность
-- [x] HTML escaping: защита от XSS при отображении имён
-- [x] Input priority: комментарии о приоритетах управления
-- [x] Shared exports: добавлены в index.ts для новых модулей
+### Codex Review Fixes Раунд 2 (4 issues)
+- [x] MEDIUM: JoystickConfig.mode — убран "dynamic"
+- [x] MEDIUM: Валидация smoothing params (velocityWeight [0..1], teleportThreshold >= 1)
+- [x] LOW: Удалён snapshotBuffer полностью (U2-стиль)
+- [x] LOW: lookAheadMs — один источник через getSmoothingConfig()
+
+### Copilot Review Fixes Раунд 1 (8 issues)
+- [x] DRY: createLcg() helper
+- [x] Safety: mass > 0 проверки
+- [x] Performance: Math.sqrt
+- [x] DOM API: Results leaderboard
+- [x] Unique names: generateUniqueName()
+- [x] HTML escaping
+- [x] Input priority
+- [x] Shared exports
+
+### Copilot Review Fixes Раунд 2 (6 issues)
+- [x] Удалён вводящий в заблуждение комментарий Math.sqrt vs Math.hypot
+- [x] PvP кража массы привязана к урону (damagePct)
+- [x] nameSeed из sessionId (не изменяет RNG симуляции)
+- [x] Баланс 50%/25% — оставлен (намеренный дизайн: масса "сгорает")
+- [x] Mouse control: mouseDeadzone, mouseMaxDist вынесены в balance.json
+- [x] HUD: топ-3 → топ-5, текст "Лидеры:"
 
 ### Валидация
-- [x] npm run build PASS (0 errors, gzip 32.32 kB)
-- [x] npm run test PASS (determinism проверен)
-- [x] 7 commits с чистой историей (fc71e17 HEAD):
+- [x] npm run build PASS (0 errors, gzip 32.29 kB)
+- [x] npm run test PASS (determinism)
+- [x] 9 commits (0654687 HEAD):
   - 10b2949: feat: gameplay-ui improvements
   - 1ce75e8: fix: self-review
   - 97c5976: smoothing constants → balance.json
-  - 011199a: 8 low fixes (lastUpdateMs, Кисель, wrapAngle, matchMedia, etc)
-  - 05759b4: buffer optimization (latestSnapshot)
-  - 824be93: DRY createLcg, Math.sqrt, DOM API results
-  - 282835f: PvP balance (pvpVictimMassLossPct=0.50, pvpAttackerMassGainPct=0.25)
-  - fc71e17: docs: PR #4 final status update
+  - 011199a: review fixes раунд 1
+  - 05759b4: buffer optimization
+  - 824be93: Copilot fixes раунд 1
+  - 282835f: PvP balance
+  - ca57dec: docs: Memory Bank
+  - 0654687: fix: Codex/Copilot review раунд 2
 
 ## Задача: Документация U2-сглаживания (ЗАВЕРШЕНА ✓)
 - [x] Создан `.memory_bank/modules/U2-smoothing.md`
