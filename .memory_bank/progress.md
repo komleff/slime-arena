@@ -270,7 +270,7 @@
 1. `config/balance.json` — все параметры
 2. `client/src/main.ts` — камера (первичная версия)
 3. `server/src/rooms/ArenaRoom.ts` — tryEatOrb()
-4. `docs/SlimeArena-GDD-v2_4.md` — v2.5.0
+4. `docs/SlimeArena-GDD-v2.5.md`
 
 ### Изменённые файлы (фиксы камеры/мыши - 1)
 1. `client/src/main.ts` — 2 фиксации (камера + мышь)

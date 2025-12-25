@@ -4,7 +4,7 @@
 **Автор:** Claude Opus, Copilot  
 **Дата:** декабрь 2025  
 
-План обновлён в соответствии с `SlimeArena-GDD-v2_4.md` (v2.5.0) и `SlimeArena-Flight-TZ-v1.0.md`.  
+План обновлён в соответствии с `SlimeArena-GDD-v2.5.md` и `SlimeArena-Flight-TZ-v1.0.md`.  
 Техническая архитектура — в `SlimeArena-Architecture-v1.5.md` (v1.5.2).
 
 ---
@@ -33,7 +33,7 @@
 
 ## 0.1. Изменения версии 1.8
 
-- Обновлена ссылка на GDD: `SlimeArena-GDD-v2_4.md`.
+- Обновлена ссылка на GDD: `SlimeArena-GDD-v2.5.md`.
 - Обновлена ссылка на архитектуру: `SlimeArena-Architecture-v1.5.md`.
 - Добавлен инженерный источник правды по управлению/полёту: `SlimeArena-Flight-TZ-v1.0.md`.
 - В прототипе ядра обновлены задачи и критический путь: вместо абстрактного модуля движения — реализация `FlightAssistSystem + PhysicsSystem + CollisionSystem` по Flight_TZ (силы/моменты, Semi‑Implicit Euler, импульсные коллизии, overspeed‑damping).
@@ -45,7 +45,7 @@
 
 | Документ | Содержание |
 |----------|------------|
-| `SlimeArena-GDD-v2_4.md` | Дизайн, правила, баланс, интерфейсы, Приложение D (v2.5.0) |
+| `SlimeArena-GDD-v2.5.md` | Дизайн, правила, баланс, интерфейсы, Приложение D |
 | `SlimeArena-Flight-TZ-v1.0.md` | Инженерное ТЗ: управление/движение, FlightAssist/Physics/Collision, конфиги движения/мира/сглаживания (v1.0.1) |
 | `SlimeArena-Architecture-v1.5.md` | Архитектура, модули, протокол, хранение (v1.5.2) |
 | Этот документ | Этапы, оценки, зависимости, критерии (v1.8.2) |

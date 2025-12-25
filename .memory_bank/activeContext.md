@@ -71,7 +71,7 @@
 1. **config/balance.json** — density, spawn counts, physics params, turn params
 2. **client/src/main.ts** — камера: desiredView 400×400, instant centering
 3. **server/src/rooms/ArenaRoom.ts** — tryEatOrb() использует orbBitePctOfMass
-4. **docs/SlimeArena-GDD-v2_4.md** — обновлён до v2.5.0
+4. **docs/SlimeArena-GDD-v2.5.md** — обновлён до v2.5.0
 
 ## Предыдущие изменения
 
