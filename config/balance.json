@@ -292,7 +292,7 @@
     "pvpBiteAttackerGainPct": 0.10,
     "pvpBiteScatterPct": 0.10,
     "pvpBiteScatterOrbCount": 3,
-    "pvpBiteScatterSpeed": 200
+    "pvpBiteScatterSpeed": 60
   },
   "death": {
     "respawnDelaySec": 2,
