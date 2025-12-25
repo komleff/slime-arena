@@ -1098,6 +1098,9 @@ async function main() {
         let localPlayer: any = null;
         let renderStateForHud: RenderState | null = null;
         let lastTalentsAvailable = 0;
+        // Сглаженная позиция игрока для управления мышью
+        let smoothedPlayerX = 0;
+        let smoothedPlayerY = 0;
         let talentSelectionInFlight = false;
 
         // Логирование для отладки
@@ -1309,18 +1312,22 @@ async function main() {
             resultsTimer.textContent = `Новый матч через ${Math.ceil(timeRemaining)}с...`;
         };
 
-        // Обновление управления мышью: вычисляем направление от игрока к курсору
+        // Обновление управления мышью: вычисляем направление от слайма к курсору
         const updateMouseControl = () => {
-            if (!mouseState.active) return;
+            if (!mouseState.active || !localPlayer) return;
             
             const cw = canvas.width;
             const ch = canvas.height;
+            const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
             
-            // Позиция курсора относительно центра экрана (где игрок)
-            const dx = mouseState.screenX - cw / 2;
-            const dy = mouseState.screenY - ch / 2;
+            // Позиция слайма на экране (используем сглаженные координаты, как и камера)
+            const playerScreen = worldToScreen(smoothedPlayerX, smoothedPlayerY, scale, camera.x, camera.y, cw, ch);
             
-            // Расстояние от центра (в пикселях)
+            // Позиция курсора относительно слайма на экране
+            const dx = mouseState.screenX - playerScreen.x;
+            const dy = mouseState.screenY - playerScreen.y;
+            
+            // Расстояние от слайма (в пикселях)
             const dist = Math.sqrt(dx * dx + dy * dy);
             
             // Мёртвая зона в центре (из конфига)
@@ -1403,9 +1410,13 @@ async function main() {
             const chestsView = renderState ? renderState.chests : room.state.chests;
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
 
-            // Камера следит за реальной позицией игрока (без сглаживания), чтобы игрок был строго в центре
-            const targetX = localPlayer ? localPlayer.x : 0;
-            const targetY = localPlayer ? localPlayer.y : 0;
+            // Камера следит за сглаженной позицией игрока (плавное движение)
+            const smoothedPlayer = renderState?.players.get(room.sessionId);
+            const targetX = smoothedPlayer ? smoothedPlayer.x : (localPlayer ? localPlayer.x : 0);
+            const targetY = smoothedPlayer ? smoothedPlayer.y : (localPlayer ? localPlayer.y : 0);
+            // Сохраняем сглаженную позицию для управления мышью
+            smoothedPlayerX = targetX;
+            smoothedPlayerY = targetY;
             const maxCamX = Math.max(0, worldHalfW - halfWorldW);
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);
