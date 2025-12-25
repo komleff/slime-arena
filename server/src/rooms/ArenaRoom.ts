@@ -849,13 +849,10 @@ export class ArenaRoom extends Room<GameState> {
         const minSlimeMass = this.balance.physics.minSlimeMass;
         
         // Mass-as-HP: укус отбирает % массы жертвы
-        // damageMult применяется ко всем трём значениям для сохранения баланса массы в системе:
-        // massLoss = attackerGain + scatterMass (при одинаковых zoneMultiplier и damageMult)
+        // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
         const victimMassBefore = Math.max(0, defender.mass);
         const multiplier = zoneMultiplier * classStats.damageMult;
-        const massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier;
-        const attackerGain = victimMassBefore * this.balance.combat.pvpBiteAttackerGainPct * multiplier;
-        const scatterMass = victimMassBefore * this.balance.combat.pvpBiteScatterPct * multiplier;
+        let massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier;
 
         attacker.lastAttackTick = this.tick;
 
@@ -867,14 +864,22 @@ export class ArenaRoom extends Room<GameState> {
             this.lastBreathTicks > 0 &&
             !defender.isDead;
 
-        // Применяем изменения массы (даже при Last Breath — атакующий получает награду)
+        // При Last Breath ограничиваем потерю до (mass - minSlimeMass)
+        // Награды масштабируются пропорционально фактической потере
         if (triggersLastBreath) {
-            // При Last Breath жертва теряет всё до минимума
-            const actualLoss = defender.mass - minSlimeMass;
-            this.applyMassDelta(defender, -actualLoss);
-        } else {
-            this.applyMassDelta(defender, -massLoss);
+            massLoss = Math.max(0, defender.mass - minSlimeMass);
         }
+
+        // Рассчитываем награды от ФАКТИЧЕСКОЙ потери массы (не от массы до укуса)
+        // Это гарантирует: massLoss = attackerGain + scatterMass
+        const attackerGainPct = this.balance.combat.pvpBiteAttackerGainPct;
+        const scatterPct = this.balance.combat.pvpBiteScatterPct;
+        const totalRewardPct = attackerGainPct + scatterPct;
+        const attackerGain = totalRewardPct > 0 ? massLoss * (attackerGainPct / totalRewardPct) : 0;
+        const scatterMass = totalRewardPct > 0 ? massLoss * (scatterPct / totalRewardPct) : 0;
+
+        // Применяем изменения массы
+        this.applyMassDelta(defender, -massLoss);
         this.applyMassDelta(attacker, attackerGain);
         
         // Scatter orbs: разлёт пузырей от укуса
