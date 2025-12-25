@@ -89,3 +89,5 @@
 - ae5b0d0: fix: camera follows localPlayer directly (не плавная)
 - 92da9f6: fix: mouse control uses smoothed player position (финальная)
 - 12cb70c: fix: Copilot review fixes (damageMult, getOrbRadius, GDD)
+- 4898261: fix: Last Breath now awards mass and spawns scatter orbs
+- 066a1f8: merge: resolve conflicts with main (keep mass-as-hp system)

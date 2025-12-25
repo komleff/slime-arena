@@ -207,6 +207,18 @@
 - [x] GDD переименован: SlimeArena-GDD-v2_4.md → SlimeArena-GDD-v2.5.md
 - [x] Коммит: 12cb70c
 
+### Codex Review Fixes (26 декабря 2025) (✅ ЗАВЕРШЕНЫ)
+- [x] P2: Last Breath return before mass transfer → fixed
+- [x] Attacker now gains mass even when triggering Last Breath
+- [x] Scatter orbs spawn before Last Breath activates
+- [x] Коммит: 4898261
+
+### Merge с main (26 декабря 2025) (✅ ЗАВЕРШЕНО)
+- [x] Конфликты разрешены (balance.json, ArenaRoom.ts, Memory Bank)
+- [x] Сохранена Mass-as-HP система
+- [x] Тесты детерминизма пройдены
+- [x] Коммит: 066a1f8
+
 ## Задача: Баланс орбов, физика, управление, камера (завершённая часть)
 
 ### Орбы — честная физика
