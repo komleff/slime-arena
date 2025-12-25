@@ -723,10 +723,12 @@ export class ArenaRoom extends Room<GameState> {
 
         defender.hp = Math.max(0, defender.hp - damage);
 
-        const stolenMass = damage * this.balance.combat.massStealPercent;
-        if (stolenMass > 0) {
-            this.applyMassDelta(attacker, stolenMass);
-            this.applyMassDelta(defender, -stolenMass);
+        // PvP кража массы: жертва теряет % своей массы, охотник получает часть
+        const victimMassLoss = safeDefenderMass * this.balance.combat.pvpVictimMassLossPct;
+        const attackerMassGain = safeDefenderMass * this.balance.combat.pvpAttackerMassGainPct;
+        if (victimMassLoss > 0) {
+            this.applyMassDelta(defender, -victimMassLoss);
+            this.applyMassDelta(attacker, attackerMassGain);
         }
 
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;

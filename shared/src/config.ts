@@ -170,6 +170,8 @@ export interface BalanceConfig {
         massStealPercent: number;
         pvpBiteDamageAttackerMassPct: number;
         pvpBiteDamageVictimMassPct: number;
+        pvpVictimMassLossPct: number;
+        pvpAttackerMassGainPct: number;
     };
     death: {
         respawnDelaySec: number;
@@ -556,6 +558,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         massStealPercent: 0.1,
         pvpBiteDamageAttackerMassPct: 0.05,
         pvpBiteDamageVictimMassPct: 0.03,
+        pvpVictimMassLossPct: 0.50,
+        pvpAttackerMassGainPct: 0.25,
     },
     death: {
         respawnDelaySec: 2,
@@ -1277,6 +1281,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 combat.pvpBiteDamageVictimMassPct,
                 DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageVictimMassPct,
                 "combat.pvpBiteDamageVictimMassPct"
+            ),
+            pvpVictimMassLossPct: readNumber(
+                combat.pvpVictimMassLossPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpVictimMassLossPct,
+                "combat.pvpVictimMassLossPct"
+            ),
+            pvpAttackerMassGainPct: readNumber(
+                combat.pvpAttackerMassGainPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpAttackerMassGainPct,
+                "combat.pvpAttackerMassGainPct"
             ),
         },
         death: {
