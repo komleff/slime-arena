@@ -10,8 +10,6 @@ export class Player extends Schema {
     @type("number") angle: number = 0;
     @type("number") angVel: number = 0;
     @type("number") mass: number = 0;
-    @type("number") hp: number = 0;
-    @type("number") maxHp: number = 0;
     @type("number") level: number = 0;
     @type("number") classId: number = 0;
     @type("number") talentsAvailable: number = 0;

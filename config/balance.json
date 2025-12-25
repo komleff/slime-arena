@@ -22,11 +22,11 @@
     ]
   },
   "physics": {
-    "environmentDrag": 0.03,
+    "environmentDrag": 0.01,
     "collisionRestitution": 0.5,
     "collisionImpulseCap": 10000,
     "slimeLinearDamping": 0.02,
-    "orbLinearDamping": 0.08,
+    "orbLinearDamping": 0,
     "speedDampingRate": 0.2,
     "minSlimeMass": 50,
     "maxSlimeSpeed": 500,
@@ -55,17 +55,17 @@
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 17500
+        "turnTorqueNm": 35000
       },
       "limits": {
         "speedLimitForwardMps": 260,
         "speedLimitReverseMps": 180,
         "speedLimitLateralMps": 220,
-        "angularSpeedLimitDegps": 80
+        "angularSpeedLimitDegps": 180
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 1.0,
+        "angularStopTimeS": 0.3,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -74,7 +74,7 @@
         "yawDampingBoostFactor": 2.0,
         "yawCmdEps": 0.001,
         "angularDeadzoneRad": 0.02,
-        "yawRateGain": 2.0,
+        "yawRateGain": 4.0,
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
@@ -82,7 +82,7 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.05
+        "orbBitePctOfMass": 0.10
       },
       "massScaling": {
         "minMassFactor": 0.1,
@@ -108,17 +108,17 @@
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 17500
+        "turnTorqueNm": 35000
       },
       "limits": {
         "speedLimitForwardMps": 260,
         "speedLimitReverseMps": 180,
         "speedLimitLateralMps": 220,
-        "angularSpeedLimitDegps": 80
+        "angularSpeedLimitDegps": 180
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 1.0,
+        "angularStopTimeS": 0.3,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -127,7 +127,7 @@
         "yawDampingBoostFactor": 2.0,
         "yawCmdEps": 0.001,
         "angularDeadzoneRad": 0.02,
-        "yawRateGain": 2.0,
+        "yawRateGain": 4.0,
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
@@ -135,7 +135,7 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.05
+        "orbBitePctOfMass": 0.10
       },
       "massScaling": {
         "minMassFactor": 0.1,
@@ -161,17 +161,17 @@
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 17500
+        "turnTorqueNm": 35000
       },
       "limits": {
         "speedLimitForwardMps": 260,
         "speedLimitReverseMps": 180,
         "speedLimitLateralMps": 220,
-        "angularSpeedLimitDegps": 80
+        "angularSpeedLimitDegps": 180
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 1.0,
+        "angularStopTimeS": 0.3,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -180,7 +180,7 @@
         "yawDampingBoostFactor": 2.0,
         "yawCmdEps": 0.001,
         "angularDeadzoneRad": 0.02,
-        "yawRateGain": 2.0,
+        "yawRateGain": 4.0,
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
@@ -188,7 +188,7 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.05
+        "orbBitePctOfMass": 0.10
       },
       "massScaling": {
         "minMassFactor": 0.1,
@@ -214,17 +214,17 @@
         "thrustForwardN": 9000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
-        "turnTorqueNm": 17500
+        "turnTorqueNm": 35000
       },
       "limits": {
         "speedLimitForwardMps": 260,
         "speedLimitReverseMps": 180,
         "speedLimitLateralMps": 220,
-        "angularSpeedLimitDegps": 80
+        "angularSpeedLimitDegps": 180
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 1.0,
+        "angularStopTimeS": 0.3,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -233,7 +233,7 @@
         "yawDampingBoostFactor": 2.0,
         "yawCmdEps": 0.001,
         "angularDeadzoneRad": 0.02,
-        "yawRateGain": 2.0,
+        "yawRateGain": 4.0,
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
@@ -241,7 +241,7 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.05
+        "orbBitePctOfMass": 0.10
       },
       "massScaling": {
         "minMassFactor": 0.1,
@@ -278,16 +278,6 @@
     "initialLevel": 1,
     "initialClassId": 0
   },
-  "movement": {
-    "baseSpeed": 300,
-    "baseTurnRateDeg": 180,
-    "turnDivisor": 200,
-    "driftTurnRateDeg": 720,
-    "driftThresholdAngleDeg": 120,
-    "driftDurationSec": 0.3,
-    "driftSpeedLoss": 0.5,
-    "driftCooldownSec": 0.5
-  },
   "combat": {
     "mouthArcDeg": 120,
     "tailArcDeg": 120,
@@ -297,37 +287,35 @@
     "biteCooldownSec": 0.1,
     "respawnShieldSec": 5.0,
     "lastBreathDurationSec": 0.5,
-    "lastBreathDamageMult": 0.5,
     "lastBreathSpeedPenalty": 0.8,
-    "massStealPercent": 0.1,
-    "pvpBiteDamageAttackerMassPct": 0.05,
-    "pvpBiteDamageVictimMassPct": 0.03,
-    "pvpVictimMassLossPct": 0.50,
-    "pvpAttackerMassGainPct": 0.25
+    "pvpBiteVictimLossPct": 0.20,
+    "pvpBiteAttackerGainPct": 0.10,
+    "pvpBiteScatterPct": 0.10,
+    "pvpBiteScatterOrbCount": 3,
+    "pvpBiteScatterSpeed": 200
   },
   "death": {
     "respawnDelaySec": 2,
     "massLostPercent": 0.5,
     "massToOrbsPercent": 0.3,
     "orbsCount": 4,
-    "minRespawnMass": 50
+    "minRespawnMass": 100
   },
   "orbs": {
-    "initialCount": 100,
-    "maxCount": 150,
+    "initialCount": 10,
+    "maxCount": 15,
     "respawnIntervalSec": 0.5,
     "minMass": 3,
     "minRadius": 2.5,
     "pushForce": 100,
     "types": [
-      { "id": "green",  "weight": 40, "density": 0.8, "massRange": [5, 15] },
-      { "id": "blue",   "weight": 30, "density": 1.0, "massRange": [20, 40] },
-      { "id": "red",    "weight": 20, "density": 1.0, "massRange": [20, 40] },
-      { "id": "gold",   "weight": 10, "density": 1.5, "massRange": [50, 100] }
+      { "id": "green",  "weight": 45, "density": 0.2, "massRange": [10, 50] },
+      { "id": "blue",   "weight": 30, "density": 0.3, "massRange": [30, 150] },
+      { "id": "red",    "weight": 20, "density": 0.4, "massRange": [80, 400] },
+      { "id": "gold",   "weight": 5, "density": 0.5, "massRange": [200, 1000] }
     ]
   },
   "formulas": {
-    "hp": { "base": 50, "scale": 50, "divisor": 100 },
     "damage": { "base": 10, "scale": 10, "divisor": 100 },
     "speed": { "base": 1.0, "divisor": 500 },
     "radius": { "base": 10, "divisor": 50 }
@@ -335,13 +323,11 @@
   "classes": {
     "hunter": {
       "speedMult": 1.15,
-      "hpMult": 0.9,
       "swallowLimit": 50,
       "biteFraction": 0.3
     },
     "warrior": {
       "speedMult": 0.9,
-      "hpMult": 1.15,
       "damageVsSlimeMult": 1.1,
       "swallowLimit": 45,
       "biteFraction": 0.35

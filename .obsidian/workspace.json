@@ -179,6 +179,7 @@
   },
   "active": "b9cd1605c59793f0",
   "lastOpenFiles": [
+    "TECH_DEBT.md",
     "client/dist/assets/index-Bpzagvjn.js",
     "client/dist/assets/index-7Lmvr7Ix.js",
     "client/dist/assets/index-7cm6l6Up.js",
@@ -189,7 +190,6 @@
     "client/dist/assets/index-BZLo-QBF.js",
     "shared/dist/mathUtils.d.ts",
     "shared/dist/mathUtils.js",
-    "shared/dist/nameGenerator.d.ts",
     "docs/archive/SlimeArena-IssueList-CorePrototype.md",
     "docs/archive/ARCHITECTURE_SLIME_ARENA.md",
     "docs/SlimeArena-IssueList-CorePrototype.md",

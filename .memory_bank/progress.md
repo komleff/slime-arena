@@ -2,8 +2,8 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: ветка `main` после мержа PR #2 (декабрь 2025)
-- **Резюме**: U2-стиль сглаживания реализован и задокументирован.
+- **last_checked_commit**: ветка `main` после мержа PR #4 (25 декабря 2025)
+- **Резюме**: PR #4 смержен. Документация обновлена. Устаревший код очищен.
 
 ## Известные неопределённости
 - **Система шаблонов**: Подтверждено отсутствие Bitrix или иных серверных шаблонизаторов. Проект является чистым SPA на Vite. UI создается динамически в рантайме.
@@ -104,6 +104,133 @@
 - [x] Обновлён Flight-TZ до v1.0.1 (раздел 13)
 - [x] Обновлены activeContext.md и progress.md
 
+## Задача: Очистка и приведение в соответствие (25 декабря 2025) (✅ ЗАВЕРШЕНА)
+
+### Обновление документации (3 задачи)
+- [x] **README.md**: Обновлены ссылки на актуальные версии
+  - GDD: v2.3 → v2_4
+  - Architecture: v1.4 → v1.5
+  - Plan: v1.7 → v1.8
+- [x] **activeContext.md**: Статус после мержа PR #4
+- [x] **progress.md**: Добавлена секция очистки
+
+### Очистка конфигурации (1 задача)
+- [x] **balance.json**: Удалена секция `movement`
+  - baseSpeed, baseTurnRateDeg, turnDivisor — не используются
+  - driftTurnRateDeg, driftThresholdAngleDeg — drift не реализован
+  - driftDurationSec, driftSpeedLoss, driftCooldownSec — не используются
+  - Все параметры движения теперь в `slimeConfigs` через FlightAssist
+- [x] **ArenaRoom.ts**: Удалены неиспользуемые переменные
+  - driftDurationTicks (объявление и инициализация)
+  - driftCooldownTicks (объявление и инициализация)
+
+## Задача: Mass-as-HP System (25 декабря 2025) (✅ ЗАВЕРШЕНА)
+
+### Phase 0: Спецификация
+- [x] Создана `.memory_bank/modules/mass-as-hp-spec.md`
+
+### Phase 1: Конфигурация
+- [x] **balance.json** — новые параметры pvpBite*
+- [x] **shared/src/config.ts** — типы и default значения
+- [x] Удалены устаревшие параметры:
+  - `movement.*` — вся секция
+  - `combat.lastBreathDamageMult`
+  - `combat.massStealPercent`
+  - `combat.pvpBiteDamage*` (старые)
+  - `combat.pvpVictimMassLossPct` (старый)
+  - `combat.pvpAttackerMassGainPct` (старый)
+  - `formulas.hp`
+  - `classes.hunter.hpMult`
+  - `classes.warrior.hpMult`
+
+### Phase 2: Удаление HP
+- [x] **GameState.ts** — удалены `hp`, `maxHp` из Player
+- [x] **ArenaRoom.ts** — удалены все обращения к hp/maxHp
+- [x] **ArenaRoom.ts** — удалён метод `updateMaxHpForMass()`
+
+### Phase 3: Новый PvP Bite
+- [x] **processCombat()** переписан для mass-only
+  - Жертва теряет 20% массы
+  - Атакующий получает 10%
+  - Zone multiplier (tail = 1.5x, mouth = 0.5x)
+
+### Phase 4: Scatter Orbs
+- [x] **spawnPvPBiteOrbs()** — новый метод
+  - 3 орба со скоростью 200 м/с
+  - Случайный разброс угла ±0.3 рад
+
+### Phase 5: Results Freeze
+- [x] **onTick()** — полная заморозка при isMatchEnded
+- [x] **updateOrbsVisual()** — только визуальное обновление орбов
+
+### Phase 6: HUD Update
+- [x] **SnapshotPlayer** — удалены hp/maxHp
+- [x] **HUD** — показывает "Моя масса: X кг"
+- [x] **Таланты** — "Mass Boost +30%" вместо "Vital Burst +30% HP"
+
+### Phase 7: Тесты и сборка
+- [x] **formulas.ts** — удалены getSlimeHp, getSlimeMaxHp, getSlimeBiteDamage
+- [x] **index.ts** — обновлён экспорт
+- [x] **npm run build** — PASS (0 errors, gzip 32.17 kB)
+- [x] **npm run test** — PASS (determinism)
+
+### Phase 8: Memory Bank
+- [x] **activeContext.md** — обновлён
+- [x] **progress.md** — обновлён
+
+### Изменённые файлы (11)
+1. `config/balance.json`
+2. `shared/src/config.ts`
+3. `shared/src/formulas.ts`
+4. `shared/src/index.ts`
+5. `server/src/rooms/schema/GameState.ts`
+6. `server/src/rooms/ArenaRoom.ts`
+7. `client/src/main.ts`
+8. `.memory_bank/modules/mass-as-hp-spec.md` (создан)
+9. `.memory_bank/activeContext.md`
+10. `.memory_bank/progress.md`
+
+## Задача: Баланс орбов, физика, управление, камера (25 декабря 2025) (✅ ЗАВЕРШЕНА)
+
+### Орбы — честная физика
+- [x] Формула радиуса: `radius = baseRadius × √(mass / baseMass / density)`
+- [x] Плотности: green=0.2, blue=0.3, red=0.4, gold=0.5
+- [x] Spawn counts: initialCount=10, maxCount=15
+- [x] Веса: green=45%, blue=30%, red=20%, gold=5%
+
+### Физика
+- [x] environmentDrag = 0.01 (1% за тик, единый для всех)
+- [x] orbLinearDamping = 0 (убран как нефизический)
+- [x] restitution = 0.9 (90% энергии сохраняется)
+
+### Управление (FlightAssist)
+- [x] turnTorqueNm = 35000 (было 17500)
+- [x] angularSpeedLimitDegps = 180 (было 80)
+- [x] angularStopTimeS = 0.3 (было 1.0)
+- [x] yawRateGain = 4.0 (было 2.0)
+
+### Поедание орбов
+- [x] orbBitePctOfMass = 0.10 (10% массы слайма)
+
+### Камера (Agar.io стиль)
+- [x] desiredView = 400×400 м (было 200×200)
+- [x] Игрок всегда в центре экрана
+- [x] Убрана интерполяция камеры
+
+### GDD v2.5.0
+- [x] Раздел 2.5: FlightAssist params
+- [x] Раздел 2.7: WorldPhysicsConfig (environmentDrag)
+- [x] Раздел 2.7.1: Camera (новый)
+- [x] Раздел 3.5.1: Типы орбов с честной физикой
+- [x] Раздел 3.5.3: Spawn params
+- [x] Раздел 3.5.4: Bite mechanics
+
+### Изменённые файлы (4)
+1. `config/balance.json` — все параметры
+2. `client/src/main.ts` — камера
+3. `server/src/rooms/ArenaRoom.ts` — tryEatOrb()
+4. `docs/SlimeArena-GDD-v2_4.md` — v2.5.0
+
 ## Кандидаты на очистку (Candidate-for-cleanup)
 - `legacy/`: Старая версия проекта, не используется в текущем пайплайне.
 - `_ext/u2/`: Внешняя песочница Universe Unlimited, не относится к Slime Arena.
@@ -111,8 +238,10 @@
 - `docker/docker-compose.yml`: Требует исправления (отсутствуют Dockerfiles).
 
 ## Планы
-- [x] **PR #4 завершена** — готово к мержу в main
-- [ ] Смержить ветку `feat/gameplay-ui-improvements` в `main`
+- [x] **PR #4 завершена** — смержена в main
+- [x] **Документация обновлена** — актуальные ссылки в README
+- [x] **Конфигурация очищена** — удалён устаревший код movement
+- [x] **Mass-as-HP система** — HP удалён, масса = здоровье
 - [ ] Завершение модульного разделения `ArenaRoom.ts`.
 - [ ] Оптимизация `main.ts` на клиенте.
 - [ ] Внедрение Protobuf (согласно `docs/PROTOBUF_ADOPTION_PLAN.md`).

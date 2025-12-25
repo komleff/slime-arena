@@ -3,70 +3,74 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**PR #4: gameplay/UI улучшения + Codex/Copilot ревью фиксы (раунд 2)**
+**Баланс орбов, физика, управление, камера (25 декабря 2025)**
 
-- Ветка: `feat/gameplay-ui-improvements`
-- Коммиты: 9 (текущий `0654687`)
-- Контроль изменений: main@main vs feat/gameplay-ui-improvements@0654687
+- Ветка: `main`
+- Статус: GDD обновлён до v2.5.0
+- Последние изменения: честная физика орбов, улучшенное управление, камера Agar.io стиля
 
-## Полный список изменений
+## Баланс орбов v2.5.0
 
-### Новые модули
-- **shared/src/nameGenerator.ts** — генератор русских имён (DRY: `createLcg()` helper)
-- **shared/src/mathUtils.ts** — математические утилиты (оптимизированные)
+### Честная физика орбов
+Формула радиуса: `radius = baseRadius × √(mass / baseMass / density)`
 
-### UI компоненты
-- **client/src/main.ts**:
-  - Results overlay (победитель, лидерборд 10, таймер)
-  - Mouse control (agar.io стиль, параметры из конфига)
-  - Crown для KING
-  - Уникальные имена
-  - DOM API вместо innerHTML (XSS-безопасность)
-  - HUD: лидерборд топ-5 (было топ-3)
+Плотность — абсолютная величина (кг/м²). Для сравнения: плотность слайма ≈ 0.32 кг/м².
 
-### Оптимизации (раунд 1)
-- wrapAngle: O(n) while-циклы → O(1) modulo
-- Math.hypot → Math.sqrt
-- matchMedia кэширован в isCoarsePointer
-- latestSnapshot вместо snapshotBuffer
+| Тип | density | Масса (кг) | Частота | Радиус (м) |
+|-----|---------|------------|---------|------------|
+| green | 0.2 | 10–50 | 45% | 7.1–15.8 |
+| blue | 0.3 | 30–150 | 30% | 10.0–22.4 |
+| red | 0.4 | 80–400 | 20% | 14.1–31.6 |
+| gold | 0.5 | 200–1000 | 5% | 20.0–44.7 |
 
-### Исправления раунд 2 (Codex/Copilot)
-- **JoystickConfig.mode**: убран "dynamic", только "fixed" | "adaptive"
-- **Валидация smoothing**: velocityWeight [0..1], teleportThreshold >= 1
-- **Удалён snapshotBuffer**: U2-стиль, только latestSnapshot
-- **lookAheadMs**: один источник через getSmoothingConfig()
-- **nameSeed из sessionId**: не изменяет RNG симуляции (детерминизм)
-- **PvP кража массы**: привязана к урону (damagePct), не фиксированный %
-- **Mouse control config**: mouseDeadzone, mouseMaxDist в balance.json
-
-### Smoothing конфиг (с валидацией)
-| Параметр | Значение | Валидация |
-|----------|----------|-----------|
-| velocityWeight | 0.7 | [0..1] |
-| catchUpSpeed | 10.0 | >= 0 |
-| maxCatchUpSpeed | 800 | >= 0 |
-| teleportThreshold | 100 | >= 1 |
-| angleCatchUpSpeed | 12.0 | >= 0 |
-| lookAheadMs | 150 | >= 0 |
-
-### Controls конфиг
+### Параметры физики (balance.json)
 | Параметр | Значение | Описание |
-|----------|----------|---------|
-| mouseDeadzone | 30 | Мёртвая зона мыши (px) |
-| mouseMaxDist | 200 | Макс. дистанция (px) |
+|----------|----------|----------|
+| environmentDrag | 0.01 | 1% потери скорости за тик (единый для всех) |
+| orbLinearDamping | 0 | Убран как нефизическое явление |
+| restitution | 0.9 | 90% энергии сохраняется при столкновении |
+| initialCount | 10 | Начальное количество орбов |
+| maxCount | 15 | Максимальное количество орбов |
 
-### PvP механика (привязана к урону)
+### Параметры управления (FlightAssist)
 | Параметр | Значение | Описание |
-|----------|----------|---------|
-| pvpVictimMassLossPct | 0.50 | × damagePct |
-| pvpAttackerMassGainPct | 0.25 | × damagePct |
+|----------|----------|----------|
+| turnTorqueNm | 35000 | Крутящий момент поворота |
+| angularSpeedLimitDegps | 180 | Максимальная угловая скорость (°/с) |
+| angularStopTimeS | 0.3 | Время остановки вращения |
+| yawRateGain | 4.0 | Коэффициент усиления по курсу |
+
+### Камера (Agar.io стиль)
+| Параметр | Значение | Описание |
+|----------|----------|----------|
+| desiredView | 400×400 м | Область видимости (2x зум-аут) |
+| Центрирование | мгновенное | Без интерполяции, игрок всегда в центре |
+
+### Поедание орбов
+- `orbBitePctOfMass` = 10% — орб можно проглотить, если его масса ≤ 10% массы слайма
+
+## Изменённые файлы (сессия 25.12.2025)
+1. **config/balance.json** — density, spawn counts, physics params, turn params
+2. **client/src/main.ts** — камера: desiredView 400×400, instant centering
+3. **server/src/rooms/ArenaRoom.ts** — tryEatOrb() использует orbBitePctOfMass
+4. **docs/SlimeArena-GDD-v2_4.md** — обновлён до v2.5.0
+
+## Предыдущие изменения
+
+### Mass-as-HP System
+- **HP удалён**: `Player.hp` и `Player.maxHp` убраны из схемы
+- **Масса = здоровье**: смерть при `mass <= minSlimeMass` (50 кг)
+- **PvP Bite**: -20% массы жертвы, +10% атакующему, +10% разлетается орбами
+- **Scatter Orbs**: 3 орба при укусе, разлёт 200 м/с
+- **Results Freeze**: полная заморозка симуляции при isMatchEnded
+
+### PR #4
+- Results overlay (победитель, лидерборд)
+- Mouse control (agar.io стиль)
+- Name generator (русские имена)
+- U2-стиль сглаживания
 
 ## Проверки
-- ✅ npm run build — ok (0 errors, gzip 32.29 kB)
+- ✅ npm run build — ok
 - ✅ npm run test (determinism) — PASSED
-- ✅ Ветка чистая
-
-## Готовность к мержу
-- ✅ 9 коммитов (0654687 HEAD)
-- ✅ Все проверки пройдены
-- ✅ Статус: **READY FOR MERGE**
+- ✅ GDD v2.5.0 — обновлён
