@@ -3,22 +3,16 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**PR #5: Mass-as-HP + Orb Physics + Camera/Mouse (26 декабря 2025)**
+**Ветка main актуальна (26 декабря 2025)**
 
-- Ветка: `refactor/cleanup-legacy`
-- PR: https://github.com/komleff/slime-arena/pull/5
-- Статус: Готов к мержу (все ревью исправлены)
+- PR #5 смержен в main
+- Все ветки очищены (только main осталась)
+- ChatGPT ревью: критический баг исправлен
 
-### Коммиты в PR #5:
-1. `ae5b0d0` — feat: mass-as-hp + orb physics + camera centering
-2. `9a109f7` — fix: camera follows localPlayer directly
-3. `92da9f6` — fix: mouse control uses smoothed player position
-4. `12cb70c` — fix: Copilot review fixes (4 issues)
-5. `4898261` — fix: Last Breath now awards mass and spawns scatter orbs
-6. `066a1f8` — merge: resolve conflicts with main
-7. `d119e72` — docs: update Memory Bank
-8. `c47fb73` — fix: scatter orbs ignore maxCount limit + update GDD
-9. `d61c5f7` — balance: reduce scatter orb speed to 60 m/s
+### Последние коммиты в main:
+- `c284daf` — fix: Last Breath mass balance - rewards scale with actual loss
+- `8425dc3` — Merge PR #5: feat: mass-as-hp + orb physics + camera/mouse fixes
+- Полный список в PR #5
 
 ## Баланс орбов v2.5.0
 
@@ -78,6 +72,8 @@
 ### Mass-as-HP System
 - **HP удалён**: `Player.hp` и `Player.maxHp` убраны из схемы
 - **Масса = здоровье**: смерть при `mass <= minSlimeMass` (50 кг)
+- **Инвариант массы**: `massLoss = attackerGain + scatterMass` (масса не создаётся из воздуха)
+- **Last Breath**: награды масштабируются пропорционально фактической потере
 - **PvP Bite**: -20% массы жертвы, +10% атакующему, +10% разлетается орбами
 - **Scatter Orbs**: 3 орба при укусе, разлёт 60 м/с (было 200)
 - **forceSpawnOrb**: scatter orbs игнорируют maxCount лимит

@@ -1,8 +1,8 @@
 # Mass-as-HP System — Спецификация
 
-**Версия:** 1.0  
-**Дата:** 2025-12-25  
-**Статус:** Реализуется
+**Версия:** 1.1  
+**Дата:** 2025-12-26  
+**Статус:** Реализовано
 
 ## Обзор
 
@@ -18,12 +18,12 @@
 | Параметр | Значение | Описание |
 |----------|----------|----------|
 | `pvpBiteVictimLossPct` | 0.20 | Жертва теряет 20% своей массы |
-| `pvpBiteAttackerGainPct` | 0.10 | Атакующий получает 10% массы жертвы (до укуса) |
-| `pvpBiteScatterPct` | 0.10 | 10% массы жертвы разлетается орбами |
+| `pvpBiteAttackerGainPct` | 0.10 | Доля потерянной массы атакующему (50%) |
+| `pvpBiteScatterPct` | 0.10 | Доля потерянной массы в scatter orbs (50%) |
 | `pvpBiteScatterOrbCount` | 3 | Количество орбов при разлёте |
-| `pvpBiteScatterSpeed` | 200 | Начальная скорость разлёта орбов (м/с) |
+| `pvpBiteScatterSpeed` | 60 | Начальная скорость разлёта орбов (м/с) |
 
-**Инвариант:** `pvpBiteAttackerGainPct + pvpBiteScatterPct == pvpBiteVictimLossPct`
+**Инвариант:** `massLoss = attackerGain + scatterMass` — масса не создаётся и не уничтожается.
 
 ### Orb Bite (поедание орба)
 - **Лимит:** Максимум 10% собственной массы за один укус орба
@@ -33,6 +33,7 @@
 - Активируется когда масса падает ≤ `minSlimeMass`
 - Длительность: `combat.lastBreathDurationSec` (0.5 сек)
 - Во время Last Breath игрок неуязвим
+- **Награды масштабируются:** атакующий получает пропорционально фактической потере массы
 - После истечения — смерть
 
 ## Удаляемые параметры
@@ -61,30 +62,30 @@
    - tick < defender.invulnerableUntilTick → return
    - attackerZone !== "mouth" → return
 
-2. Расчёт массы до укуса:
-   victimMassBefore = defender.mass
+2. Расчёт потерь:
+   massLoss = defender.mass * pvpBiteVictimLossPct * zoneMultiplier * damageMult
 
-3. Расчёт потерь/получений:
-   massLoss = victimMassBefore * pvpBiteVictimLossPct
-   attackerGain = victimMassBefore * pvpBiteAttackerGainPct
-   scatterMass = victimMassBefore * pvpBiteScatterPct
+3. Last Breath check:
+   if (defender.mass - massLoss <= minSlimeMass):
+       massLoss = defender.mass - minSlimeMass  // Ограничиваем потерю
+       triggersLastBreath = true
 
-4. Модификаторы:
-   - Zone multiplier (tail = 1.5x, mouth-vs-mouth = 0.5x)
-   - Last Breath multiplier на attackerGain
+4. Расчёт наград от ФАКТИЧЕСКОЙ потери (инвариант массы):
+   totalRewardPct = attackerGainPct + scatterPct
+   attackerGain = massLoss * (attackerGainPct / totalRewardPct)
+   scatterMass = massLoss * (scatterPct / totalRewardPct)
 
 5. Применение:
    defender.mass -= massLoss
    attacker.mass += attackerGain
+   spawnPvPBiteOrbs(defender.x, defender.y, scatterMass)
 
-6. Scatter Orbs:
-   spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, pvpBiteScatterOrbCount)
+6. Активация Last Breath (если triggered):
+   defender.isLastBreath = true
+   defender.lastBreathEndTick = tick + lastBreathTicks
+   defender.invulnerableUntilTick = lastBreathEndTick
 
-7. Last Breath check:
-   if defender.mass <= minSlimeMass && !defender.isLastBreath:
-       activateLastBreath(defender)
-
-8. Cooldowns:
+7. Cooldowns:
    attacker.lastAttackTick = tick
    defender.invulnerableUntilTick = tick + invulnerableTicks
 ```
