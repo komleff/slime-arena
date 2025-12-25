@@ -52,6 +52,13 @@ export interface SlimeConfig {
         yawOscillationSignFlipsThreshold: number;
         yawDampingBoostFactor: number;
         yawCmdEps: number;
+        // Параметры fly-by-wire управления
+        angularDeadzoneRad: number;
+        yawRateGain: number;
+        reactionTimeS: number;
+        accelTimeS: number;
+        velocityErrorThreshold: number;
+        inputMagnitudeThreshold: number;
     };
     combat: {
         biteDamagePctOfMass: number;
@@ -83,12 +90,11 @@ export interface WorldPhysicsConfig {
 
 export interface ClientNetSmoothingConfig {
     lookAheadMs: number;
-    maxDeviationM: number;
-    catchUpMin: number;
-    catchUpMax: number;
-    maxExtrapolationMs: number;
-    transitionDurationMs: number;
-    angleMaxDeviationRad: number;
+    velocityWeight: number;
+    catchUpSpeed: number;
+    maxCatchUpSpeed: number;
+    teleportThreshold: number;
+    angleCatchUpSpeed: number;
 }
 
 export interface BalanceConfig {
@@ -104,6 +110,8 @@ export interface BalanceConfig {
     };
     match: {
         durationSec: number;
+        resultsDurationSec: number;
+        restartDelaySec: number;
         phases: MatchPhaseConfig[];
     };
     physics: {
@@ -124,6 +132,8 @@ export interface BalanceConfig {
         joystickSensitivity: number;
         joystickFollowSpeed: number;
         inputTimeoutMs: number;
+        mouseDeadzone: number;
+        mouseMaxDist: number;
     };
     slimeConfigs: {
         base: SlimeConfig;
@@ -160,6 +170,10 @@ export interface BalanceConfig {
         lastBreathDamageMult: number;
         lastBreathSpeedPenalty: number;
         massStealPercent: number;
+        pvpBiteDamageAttackerMassPct: number;
+        pvpBiteDamageVictimMassPct: number;
+        pvpVictimMassLossPct: number;
+        pvpAttackerMassGainPct: number;
     };
     death: {
         respawnDelaySec: number;
@@ -257,6 +271,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     match: {
         durationSec: 150,
+        resultsDurationSec: 10,
+        restartDelaySec: 3,
         phases: [
             { id: "Spawn", startSec: 0, endSec: 15 },
             { id: "Collect", startSec: 15, endSec: 60 },
@@ -283,6 +299,8 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         joystickSensitivity: 1.0,
         joystickFollowSpeed: 0.8,
         inputTimeoutMs: 200,
+        mouseDeadzone: 30,
+        mouseMaxDist: 200,
     },
     slimeConfigs: {
         base: {
@@ -315,6 +333,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -362,6 +386,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -409,6 +439,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -456,6 +492,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 yawOscillationSignFlipsThreshold: 4,
                 yawDampingBoostFactor: 2.0,
                 yawCmdEps: 0.001,
+                angularDeadzoneRad: 0.02,
+                yawRateGain: 2.0,
+                reactionTimeS: 0.15,
+                accelTimeS: 0.5,
+                velocityErrorThreshold: 0.1,
+                inputMagnitudeThreshold: 0.01,
             },
             combat: {
                 biteDamagePctOfMass: 0.02,
@@ -485,12 +527,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     clientNetSmoothing: {
         lookAheadMs: 150,
-        maxDeviationM: 2.0,
-        catchUpMin: 0.9,
-        catchUpMax: 1.2,
-        maxExtrapolationMs: 300,
-        transitionDurationMs: 250,
-        angleMaxDeviationRad: 0.35,
+        velocityWeight: 0.7,
+        catchUpSpeed: 10.0,
+        maxCatchUpSpeed: 800,
+        teleportThreshold: 100,
+        angleCatchUpSpeed: 12.0,
     },
     slime: {
         initialMass: 100,
@@ -519,6 +560,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         lastBreathDamageMult: 0.5,
         lastBreathSpeedPenalty: 0.8,
         massStealPercent: 0.1,
+        pvpBiteDamageAttackerMassPct: 0.05,
+        pvpBiteDamageVictimMassPct: 0.03,
+        pvpVictimMassLossPct: 0.50,
+        pvpAttackerMassGainPct: 0.25,
     },
     death: {
         respawnDelaySec: 2,
@@ -790,6 +835,36 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
                 `${path}.assist.yawDampingBoostFactor`
             ),
             yawCmdEps: readNumber(assist.yawCmdEps, fallback.assist.yawCmdEps, `${path}.assist.yawCmdEps`),
+            angularDeadzoneRad: readNumber(
+                assist.angularDeadzoneRad,
+                fallback.assist.angularDeadzoneRad,
+                `${path}.assist.angularDeadzoneRad`
+            ),
+            yawRateGain: readNumber(
+                assist.yawRateGain,
+                fallback.assist.yawRateGain,
+                `${path}.assist.yawRateGain`
+            ),
+            reactionTimeS: readNumber(
+                assist.reactionTimeS,
+                fallback.assist.reactionTimeS,
+                `${path}.assist.reactionTimeS`
+            ),
+            accelTimeS: readNumber(
+                assist.accelTimeS,
+                fallback.assist.accelTimeS,
+                `${path}.assist.accelTimeS`
+            ),
+            velocityErrorThreshold: readNumber(
+                assist.velocityErrorThreshold,
+                fallback.assist.velocityErrorThreshold,
+                `${path}.assist.velocityErrorThreshold`
+            ),
+            inputMagnitudeThreshold: readNumber(
+                assist.inputMagnitudeThreshold,
+                fallback.assist.inputMagnitudeThreshold,
+                `${path}.assist.inputMagnitudeThreshold`
+            ),
         },
         combat: {
             biteDamagePctOfMass: readNumber(
@@ -915,6 +990,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         },
         match: {
             durationSec: readNumber(match.durationSec, DEFAULT_BALANCE_CONFIG.match.durationSec, "match.durationSec"),
+            resultsDurationSec: readNumber(
+                match.resultsDurationSec,
+                DEFAULT_BALANCE_CONFIG.match.resultsDurationSec,
+                "match.resultsDurationSec"
+            ),
+            restartDelaySec: readNumber(
+                match.restartDelaySec,
+                DEFAULT_BALANCE_CONFIG.match.restartDelaySec,
+                "match.restartDelaySec"
+            ),
             phases: readPhases(match.phases, DEFAULT_BALANCE_CONFIG.match.phases, "match.phases"),
         },
         physics: {
@@ -995,6 +1080,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.controls.inputTimeoutMs,
                 "controls.inputTimeoutMs"
             ),
+            mouseDeadzone: Math.max(0, readNumber(
+                controls.mouseDeadzone,
+                DEFAULT_BALANCE_CONFIG.controls.mouseDeadzone,
+                "controls.mouseDeadzone"
+            )),
+            mouseMaxDist: Math.max(1, readNumber(
+                controls.mouseMaxDist,
+                DEFAULT_BALANCE_CONFIG.controls.mouseMaxDist,
+                "controls.mouseMaxDist"
+            )),
         },
         slimeConfigs: {
             base: readSlimeConfig(baseSlime, DEFAULT_BALANCE_CONFIG.slimeConfigs.base, "slimeConfigs.base"),
@@ -1045,41 +1140,36 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ),
         },
         clientNetSmoothing: {
-            lookAheadMs: readNumber(
+            lookAheadMs: Math.max(0, readNumber(
                 clientNetSmoothing.lookAheadMs,
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.lookAheadMs,
                 "clientNetSmoothing.lookAheadMs"
-            ),
-            maxDeviationM: readNumber(
-                clientNetSmoothing.maxDeviationM,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxDeviationM,
-                "clientNetSmoothing.maxDeviationM"
-            ),
-            catchUpMin: readNumber(
-                clientNetSmoothing.catchUpMin,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpMin,
-                "clientNetSmoothing.catchUpMin"
-            ),
-            catchUpMax: readNumber(
-                clientNetSmoothing.catchUpMax,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpMax,
-                "clientNetSmoothing.catchUpMax"
-            ),
-            maxExtrapolationMs: readNumber(
-                clientNetSmoothing.maxExtrapolationMs,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxExtrapolationMs,
-                "clientNetSmoothing.maxExtrapolationMs"
-            ),
-            transitionDurationMs: readNumber(
-                clientNetSmoothing.transitionDurationMs,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.transitionDurationMs,
-                "clientNetSmoothing.transitionDurationMs"
-            ),
-            angleMaxDeviationRad: readNumber(
-                clientNetSmoothing.angleMaxDeviationRad,
-                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleMaxDeviationRad,
-                "clientNetSmoothing.angleMaxDeviationRad"
-            ),
+            )),
+            velocityWeight: Math.max(0, Math.min(1, readNumber(
+                clientNetSmoothing.velocityWeight,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.velocityWeight,
+                "clientNetSmoothing.velocityWeight"
+            ))),
+            catchUpSpeed: Math.max(0, readNumber(
+                clientNetSmoothing.catchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.catchUpSpeed,
+                "clientNetSmoothing.catchUpSpeed"
+            )),
+            maxCatchUpSpeed: Math.max(0, readNumber(
+                clientNetSmoothing.maxCatchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.maxCatchUpSpeed,
+                "clientNetSmoothing.maxCatchUpSpeed"
+            )),
+            teleportThreshold: Math.max(1, readNumber(
+                clientNetSmoothing.teleportThreshold,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.teleportThreshold,
+                "clientNetSmoothing.teleportThreshold"
+            )),
+            angleCatchUpSpeed: Math.max(0, readNumber(
+                clientNetSmoothing.angleCatchUpSpeed,
+                DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleCatchUpSpeed,
+                "clientNetSmoothing.angleCatchUpSpeed"
+            )),
         },
         slime: {
             initialMass: readNumber(
@@ -1195,6 +1285,26 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 combat.massStealPercent,
                 DEFAULT_BALANCE_CONFIG.combat.massStealPercent,
                 "combat.massStealPercent"
+            ),
+            pvpBiteDamageAttackerMassPct: readNumber(
+                combat.pvpBiteDamageAttackerMassPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageAttackerMassPct,
+                "combat.pvpBiteDamageAttackerMassPct"
+            ),
+            pvpBiteDamageVictimMassPct: readNumber(
+                combat.pvpBiteDamageVictimMassPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpBiteDamageVictimMassPct,
+                "combat.pvpBiteDamageVictimMassPct"
+            ),
+            pvpVictimMassLossPct: readNumber(
+                combat.pvpVictimMassLossPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpVictimMassLossPct,
+                "combat.pvpVictimMassLossPct"
+            ),
+            pvpAttackerMassGainPct: readNumber(
+                combat.pvpAttackerMassGainPct,
+                DEFAULT_BALANCE_CONFIG.combat.pvpAttackerMassGainPct,
+                "combat.pvpAttackerMassGainPct"
             ),
         },
         death: {

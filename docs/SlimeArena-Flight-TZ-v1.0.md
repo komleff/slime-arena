@@ -1,10 +1,21 @@
 # ТЗ: Управление и движение 2D‑слаймов (Slime Arena)
 
+**Версия:** 1.0.1  
+**Дата:** декабрь 2025  
+
 Документ предназначен для ИИ‑кодеров. Основа: **SlimeArena_Flight_TZ-ChatGPT.md** + усиления из **SlimeArena_Flight_TZ-Opus.md** (порядок систем, таблицы, пресеты миров, таблица отличий).
 
 ---
 
 ## 0) Назначение и границы
+
+### 0.0 Изменения версии 1.0.1
+- **Раздел 13 переписан** — реализован U2-стиль сглаживания:
+  - Visual State System вместо интерполяции между снапшотами
+  - Velocity Integration с весом `VELOCITY_WEIGHT=0.7`
+  - Упрощён `ClientNetSmoothingConfig` до единственного поля `lookAheadMs`
+  - Константы сглаживания захардкожены в клиенте
+- Добавлена документация: `.memory_bank/modules/U2-smoothing.md`
 
 ### 0.1 Цель
 Максимально близко воспроизвести ощущения управления из **U2 (FA:Mobile / one joystick)**, но для **2D круглых слаймов** с **ньютоновской физикой**. Масса активно меняется, поэтому симуляция обязана использовать **силы/моменты**. Ускорения допускаются только как справочные величины для редактора.
@@ -516,37 +527,75 @@ Deadzone применяется:
 
 ---
 
-## 13) Клиентское прогнозное сглаживание
+## 13) Клиентское прогнозное сглаживание (U2-стиль)
 
-### 13.1 Конфиг `ClientNetSmoothingConfig`
-Где хранится: клиентский конфиг.
+### 13.1 Конфиг `ClientNetSmoothingConfig` (упрощённый)
+Где хранится: `config/balance.json`.
 
-Параметры (по умолчанию, затем тюнинг):
-- `lookAheadMs = 100`
-- `maxDeviationM = 2.0`
-- `catchUpMin = 0.9`
-- `catchUpMax = 1.2`
-- `maxExtrapolationMs = 250`
-- `transitionDurationMs = 200`
-- `angleMaxDeviationRad = 0.35` (≈20°)
+Единственный параметр:
+- `lookAheadMs = 150` — экстраполяция на N миллисекунд вперёд
 
-### 13.2 Позиция (каждый кадр)
+Все остальные константы захардкожены в клиенте для оптимальности.
+
+### 13.2 Принцип U2-стиля
+Визуальное состояние (visual state) отделено от серверного и плавно «догоняет» целевую точку.
+
+| Аспект | Классическая интерполяция | U2-стиль |
+|--------|--------------------------|----------|
+| Буфер снапшотов | 3-6 | 1 (последний) |
+| Рендер-время | В прошлом | В настоящем/будущем |
+| Движение | Интерполяция A→B | Visual state + catch-up |
+| Потеря пакетов | Экстраполяция/замедление | Плавное продолжение |
+
+### 13.3 Константы сглаживания (захардкожены)
+
+| Константа | Значение | Назначение |
+|-----------|----------|-----------|
+| `VELOCITY_WEIGHT` | 0.7 | Вес интеграции скорости vs коррекции |
+| `CATCH_UP_SPEED` | 10.0 | Скорость догоняния (ед/с на ед. ошибки) |
+| `MAX_CATCH_UP_SPEED` | 800 | Максимальная скорость коррекции (м/с) |
+| `TELEPORT_THRESHOLD` | 100 | Порог телепорта (метры) |
+| `ANGLE_CATCH_UP_SPEED` | 12.0 | Скорость догоняния угла (рад/с на рад) |
+
+### 13.4 Алгоритм smoothStep (каждый кадр)
+
 1) Берём последний снапшот `S`.
-2) `t = timeSinceSnapshot`.
-3) `targetPos = S.pos + S.vel * ((t + lookAheadMs)/1000)`
-4) Движение к `targetPos` по кубической кривой Эрмита, используя `S.vel` как производную.
-5) `catchUpFactor` выбирается по отклонению `dev = length(renderPos - targetPos)`:
-   - при большом `dev` ближе к `catchUpMax`, при малом — ближе к `catchUpMin`.
-6) Если `dev > maxDeviationM` — выполнить быстрое выравнивание за 2–3 кадра (без мгновенного телепорта).
+2) Вычисляем целевую точку:
+   - `targetPos = S.pos + S.vel * (lookAheadMs/1000)`
+   - `targetAngle = S.angle + S.angVel * (lookAheadMs/1000)`
 
-### 13.3 Пропуски снапшотов
-- Если новых снапшотов нет и `t <= maxExtrapolationMs`: экстраполировать `pos += vel * dtRender`.
-- Если `t > maxExtrapolationMs`: плавно затухать скорость к нулю за `transitionDurationMs`.
+3) Проверка телепорта:
+   - Если `error > TELEPORT_THRESHOLD` → мгновенный перенос
 
-### 13.4 Угол (приоритет точности)
-- Всегда использовать нормализацию разности углов в `[-π..π]`.
-- Сглаживание угла делать быстрее, чем позиции (угол влияет на атаку).
-- Если расхождение угла > `angleMaxDeviationRad`, догонять с повышенным `catchUp`.
+4) Velocity Integration:
+   - `velocityMove = targetV * dtSec`
+
+5) Catch-up коррекция:
+   - `catchUpSpeed = min(error * CATCH_UP_SPEED, MAX_CATCH_UP_SPEED)`
+   - `correction = направление_к_цели * catchUpSpeed * dtSec`
+
+6) Комбинирование (сумма весов = 1.0):
+   - `visual += velocityMove * VELOCITY_WEIGHT + correction * (1 - VELOCITY_WEIGHT)`
+
+7) Интерполяция velocity к серверной
+
+8) Сглаживание угла с `ANGLE_CATCH_UP_SPEED`
+
+### 13.5 Особенности для разных сущностей
+
+**Игроки (slimes):**
+- Полное сглаживание позиции, скорости и угла
+- Угол важен для боёвки
+
+**Пузыри (orbs):**
+- Упрощённое сглаживание только позиции
+- Ускоренный catch-up (`CATCH_UP_SPEED * 1.5`)
+
+**Сундуки (chests):**
+- Без сглаживания — напрямую из снапшота
+
+### 13.6 Подробная документация
+См. `.memory_bank/modules/U2-smoothing.md`
 
 ---
 
@@ -608,18 +657,17 @@ Deadzone применяется:
 
 | Модуль | Путь |
 |---|---|
-| SlimePhysicsSystem | `src/server/systems/PhysicsSystem.ts` |
-| SlimeFlightAssistSystem | `src/server/systems/FlightAssistSystem.ts` |
-| CollisionSystem | `src/server/systems/CollisionSystem.ts` |
-| SlimeConfig | `src/shared/config/SlimeConfig.ts` |
-| WorldPhysicsConfig | `src/shared/config/WorldConfig.ts` |
-| ClientNetSmoothingConfig | `src/client/config/NetSmoothingConfig.ts` |
-| SingleJoystickManager | `src/client/input/SingleJoystickManager.ts` |
-| InputTranslator | `src/client/input/InputTranslator.ts` |
-| SnapshotStore | `src/client/world/SnapshotStore.ts` |
-| EntitySmoother | `src/client/world/EntitySmoother.ts` |
-| HermiteSpline | `src/client/network/HermiteSpline.ts` |
-| PredictionEngine | `src/client/network/PredictionEngine.ts` |
+| SlimePhysicsSystem | `server/src/rooms/ArenaRoom.ts` (встроено) |
+| SlimeFlightAssistSystem | `server/src/rooms/ArenaRoom.ts` (встроено) |
+| CollisionSystem | `server/src/rooms/ArenaRoom.ts` (встроено) |
+| SlimeConfig | `shared/src/config.ts` |
+| WorldPhysicsConfig | `shared/src/config.ts` |
+| ClientNetSmoothingConfig | `shared/src/config.ts` + `config/balance.json` |
+| SingleJoystickManager | `client/src/main.ts` (встроено) |
+| InputTranslator | `client/src/input/joystick.ts` |
+| VisualStateSystem | `client/src/main.ts` (U2-стиль: `visualPlayers`, `visualOrbs`, `smoothStep`) |
+
+**Примечание:** `HermiteSpline`, `SnapshotStore`, `EntitySmoother` больше не используются — заменены на U2-стиль сглаживания.
 
 
 

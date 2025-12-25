@@ -1,19 +1,28 @@
 # Slime Arena — План разработки
 
-**Версия:** 1.8  
+**Версия:** 1.8.1  
 **Автор:** Claude Opus  
 **Дата:** декабрь 2025  
 
-План обновлён в соответствии с `SlimeArena-GDD-v2_4.md` и `slime_arena_flight_tz_merged.md`.  
+План обновлён в соответствии с `SlimeArena-GDD-v2_4.md` и `SlimeArena-Flight-TZ-v1.0.md`.  
 Техническая архитектура — в `SlimeArena-Architecture-v1.5.md`.
 
 ---
 
-## 0. Изменения версии 1.8
+## 0. Изменения версии 1.8.1
+
+- **U2-стиль сглаживания реализован** — задача клиентской интерполяции выполнена:
+  - Visual State System с velocity integration
+  - Упрощён ClientNetSmoothingConfig (только `lookAheadMs`)
+  - Документация: `.memory_bank/modules/U2-smoothing.md`
+- Обновлены ссылки на GDD v2.4.1 и Architecture v1.5.1.
+- Критический путь прототипа: клиентское сглаживание отмечено выполненным.
+
+## 0.1. Изменения версии 1.8
 
 - Обновлена ссылка на GDD: `SlimeArena-GDD-v2_4.md`.
 - Обновлена ссылка на архитектуру: `SlimeArena-Architecture-v1.5.md`.
-- Добавлен инженерный источник правды по управлению/полёту: `slime_arena_flight_tz_merged.md`.
+- Добавлен инженерный источник правды по управлению/полёту: `SlimeArena-Flight-TZ-v1.0.md`.
 - В прототипе ядра обновлены задачи и критический путь: вместо абстрактного модуля движения — реализация `FlightAssistSystem + PhysicsSystem + CollisionSystem` по Flight_TZ (силы/моменты, Semi‑Implicit Euler, импульсные коллизии, overspeed‑damping).
 - Уточнено, что параметры движения/мира/сглаживания хранятся в отдельных конфиг‑структурах (`SlimeConfig`, `WorldPhysicsConfig`, `ClientNetSmoothingConfig`).
 
@@ -23,10 +32,10 @@
 
 | Документ | Содержание |
 |----------|------------|
-| `SlimeArena-GDD-v2_4.md` | Дизайн, правила, баланс, интерфейсы, Приложение D |
-| `slime_arena_flight_tz_merged.md` | Инженерное ТЗ: управление/движение, FlightAssist/Physics/Collision, конфиги движения/мира/сглаживания |
-| `SlimeArena-Architecture-v1.5.md` | Архитектура, модули, протокол, хранение |
-| Этот документ | Этапы, оценки, зависимости, критерии |
+| `SlimeArena-GDD-v2_4.md` | Дизайн, правила, баланс, интерфейсы, Приложение D (v2.4.1) |
+| `SlimeArena-Flight-TZ-v1.0.md` | Инженерное ТЗ: управление/движение, FlightAssist/Physics/Collision, конфиги движения/мира/сглаживания (v1.0.1) |
+| `SlimeArena-Architecture-v1.5.md` | Архитектура, модули, протокол, хранение (v1.5.1) |
+| Этот документ | Этапы, оценки, зависимости, критерии (v1.8.1) |
 
 ---
 
@@ -57,7 +66,7 @@
 - Серверная симуляция 30 Гц (фиксированный `dt`) + детерминированный порядок систем.
 - Управление/движение по Flight_TZ: `FlightAssistSystem → PhysicsSystem → CollisionSystem` (forces/torque, drag, импульсы).
 - Интенты ввода → симуляция → снапшоты (10–20 Гц) → доставка клиенту.
-- Клиентский рендер: интерполяция (Hermite) + приоритетная точность угла (боёвка зависит от ориентации).
+- Клиентский рендер: U2-стиль сглаживания (visual state + velocity integration) + приоритетная точность угла (боёвка зависит от ориентации).
 - Мини-экран результатов (локальный), чтобы замкнуть цикл матча.
 
 **Можно параллелить без риска:** плейсхолдер-арт/UI, звук, мета-меню. плейсхолдер-арт/UI, звук, мета-меню.
@@ -67,7 +76,7 @@
 |--------|--------|------------|-----------|
 | Сервер: Colyseus room + tick loop (30 Гц, фиксированный dt) | 2 дня | — | Всё |
 | Shared: схемы конфигов `SlimeConfig/WorldPhysicsConfig/ClientNetSmoothingConfig` + загрузка/валидация | 2 дня | — | Физика/движение |
-| Сервер: `FlightAssistSystem` по `slime_arena_flight_tz_merged.md` (forces/torque, drift‑brake, overspeed) | 3 дня | Room+Config | Управляемость/бой |
+| Сервер: `FlightAssistSystem` по `SlimeArena-Flight-TZ-v1.0.md` (forces/torque, drift‑brake, overspeed) | 3 дня | Room+Config | Управляемость/бой |
 | Сервер: `PhysicsSystem` (Semi‑Implicit Euler + drag, правило изменения массы) | 2 дня | FlightAssist | Коллизии/бой |
 | Сервер: `CollisionSystem` (круг‑круг + круг‑границы, импульсы + коррекция, 4 итерации) | 3 дня | Physics | Бой/пузырь/сундук |
 | Пузыри: спавн, цвет, плотность, физика | 2 дня | Collision | Укус |
@@ -75,7 +84,7 @@
 | Бой: зоны пасть/хвост/бока + урон + i-frames | 3 дня | Collision | Смерть |
 | Смерть/респаун: 2 сек + щит 5 сек + Last Breath 0.5 сек | 2 дня | Бой | — |
 | Клиент: Canvas рендер (мир + сущности) | 3 дня | Room | HUD |
-| Клиент: SnapshotStore + предиктивная интерполяция (Hermite) + сглаживание угла | 3 дня | Рендер | Управляемость |
+| Клиент: SnapshotStore + U2-стиль сглаживания (visual state + velocity integration) | 3 дня | Рендер | Управляемость | ✓ Выполнено |
 | Клиент: адаптивный джойстик (default) + fixed (настройка) | 3 дня | Рендер | UX |
 | Таймер матча + экран результатов (локальный) | 2 дня | Room | MVP |
 

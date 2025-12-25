@@ -7,7 +7,7 @@
 
 Назначение: зафиксировать, **когда** и **зачем** вводить Protobuf в стеке `Node.js` + `TypeScript` + `Colyseus`, не ломая принятую архитектуру. 
 
-**Источник истины:** `SlimeArena-Architecture-v1.4.md`. 
+**Источник истины:** `SlimeArena-Architecture-v1.5.md` (v1.5.1). 
 
 ---
 

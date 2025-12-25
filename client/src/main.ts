@@ -7,6 +7,9 @@ import {
     FLAG_IS_REBEL,
     FLAG_LAST_BREATH,
     FLAG_IS_DEAD,
+    clamp,
+    lerp,
+    wrapAngle,
 } from "@slime-arena/shared";
 
 const root = document.createElement("div");
@@ -173,6 +176,53 @@ talentCard.appendChild(talentButtons);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
 
+// Results overlay для фазы Results
+const resultsOverlay = document.createElement("div");
+resultsOverlay.style.position = "fixed";
+resultsOverlay.style.inset = "0";
+resultsOverlay.style.display = "none";
+resultsOverlay.style.flexDirection = "column";
+resultsOverlay.style.alignItems = "center";
+resultsOverlay.style.justifyContent = "center";
+resultsOverlay.style.background = "rgba(10, 15, 30, 0.92)";
+resultsOverlay.style.zIndex = "1000";
+resultsOverlay.style.fontFamily = "\"IBM Plex Mono\", monospace";
+resultsOverlay.style.color = "#e6f3ff";
+
+const resultsContent = document.createElement("div");
+resultsContent.style.textAlign = "center";
+resultsContent.style.maxWidth = "500px";
+resultsContent.style.padding = "20px";
+
+const resultsTitle = document.createElement("h1");
+resultsTitle.style.fontSize = "32px";
+resultsTitle.style.marginBottom = "10px";
+resultsTitle.style.color = "#ffc857";
+resultsTitle.style.textShadow = "0 0 20px rgba(255, 200, 87, 0.5)";
+
+const resultsWinner = document.createElement("div");
+resultsWinner.style.fontSize = "24px";
+resultsWinner.style.marginBottom = "20px";
+resultsWinner.style.color = "#9be070";
+
+const resultsLeaderboard = document.createElement("div");
+resultsLeaderboard.style.textAlign = "left";
+resultsLeaderboard.style.background = "rgba(0, 0, 0, 0.3)";
+resultsLeaderboard.style.borderRadius = "8px";
+resultsLeaderboard.style.padding = "15px";
+resultsLeaderboard.style.marginBottom = "20px";
+
+const resultsTimer = document.createElement("div");
+resultsTimer.style.fontSize = "16px";
+resultsTimer.style.color = "#6fd6ff";
+
+resultsContent.appendChild(resultsTitle);
+resultsContent.appendChild(resultsWinner);
+resultsContent.appendChild(resultsLeaderboard);
+resultsContent.appendChild(resultsTimer);
+resultsOverlay.appendChild(resultsContent);
+document.body.appendChild(resultsOverlay);
+
 const joystickLayer = document.createElement("div");
 joystickLayer.style.position = "fixed";
 joystickLayer.style.inset = "0";
@@ -219,6 +269,22 @@ const cameraSmoothTime = 0.08;
 let lastFrameTime = performance.now();
 const desiredView = { width: 200, height: 200 };
 let hasFocus = true;
+
+// Кэш matchMedia для определения типа устройства
+let isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+window.matchMedia("(pointer: coarse)").addEventListener("change", (e) => {
+    isCoarsePointer = e.matches;
+});
+
+// Состояние управления мышью (agar.io style)
+const mouseState = {
+    active: false,
+    screenX: 0,
+    screenY: 0,
+    moveX: 0,
+    moveY: 0,
+};
+
 const joystickState = {
     active: false,
     pointerId: null as number | null,
@@ -291,9 +357,6 @@ const updateWorldBounds = () => {
 const applyBalanceConfig = (config: BalanceConfig) => {
     balanceConfig = config;
     updateWorldBounds();
-    maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
-    transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
-    angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
     orbMinRadius = config.orbs.minRadius;
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
@@ -500,29 +563,111 @@ type RenderState = {
     hotZones: Map<string, RenderHotZone>;
 };
 
-const snapshotBuffer: Snapshot[] = [];
-const snapshotBufferLimit = 20;
-const interpolationDelayMs = 100;
-let maxExtrapolationMs = balanceConfig.clientNetSmoothing.maxExtrapolationMs;
-let transitionDurationMs = balanceConfig.clientNetSmoothing.transitionDurationMs;
-let angleMaxDeviationRad = balanceConfig.clientNetSmoothing.angleMaxDeviationRad;
-const resetSnapshotBuffer = () => {
-    snapshotBuffer.length = 0;
+// U2-стиль: храним только последний снапшот
+let latestSnapshot: Snapshot | null = null;
+
+// === Visual State System (U2-style predictive smoothing) ===
+// Visual state is what we actually draw - it smoothly catches up to server state
+type VisualEntity = {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    angle: number;
+};
+const visualPlayers = new Map<string, VisualEntity>();
+const visualOrbs = new Map<string, VisualEntity>();
+let lastRenderMs = 0;
+
+// Smoothing config - читаем из balance.json
+// velocityWeight: 0 = только catch-up, 1 = только интеграция velocity
+// Оптимально 0.6-0.8 для Slime Arena: хороший баланс между точностью и плавностью
+const getSmoothingConfig = () => balanceConfig?.clientNetSmoothing ?? {
+    lookAheadMs: 150,
+    velocityWeight: 0.7,
+    catchUpSpeed: 10.0,
+    maxCatchUpSpeed: 800,
+    teleportThreshold: 100,
+    angleCatchUpSpeed: 12.0
 };
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const wrapAngle = (angle: number) => {
-    let value = angle;
-    const twoPi = Math.PI * 2;
-    while (value < -Math.PI) value += twoPi;
-    while (value > Math.PI) value -= twoPi;
-    return value;
+const resetSnapshotBuffer = () => {
+    latestSnapshot = null;
+    visualPlayers.clear();
+    visualOrbs.clear();
+    lastRenderMs = 0;
 };
-const lerpAngle = (a: number, b: number, t: number) => {
-    const delta = wrapAngle(b - a);
-    return a + delta * t;
+
+// Smoothly move visual state towards target with velocity integration
+// Гибрид: интегрируем velocity для предсказуемости + catch-up для коррекции ошибки
+const smoothStep = (
+    visual: VisualEntity,
+    targetX: number,
+    targetY: number,
+    targetVx: number,
+    targetVy: number,
+    targetAngle: number,
+    dtSec: number
+): void => {
+    const cfg = getSmoothingConfig();
+    
+    // Calculate position error
+    const dx = targetX - visual.x;
+    const dy = targetY - visual.y;
+    const error = Math.sqrt(dx * dx + dy * dy);
+    
+    // Teleport if error is too large (e.g., respawn)
+    if (error > cfg.teleportThreshold) {
+        visual.x = targetX;
+        visual.y = targetY;
+        visual.vx = targetVx;
+        visual.vy = targetVy;
+        visual.angle = targetAngle;
+        return;
+    }
+    
+    // Интегрируем целевую velocity (предсказуемое движение по серверной скорости)
+    // Используем targetVx, а не visual.vx, чтобы первый кадр после телепорта был корректным
+    const velocityMoveX = targetVx * dtSec;
+    const velocityMoveY = targetVy * dtSec;
+    
+    // Затем вычисляем catch-up коррекцию (устранение ошибки)
+    let correctionX = 0;
+    let correctionY = 0;
+    if (error > 0.01) {
+        const catchUpSpeed = Math.min(error * cfg.catchUpSpeed, cfg.maxCatchUpSpeed);
+        correctionX = (dx / error) * catchUpSpeed * dtSec;
+        correctionY = (dy / error) * catchUpSpeed * dtSec;
+        
+        // Don't overshoot with correction
+        if (Math.abs(correctionX) > Math.abs(dx)) correctionX = dx;
+        if (Math.abs(correctionY) > Math.abs(dy)) correctionY = dy;
+    }
+    
+    // Комбинируем: velocity движение + взвешенная коррекция
+    // velocityWeight контролирует баланс: при 0.7 это 70% velocity + 30% коррекция
+    visual.x += velocityMoveX * cfg.velocityWeight + correctionX * (1 - cfg.velocityWeight);
+    visual.y += velocityMoveY * cfg.velocityWeight + correctionY * (1 - cfg.velocityWeight);
+    
+    // Плавно приближаем visual velocity к серверной (для следующей итерации сглаживания)
+    const velocityLerp = clamp(dtSec * 8, 0, 1);
+    visual.vx = lerp(visual.vx, targetVx, velocityLerp);
+    visual.vy = lerp(visual.vy, targetVy, velocityLerp);
+    
+    // Smooth angle interpolation
+    const angleDelta = wrapAngle(targetAngle - visual.angle);
+    const angleError = Math.abs(angleDelta);
+    if (angleError > 0.001) {
+        const angleCatchUp = Math.min(angleError * cfg.angleCatchUpSpeed, Math.PI * 4) * dtSec;
+        if (angleCatchUp >= angleError) {
+            visual.angle = targetAngle;
+        } else {
+            visual.angle = wrapAngle(visual.angle + Math.sign(angleDelta) * angleCatchUp);
+        }
+    }
 };
+
+// clamp, lerp, wrapAngle теперь импортируются из @slime-arena/shared
 
 type CollectionLike<T> = {
     entries(): IterableIterator<[string, T]>;
@@ -538,10 +683,8 @@ type GameStateLike = {
 const captureSnapshot = (state: GameStateLike) => {
     const now = performance.now();
     
-    if (snapshotBuffer.length > 0) {
-        const last = snapshotBuffer[snapshotBuffer.length - 1];
-        if (now - last.time < 10) return;
-    }
+    // U2-стиль: проверяем дебаунс по последнему снапшоту
+    if (latestSnapshot && now - latestSnapshot.time < 10) return;
     
     const snapshot: Snapshot = {
         time: now,
@@ -603,292 +746,146 @@ const captureSnapshot = (state: GameStateLike) => {
         });
     }
 
-    snapshotBuffer.push(snapshot);
-    if (snapshotBuffer.length > snapshotBufferLimit) {
-        snapshotBuffer.shift();
-    }
+    // U2-стиль: сохраняем только последний снапшот
+    latestSnapshot = snapshot;
+    
+    // U2-стиль: сохраняем только последний снапшот
+    latestSnapshot = snapshot;
 };
 
-const extrapolateMotion = <T extends { x: number; y: number; vx: number; vy: number }>(
-    entity: T,
-    dtSec: number
-): T => ({
-    ...entity,
-    x: entity.x + entity.vx * dtSec,
-    y: entity.y + entity.vy * dtSec,
-});
-
-const extrapolatePlayer = (player: SnapshotPlayer, dtSec: number): RenderPlayer => ({
-    ...player,
-    x: player.x + player.vx * dtSec,
-    y: player.y + player.vy * dtSec,
-    angle: wrapAngle(player.angle + player.angVel * dtSec),
-});
-
-const interpolatePlayer = (older: SnapshotPlayer, newer: SnapshotPlayer, t: number): RenderPlayer => {
-    const angleDelta = Math.abs(wrapAngle(newer.angle - older.angle));
-    const angleT = angleDelta > angleMaxDeviationRad ? clamp(t * 1.5, 0, 1) : t;
-    return {
-        ...newer,
-        x: lerp(older.x, newer.x, t),
-        y: lerp(older.y, newer.y, t),
-        vx: lerp(older.vx, newer.vx, t),
-        vy: lerp(older.vy, newer.vy, t),
-        angle: lerpAngle(older.angle, newer.angle, angleT),
-        angVel: lerp(older.angVel, newer.angVel, angleT),
-        mass: lerp(older.mass, newer.mass, t),
-        hp: lerp(older.hp, newer.hp, t),
-        maxHp: lerp(older.maxHp, newer.maxHp, t),
-    };
-};
-
-const interpolateOrb = (older: SnapshotOrb, newer: SnapshotOrb, t: number): RenderOrb => ({
-    ...newer,
-    x: lerp(older.x, newer.x, t),
-    y: lerp(older.y, newer.y, t),
-    vx: lerp(older.vx, newer.vx, t),
-    vy: lerp(older.vy, newer.vy, t),
-    mass: lerp(older.mass, newer.mass, t),
-});
-
-const interpolateChest = (older: SnapshotChest, newer: SnapshotChest, t: number): RenderChest => ({
-    ...newer,
-    x: lerp(older.x, newer.x, t),
-    y: lerp(older.y, newer.y, t),
-    vx: lerp(older.vx, newer.vx, t),
-    vy: lerp(older.vy, newer.vy, t),
-});
-
-const interpolateHotZone = (older: SnapshotHotZone, newer: SnapshotHotZone, t: number): RenderHotZone => ({
-    ...newer,
-    x: lerp(older.x, newer.x, t),
-    y: lerp(older.y, newer.y, t),
-    radius: lerp(older.radius, newer.radius, t),
-    spawnMultiplier: lerp(older.spawnMultiplier, newer.spawnMultiplier, t),
-});
-
-const clonePlayers = (source: Map<string, SnapshotPlayer>): Map<string, RenderPlayer> => {
-    const result = new Map<string, RenderPlayer>();
-    for (const [id, player] of source.entries()) {
-        result.set(id, { ...player });
-    }
-    return result;
-};
-
-const cloneOrbs = (source: Map<string, SnapshotOrb>): Map<string, RenderOrb> => {
-    const result = new Map<string, RenderOrb>();
-    for (const [id, orb] of source.entries()) {
-        result.set(id, { ...orb });
-    }
-    return result;
-};
-
-const cloneChests = (source: Map<string, SnapshotChest>): Map<string, RenderChest> => {
-    const result = new Map<string, RenderChest>();
-    for (const [id, chest] of source.entries()) {
-        result.set(id, { ...chest });
-    }
-    return result;
-};
-
-const cloneHotZones = (source: Map<string, SnapshotHotZone>): Map<string, RenderHotZone> => {
-    const result = new Map<string, RenderHotZone>();
-    for (const [id, zone] of source.entries()) {
-        result.set(id, { ...zone });
-    }
-    return result;
-};
-
-const extrapolateState = (snapshot: Snapshot, dtSec: number): RenderState => {
+// U2-style predictive smoothing: visual state catches up to target
+const getSmoothedRenderState = (nowMs: number): RenderState | null => {
+    // U2-стиль: используем только последний снапшот
+    if (!latestSnapshot) return null;
+    
+    const newest = latestSnapshot;
+    
+    // Calculate frame delta
+    const dtSec = lastRenderMs > 0 ? Math.min((nowMs - lastRenderMs) / 1000, 0.1) : 0;
+    lastRenderMs = nowMs;
+    
+    // Predict target position: last known position + velocity * lookAhead
+    const lookAheadSec = getSmoothingConfig().lookAheadMs / 1000;
+    
+    // Result maps
     const players = new Map<string, RenderPlayer>();
     const orbs = new Map<string, RenderOrb>();
     const chests = new Map<string, RenderChest>();
     const hotZones = new Map<string, RenderHotZone>();
-    for (const [id, player] of snapshot.players.entries()) {
-        players.set(id, extrapolatePlayer(player, dtSec));
-    }
-    for (const [id, orb] of snapshot.orbs.entries()) {
-        orbs.set(id, extrapolateMotion(orb, dtSec));
-    }
-    for (const [id, chest] of snapshot.chests.entries()) {
-        chests.set(id, extrapolateMotion(chest, dtSec));
-    }
-    for (const [id, zone] of snapshot.hotZones.entries()) {
-        hotZones.set(id, { ...zone });
-    }
-    return {
-        players,
-        orbs,
-        chests,
-        hotZones,
-    };
-};
-
-const extrapolateStateWithDecay = (
-    snapshot: Snapshot,
-    extrapolateSec: number,
-    extraSec: number,
-    decay: number
-): RenderState => {
-    const players = new Map<string, RenderPlayer>();
-    const orbs = new Map<string, RenderOrb>();
-    const chests = new Map<string, RenderChest>();
-    const hotZones = new Map<string, RenderHotZone>();
-    const extraScale = extraSec > 0 ? extraSec * (1 + decay) * 0.5 : 0;
-    const totalSec = extrapolateSec + extraScale;
-
-    for (const [id, player] of snapshot.players.entries()) {
+    
+    // Process players with visual smoothing
+    for (const [id, player] of newest.players.entries()) {
+        // Get or create visual state
+        let visual = visualPlayers.get(id);
+        if (!visual) {
+            visual = {
+                x: player.x,
+                y: player.y,
+                vx: player.vx,
+                vy: player.vy,
+                angle: player.angle,
+            };
+            visualPlayers.set(id, visual);
+        }
+        
+        // Calculate target position (server pos + velocity * lookAhead)
+        const targetX = player.x + player.vx * lookAheadSec;
+        const targetY = player.y + player.vy * lookAheadSec;
+        const targetAngle = wrapAngle(player.angle + player.angVel * lookAheadSec);
+        
+        // Smooth visual towards target
+        if (dtSec > 0) {
+            smoothStep(visual, targetX, targetY, player.vx, player.vy, targetAngle, dtSec);
+        }
+        
+        // Build render player from visual state
         players.set(id, {
             ...player,
-            x: player.x + player.vx * totalSec,
-            y: player.y + player.vy * totalSec,
-            vx: player.vx * decay,
-            vy: player.vy * decay,
-            angVel: player.angVel * decay,
-            angle: wrapAngle(player.angle + player.angVel * totalSec),
+            x: visual.x,
+            y: visual.y,
+            vx: visual.vx,
+            vy: visual.vy,
+            angle: visual.angle,
         });
     }
-    for (const [id, orb] of snapshot.orbs.entries()) {
+    
+    // Clean up removed players
+    for (const id of visualPlayers.keys()) {
+        if (!newest.players.has(id)) {
+            visualPlayers.delete(id);
+        }
+    }
+    
+    // Process orbs with visual smoothing (simplified - less critical)
+    for (const [id, orb] of newest.orbs.entries()) {
+        let visual = visualOrbs.get(id);
+        if (!visual) {
+            visual = {
+                x: orb.x,
+                y: orb.y,
+                vx: orb.vx,
+                vy: orb.vy,
+                angle: 0,
+            };
+            visualOrbs.set(id, visual);
+        }
+        
+        // Orbs use simpler smoothing (just position)
+        const targetX = orb.x + orb.vx * lookAheadSec;
+        const targetY = orb.y + orb.vy * lookAheadSec;
+        
+        if (dtSec > 0) {
+            // Faster catch-up for orbs
+            const cfg = getSmoothingConfig();
+            const dx = targetX - visual.x;
+            const dy = targetY - visual.y;
+            const error = Math.sqrt(dx * dx + dy * dy);
+            
+            if (error > cfg.teleportThreshold) {
+                visual.x = targetX;
+                visual.y = targetY;
+            } else if (error > 0.01) {
+                const catchUpSpeed = Math.min(error * cfg.catchUpSpeed * 1.5, cfg.maxCatchUpSpeed);
+                const t = Math.min(catchUpSpeed * dtSec / error, 1);
+                visual.x = lerp(visual.x, targetX, t);
+                visual.y = lerp(visual.y, targetY, t);
+            }
+            visual.vx = orb.vx;
+            visual.vy = orb.vy;
+        }
+        
         orbs.set(id, {
             ...orb,
-            x: orb.x + orb.vx * totalSec,
-            y: orb.y + orb.vy * totalSec,
-            vx: orb.vx * decay,
-            vy: orb.vy * decay,
+            x: visual.x,
+            y: visual.y,
+            vx: visual.vx,
+            vy: visual.vy,
         });
     }
-    for (const [id, chest] of snapshot.chests.entries()) {
-        chests.set(id, {
-            ...chest,
-            x: chest.x + chest.vx * totalSec,
-            y: chest.y + chest.vy * totalSec,
-            vx: chest.vx * decay,
-            vy: chest.vy * decay,
-        });
+    
+    // Clean up removed orbs
+    for (const id of visualOrbs.keys()) {
+        if (!newest.orbs.has(id)) {
+            visualOrbs.delete(id);
+        }
     }
-    for (const [id, zone] of snapshot.hotZones.entries()) {
+    
+    // Chests - use direct values (they don't move fast)
+    for (const [id, chest] of newest.chests.entries()) {
+        chests.set(id, { ...chest });
+    }
+    
+    // Hot zones - use direct values
+    for (const [id, zone] of newest.hotZones.entries()) {
         hotZones.set(id, { ...zone });
     }
-
-    return {
-        players,
-        orbs,
-        chests,
-        hotZones,
-    };
-};
-
-const interpolateState = (older: Snapshot, newer: Snapshot, t: number): RenderState => {
-    const players = new Map<string, RenderPlayer>();
-    const orbs = new Map<string, RenderOrb>();
-    const chests = new Map<string, RenderChest>();
-    const hotZones = new Map<string, RenderHotZone>();
-
-    for (const [id, player] of newer.players.entries()) {
-        const prev = older.players.get(id);
-        players.set(id, prev ? interpolatePlayer(prev, player, t) : { ...player });
-    }
-    for (const [id, orb] of newer.orbs.entries()) {
-        const prev = older.orbs.get(id);
-        orbs.set(id, prev ? interpolateOrb(prev, orb, t) : { ...orb });
-    }
-    for (const [id, chest] of newer.chests.entries()) {
-        const prev = older.chests.get(id);
-        chests.set(id, prev ? interpolateChest(prev, chest, t) : { ...chest });
-    }
-    for (const [id, zone] of newer.hotZones.entries()) {
-        const prev = older.hotZones.get(id);
-        hotZones.set(id, prev ? interpolateHotZone(prev, zone, t) : { ...zone });
-    }
-
-    const fadeAlpha = clamp(1 - t, 0, 1);
-    for (const [id, player] of older.players.entries()) {
-        if (!newer.players.has(id)) {
-            players.set(id, { ...player, alpha: fadeAlpha });
-        }
-    }
-    for (const [id, orb] of older.orbs.entries()) {
-        if (!newer.orbs.has(id)) {
-            orbs.set(id, { ...orb, alpha: fadeAlpha });
-        }
-    }
-    for (const [id, chest] of older.chests.entries()) {
-        if (!newer.chests.has(id)) {
-            chests.set(id, { ...chest, alpha: fadeAlpha });
-        }
-    }
-    for (const [id, zone] of older.hotZones.entries()) {
-        if (!newer.hotZones.has(id)) {
-            hotZones.set(id, { ...zone, alpha: fadeAlpha });
-        }
-    }
-
-    return {
-        players,
-        orbs,
-        chests,
-        hotZones,
-    };
-};
-
-const getRenderState = (renderTimeMs: number): RenderState | null => {
-    if (snapshotBuffer.length === 0) return null;
     
-    const oldest = snapshotBuffer[0];
-    const newest = snapshotBuffer[snapshotBuffer.length - 1];
-
-    if (renderTimeMs <= oldest.time) {
-        return {
-            players: clonePlayers(oldest.players),
-            orbs: cloneOrbs(oldest.orbs),
-            chests: cloneChests(oldest.chests),
-            hotZones: cloneHotZones(oldest.hotZones),
-        };
-    }
-
-    if (renderTimeMs >= newest.time) {
-        const dtMs = renderTimeMs - newest.time;
-        if (dtMs <= maxExtrapolationMs || transitionDurationMs <= 0) {
-            const clamped = Math.min(dtMs, maxExtrapolationMs);
-            return extrapolateState(newest, clamped / 1000);
-        }
-        const excessMs = dtMs - maxExtrapolationMs;
-        const cappedExcessMs = Math.min(excessMs, transitionDurationMs);
-        const decay = clamp(1 - cappedExcessMs / transitionDurationMs, 0, 1);
-        return extrapolateStateWithDecay(
-            newest,
-            maxExtrapolationMs / 1000,
-            cappedExcessMs / 1000,
-            decay
-        );
-    }
-
-    if (snapshotBuffer.length < 2) {
-        return {
-            players: clonePlayers(newest.players),
-            orbs: cloneOrbs(newest.orbs),
-            chests: cloneChests(newest.chests),
-            hotZones: cloneHotZones(newest.hotZones),
-        };
-    }
-
-    let low = 0;
-    let high = snapshotBuffer.length - 1;
-    while (low <= high) {
-        const mid = (low + high) >> 1;
-        if (snapshotBuffer[mid].time <= renderTimeMs) {
-            low = mid + 1;
-        } else {
-            high = mid - 1;
-        }
-    }
-    const olderIndex = Math.max(0, low - 1);
-    const older = snapshotBuffer[olderIndex];
-    const newer = snapshotBuffer[Math.min(olderIndex + 1, snapshotBuffer.length - 1)];
-
-    const dtMs = newer.time - older.time;
-    const t = dtMs > 0 ? clamp((renderTimeMs - older.time) / dtMs, 0, 1) : 0;
-    return interpolateState(older, newer, t);
+    return {
+        players,
+        orbs,
+        chests,
+        hotZones,
+    };
 };
 
 const computeSpriteScale = (img: HTMLImageElement) => {
@@ -1100,7 +1097,8 @@ async function main() {
     const client = new Colyseus.Client(wsUrl);
 
         try {
-            const room = await client.joinOrCreate<any>("arena", { name: `Player_${Math.random().toString(36).slice(2, 7)}` });
+            // Сервер сам генерирует юмористическое имя
+            const room = await client.joinOrCreate<any>("arena", {});
             hud.textContent = "Подключено к серверу";
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
@@ -1249,21 +1247,122 @@ async function main() {
                 }
             }
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {
-                lines.push("Топ-3:");
-                for (let i = 0; i < Math.min(3, room.state.leaderboard.length); i += 1) {
+                lines.push("Лидеры:");
+                for (let i = 0; i < Math.min(5, room.state.leaderboard.length); i += 1) {
                     const playerId = room.state.leaderboard[i];
                     const pl = room.state.players.get(playerId);
                     if (pl) {
-                        lines.push(`${i + 1}. ${pl.name} - ${pl.mass.toFixed(0)} масса`);
+                        const isKing = (pl.flags & FLAG_IS_REBEL) !== 0;
+                        const crown = isKing ? "👑 " : "";
+                        const isSelf = playerId === room.sessionId;
+                        const selfMark = isSelf ? " ◀" : "";
+                        lines.push(`${i + 1}. ${crown}${pl.name} - ${pl.mass.toFixed(0)}${selfMark}`);
                     }
                 }
             }
             hud.textContent = lines.join("\n");
         };
 
+        const updateResultsOverlay = () => {
+            const phase = room.state.phase;
+            if (phase !== "Results") {
+                resultsOverlay.style.display = "none";
+                return;
+            }
+
+            resultsOverlay.style.display = "flex";
+            resultsTitle.textContent = "🏆 Матч завершён!";
+
+            // Получаем победителя
+            const leaderId = room.state.leaderboard?.[0];
+            const winner = leaderId ? room.state.players.get(leaderId) : null;
+            if (winner) {
+                const isKing = (winner.flags & FLAG_IS_REBEL) !== 0;
+                const crown = isKing ? "👑 " : "";
+                resultsWinner.textContent = `${crown}Победитель: ${winner.name}`;
+            } else {
+                resultsWinner.textContent = "Нет победителя";
+            }
+
+            // Формируем лидерборд с использованием DOM API (безопаснее innerHTML)
+            resultsLeaderboard.innerHTML = "";
+            
+            const leaderboardTitle = document.createElement("div");
+            leaderboardTitle.style.fontSize = "14px";
+            leaderboardTitle.style.marginBottom = "8px";
+            leaderboardTitle.style.color = "#9fb5cc";
+            leaderboardTitle.textContent = "Таблица лидеров:";
+            resultsLeaderboard.appendChild(leaderboardTitle);
+            
+            const maxEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
+            for (let i = 0; i < maxEntries; i++) {
+                const playerId = room.state.leaderboard[i];
+                const player = room.state.players.get(playerId);
+                if (!player) continue;
+
+                const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
+                const isSelf = playerId === room.sessionId;
+                const crown = isKing ? "👑 " : "";
+                const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
+                
+                const row = document.createElement("div");
+                row.style.padding = "4px 0";
+                if (isSelf) {
+                    row.style.color = "#6fd6ff";
+                    row.style.fontWeight = "bold";
+                }
+                // textContent безопасно экранирует имя
+                row.textContent = `${medal} ${crown}${player.name} - ${player.mass.toFixed(0)} масса`;
+                resultsLeaderboard.appendChild(row);
+            }
+
+            // Таймер до рестарта
+            const timeRemaining = room.state.timeRemaining ?? 0;
+            resultsTimer.textContent = `Новый матч через ${Math.ceil(timeRemaining)}с...`;
+        };
+
+        // Обновление управления мышью: вычисляем направление от игрока к курсору
+        const updateMouseControl = () => {
+            if (!mouseState.active) return;
+            
+            const cw = canvas.width;
+            const ch = canvas.height;
+            
+            // Позиция курсора относительно центра экрана (где игрок)
+            const dx = mouseState.screenX - cw / 2;
+            const dy = mouseState.screenY - ch / 2;
+            
+            // Расстояние от центра (в пикселях)
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // Мёртвая зона в центре (из конфига)
+            const deadzone = balanceConfig.controls.mouseDeadzone;
+            if (dist < deadzone) {
+                mouseState.moveX = 0;
+                mouseState.moveY = 0;
+                return;
+            }
+            
+            // Нормализуем направление
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            // Интенсивность зависит от расстояния (линейно до maxDist из конфига)
+            const maxDist = balanceConfig.controls.mouseMaxDist;
+            const intensity = Math.min(1, (dist - deadzone) / (maxDist - deadzone));
+            
+            mouseState.moveX = nx * intensity;
+            mouseState.moveY = ny * intensity;
+        };
+
         const computeMoveInput = () => {
+            // Приоритет: джойстик > мышь > клавиатура
             if (joystickState.active) {
                 return { x: joystickState.moveX, y: -joystickState.moveY };
+            }
+            if (mouseState.active) {
+                updateMouseControl();
+                return { x: mouseState.moveX, y: -mouseState.moveY };
             }
             let x = 0;
             let y = 0;
@@ -1299,6 +1398,7 @@ async function main() {
 
         const render = () => {
             if (!isRendering) return;
+            const now = performance.now();
             const cw = canvas.width;
             const ch = canvas.height;
             const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
@@ -1307,8 +1407,8 @@ async function main() {
             const worldHalfW = worldWidth / 2;
             const worldHalfH = worldHeight / 2;
 
-            const renderTime = performance.now() - interpolationDelayMs;
-            const renderState = getRenderState(renderTime);
+            // Use U2-style predictive smoothing
+            const renderState = getSmoothedRenderState(now);
             renderStateForHud = renderState;
             const playersView = renderState ? renderState.players : room.state.players;
             const orbsView = renderState ? renderState.orbs : room.state.orbs;
@@ -1322,7 +1422,6 @@ async function main() {
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);
             const clampY = clamp(targetY, -maxCamY, maxCamY);
-            const now = performance.now();
             const frameDt = Math.min((now - lastFrameTime) / 1000, 0.1);
             lastFrameTime = now;
             const cameraLerp = 1 - Math.exp(-frameDt / cameraSmoothTime);
@@ -1597,7 +1696,8 @@ async function main() {
         };
 
         const onPointerDown = (event: PointerEvent) => {
-            const isCoarse = window.matchMedia("(pointer: coarse)").matches;
+            // Кэшируем результат matchMedia
+            const isCoarse = isCoarsePointer;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
             const isPrimaryMouseButton = isMousePointer && event.button === 0;
@@ -1664,6 +1764,9 @@ async function main() {
         const onBlur = () => {
             hasFocus = false;
             keyState.up = keyState.down = keyState.left = keyState.right = false;
+            mouseState.active = false;
+            mouseState.moveX = 0;
+            mouseState.moveY = 0;
             sendStopInput();
             detachJoystickPointerListeners();
             resetJoystick();
@@ -1673,6 +1776,9 @@ async function main() {
             if (document.visibilityState === "hidden") {
                 hasFocus = false;
                 keyState.up = keyState.down = keyState.left = keyState.right = false;
+                mouseState.active = false;
+                mouseState.moveX = 0;
+                mouseState.moveY = 0;
                 sendStopInput();
                 detachJoystickPointerListeners();
                 resetJoystick();
@@ -1681,18 +1787,45 @@ async function main() {
             }
         };
 
+        // Управление мышью для ПК (agar.io style)
+        // Приоритет: touch/joystick > mouse
+        const onMouseMove = (event: MouseEvent) => {
+            // Активируем только если это настоящая мышь (не touch)
+            // Кэшируем результат matchMedia
+            if (isCoarsePointer) return;
+            
+            // Не активируем если уже активен джойстик
+            if (joystickState.active) return;
+            
+            hasFocus = true;
+            mouseState.active = true;
+            mouseState.screenX = event.clientX;
+            mouseState.screenY = event.clientY;
+        };
+
+        const onMouseLeave = () => {
+            // Отключаем управление мышью когда курсор покидает окно
+            mouseState.active = false;
+            mouseState.moveX = 0;
+            mouseState.moveY = 0;
+        };
+
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
         canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+        canvas.addEventListener("mousemove", onMouseMove, { passive: true });
+        canvas.addEventListener("mouseleave", onMouseLeave, { passive: true });
         window.addEventListener("blur", onBlur);
         document.addEventListener("visibilitychange", onVisibilityChange);
 
         updateHud();
+        updateResultsOverlay();
         refreshTalentModal();
         render();
 
         const hudTimer = setInterval(() => {
             updateHud();
+            updateResultsOverlay();
             refreshTalentModal();
         }, 200);
 
@@ -1708,6 +1841,8 @@ async function main() {
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
             canvas.removeEventListener("pointerdown", onPointerDown);
+            canvas.removeEventListener("mousemove", onMouseMove);
+            canvas.removeEventListener("mouseleave", onMouseLeave);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
         });
