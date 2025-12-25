@@ -1286,8 +1286,16 @@ async function main() {
                 resultsWinner.textContent = "Нет победителя";
             }
 
-            // Формируем лидерборд
-            let leaderboardHtml = "<div style=\"font-size: 14px; margin-bottom: 8px; color: #9fb5cc;\">Таблица лидеров:</div>";
+            // Формируем лидерборд с использованием DOM API (безопаснее innerHTML)
+            resultsLeaderboard.innerHTML = "";
+            
+            const leaderboardTitle = document.createElement("div");
+            leaderboardTitle.style.fontSize = "14px";
+            leaderboardTitle.style.marginBottom = "8px";
+            leaderboardTitle.style.color = "#9fb5cc";
+            leaderboardTitle.textContent = "Таблица лидеров:";
+            resultsLeaderboard.appendChild(leaderboardTitle);
+            
             const maxEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
             for (let i = 0; i < maxEntries; i++) {
                 const playerId = room.state.leaderboard[i];
@@ -1297,14 +1305,18 @@ async function main() {
                 const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
                 const isSelf = playerId === room.sessionId;
                 const crown = isKing ? "👑 " : "";
-                const highlight = isSelf ? "color: #6fd6ff; font-weight: bold;" : "";
                 const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
-                // Экранируем имя для безопасности
-                const safeName = player.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-                leaderboardHtml += `<div style="padding: 4px 0; ${highlight}">${medal} ${crown}${safeName} - ${player.mass.toFixed(0)} масса</div>`;
+                
+                const row = document.createElement("div");
+                row.style.padding = "4px 0";
+                if (isSelf) {
+                    row.style.color = "#6fd6ff";
+                    row.style.fontWeight = "bold";
+                }
+                // textContent безопасно экранирует имя
+                row.textContent = `${medal} ${crown}${player.name} - ${player.mass.toFixed(0)} масса`;
+                resultsLeaderboard.appendChild(row);
             }
-            resultsLeaderboard.innerHTML = leaderboardHtml;
 
             // Таймер до рестарта
             const timeRemaining = room.state.timeRemaining ?? 0;
@@ -1323,7 +1335,8 @@ async function main() {
             const dy = mouseState.screenY - ch / 2;
             
             // Расстояние от центра (в пикселях)
-            const dist = Math.hypot(dx, dy);
+            // Используем Math.sqrt вместо Math.hypot для производительности
+            const dist = Math.sqrt(dx * dx + dy * dy);
             
             // Мёртвая зона в центре (30 пикселей)
             const deadzone = 30;

@@ -34,20 +34,26 @@ const NOUNS = [
 ];
 
 /**
+ * Создаёт детерминированный генератор случайных чисел (LCG).
+ * @param seed - начальное значение
+ * @returns функция, возвращающая следующее случайное число
+ */
+function createLcg(seed: number): () => number {
+    let hash = seed >>> 0;
+    return () => {
+        hash = (hash * 1103515245 + 12345) >>> 0;
+        return hash;
+    };
+}
+
+/**
  * Генерирует случайное имя на основе seed.
  * Детерминированно: один seed — одно имя.
  */
 export function generateName(seed: number): string {
-    // Простой детерминированный генератор
-    let hash = seed >>> 0;
-    const nextRandom = () => {
-        hash = (hash * 1103515245 + 12345) >>> 0;
-        return hash;
-    };
-
+    const nextRandom = createLcg(seed);
     const adjIndex = nextRandom() % ADJECTIVES.length;
     const nounIndex = nextRandom() % NOUNS.length;
-
     return `${ADJECTIVES[adjIndex]} ${NOUNS[nounIndex]}`;
 }
 
@@ -64,12 +70,7 @@ export function generateUniqueName(
     maxAttempts: number = 100
 ): string {
     const existingSet = new Set(existingNames);
-    let hash = seed >>> 0;
-    
-    const nextRandom = () => {
-        hash = (hash * 1103515245 + 12345) >>> 0;
-        return hash;
-    };
+    const nextRandom = createLcg(seed);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const adjIndex = nextRandom() % ADJECTIVES.length;
@@ -92,7 +93,8 @@ export function generateUniqueName(
 
 /**
  * Генерирует случайное имя с использованием Math.random().
- * Для использования без seed.
+ * ТОЛЬКО ДЛЯ КЛИЕНТА: не использовать на сервере,
+ * так как Math.random() нарушает детерминизм симуляции.
  */
 export function generateRandomName(): string {
     const adjIndex = Math.floor(Math.random() * ADJECTIVES.length);

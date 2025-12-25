@@ -696,8 +696,10 @@ export class ArenaRoom extends Room<GameState> {
         
         // Усиленный PvP урон: % от массы атакующего + % от массы жертвы
         const baseDamage = getSlimeBiteDamage(attacker.mass, slimeConfig);
-        const pvpAttackerBonus = attacker.mass * this.balance.combat.pvpBiteDamageAttackerMassPct;
-        const pvpVictimBonus = defender.mass * this.balance.combat.pvpBiteDamageVictimMassPct;
+        const safeAttackerMass = Math.max(0, attacker.mass);
+        const safeDefenderMass = Math.max(0, defender.mass);
+        const pvpAttackerBonus = safeAttackerMass * this.balance.combat.pvpBiteDamageAttackerMassPct;
+        const pvpVictimBonus = safeDefenderMass * this.balance.combat.pvpBiteDamageVictimMassPct;
         let damage = (baseDamage + pvpAttackerBonus + pvpVictimBonus) * damageMultiplier * classStats.damageMult;
         
         if (attacker.isLastBreath) {
