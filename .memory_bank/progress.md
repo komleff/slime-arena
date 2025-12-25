@@ -288,6 +288,51 @@
 3. `client/src/main.ts` — orbMinRadius removed
 4. `docs/SlimeArena-GDD-v2.5.md` — renamed, fixed duplicate + incorrect description
 
+## Задача: Способности классов (26 декабря 2025) (✅ ЗАВЕРШЕНА)
+
+### Реализованные способности
+- [x] **Рывок (Охотник)** — 80м за 0.3с, огненный след
+- [x] **Щит (Воин)** — 3с неуязвимости, голубое свечение
+- [x] **Притяжение (Собиратель)** — 150м радиус, магнитное поле
+
+### UI способностей
+- [x] Кнопка способности с иконкой класса
+- [x] SVG прогресс-круг кулдауна
+- [x] Тёмный оверлей на кулдауне
+- [x] Яркое свечение когда готово
+- [x] Подпись "1" на кнопке
+- [x] Горячие клавиши Q, 1, 2, 3
+
+### Визуальные эффекты
+- [x] Dash trail — 5 затухающих кругов + огненный хвост
+- [x] Shield glow — голубой круг r×1.4 с inner glow
+- [x] Magnet field — фиолетовый градиент + 8 магнитных линий
+
+### Серверная логика
+- [x] activateDash() — линейное движение к цели
+- [x] activateShield() — FLAG_ABILITY_SHIELD блокирует урон
+- [x] activateMagnet() — притяжение орбов в updateOrbs()
+- [x] Флаги в updatePlayerFlags() с проверкой endTick
+
+### Технические исправления
+- [x] Сервер не перезатирает abilitySlot обычными input'ами
+- [x] abilityCooldownTick синхронизируется с клиентом
+- [x] Добавлены FLAG_DASHING, FLAG_MAGNETIZING в shared
+
+### Изменённые файлы (7)
+1. `client/src/main.ts` — UI + визуальные эффекты
+2. `server/src/rooms/ArenaRoom.ts` — серверная логика способностей
+3. `server/src/rooms/schema/GameState.ts` — abilityCooldownTick + состояние
+4. `shared/src/constants.ts` — FLAG_DASHING, FLAG_MAGNETIZING
+5. `shared/src/config.ts` — типы abilities.*, hpMult
+6. `shared/src/index.ts` — экспорты флагов
+7. `config/balance.json` — секция abilities
+
+### Валидация
+- [x] npm run build — PASS (122.36 kB)
+- [x] Способности активируются стабильно
+- [x] PR #6 создан
+
 ## Кандидаты на очистку (Candidate-for-cleanup)
 - `legacy/`: Старая версия проекта, не используется в текущем пайплайне.
 - `_ext/u2/`: Внешняя песочница Universe Unlimited, не относится к Slime Arena.
@@ -299,6 +344,9 @@
 - [x] **Документация обновлена** — актуальные ссылки в README
 - [x] **Конфигурация очищена** — удалён устаревший код movement
 - [x] **Mass-as-HP система** — HP удалён, масса = здоровье
+- [x] **Способности классов** — Dash/Shield/Magnet реализованы (PR #6)
+- [ ] Merge PR #6 в main
+- [ ] Реализация Выброса (projectile ability)
 - [ ] Завершение модульного разделения `ArenaRoom.ts`.
 - [ ] Оптимизация `main.ts` на клиенте.
 - [ ] Внедрение Protobuf (согласно `docs/PROTOBUF_ADOPTION_PLAN.md`).

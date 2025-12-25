@@ -276,7 +276,14 @@ abilityButton.style.transition = "transform 150ms, background 150ms, opacity 150
 abilityButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
 abilityButton.style.display = "none"; // Скрыта до входа в игру
 abilityButton.style.position = "fixed"; // Уже fixed, но нужен relative контекст для детей
-abilityButton.title = "Q / 1";
+abilityButton.title = "1";
+
+// Span для иконки способности (чтобы не использовать textContent и не удалять детей)
+const abilityButtonIcon = document.createElement("span");
+abilityButtonIcon.style.fontSize = "28px";
+abilityButtonIcon.style.pointerEvents = "none";
+abilityButtonIcon.style.zIndex = "1";
+abilityButton.appendChild(abilityButtonIcon);
 
 // Подпись с цифрой на кнопке
 const abilityButtonLabel = document.createElement("span");
@@ -1462,7 +1469,7 @@ async function connectToServer(playerName: string, classId: number) {
     abilityButton.style.display = "flex";
     abilityButton.style.alignItems = "center";
     abilityButton.style.justifyContent = "center";
-    abilityButton.textContent = abilityIcons[classId] ?? "⚡";
+    abilityButtonIcon.textContent = abilityIcons[classId] ?? "⚡";
 
     hud.textContent = "Подключение к серверу...";
 
@@ -2136,8 +2143,8 @@ async function connectToServer(playerName: string, classId: number) {
             if (event.repeat) return;
             const key = event.key.toLowerCase();
             
-            // Способности активируются всегда, независимо от фокуса
-            if (key === "q" || key === "1" || key === "2" || key === "3") {
+            // Способности активируются клавишами 1/2/3
+            if (key === "1" || key === "2" || key === "3") {
                 inputSeq += 1;
                 room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
                 event.preventDefault();
