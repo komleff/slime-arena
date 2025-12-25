@@ -895,6 +895,7 @@ export class ArenaRoom extends Room<GameState> {
 
     /**
      * Создаёт орбы, разлетающиеся от точки укуса PvP.
+     * Эти орбы игнорируют maxCount — боевая механика важнее лимита.
      */
     private spawnPvPBiteOrbs(x: number, y: number, totalMass: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
@@ -906,11 +907,10 @@ export class ArenaRoom extends Room<GameState> {
         
         for (let i = 0; i < count; i++) {
             const angle = i * angleStep + this.rng.range(-0.3, 0.3);
-            const orb = this.spawnOrb(x, y, perOrbMass);
-            if (orb) {
-                orb.vx = Math.cos(angle) * speed;
-                orb.vy = Math.sin(angle) * speed;
-            }
+            // Force spawn: scatter orbs игнорируют maxCount
+            const orb = this.forceSpawnOrb(x, y, perOrbMass);
+            orb.vx = Math.cos(angle) * speed;
+            orb.vy = Math.sin(angle) * speed;
         }
     }
 
@@ -1380,6 +1380,13 @@ export class ArenaRoom extends Room<GameState> {
 
     private spawnOrb(x?: number, y?: number, massOverride?: number): Orb | null {
         if (this.state.orbs.size >= this.balance.orbs.maxCount) return null;
+        return this.forceSpawnOrb(x, y, massOverride);
+    }
+
+    /**
+     * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
+     */
+    private forceSpawnOrb(x?: number, y?: number, massOverride?: number): Orb {
         const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
         const orb = new Orb();

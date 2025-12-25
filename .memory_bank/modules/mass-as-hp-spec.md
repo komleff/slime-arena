@@ -26,8 +26,8 @@
 **Инвариант:** `pvpBiteAttackerGainPct + pvpBiteScatterPct == pvpBiteVictimLossPct`
 
 ### Orb Bite (поедание орба)
-- **Лимит:** Максимум 50% собственной массы за один укус орба
-- **Параметр:** `slimeConfig.combat.orbBitePctOfMass` (текущий 0.05 = 5%)
+- **Лимит:** Максимум 10% собственной массы за один укус орба
+- **Параметр:** `slimeConfig.combat.orbBitePctOfMass` (0.10 = 10%)
 
 ### Last Breath
 - Активируется когда масса падает ≤ `minSlimeMass`
