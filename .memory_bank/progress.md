@@ -72,15 +72,17 @@
 - [x] Shared exports: добавлены в index.ts для новых модулей
 
 ### Валидация
-- [x] npm run build PASS (0 errors)
+- [x] npm run build PASS (0 errors, gzip 32.32 kB)
 - [x] npm run test PASS (determinism проверен)
-- [x] 6 commits с чистой историей:
+- [x] 7 commits с чистой историей (fc71e17 HEAD):
+  - 10b2949: feat: gameplay-ui improvements
+  - 1ce75e8: fix: self-review
   - 97c5976: smoothing constants → balance.json
   - 011199a: 8 low fixes (lastUpdateMs, Кисель, wrapAngle, matchMedia, etc)
   - 05759b4: buffer optimization (latestSnapshot)
   - 824be93: DRY createLcg, Math.sqrt, DOM API results
   - 282835f: PvP balance (pvpVictimMassLossPct=0.50, pvpAttackerMassGainPct=0.25)
-  - docs: Memory Bank update (pending commit)
+  - fc71e17: docs: PR #4 final status update
 
 ## Задача: Документация U2-сглаживания (ЗАВЕРШЕНА ✓)
 - [x] Создан `.memory_bank/modules/U2-smoothing.md`
@@ -97,7 +99,8 @@
 - `docker/docker-compose.yml`: Требует исправления (отсутствуют Dockerfiles).
 
 ## Планы
-- [ ] Смержить ветку `fix/smoothing-hermite-cleanup` в `main`
+- [x] **PR #4 завершена** — готово к мержу в main
+- [ ] Смержить ветку `feat/gameplay-ui-improvements` в `main`
 - [ ] Завершение модульного разделения `ArenaRoom.ts`.
 - [ ] Оптимизация `main.ts` на клиенте.
 - [ ] Внедрение Protobuf (согласно `docs/PROTOBUF_ADOPTION_PLAN.md`).
