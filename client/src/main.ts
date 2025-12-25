@@ -1403,9 +1403,9 @@ async function main() {
             const chestsView = renderState ? renderState.chests : room.state.chests;
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
 
-            const cameraTarget = renderState?.players.get(room.sessionId) ?? localPlayer;
-            const targetX = cameraTarget ? cameraTarget.x : 0;
-            const targetY = cameraTarget ? cameraTarget.y : 0;
+            // Камера следит за реальной позицией игрока (без сглаживания), чтобы игрок был строго в центре
+            const targetX = localPlayer ? localPlayer.x : 0;
+            const targetY = localPlayer ? localPlayer.y : 0;
             const maxCamX = Math.max(0, worldHalfW - halfWorldW);
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);
