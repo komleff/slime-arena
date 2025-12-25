@@ -6,9 +6,16 @@
 **PR #4: Refactor — Mass-based combat system**
 
 - Ветка: `refactor/mass-based-combat-system`
-- Последний коммит: de55c62 (fix: Copilot review fixes for mass-based combat)
-- Статус: Pull Request открыт, все замечания Copilot исправлены
+- Последний коммит: 18c8854 (fix: align docker-compose port with client dev port)
+- Статус: Pull Request открыт, все замечания ревьюверов исправлены
 - URL: https://github.com/komleff/slime-arena/pull/4
+
+### Коммиты в PR
+1. `b0f4910` — refactor: mass-based combat system
+2. `0e3d47c` — docs: update Memory Bank after PR #4 refactor
+3. `de55c62` — fix: Copilot review fixes for mass-based combat
+4. `8ec5be9` — docs: update Memory Bank after Copilot review fixes
+5. `18c8854` — fix: align docker-compose port with client dev port (5174)
 
 ## Полный список изменений
 
@@ -47,6 +54,9 @@
 
 #### client/package.json
 - Порт разработки: 5173 → 5174 (проксирование на overmobile.space)
+
+#### docker/docker-compose.yml
+- Порт клиента: 5173:5173 → 5174:5174 (синхронизация с client/package.json)
 
 ## Механика боевого взаимодействия
 

@@ -108,9 +108,8 @@
 - `legacy/`: Старая версия проекта, не используется в текущем пайплайне.
 - `_ext/u2/`: Внешняя песочница Universe Unlimited, не относится к Slime Arena.
 - `local/`: Содержит временные файлы и README, который дублирует часть документации.
-- `docker/docker-compose.yml`: Требует исправления (отсутствуют Dockerfiles).
 
-## Задача: PR #4 Refactor mass-based combat system (COPILOT REVIEW ✓)
+## Задача: PR #4 Refactor mass-based combat system (ВСЕ РЕВЬЮ ✓)
 - [x] Создание ветки `refactor/mass-based-combat-system`
 - [x] Реализация упрощённой боевой системы:
   - ArenaRoom.ts: processCombat() с потерей массы вместо HP-урона
@@ -129,6 +128,8 @@
   - Добавлены множители damageMultiplier и classStats.damageMult
   - Восстановлена invulnerableUntilTick защита
   - Обновлена документация
+- [x] chatgpt-codex-connector ревью: 1/1 замечание исправлено
+  - docker-compose.yml: порт 5173 → 5174
 - ⏳ Запуск `npm run test` для проверки детерминизма
 - ⏳ Запуск `npm run build` для проверки сборки
 - ⏳ Мерж в main
