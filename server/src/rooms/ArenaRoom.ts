@@ -26,6 +26,7 @@ type ContactZone = "mouth" | "tail" | "side";
 interface ClassStats {
     radiusMult: number;
     damageMult: number;
+    biteResistPct: number;
     swallowLimit: number;
     biteFraction: number;
     eatingPowerMult: number;
@@ -959,13 +960,17 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         const classStats = this.getClassStats(attacker);
+        const defenderClassStats = this.getClassStats(defender);
         const minSlimeMass = this.balance.physics.minSlimeMass;
         
         // Mass-as-HP: укус отбирает % массы жертвы
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
         const victimMassBefore = Math.max(0, defender.mass);
         const multiplier = zoneMultiplier * classStats.damageMult;
-        let massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier;
+        
+        // Защита от укусов: класс + талант (cap 50%)
+        const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
+        let massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier * (1 - totalResist);
 
         attacker.lastAttackTick = this.tick;
 
@@ -1610,6 +1615,7 @@ export class ArenaRoom extends Room<GameState> {
                 return {
                     radiusMult: 1,
                     damageMult: this.balance.classes.warrior.damageVsSlimeMult,
+                    biteResistPct: this.balance.classes.warrior.biteResistPct,
                     swallowLimit: this.balance.classes.warrior.swallowLimit,
                     biteFraction: this.balance.classes.warrior.biteFraction,
                     eatingPowerMult: 1,
@@ -1618,6 +1624,7 @@ export class ArenaRoom extends Room<GameState> {
                 return {
                     radiusMult: this.balance.classes.collector.radiusMult,
                     damageMult: 1,
+                    biteResistPct: 0,
                     swallowLimit: this.balance.classes.collector.swallowLimit,
                     biteFraction: this.balance.classes.collector.biteFraction,
                     eatingPowerMult: this.balance.classes.collector.eatingPowerMult,
@@ -1627,6 +1634,7 @@ export class ArenaRoom extends Room<GameState> {
                 return {
                     radiusMult: 1,
                     damageMult: 1,
+                    biteResistPct: this.balance.classes.hunter.biteResistPct,
                     swallowLimit: this.balance.classes.hunter.swallowLimit,
                     biteFraction: this.balance.classes.hunter.biteFraction,
                     eatingPowerMult: 1,

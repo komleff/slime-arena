@@ -508,7 +508,7 @@ const classesData = [
         id: 1, 
         name: "Воин", 
         emoji: "⚔️",
-        desc: "+15% HP, +10% урон", 
+        desc: "−15% потерь при укусах, +10% урон", 
         ability: "Щит",
         color: "#f87171"
     },
@@ -1872,7 +1872,28 @@ async function connectToServer(playerName: string, classId: number) {
             canvasCtx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
 
-            canvasCtx.fillStyle = "rgba(255, 99, 71, 0.08)";
+            // Hunger Zone: красный фон вне Sweet Zones (только в Chaos/Final)
+            const currentPhase = room.state.phase;
+            if ((currentPhase === "Chaos" || currentPhase === "Final") && hotZonesView.size > 0) {
+                // Рисуем красный фон на весь экран
+                canvasCtx.save();
+                canvasCtx.fillStyle = "rgba(139, 0, 0, 0.12)";
+                canvasCtx.fillRect(0, 0, cw, ch);
+                // Вырезаем Safe Zones (Sweet Zones) используя destination-out
+                canvasCtx.globalCompositeOperation = "destination-out";
+                for (const [, zone] of hotZonesView.entries()) {
+                    const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                    const alpha = zone.alpha ?? 1;
+                    if (alpha <= 0.01) continue;
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, zone.radius * scale, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+                    canvasCtx.fill();
+                }
+                canvasCtx.restore();
+            }
+
+            // Sweet Zones (бывшие Hot Zones) — золотой цвет
             for (const [, zone] of hotZonesView.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
@@ -1880,7 +1901,7 @@ async function connectToServer(playerName: string, classId: number) {
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
-                drawCircle(p.x, p.y, zone.radius * scale, "rgba(255, 99, 71, 0.08)", "rgba(255, 99, 71, 0.4)");
+                drawCircle(p.x, p.y, zone.radius * scale, "rgba(255, 215, 0, 0.08)", "rgba(255, 215, 0, 0.4)");
                 canvasCtx.restore();
             }
 

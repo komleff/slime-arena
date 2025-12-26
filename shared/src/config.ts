@@ -194,13 +194,13 @@ export interface BalanceConfig {
     classes: {
         hunter: {
             speedMult: number;
-            hpMult: number;
+            biteResistPct: number;
             swallowLimit: number;
             biteFraction: number;
         };
         warrior: {
             speedMult: number;
-            hpMult: number;
+            biteResistPct: number;
             damageVsSlimeMult: number;
             swallowLimit: number;
             biteFraction: number;
@@ -597,13 +597,13 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     classes: {
         hunter: {
             speedMult: 1.15,
-            hpMult: 0.9,
+            biteResistPct: 0,
             swallowLimit: 50,
             biteFraction: 0.3,
         },
         warrior: {
             speedMult: 0.9,
-            hpMult: 1.15,
+            biteResistPct: 0.15,
             damageVsSlimeMult: 1.1,
             swallowLimit: 45,
             biteFraction: 0.35,
@@ -1361,10 +1361,10 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     DEFAULT_BALANCE_CONFIG.classes.hunter.speedMult,
                     "classes.hunter.speedMult"
                 ),
-                hpMult: readNumber(
-                    hunter.hpMult,
-                    DEFAULT_BALANCE_CONFIG.classes.hunter.hpMult,
-                    "classes.hunter.hpMult"
+                biteResistPct: readNumber(
+                    hunter.biteResistPct,
+                    DEFAULT_BALANCE_CONFIG.classes.hunter.biteResistPct,
+                    "classes.hunter.biteResistPct"
                 ),
                 swallowLimit: readNumber(
                     hunter.swallowLimit,
@@ -1383,10 +1383,10 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     DEFAULT_BALANCE_CONFIG.classes.warrior.speedMult,
                     "classes.warrior.speedMult"
                 ),
-                hpMult: readNumber(
-                    warrior.hpMult,
-                    DEFAULT_BALANCE_CONFIG.classes.warrior.hpMult,
-                    "classes.warrior.hpMult"
+                biteResistPct: readNumber(
+                    warrior.biteResistPct,
+                    DEFAULT_BALANCE_CONFIG.classes.warrior.biteResistPct,
+                    "classes.warrior.biteResistPct"
                 ),
                 damageVsSlimeMult: readNumber(
                     warrior.damageVsSlimeMult,

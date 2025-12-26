@@ -323,13 +323,13 @@
   "classes": {
     "hunter": {
       "speedMult": 1.15,
-      "hpMult": 0.9,
+      "biteResistPct": 0,
       "swallowLimit": 50,
       "biteFraction": 0.3
     },
     "warrior": {
       "speedMult": 0.9,
-      "hpMult": 1.15,
+      "biteResistPct": 0.15,
       "damageVsSlimeMult": 1.1,
       "swallowLimit": 45,
       "biteFraction": 0.35

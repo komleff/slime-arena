@@ -15,6 +15,7 @@ export class Player extends Schema {
     @type("number") talentsAvailable: number = 0;
     @type("number") flags: number = 0;
     @type("number") abilityCooldownTick: number = 0;
+    @type("number") biteResistPct: number = 0; // Накопленный бонус от талантов
 
     // Server-only state (not synced)
     inputX: number = 0;
