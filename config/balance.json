@@ -360,6 +360,14 @@
       "durationSec": 1.5,
       "radiusM": 150,
       "pullSpeedMps": 50
+    },
+    "projectile": {
+      "massCostPct": 0.02,
+      "cooldownSec": 3,
+      "speedMps": 400,
+      "rangeM": 300,
+      "damagePct": 0.10,
+      "radiusM": 8
     }
   },
   "chests": {

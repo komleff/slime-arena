@@ -232,6 +232,14 @@ export interface BalanceConfig {
             radiusM: number;
             pullSpeedMps: number;
         };
+        projectile: {
+            massCostPct: number;
+            cooldownSec: number;
+            speedMps: number;
+            rangeM: number;
+            damagePct: number;
+            radiusM: number;
+        };
     };
     chests: {
         maxCount: number;
@@ -634,6 +642,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             durationSec: 1.5,
             radiusM: 150,
             pullSpeedMps: 50,
+        },
+        projectile: {
+            massCostPct: 0.02,
+            cooldownSec: 3,
+            speedMps: 400,
+            rangeM: 300,
+            damagePct: 0.10,
+            radiusM: 8,
         },
     },
     chests: {
@@ -1432,6 +1448,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             const dash = isRecord(abilities.dash) ? abilities.dash : {};
             const shield = isRecord(abilities.shield) ? abilities.shield : {};
             const magnet = isRecord(abilities.magnet) ? abilities.magnet : {};
+            const projectile = isRecord(abilities.projectile) ? abilities.projectile : {};
             return {
                 dash: {
                     massCostPct: readNumber(dash.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.dash.massCostPct, "abilities.dash.massCostPct"),
@@ -1451,6 +1468,14 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     durationSec: readNumber(magnet.durationSec, DEFAULT_BALANCE_CONFIG.abilities.magnet.durationSec, "abilities.magnet.durationSec"),
                     radiusM: readNumber(magnet.radiusM, DEFAULT_BALANCE_CONFIG.abilities.magnet.radiusM, "abilities.magnet.radiusM"),
                     pullSpeedMps: readNumber(magnet.pullSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.magnet.pullSpeedMps, "abilities.magnet.pullSpeedMps"),
+                },
+                projectile: {
+                    massCostPct: readNumber(projectile.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.projectile.massCostPct, "abilities.projectile.massCostPct"),
+                    cooldownSec: readNumber(projectile.cooldownSec, DEFAULT_BALANCE_CONFIG.abilities.projectile.cooldownSec, "abilities.projectile.cooldownSec"),
+                    speedMps: readNumber(projectile.speedMps, DEFAULT_BALANCE_CONFIG.abilities.projectile.speedMps, "abilities.projectile.speedMps"),
+                    rangeM: readNumber(projectile.rangeM, DEFAULT_BALANCE_CONFIG.abilities.projectile.rangeM, "abilities.projectile.rangeM"),
+                    damagePct: readNumber(projectile.damagePct, DEFAULT_BALANCE_CONFIG.abilities.projectile.damagePct, "abilities.projectile.damagePct"),
+                    radiusM: readNumber(projectile.radiusM, DEFAULT_BALANCE_CONFIG.abilities.projectile.radiusM, "abilities.projectile.radiusM"),
                 },
             };
         })(),

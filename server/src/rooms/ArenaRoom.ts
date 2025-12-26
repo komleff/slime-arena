@@ -1,5 +1,5 @@
 import { Room, Client } from "colyseus";
-import { GameState, Player, Orb, Chest, HotZone } from "./schema/GameState";
+import { GameState, Player, Orb, Chest, HotZone, Projectile } from "./schema/GameState";
 import {
     InputCommand,
     MatchPhaseId,
@@ -41,6 +41,7 @@ export class ArenaRoom extends Room<GameState> {
     private orbIdCounter = 0;
     private chestIdCounter = 0;
     private hotZoneIdCounter = 0;
+    private projectileIdCounter = 0;
     private lastOrbSpawnTick = 0;
     private lastChestSpawnTick = 0;
     private lastPhaseId: MatchPhaseId | null = null;
@@ -227,6 +228,7 @@ export class ArenaRoom extends Room<GameState> {
         this.flightAssistSystem();
         this.physicsSystem();
         this.collisionSystem();
+        this.projectileSystem();
         this.chestSystem();
         this.deathSystem();
         this.hungerSystem();
@@ -309,8 +311,8 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private activateAbility(player: Player, slot: number) {
-        // Slot 0 = class ability
-        if (slot !== 0) return;
+        // Slot 0 = class ability, Slot 1 = projectile (universal)
+        if (slot !== 0 && slot !== 1) return;
         
         // Проверка кулдауна способности
         if (this.tick < player.abilityCooldownTick) return;
@@ -318,16 +320,22 @@ export class ArenaRoom extends Room<GameState> {
         const abilities = this.balance.abilities;
         const tickRate = this.balance.server.tickRate;
         
-        switch (player.classId) {
-            case 0: // Hunter - Dash
-                this.activateDash(player, abilities.dash, tickRate);
-                break;
-            case 1: // Warrior - Shield
-                this.activateShield(player, abilities.shield, tickRate);
-                break;
-            case 2: // Collector - Magnet
-                this.activateMagnet(player, abilities.magnet, tickRate);
-                break;
+        if (slot === 0) {
+            // Class ability
+            switch (player.classId) {
+                case 0: // Hunter - Dash
+                    this.activateDash(player, abilities.dash, tickRate);
+                    break;
+                case 1: // Warrior - Shield
+                    this.activateShield(player, abilities.shield, tickRate);
+                    break;
+                case 2: // Collector - Magnet
+                    this.activateMagnet(player, abilities.magnet, tickRate);
+                    break;
+            }
+        } else if (slot === 1) {
+            // Universal projectile
+            this.activateProjectile(player, abilities.projectile, tickRate);
         }
         
         player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
@@ -387,6 +395,34 @@ export class ArenaRoom extends Room<GameState> {
         
         // Устанавливаем флаг
         player.flags |= FLAG_MAGNETIZING;
+    }
+    
+    private activateProjectile(player: Player, config: typeof this.balance.abilities.projectile, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Создаём снаряд
+        const proj = new Projectile();
+        proj.id = `proj_${++this.projectileIdCounter}`;
+        proj.ownerId = player.id;
+        proj.x = player.x;
+        proj.y = player.y;
+        proj.startX = player.x;
+        proj.startY = player.y;
+        proj.vx = Math.cos(player.angle) * config.speedMps;
+        proj.vy = Math.sin(player.angle) * config.speedMps;
+        proj.radius = config.radiusM;
+        proj.damagePct = config.damagePct;
+        proj.spawnTick = this.tick;
+        proj.maxRangeM = config.rangeM;
+        
+        this.state.projectiles.set(proj.id, proj);
     }
 
     private applyTalentChoice(player: Player, choice: number) {
@@ -1035,6 +1071,111 @@ export class ArenaRoom extends Room<GameState> {
             orb.vx = Math.cos(angle) * speed;
             orb.vy = Math.sin(angle) * speed;
         }
+    }
+    
+    private projectileSystem() {
+        const dt = 1 / this.balance.server.tickRate;
+        const toRemove: string[] = [];
+        const mapSize = this.balance.world.mapSize;
+        const worldHalfW = mapSize / 2;
+        const worldHalfH = mapSize / 2;
+        
+        for (const [projId, proj] of this.state.projectiles.entries()) {
+            // Движение
+            proj.x += proj.vx * dt;
+            proj.y += proj.vy * dt;
+            
+            // Проверка дистанции
+            const dx = proj.x - proj.startX;
+            const dy = proj.y - proj.startY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > proj.maxRangeM * proj.maxRangeM) {
+                toRemove.push(projId);
+                continue;
+            }
+            
+            // Проверка границ мира
+            if (Math.abs(proj.x) > worldHalfW || Math.abs(proj.y) > worldHalfH) {
+                toRemove.push(projId);
+                continue;
+            }
+            
+            // Столкновение со слаймами (кроме владельца)
+            for (const player of this.state.players.values()) {
+                if (player.isDead || player.id === proj.ownerId) continue;
+                if (player.isLastBreath) continue;
+                if (this.tick < player.invulnerableUntilTick) continue;
+                
+                // Щит блокирует снаряд
+                if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                    // Щит снимается при попадании
+                    player.shieldEndTick = 0;
+                    player.flags &= ~FLAG_ABILITY_SHIELD;
+                    toRemove.push(projId);
+                    break;
+                }
+                
+                const playerRadius = this.getPlayerRadius(player);
+                const pdx = proj.x - player.x;
+                const pdy = proj.y - player.y;
+                const pdistSq = pdx * pdx + pdy * pdy;
+                const touchDist = playerRadius + proj.radius;
+                
+                if (pdistSq <= touchDist * touchDist) {
+                    // Попадание! Наносим урон
+                    const owner = this.state.players.get(proj.ownerId);
+                    if (owner && !owner.isDead) {
+                        this.applyProjectileDamage(owner, player, proj.damagePct);
+                    }
+                    toRemove.push(projId);
+                    break;
+                }
+            }
+        }
+        
+        // Удаляем снаряды
+        for (const id of toRemove) {
+            this.state.projectiles.delete(id);
+        }
+    }
+    
+    private applyProjectileDamage(attacker: Player, defender: Player, damagePct: number) {
+        const minSlimeMass = this.balance.physics.minSlimeMass;
+        
+        // Защита от укусов применяется и к снарядам
+        const defenderClassStats = this.getClassStats(defender);
+        const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
+        
+        let massLoss = defender.mass * damagePct * (1 - totalResist);
+        
+        // Last Breath check
+        const newDefenderMass = defender.mass - massLoss;
+        const triggersLastBreath =
+            newDefenderMass <= minSlimeMass &&
+            !defender.isLastBreath &&
+            this.lastBreathTicks > 0 &&
+            !defender.isDead;
+        
+        if (triggersLastBreath) {
+            massLoss = Math.max(0, defender.mass - minSlimeMass);
+        }
+        
+        // Снаряд не даёт массу атакующему (только урон)
+        this.applyMassDelta(defender, -massLoss);
+        
+        // Spawn scatter orbs от урона снаряда
+        if (massLoss > 0) {
+            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5);
+        }
+        
+        if (triggersLastBreath) {
+            defender.isLastBreath = true;
+            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
+            defender.invulnerableUntilTick = defender.lastBreathEndTick;
+            return;
+        }
+        
+        defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
     }
 
     private chestSystem() {

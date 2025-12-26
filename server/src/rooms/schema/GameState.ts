@@ -77,6 +77,23 @@ export class HotZone extends Schema {
     @type("number") spawnMultiplier: number = 1;
 }
 
+export class Projectile extends Schema {
+    @type("string") id: string = "";
+    @type("string") ownerId: string = "";
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") vx: number = 0;
+    @type("number") vy: number = 0;
+    @type("number") radius: number = 8;
+    @type("number") damagePct: number = 0.10;
+    
+    // Server-only
+    spawnTick: number = 0;
+    maxRangeM: number = 300;
+    startX: number = 0;
+    startY: number = 0;
+}
+
 export class GameState extends Schema {
     @type("string") phase: string = "Spawn";
     @type("number") timeRemaining: number = 0;
@@ -86,5 +103,6 @@ export class GameState extends Schema {
     @type({ map: Orb }) orbs = new MapSchema<Orb>();
     @type({ map: Chest }) chests = new MapSchema<Chest>();
     @type({ map: HotZone }) hotZones = new MapSchema<HotZone>();
+    @type({ map: Projectile }) projectiles = new MapSchema<Projectile>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
 }

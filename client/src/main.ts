@@ -347,6 +347,93 @@ abilityButton.appendChild(abilityButtonTimer);
 
 document.body.appendChild(abilityButton);
 
+// === Кнопка Выброса (Projectile) - Slot 1, клавиша 2 ===
+const projectileButton = document.createElement("button");
+projectileButton.type = "button";
+projectileButton.style.position = "fixed";
+projectileButton.style.right = "100px"; // Слева от кнопки способности класса
+projectileButton.style.bottom = "20px";
+projectileButton.style.width = "60px";
+projectileButton.style.height = "60px";
+projectileButton.style.borderRadius = "50%";
+projectileButton.style.background = "linear-gradient(135deg, #4a2d6d, #2b1b45)";
+projectileButton.style.border = "3px solid #9a4ac2";
+projectileButton.style.color = "#f3e6ff";
+projectileButton.style.fontSize = "24px";
+projectileButton.style.cursor = "pointer";
+projectileButton.style.zIndex = "50";
+projectileButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
+projectileButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
+projectileButton.style.display = "none";
+projectileButton.title = "2";
+
+const projectileButtonIcon = document.createElement("span");
+projectileButtonIcon.textContent = "💥";
+projectileButtonIcon.style.fontSize = "24px";
+projectileButtonIcon.style.pointerEvents = "none";
+projectileButton.appendChild(projectileButtonIcon);
+
+const projectileButtonLabel = document.createElement("span");
+projectileButtonLabel.textContent = "2";
+projectileButtonLabel.style.position = "absolute";
+projectileButtonLabel.style.bottom = "2px";
+projectileButtonLabel.style.right = "4px";
+projectileButtonLabel.style.fontSize = "14px";
+projectileButtonLabel.style.fontWeight = "bold";
+projectileButtonLabel.style.color = "#fff";
+projectileButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
+projectileButtonLabel.style.pointerEvents = "none";
+projectileButton.appendChild(projectileButtonLabel);
+
+// Тёмный оверлей кулдауна для Projectile
+const projectileCooldown = document.createElement("div");
+projectileCooldown.style.position = "absolute";
+projectileCooldown.style.inset = "0";
+projectileCooldown.style.borderRadius = "50%";
+projectileCooldown.style.background = "rgba(0, 0, 0, 0.8)";
+projectileCooldown.style.pointerEvents = "none";
+projectileCooldown.style.display = "none";
+projectileButton.appendChild(projectileCooldown);
+
+// SVG прогресс для Projectile
+const projectileProgress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+projectileProgress.setAttribute("viewBox", "0 0 100 100");
+projectileProgress.style.position = "absolute";
+projectileProgress.style.inset = "0";
+projectileProgress.style.width = "100%";
+projectileProgress.style.height = "100%";
+projectileProgress.style.transform = "rotate(-90deg)";
+projectileProgress.style.pointerEvents = "none";
+
+const projectileProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+projectileProgressCircle.setAttribute("cx", "50");
+projectileProgressCircle.setAttribute("cy", "50");
+projectileProgressCircle.setAttribute("r", "45");
+projectileProgressCircle.setAttribute("fill", "none");
+projectileProgressCircle.setAttribute("stroke", "#c74ff7");
+projectileProgressCircle.setAttribute("stroke-width", "6");
+projectileProgressCircle.setAttribute("stroke-linecap", "round");
+projectileProgressCircle.setAttribute("stroke-dasharray", "283");
+projectileProgressCircle.setAttribute("stroke-dashoffset", "283");
+projectileProgressCircle.style.filter = "drop-shadow(0 0 4px #c74ff7)";
+projectileProgress.appendChild(projectileProgressCircle);
+projectileButton.appendChild(projectileProgress);
+
+const projectileTimer = document.createElement("span");
+projectileTimer.style.position = "absolute";
+projectileTimer.style.top = "50%";
+projectileTimer.style.left = "50%";
+projectileTimer.style.transform = "translate(-50%, -50%)";
+projectileTimer.style.fontSize = "14px";
+projectileTimer.style.fontWeight = "bold";
+projectileTimer.style.color = "#fff";
+projectileTimer.style.textShadow = "0 0 4px #000";
+projectileTimer.style.pointerEvents = "none";
+projectileTimer.style.display = "none";
+projectileButton.appendChild(projectileTimer);
+
+document.body.appendChild(projectileButton);
+
 // Иконки способностей по классам
 const abilityIcons: Record<number, string> = {
     0: "⚡", // Hunter - Dash
@@ -925,24 +1012,37 @@ type SnapshotHotZone = {
     spawnMultiplier: number;
 };
 
+type SnapshotProjectile = {
+    id: string;
+    ownerId: string;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    radius: number;
+};
+
 type Snapshot = {
     time: number;
     players: Map<string, SnapshotPlayer>;
     orbs: Map<string, SnapshotOrb>;
     chests: Map<string, SnapshotChest>;
     hotZones: Map<string, SnapshotHotZone>;
+    projectiles: Map<string, SnapshotProjectile>;
 };
 
 type RenderPlayer = SnapshotPlayer & { alpha?: number };
 type RenderOrb = SnapshotOrb & { alpha?: number };
 type RenderChest = SnapshotChest & { alpha?: number };
 type RenderHotZone = SnapshotHotZone & { alpha?: number };
+type RenderProjectile = SnapshotProjectile & { alpha?: number };
 
 type RenderState = {
     players: Map<string, RenderPlayer>;
     orbs: Map<string, RenderOrb>;
     chests: Map<string, RenderChest>;
     hotZones: Map<string, RenderHotZone>;
+    projectiles: Map<string, RenderProjectile>;
 };
 
 // U2-стиль: храним только последний снапшот
@@ -1055,11 +1155,22 @@ type CollectionLike<T> = {
     entries(): IterableIterator<[string, T]>;
 };
 
+type SnapshotProjectilePart = {
+    id?: string;
+    ownerId?: string;
+    x?: number;
+    y?: number;
+    vx?: number;
+    vy?: number;
+    radius?: number;
+};
+
 type GameStateLike = {
     players: CollectionLike<Partial<SnapshotPlayer>>;
     orbs: CollectionLike<Partial<SnapshotOrb>>;
     chests: CollectionLike<Partial<SnapshotChest>>;
     hotZones: CollectionLike<Partial<SnapshotHotZone>>;
+    projectiles: CollectionLike<SnapshotProjectilePart>;
 };
 
 const captureSnapshot = (state: GameStateLike) => {
@@ -1074,6 +1185,7 @@ const captureSnapshot = (state: GameStateLike) => {
         orbs: new Map(),
         chests: new Map(),
         hotZones: new Map(),
+        projectiles: new Map(),
     };
 
     for (const [id, player] of state.players.entries()) {
@@ -1126,6 +1238,18 @@ const captureSnapshot = (state: GameStateLike) => {
         });
     }
 
+    for (const [id, proj] of state.projectiles.entries()) {
+        snapshot.projectiles.set(id, {
+            id,
+            ownerId: String(proj.ownerId ?? ""),
+            x: Number(proj.x ?? 0),
+            y: Number(proj.y ?? 0),
+            vx: Number(proj.vx ?? 0),
+            vy: Number(proj.vy ?? 0),
+            radius: Number(proj.radius ?? 8),
+        });
+    }
+
     // U2-стиль: сохраняем только последний снапшот
     latestSnapshot = snapshot;
     
@@ -1152,6 +1276,7 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
     const orbs = new Map<string, RenderOrb>();
     const chests = new Map<string, RenderChest>();
     const hotZones = new Map<string, RenderHotZone>();
+    const projectiles = new Map<string, RenderProjectile>();
     
     // Process players with visual smoothing
     for (const [id, player] of newest.players.entries()) {
@@ -1260,11 +1385,23 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         hotZones.set(id, { ...zone });
     }
     
+    // Projectiles - simple interpolation (they move fast)
+    for (const [id, proj] of newest.projectiles.entries()) {
+        const targetX = proj.x + proj.vx * lookAheadSec;
+        const targetY = proj.y + proj.vy * lookAheadSec;
+        projectiles.set(id, {
+            ...proj,
+            x: targetX,
+            y: targetY,
+        });
+    }
+    
     return {
         players,
         orbs,
         chests,
         hotZones,
+        projectiles,
     };
 };
 
@@ -1464,11 +1601,15 @@ async function connectToServer(playerName: string, classId: number) {
     hud.style.display = "block";
     joinScreen.style.display = "none";
     
-    // Показываем кнопку способности и устанавливаем иконку
+    // Показываем кнопки способностей и устанавливаем иконку
     abilityButton.style.display = "flex";
     abilityButton.style.alignItems = "center";
     abilityButton.style.justifyContent = "center";
     abilityButtonIcon.textContent = abilityIcons[classId] ?? "⚡";
+    
+    projectileButton.style.display = "flex";
+    projectileButton.style.alignItems = "center";
+    projectileButton.style.justifyContent = "center";
 
     hud.textContent = "Подключение к серверу...";
 
@@ -1853,6 +1994,7 @@ async function connectToServer(playerName: string, classId: number) {
             const orbsView = renderState ? renderState.orbs : room.state.orbs;
             const chestsView = renderState ? renderState.chests : room.state.chests;
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
+            const projectilesView = renderState ? renderState.projectiles : room.state.projectiles;
 
             // Камера следит за сглаженной позицией игрока (плавное движение)
             const smoothedPlayer = renderState?.players.get(room.sessionId);
@@ -1939,6 +2081,28 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.font = "16px \"IBM Plex Mono\", monospace";
                 canvasCtx.textAlign = "center";
                 canvasCtx.fillText(style.icon, p.x, p.y + 5);
+                canvasCtx.restore();
+            }
+
+            // Рендеринг снарядов (projectiles)
+            for (const [, proj] of projectilesView.entries()) {
+                if (Math.abs(proj.x - camera.x) > halfWorldW + 50 || Math.abs(proj.y - camera.y) > halfWorldH + 50) continue;
+                const p = worldToScreen(proj.x, proj.y, scale, camera.x, camera.y, cw, ch);
+                const r = Math.max(4, proj.radius * scale);
+                const alpha = proj.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                
+                // Определяем цвет снаряда: свой = голубой, чужой = красный
+                const isMine = proj.ownerId === room.sessionId;
+                const fillColor = isMine ? "rgba(100, 220, 255, 0.9)" : "rgba(255, 100, 100, 0.9)";
+                const strokeColor = isMine ? "#64dcff" : "#ff6464";
+                
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
+                canvasCtx.shadowColor = strokeColor;
+                canvasCtx.shadowBlur = 8;
+                drawCircle(p.x, p.y, r, fillColor, strokeColor);
+                canvasCtx.shadowBlur = 0;
                 canvasCtx.restore();
             }
 
@@ -2171,6 +2335,14 @@ async function connectToServer(playerName: string, classId: number) {
                 return;
             }
             
+            // Выброс активируется клавишей 2 (slot 1 — универсальная способность)
+            if (key === "2") {
+                inputSeq += 1;
+                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+                event.preventDefault();
+                return;
+            }
+            
             switch (key) {
                 case "arrowup":
                 case "w":
@@ -2358,6 +2530,13 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
+        
+        // Обработчик кнопки Выброса (Projectile)
+        const onProjectileButtonClick = () => {
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+        };
+        projectileButton.addEventListener("click", onProjectileButtonClick);
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
@@ -2395,11 +2574,13 @@ async function connectToServer(playerName: string, classId: number) {
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
             abilityButton.removeEventListener("click", onAbilityButtonClick);
+            projectileButton.removeEventListener("click", onProjectileButtonClick);
             
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
             hud.style.display = "none";
             abilityButton.style.display = "none";
+            projectileButton.style.display = "none";
             joinScreen.style.display = "flex";
         });
     } catch (e) {
