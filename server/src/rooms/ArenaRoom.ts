@@ -1036,9 +1036,9 @@ export class ArenaRoom extends Room<GameState> {
         this.applyMassDelta(defender, -massLoss);
         this.applyMassDelta(attacker, attackerGain);
         
-        // Scatter orbs: разлёт пузырей от укуса
+        // Scatter orbs: разлёт пузырей цвета жертвы
         if (scatterMass > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, defender.classId + 10);
         }
 
         // Активируем Last Breath после применения массы
@@ -1055,8 +1055,9 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Создаёт орбы, разлетающиеся от точки укуса PvP.
      * Эти орбы игнорируют maxCount — боевая механика важнее лимита.
+     * @param colorId - colorId орбов (classId + 10 для цвета жертвы)
      */
-    private spawnPvPBiteOrbs(x: number, y: number, totalMass: number): void {
+    private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
         if (count <= 0 || totalMass <= 0) return;
         
@@ -1067,7 +1068,7 @@ export class ArenaRoom extends Room<GameState> {
         for (let i = 0; i < count; i++) {
             const angle = i * angleStep + this.rng.range(-0.3, 0.3);
             // Force spawn: scatter orbs игнорируют maxCount
-            const orb = this.forceSpawnOrb(x, y, perOrbMass);
+            const orb = this.forceSpawnOrb(x, y, perOrbMass, colorId);
             orb.vx = Math.cos(angle) * speed;
             orb.vy = Math.sin(angle) * speed;
         }
@@ -1163,9 +1164,9 @@ export class ArenaRoom extends Room<GameState> {
         // Снаряд не даёт массу атакующему (только урон)
         this.applyMassDelta(defender, -massLoss);
         
-        // Spawn scatter orbs от урона снаряда
+        // Scatter orbs цвета жертвы от урона снаряда
         if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, defender.classId + 10);
         }
         
         if (triggersLastBreath) {
@@ -1699,7 +1700,7 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
      */
-    private forceSpawnOrb(x?: number, y?: number, massOverride?: number): Orb {
+    private forceSpawnOrb(x?: number, y?: number, massOverride?: number, colorId?: number): Orb {
         const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
         const orb = new Orb();
@@ -1709,7 +1710,7 @@ export class ArenaRoom extends Room<GameState> {
         orb.mass =
             massOverride ??
             this.rng.range(typePick.type.massRange[0], typePick.type.massRange[1]);
-        orb.colorId = typePick.index;
+        orb.colorId = colorId ?? typePick.index;
         orb.vx = 0;
         orb.vy = 0;
         this.state.orbs.set(orb.id, orb);

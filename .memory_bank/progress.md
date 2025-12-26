@@ -347,14 +347,74 @@
 - `local/`: Содержит временные файлы и README, который дублирует часть документации.
 - `docker/docker-compose.yml`: Требует исправления (отсутствуют Dockerfiles).
 
+## Задача: Играбельный MVP (26 декабря 2025) (🔄 В ПРОЦЕССЕ)
+
+### biteResistPct
+- [x] Замена hpMult → biteResistPct в config.ts
+- [x] Обновление balance.json (hunter: 0, warrior: 0.15)
+- [x] Player.biteResistPct в GameState.ts
+- [x] Применение в processCombat() (cap 50%)
+- [x] UI: описание Warrior обновлено
+- [x] TECH_DEBT.md: удалён пункт про hpMult
+- [x] Коммит: `db54cc1` feat: biteResistPct
+
+### Projectile (Выброс)
+- [x] Конфигурация в shared/src/config.ts
+- [x] Параметры в config/balance.json
+- [x] Projectile schema в GameState.ts
+- [x] projectileIdCounter в ArenaRoom
+- [x] activateAbility() slot 1 → activateProjectile()
+- [x] activateProjectile() — создание снаряда
+- [x] projectileSystem() — движение и коллизии
+- [x] applyProjectileDamage() — урон + shield/lastBreath/scatter
+- [x] Клиент: типы SnapshotProjectile, RenderProjectile
+- [x] captureSnapshot() с projectiles
+- [x] getSmoothedRenderState() с projectiles
+- [x] Рендеринг projectiles (синий/красный)
+- [x] UI: projectileButton (фиолетовая 💥)
+- [x] Клавиша 2 для slot 1
+- [x] Показ/скрытие кнопки при старте/выходе
+- [x] Cleanup listener при onLeave
+- [x] Коммит: `99685eb` feat: projectile ability
+
+### Colored Scatter Orbs (цветные пузыри урона)
+- [x] Расширение `orbColor()` для colorId 10-12 (классы слаймов)
+- [x] Параметр `colorId` в `spawnPvPBiteOrbs()`
+- [x] Параметр `colorId` в `forceSpawnOrb()`
+- [x] Передача `defender.classId + 10` в processCombat()
+- [x] Передача `defender.classId + 10` в applyProjectileDamage()
+- [x] GDD обновлён (раздел Scatter Orbs)
+- [x] npm run build — PASS (126.42 kB)
+- [x] npm run test — PASS (determinism)
+
+### Статус плана
+| # | Пункт | Статус |
+|---|-------|--------|
+| 1 | Merge PR #6 | ⏳ Ожидает |
+| 2 | Projectile | ✅ Готово |
+| 3 | Scatter Orbs цвет | ✅ Готово |
+| 4 | Таланты | ❌ Не начато |
+| 5 | Hot Zones | ✅ Работают |
+| 6 | Hunger | ✅ Работает |
+| 7 | HUD расширение | ✅ 2 кнопки |
+| 8 | Last Breath визуал | ❌ Не начато |
+
+### Валидация
+- [x] npm run build — PASS (126.42 kB)
+- [x] npm run test — PASS (determinism)
+
 ## Планы
 - [x] **PR #4 завершена** — смержена в main
 - [x] **Документация обновлена** — актуальные ссылки в README
 - [x] **Конфигурация очищена** — удалён устаревший код movement
 - [x] **Mass-as-HP система** — HP удалён, масса = здоровье
 - [x] **Способности классов** — Dash/Shield/Magnet реализованы (PR #6)
+- [x] **biteResistPct** — заменил hpMult, работает
+- [x] **Projectile** — универсальная способность slot 1
+- [x] **Colored Scatter Orbs** — пузыри цвета жертвы
 - [ ] Merge PR #6 в main
-- [ ] Реализация Выброса (projectile ability)
+- [ ] Реализация талантов (passive bonuses)
+- [ ] Визуальный эффект Last Breath
 - [ ] Завершение модульного разделения `ArenaRoom.ts`.
 - [ ] Оптимизация `main.ts` на клиенте.
 - [ ] Внедрение Protobuf (согласно `docs/PROTOBUF_ADOPTION_PLAN.md`).

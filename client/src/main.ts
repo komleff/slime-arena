@@ -1531,6 +1531,13 @@ function orbColor(colorId: number): string {
             return "#ff6f6f";
         case 3:
             return "#ffd166";
+        // Scatter orbs от слаймов (classId + 10)
+        case 10:
+            return "#4ade80"; // Hunter green
+        case 11:
+            return "#f87171"; // Warrior red
+        case 12:
+            return "#60a5fa"; // Collector blue
         default:
             return "#b0b0b0";
     }
