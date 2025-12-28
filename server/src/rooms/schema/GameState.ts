@@ -1,5 +1,30 @@
 import { Schema, type, MapSchema, ArraySchema } from "@colyseus/schema";
 
+// Талант игрока (GDD-Talents.md)
+export class Talent extends Schema {
+    @type("string") id: string = "";       // ID таланта (fastLegs, sharpTeeth, etc.)
+    @type("number") level: number = 1;     // Уровень таланта (1-3)
+}
+
+// Карточка выбора таланта
+export class TalentCard extends Schema {
+    @type("string") option0: string = "";   // Первый вариант таланта
+    @type("string") option1: string = "";   // Второй вариант таланта
+    @type("string") option2: string = "";   // Третий вариант таланта
+    @type("number") rarity0: number = 0;    // Редкость: 0=common, 1=rare, 2=epic
+    @type("number") rarity1: number = 0;
+    @type("number") rarity2: number = 0;
+    @type("number") expiresAtTick: number = 0;
+}
+
+export class AbilityCard extends Schema {
+    @type("number") slotIndex: number = 0;  // Какой слот открывается (1 или 2)
+    @type("string") option0: string = "";   // Первый вариант умения
+    @type("string") option1: string = "";   // Второй вариант умения  
+    @type("string") option2: string = "";   // Третий вариант умения
+    @type("number") expiresAtTick: number = 0;  // Автовыбор после этого тика
+}
+
 export class Player extends Schema {
     @type("string") id: string = "";
     @type("string") name: string = "";
@@ -16,6 +41,18 @@ export class Player extends Schema {
     @type("number") flags: number = 0;
     @type("number") abilityCooldownTick: number = 0;
     @type("number") biteResistPct: number = 0; // Накопленный бонус от талантов
+    
+    // Слоты умений (GDD v3.3 §1.3)
+    @type("string") abilitySlot0: string = "";  // Классовое умение
+    @type("string") abilitySlot1: string = "";  // Слот 2 (level 3)
+    @type("string") abilitySlot2: string = "";  // Слот 3 (level 5)
+    @type(AbilityCard) pendingAbilityCard: AbilityCard | null = null;
+    @type("number") pendingCardCount: number = 0;  // Кол-во карточек в очереди (синхронизируется)
+    
+    // Таланты (GDD-Talents.md)
+    @type({ array: Talent }) talents = new ArraySchema<Talent>();
+    @type(TalentCard) pendingTalentCard: TalentCard | null = null;
+    @type("number") pendingTalentCount: number = 0;  // Кол-во талантов в очереди
 
     // Server-only state (not synced)
     inputX: number = 0;
@@ -48,6 +85,28 @@ export class Player extends Schema {
     dashTargetY: number = 0;
     shieldEndTick: number = 0;
     magnetEndTick: number = 0;
+    
+    // Card choice (server-only)
+    cardChoicePressed: number | null = null;  // 0, 1, 2 — выбор из карточки
+    pendingCardSlots: number[] = [];  // Очередь слотов, ожидающих карточки
+    
+    // Talent choice (server-only)
+    talentChoicePressed2: number | null = null;  // 0, 1, 2 — выбор таланта
+    pendingTalentQueue: number[] = [];  // Очередь талантов
+    
+    // Talent modifiers (server-only, computed from talents)
+    mod_speedLimitBonus: number = 0;
+    mod_turnBonus: number = 0;
+    mod_biteDamageBonus: number = 0;
+    mod_orbMassBonus: number = 0;
+    mod_abilityCostReduction: number = 0;
+    mod_cooldownReduction: number = 0;
+    mod_allDamageReduction: number = 0;
+    mod_thrustForwardBonus: number = 0;
+    mod_thrustReverseBonus: number = 0;
+    mod_thrustLateralBonus: number = 0;
+    mod_killMassBonus: number = 0;
+    mod_respawnMass: number = 100;  // Default spawn mass
 }
 
 export class Orb extends Schema {
@@ -77,6 +136,18 @@ export class HotZone extends Schema {
     @type("number") spawnMultiplier: number = 1;
 }
 
+export class SlowZone extends Schema {
+    @type("string") id: string = "";
+    @type("string") ownerId: string = "";
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") radius: number = 0;
+    @type("number") slowPct: number = 0.3;
+    
+    // Server-only
+    endTick: number = 0;
+}
+
 export class Projectile extends Schema {
     @type("string") id: string = "";
     @type("string") ownerId: string = "";
@@ -86,12 +157,26 @@ export class Projectile extends Schema {
     @type("number") vy: number = 0;
     @type("number") radius: number = 8;
     @type("number") damagePct: number = 0.10;
+    @type("number") projectileType: number = 0;  // 0 = normal, 1 = bomb
     
     // Server-only
     spawnTick: number = 0;
     maxRangeM: number = 300;
     startX: number = 0;
     startY: number = 0;
+    explosionRadiusM: number = 0;  // For bomb type
+}
+
+export class Mine extends Schema {
+    @type("string") id: string = "";
+    @type("string") ownerId: string = "";
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") radius: number = 15;
+    @type("number") damagePct: number = 0.15;
+    
+    // Server-only
+    endTick: number = 0;
 }
 
 export class GameState extends Schema {
@@ -103,6 +188,8 @@ export class GameState extends Schema {
     @type({ map: Orb }) orbs = new MapSchema<Orb>();
     @type({ map: Chest }) chests = new MapSchema<Chest>();
     @type({ map: HotZone }) hotZones = new MapSchema<HotZone>();
+    @type({ map: SlowZone }) slowZones = new MapSchema<SlowZone>();
     @type({ map: Projectile }) projectiles = new MapSchema<Projectile>();
+    @type({ map: Mine }) mines = new MapSchema<Mine>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
 }
