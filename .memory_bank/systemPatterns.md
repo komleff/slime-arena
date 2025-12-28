@@ -32,4 +32,6 @@
 ## Ключевые паттерны
 - **State Synchronization**: Использование Colyseus Schema для автоматической синхронизации состояния комнаты.
 - **Command Pattern**: Ввод пользователя инкапсулируется в `InputCommand` и передается на сервер.
+- **Class-based Mechanics**: Разделение игроков на классы (Hunter, Warrior, Collector) с уникальными пассивными и активными свойствами.
+- **Ability System**: Система слотов для способностей (Slot 1: Projectile), управляемая через `InputCommand`.
 - **Helper Modules**: Вынос сложной математики и логики мира в отдельные утилиты (`mathUtils.ts`, `worldUtils.ts`) для разгрузки классов комнат.
