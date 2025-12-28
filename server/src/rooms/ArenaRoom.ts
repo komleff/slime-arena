@@ -851,6 +851,8 @@ export class ArenaRoom extends Room<GameState> {
 
             // === ПОВОРОТ (fly-by-wire с честной физикой) ===
             let yawCmd = 0;
+            let predictiveBraking = false; // Флаг опережающего торможения
+            
             if (hasInput) {
                 const targetAngle = Math.atan2(inputY, inputX);
                 const angleDelta = this.normalizeAngle(targetAngle - player.angle);
@@ -859,9 +861,21 @@ export class ArenaRoom extends Room<GameState> {
                 if (Math.abs(angleDelta) > angularDeadzone) {
                     const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
                     if (yawFull > 1e-6) {
-                        yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
-                        yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
-                        yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
+                        // Опережающее торможение (U2 FA:ON стиль):
+                        // Если текущая angVel гарантирует перелёт, начинаем тормозить
+                        // stoppingAngle = angVel² / (2 * maxAngularAccel)
+                        const stoppingAngle = (player.angVel * player.angVel) / (2 * maxAngularAccel + 1e-6);
+                        const movingTowardsTarget = (player.angVel > 0 && angleDelta > 0) || (player.angVel < 0 && angleDelta < 0);
+                        
+                        if (movingTowardsTarget && stoppingAngle >= Math.abs(angleDelta)) {
+                            // Перелёт неизбежен → тормозим
+                            predictiveBraking = true;
+                            yawCmd = 0;
+                        } else {
+                            yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
+                            yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
+                            yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
+                        }
                     }
                 } else {
                     player.yawSignHistory.length = 0;
@@ -870,7 +884,7 @@ export class ArenaRoom extends Room<GameState> {
                 player.yawSignHistory.length = 0;
             }
 
-            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps;
+            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps && !predictiveBraking;
             let torque = 0;
             if (hasYawInput) {
                 const desiredAngVel = yawCmd * angularLimit;
@@ -881,7 +895,12 @@ export class ArenaRoom extends Room<GameState> {
                 const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
                 torque = inertia * clampedAlpha;
             } else if (Math.abs(player.angVel) > 1e-3) {
-                const brakeTime = Math.max(slimeConfig.assist.angularStopTimeS, dt);
+                // Brake boost: торможение быстрее при отсутствии ввода (как в U2 FA:ON)
+                // При опережающем торможении используем максимальное ускорение
+                const boostFactor = predictiveBraking ? 1.0 : (slimeConfig.assist.angularBrakeBoostFactor || 1.0);
+                const brakeTime = predictiveBraking 
+                    ? dt  // Максимально быстрое торможение при опережающем
+                    : Math.max(slimeConfig.assist.angularStopTimeS / boostFactor, dt);
                 const desiredAlpha = -player.angVel / brakeTime;
                 const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
                 torque = inertia * clampedAlpha;
@@ -1524,9 +1543,9 @@ export class ArenaRoom extends Room<GameState> {
             const owner = this.state.players.get(mine.ownerId);
             const radiusSq = mine.radius * mine.radius;
             
-            // Проверка коллизий с врагами
+            // Проверка коллизий со всеми игроками (включая владельца)
             for (const player of this.state.players.values()) {
-                if (player.isDead || player.id === mine.ownerId) continue;
+                if (player.isDead) continue;
                 if (player.isLastBreath) continue;
                 if (this.tick < player.invulnerableUntilTick) continue;
                 
@@ -1543,7 +1562,11 @@ export class ArenaRoom extends Room<GameState> {
                     if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
                         player.shieldEndTick = 0;
                         player.flags &= ~FLAG_ABILITY_SHIELD;
+                    } else if (player.id === mine.ownerId) {
+                        // Самоподрыв: урон без передачи массы
+                        this.applySelfDamage(player, mine.damagePct);
                     } else if (owner && !owner.isDead) {
+                        // Урон врагу с передачей массы владельцу
                         this.applyProjectileDamage(owner, player, mine.damagePct);
                     }
                     
@@ -1596,6 +1619,43 @@ export class ArenaRoom extends Room<GameState> {
         }
         
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+    }
+
+    /**
+     * Самоурон (от своей мины) — без передачи массы, но с Last Breath
+     */
+    private applySelfDamage(player: Player, damagePct: number) {
+        const minSlimeMass = this.balance.physics.minSlimeMass;
+        
+        let massLoss = player.mass * damagePct;
+        
+        // Last Breath check
+        const newMass = player.mass - massLoss;
+        const triggersLastBreath =
+            newMass <= minSlimeMass &&
+            !player.isLastBreath &&
+            this.lastBreathTicks > 0 &&
+            !player.isDead;
+        
+        if (triggersLastBreath) {
+            massLoss = Math.max(0, player.mass - minSlimeMass);
+        }
+        
+        this.applyMassDelta(player, -massLoss);
+        
+        // Scatter orbs от самоурона
+        if (massLoss > 0) {
+            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, player.classId + 10);
+        }
+        
+        if (triggersLastBreath) {
+            player.isLastBreath = true;
+            player.lastBreathEndTick = this.tick + this.lastBreathTicks;
+            player.invulnerableUntilTick = player.lastBreathEndTick;
+            return;
+        }
+        
+        player.invulnerableUntilTick = this.tick + this.invulnerableTicks;
     }
 
     private chestSystem() {

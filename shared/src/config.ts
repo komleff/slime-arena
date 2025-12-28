@@ -45,6 +45,7 @@ export interface SlimeConfig {
     assist: {
         comfortableBrakingTimeS: number;
         angularStopTimeS: number;
+        angularBrakeBoostFactor: number;
         autoBrakeMaxThrustFraction: number;
         overspeedDampingRate: number;
         yawFullDeflectionAngleRad: number;
@@ -406,6 +407,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             assist: {
                 comfortableBrakingTimeS: 3.5,
                 angularStopTimeS: 1.0,
+                angularBrakeBoostFactor: 1.0,
                 autoBrakeMaxThrustFraction: 0.6,
                 overspeedDampingRate: 0.2,
                 yawFullDeflectionAngleRad: Math.PI / 2,
@@ -460,6 +462,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             assist: {
                 comfortableBrakingTimeS: 3.5,
                 angularStopTimeS: 1.0,
+                angularBrakeBoostFactor: 1.0,
                 autoBrakeMaxThrustFraction: 0.6,
                 overspeedDampingRate: 0.2,
                 yawFullDeflectionAngleRad: Math.PI / 2,
@@ -514,6 +517,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             assist: {
                 comfortableBrakingTimeS: 3.5,
                 angularStopTimeS: 1.0,
+                angularBrakeBoostFactor: 1.0,
                 autoBrakeMaxThrustFraction: 0.6,
                 overspeedDampingRate: 0.2,
                 yawFullDeflectionAngleRad: Math.PI / 2,
@@ -568,6 +572,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             assist: {
                 comfortableBrakingTimeS: 3.5,
                 angularStopTimeS: 1.0,
+                angularBrakeBoostFactor: 1.0,
                 autoBrakeMaxThrustFraction: 0.6,
                 overspeedDampingRate: 0.2,
                 yawFullDeflectionAngleRad: Math.PI / 2,
@@ -1008,6 +1013,11 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
                 assist.angularStopTimeS,
                 fallback.assist.angularStopTimeS,
                 `${path}.assist.angularStopTimeS`
+            ),
+            angularBrakeBoostFactor: readNumber(
+                assist.angularBrakeBoostFactor,
+                fallback.assist.angularBrakeBoostFactor,
+                `${path}.assist.angularBrakeBoostFactor`
             ),
             autoBrakeMaxThrustFraction: readNumber(
                 assist.autoBrakeMaxThrustFraction,

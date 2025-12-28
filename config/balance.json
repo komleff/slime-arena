@@ -63,7 +63,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -116,7 +117,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -169,7 +171,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -222,7 +225,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -256,7 +260,7 @@
   },
   "worldPhysics": {
     "linearDragK": 0.1,
-    "angularDragK": 0.0,
+    "angularDragK": 1.0,
     "restitution": 0.9,
     "maxPositionCorrectionM": 0.5,
     "worldShape": "rectangle",
