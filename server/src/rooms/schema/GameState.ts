@@ -39,6 +39,7 @@ export class Player extends Schema {
     @type("number") classId: number = 0;
     @type("number") talentsAvailable: number = 0;
     @type("number") flags: number = 0;
+    @type("number") abilityCooldownTick: number = 0;
     @type("number") abilityCooldownStartTick0: number = 0;
     @type("number") abilityCooldownEndTick0: number = 0;
     @type("number") abilityCooldownStartTick1: number = 0;
