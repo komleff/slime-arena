@@ -9,6 +9,7 @@ export type {
     WorldPhysicsConfig,
     ClientNetSmoothingConfig,
     MassCurveConfig,
+    TalentConfig,
 } from "./config.js";
 export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
 export {
@@ -29,6 +30,10 @@ export {
     FLAG_IS_DEAD,
     FLAG_DASHING,
     FLAG_MAGNETIZING,
+    FLAG_SLOWED,
+    FLAG_PUSHING,
+    FLAG_STUNNED,
+    FLAG_INVISIBLE,
 } from "./constants.js";
 export type { SlimeSprite } from "./sprites.js";
 export {

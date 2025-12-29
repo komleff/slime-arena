@@ -3,7 +3,8 @@ export interface Vector2 {
     y: number;
 }
 
-export const MATCH_PHASES = ["Spawn", "Collect", "Hunt", "Chaos", "Final", "Results"] as const;
+// GDD v3.3: 3 фазы матча (Growth, Hunt, Final)
+export const MATCH_PHASES = ["Growth", "Hunt", "Final", "Results"] as const;
 export type MatchPhaseId = typeof MATCH_PHASES[number];
 
 export interface InputCommand {

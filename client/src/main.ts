@@ -10,6 +10,7 @@ import {
     FLAG_ABILITY_SHIELD,
     FLAG_DASHING,
     FLAG_MAGNETIZING,
+    FLAG_PUSHING,
     clamp,
     lerp,
     wrapAngle,
@@ -51,6 +52,8 @@ canvas.style.height = "100vh";
 canvas.style.display = "block";
 canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
 canvas.style.touchAction = "none";
+canvas.tabIndex = 0;
+canvas.style.outline = "none";
 root.appendChild(canvas);
 
 const getCanvasContext = () => {
@@ -102,15 +105,15 @@ talentCard.style.display = "grid";
 talentCard.style.gap = "12px";
 
 const talentTitle = document.createElement("div");
-talentTitle.textContent = "Choose a Talent";
+talentTitle.textContent = "Выбери талант";
 talentTitle.style.fontSize = "18px";
 talentTitle.style.fontWeight = "700";
 talentTitle.style.letterSpacing = "0.5px";
 
-const talentHint = document.createElement("div");
-talentHint.textContent = "Spend one available talent to gain a boost.";
-talentHint.style.fontSize = "13px";
-talentHint.style.color = "#9fb5cc";
+const talentTimer = document.createElement("div");
+talentTimer.style.fontSize = "13px";
+talentTimer.style.color = "#fbbf24";
+talentTimer.style.fontWeight = "600";
 
 const talentCount = document.createElement("div");
 talentCount.style.fontSize = "12px";
@@ -120,65 +123,100 @@ const talentButtons = document.createElement("div");
 talentButtons.style.display = "grid";
 talentButtons.style.gap = "10px";
 
-const talentChoices = [
-    { id: 0, name: "Mass Surge", detail: "+5% массы" },
-    { id: 1, name: "Mass Boost", detail: "+30% массы" },
-    { id: 2, name: "Guard Pulse", detail: "+3% массы + щит" },
-];
-
 const talentButtonsList: HTMLButtonElement[] = [];
+const talentButtonElements: HTMLButtonElement[] = [];
 
-const styleTalentButton = (button: HTMLButtonElement) => {
+// Создаём 3 кнопки для выбора талантов
+for (let i = 0; i < 3; i++) {
+    const button = document.createElement("button");
     button.type = "button";
-    button.style.display = "grid";
-    button.style.gap = "4px";
-    button.style.padding = "12px 14px";
+    button.style.display = "none";
+    button.style.gap = "8px";
+    button.style.padding = "14px 16px";
     button.style.background = "#111b2a";
-    button.style.border = "1px solid #2d4a6d";
+    button.style.border = "2px solid #2d4a6d";
     button.style.borderRadius = "12px";
     button.style.color = "#e6f3ff";
     button.style.fontSize = "14px";
     button.style.textAlign = "left";
     button.style.cursor = "pointer";
-    button.style.transition = "transform 120ms ease, box-shadow 120ms ease, background 120ms ease";
-
+    button.style.transition = "transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease";
+    
     button.addEventListener("mouseenter", () => {
         if (button.disabled) return;
         button.style.transform = "translateY(-2px)";
         button.style.background = "#1b2c45";
         button.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
     });
-
+    
     button.addEventListener("mouseleave", () => {
         button.style.transform = "translateY(0)";
         button.style.background = "#111b2a";
         button.style.boxShadow = "none";
     });
-};
-
-for (const choice of talentChoices) {
-    const button = document.createElement("button");
-    const label = document.createElement("div");
-    label.textContent = choice.name;
-    label.style.fontWeight = "600";
-    const detail = document.createElement("div");
-    detail.textContent = choice.detail;
-    detail.style.fontSize = "12px";
-    detail.style.color = "#a9bdd6";
-    button.dataset.choice = String(choice.id);
-    styleTalentButton(button);
-    button.appendChild(label);
-    button.appendChild(detail);
+    
     talentButtons.appendChild(button);
+    talentButtonElements.push(button);
     talentButtonsList.push(button);
 }
 
 talentCard.appendChild(talentTitle);
-talentCard.appendChild(talentHint);
+talentCard.appendChild(talentTimer);
 talentCard.appendChild(talentCount);
 talentCard.appendChild(talentButtons);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
+
+// Маппинг талантов: название, иконка, описание (будет загружаться из balance.json)
+const talentInfo: Record<string, { name: string; icon: string; desc: string }> = {
+    // Common talents
+    fastLegs: { name: "Быстрые ноги", icon: "🦵", desc: "+% к макс. скорости" },
+    spinner: { name: "Юла", icon: "🌀", desc: "+% к повороту" },
+    sharpTeeth: { name: "Острые зубы", icon: "🦷", desc: "+% к урону укусом" },
+    glutton: { name: "Обжора", icon: "😋", desc: "+% массы от пузырей" },
+    thickSkin: { name: "Толстая шкура", icon: "🛡️", desc: "−% потери от укусов" },
+    economical: { name: "Экономный", icon: "💰", desc: "−% стоимость умений" },
+    recharge: { name: "Перезарядка", icon: "⚡", desc: "−% кулдауны" },
+    aggressor: { name: "Агрессор", icon: "💢", desc: "+12% урон, +12% потери" },
+    sturdy: { name: "Стойкий", icon: "🗿", desc: "−10% к потерям" },
+    accelerator: { name: "Ускоритель", icon: "🚀", desc: "+15% маршевый двигатель" },
+    anchor: { name: "Якорь", icon: "⚓", desc: "+20% тормозной двигатель" },
+    crab: { name: "Краб", icon: "🦀", desc: "+15% боковые двигатели" },
+    bloodlust: { name: "Кровожадность", icon: "🩸", desc: "+15% массы от убийств" },
+    secondWind: { name: "Второе дыхание", icon: "💨", desc: "Респаун 150 кг" },
+    
+    // Rare talents
+    poison: { name: "Яд", icon: "☠️", desc: "Укус отравляет" },
+    frost: { name: "Мороз", icon: "❄️", desc: "Укус замедляет" },
+    vampire: { name: "Вампир", icon: "🧛", desc: "Больше массы от укуса" },
+    vacuum: { name: "Вакуум", icon: "🌪️", desc: "Пузыри к пасти" },
+    motor: { name: "Мотор", icon: "⚙️", desc: "+25% все двигатели" },
+    ricochet: { name: "Рикошет", icon: "↩️", desc: "Выброс отскакивает" },
+    piercing: { name: "Пробивание", icon: "➡️", desc: "Выброс сквозь цель" },
+    longDash: { name: "Длинный рывок", icon: "🏃", desc: "+40% дистанция рывка" },
+    backNeedles: { name: "Иглы назад", icon: "🔱", desc: "3 снаряда при гибели" },
+    toxic: { name: "Токсичный", icon: "☣️", desc: "×2 лужа при гибели" },
+    
+    // Epic talents
+    lightning: { name: "Молния", icon: "⚡", desc: "+25% скорость, оглушение" },
+    doubleActivation: { name: "Двойная активация", icon: "✖️", desc: "Повтор умения за 1 сек" },
+    explosion: { name: "Взрыв", icon: "💥", desc: "При гибели AoE урон" },
+    leviathan: { name: "Левиафан", icon: "🐋", desc: "Размер ×1.3, пасть ×1.5" },
+    invisible: { name: "Невидимка", icon: "👻", desc: "1.5 сек после рывка" },
+};
+
+// Цвета рамки по редкости (GDD-Talents.md)
+const rarityColors: Record<number, string> = {
+    0: "#6b7280", // Common (серый)
+    1: "#3b82f6", // Rare (синий)
+    2: "#a855f7", // Epic (фиолетовый)
+};
+
+const rarityNames: Record<number, string> = {
+    0: "Обычный",
+    1: "Редкий",
+    2: "Эпический",
+};
 
 // Results overlay для фазы Results
 const resultsOverlay = document.createElement("div");
@@ -347,11 +385,259 @@ abilityButton.appendChild(abilityButtonTimer);
 
 document.body.appendChild(abilityButton);
 
+// === Кнопка Выброса (Projectile) - Slot 1, клавиша 2 ===
+const projectileButton = document.createElement("button");
+projectileButton.type = "button";
+projectileButton.style.position = "fixed";
+projectileButton.style.right = "100px"; // Слева от кнопки способности класса
+projectileButton.style.bottom = "20px";
+projectileButton.style.width = "60px";
+projectileButton.style.height = "60px";
+projectileButton.style.borderRadius = "50%";
+projectileButton.style.background = "linear-gradient(135deg, #4a2d6d, #2b1b45)";
+projectileButton.style.border = "3px solid #9a4ac2";
+projectileButton.style.color = "#f3e6ff";
+projectileButton.style.fontSize = "24px";
+projectileButton.style.cursor = "pointer";
+projectileButton.style.zIndex = "50";
+projectileButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
+projectileButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
+projectileButton.style.display = "none";
+projectileButton.title = "2";
+
+const projectileButtonIcon = document.createElement("span");
+projectileButtonIcon.textContent = "💥";
+projectileButtonIcon.style.fontSize = "24px";
+projectileButtonIcon.style.pointerEvents = "none";
+projectileButton.appendChild(projectileButtonIcon);
+
+const projectileButtonLabel = document.createElement("span");
+projectileButtonLabel.textContent = "2";
+projectileButtonLabel.style.position = "absolute";
+projectileButtonLabel.style.bottom = "2px";
+projectileButtonLabel.style.right = "4px";
+projectileButtonLabel.style.fontSize = "14px";
+projectileButtonLabel.style.fontWeight = "bold";
+projectileButtonLabel.style.color = "#fff";
+projectileButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
+projectileButtonLabel.style.pointerEvents = "none";
+projectileButton.appendChild(projectileButtonLabel);
+
+// Тёмный оверлей кулдауна для Projectile
+const projectileCooldown = document.createElement("div");
+projectileCooldown.style.position = "absolute";
+projectileCooldown.style.inset = "0";
+projectileCooldown.style.borderRadius = "50%";
+projectileCooldown.style.background = "rgba(0, 0, 0, 0.8)";
+projectileCooldown.style.pointerEvents = "none";
+projectileCooldown.style.display = "none";
+projectileButton.appendChild(projectileCooldown);
+
+// SVG прогресс для Projectile
+const projectileProgress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+projectileProgress.setAttribute("viewBox", "0 0 100 100");
+projectileProgress.style.position = "absolute";
+projectileProgress.style.inset = "0";
+projectileProgress.style.width = "100%";
+projectileProgress.style.height = "100%";
+projectileProgress.style.transform = "rotate(-90deg)";
+projectileProgress.style.pointerEvents = "none";
+
+const projectileProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+projectileProgressCircle.setAttribute("cx", "50");
+projectileProgressCircle.setAttribute("cy", "50");
+projectileProgressCircle.setAttribute("r", "45");
+projectileProgressCircle.setAttribute("fill", "none");
+projectileProgressCircle.setAttribute("stroke", "#c74ff7");
+projectileProgressCircle.setAttribute("stroke-width", "6");
+projectileProgressCircle.setAttribute("stroke-linecap", "round");
+projectileProgressCircle.setAttribute("stroke-dasharray", "283");
+projectileProgressCircle.setAttribute("stroke-dashoffset", "283");
+projectileProgressCircle.style.filter = "drop-shadow(0 0 4px #c74ff7)";
+projectileProgress.appendChild(projectileProgressCircle);
+projectileButton.appendChild(projectileProgress);
+
+const projectileTimer = document.createElement("span");
+projectileTimer.style.position = "absolute";
+projectileTimer.style.top = "50%";
+projectileTimer.style.left = "50%";
+projectileTimer.style.transform = "translate(-50%, -50%)";
+projectileTimer.style.fontSize = "14px";
+projectileTimer.style.fontWeight = "bold";
+projectileTimer.style.color = "#fff";
+projectileTimer.style.textShadow = "0 0 4px #000";
+projectileTimer.style.pointerEvents = "none";
+projectileTimer.style.display = "none";
+projectileButton.appendChild(projectileTimer);
+
+document.body.appendChild(projectileButton);
+
+// ============================================
+// SLOT 2 BUTTON — кнопка умения слота 2 (клавиша 3)
+// ============================================
+const slot2Button = document.createElement("button");
+slot2Button.type = "button";
+slot2Button.style.position = "fixed";
+slot2Button.style.right = "170px";
+slot2Button.style.bottom = "20px";
+slot2Button.style.width = "60px";
+slot2Button.style.height = "60px";
+slot2Button.style.borderRadius = "50%";
+slot2Button.style.background = "linear-gradient(135deg, #2d6d4a, #1b452c)";
+slot2Button.style.border = "3px solid #4ac27a";
+slot2Button.style.color = "#e6fff3";
+slot2Button.style.fontSize = "24px";
+slot2Button.style.cursor = "pointer";
+slot2Button.style.zIndex = "50";
+slot2Button.style.transition = "transform 150ms, background 150ms, opacity 150ms";
+slot2Button.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
+slot2Button.style.display = "none";
+slot2Button.title = "3";
+
+const slot2ButtonIcon = document.createElement("span");
+slot2ButtonIcon.textContent = "🔒";
+slot2ButtonIcon.style.fontSize = "24px";
+slot2ButtonIcon.style.pointerEvents = "none";
+slot2Button.appendChild(slot2ButtonIcon);
+
+const slot2ButtonLabel = document.createElement("span");
+slot2ButtonLabel.textContent = "3";
+slot2ButtonLabel.style.position = "absolute";
+slot2ButtonLabel.style.bottom = "2px";
+slot2ButtonLabel.style.right = "4px";
+slot2ButtonLabel.style.fontSize = "14px";
+slot2ButtonLabel.style.fontWeight = "bold";
+slot2ButtonLabel.style.color = "#fff";
+slot2ButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
+slot2ButtonLabel.style.pointerEvents = "none";
+slot2Button.appendChild(slot2ButtonLabel);
+
+document.body.appendChild(slot2Button);
+
+// ============================================
+// ABILITY CARD UI — карточка выбора умения
+// ============================================
+const abilityCardModal = document.createElement("div");
+abilityCardModal.style.position = "fixed";
+abilityCardModal.style.top = "50%";
+abilityCardModal.style.right = "20px";
+abilityCardModal.style.transform = "translateY(-50%)";
+abilityCardModal.style.display = "none";
+abilityCardModal.style.flexDirection = "column";
+abilityCardModal.style.gap = "10px";
+abilityCardModal.style.padding = "16px";
+abilityCardModal.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
+abilityCardModal.style.border = "2px solid #4a90c2";
+abilityCardModal.style.borderRadius = "16px";
+abilityCardModal.style.zIndex = "100";
+abilityCardModal.style.fontFamily = "\"IBM Plex Mono\", monospace";
+abilityCardModal.style.color = "#e6f3ff";
+abilityCardModal.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.6)";
+abilityCardModal.style.minWidth = "200px";
+
+const abilityCardTitle = document.createElement("div");
+abilityCardTitle.textContent = "Выбери умение";
+abilityCardTitle.style.fontSize = "16px";
+abilityCardTitle.style.fontWeight = "700";
+abilityCardTitle.style.textAlign = "center";
+abilityCardTitle.style.marginBottom = "4px";
+abilityCardModal.appendChild(abilityCardTitle);
+
+const abilityCardTimer = document.createElement("div");
+abilityCardTimer.style.fontSize = "13px";
+abilityCardTimer.style.color = "#6fd6ff";
+abilityCardTimer.style.textAlign = "center";
+abilityCardTimer.style.marginBottom = "8px";
+abilityCardModal.appendChild(abilityCardTimer);
+
+const abilityCardButtons = document.createElement("div");
+abilityCardButtons.style.display = "flex";
+abilityCardButtons.style.flexDirection = "column";
+abilityCardButtons.style.gap = "8px";
+abilityCardModal.appendChild(abilityCardButtons);
+
+// Названия и иконки умений
+const abilityNames: Record<string, { name: string; icon: string; desc: string }> = {
+    dash: { name: "Рывок", icon: "⚡", desc: "Мгновенное перемещение" },
+    shield: { name: "Щит", icon: "🛡️", desc: "Блокирует весь урон" },
+    slow: { name: "Замедление", icon: "❄️", desc: "Зона −30% скорости" },
+    pull: { name: "Притяжение", icon: "🧲", desc: "Тянет пузыри" },
+    projectile: { name: "Выброс", icon: "💥", desc: "Снаряд 15% урона" },
+    spit: { name: "Плевок", icon: "💦", desc: "Веер из 3 снарядов" },
+    bomb: { name: "Бомба", icon: "💣", desc: "AoE 50м, 12% урона" },
+    push: { name: "Отталкивание", icon: "💨", desc: "Волна отброса" },
+    mine: { name: "Мина", icon: "💀", desc: "Ловушка 15% урона" },
+};
+
+function createAbilityCardButton(index: number): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.cardChoice = String(index);
+    btn.style.display = "flex";
+    btn.style.alignItems = "center";
+    btn.style.gap = "10px";
+    btn.style.padding = "12px 14px";
+    btn.style.background = "#111b2a";
+    btn.style.border = "1px solid #2d4a6d";
+    btn.style.borderRadius = "12px";
+    btn.style.color = "#e6f3ff";
+    btn.style.fontSize = "14px";
+    btn.style.textAlign = "left";
+    btn.style.cursor = "pointer";
+    btn.style.transition = "transform 120ms, background 120ms, box-shadow 120ms";
+    
+    btn.addEventListener("mouseenter", () => {
+        btn.style.transform = "translateX(-4px)";
+        btn.style.background = "#1b2c45";
+        btn.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
+    });
+    btn.addEventListener("mouseleave", () => {
+        btn.style.transform = "translateX(0)";
+        btn.style.background = "#111b2a";
+        btn.style.boxShadow = "none";
+    });
+    
+    return btn;
+}
+
+const abilityCardBtns: HTMLButtonElement[] = [];
+for (let i = 0; i < 3; i++) {
+    const btn = createAbilityCardButton(i);
+    abilityCardBtns.push(btn);
+    abilityCardButtons.appendChild(btn);
+}
+
+const abilityCardHint = document.createElement("div");
+abilityCardHint.textContent = "Клавиши 7 / 8 / 9";
+abilityCardHint.style.fontSize = "11px";
+abilityCardHint.style.color = "#6a8099";
+abilityCardHint.style.textAlign = "center";
+abilityCardHint.style.marginTop = "4px";
+abilityCardModal.appendChild(abilityCardHint);
+
+document.body.appendChild(abilityCardModal);
+
+// Индикатор уровня
+const levelIndicator = document.createElement("div");
+levelIndicator.style.position = "fixed";
+levelIndicator.style.right = "20px";
+levelIndicator.style.top = "12px";
+levelIndicator.style.padding = "8px 14px";
+levelIndicator.style.background = "rgba(0, 0, 0, 0.55)";
+levelIndicator.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+levelIndicator.style.borderRadius = "10px";
+levelIndicator.style.fontSize = "14px";
+levelIndicator.style.color = "#e6f3ff";
+levelIndicator.style.fontFamily = "\"IBM Plex Mono\", monospace";
+levelIndicator.style.display = "none";
+levelIndicator.style.zIndex = "50";
+document.body.appendChild(levelIndicator);
+
 // Иконки способностей по классам
 const abilityIcons: Record<number, string> = {
     0: "⚡", // Hunter - Dash
     1: "🛡️", // Warrior - Shield
-    2: "🧲", // Collector - Magnet
+    2: "❄️", // Collector - Slow
 };
 
 // Иконки классов для отображения у имени
@@ -366,7 +652,7 @@ function getAbilityCooldownSec(classId: number): number {
     switch (classId) {
         case 0: return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
         case 1: return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
-        case 2: return balanceConfig.abilities?.magnet?.cooldownSec ?? 6;
+        case 2: return balanceConfig.abilities?.slow?.cooldownSec ?? 6;
         default: return 5;
     }
 }
@@ -508,7 +794,7 @@ const classesData = [
         id: 1, 
         name: "Воин", 
         emoji: "⚔️",
-        desc: "+15% HP, +10% урон", 
+        desc: "−15% потерь при укусах, +10% урон", 
         ability: "Щит",
         color: "#f87171"
     },
@@ -517,12 +803,13 @@ const classesData = [
         name: "Собиратель", 
         emoji: "🧲",
         desc: "+25% радиус сбора", 
-        ability: "Притяжение",
+        ability: "Замедление",
         color: "#60a5fa"
     },
 ];
 
-let selectedClassId = 0;
+let selectedClassId = -1;  // -1 = класс не выбран
+let activeRoom: any = null;
 
 const classCardsContainer = document.createElement("div");
 classCardsContainer.style.display = "flex";
@@ -593,6 +880,7 @@ for (const cls of classesData) {
             c.style.border = i === selectedClassId ? `2px solid ${clsData.color}` : "2px solid #2d4a6d";
             c.style.transform = i === selectedClassId ? "scale(1.05)" : "scale(1)";
         });
+        updatePlayButton();
     });
 
     classCardsContainer.appendChild(card);
@@ -602,24 +890,49 @@ for (const cls of classesData) {
 // Кнопка "Играть"
 const playButton = document.createElement("button");
 playButton.type = "button";
-playButton.textContent = "▶ ИГРАТЬ";
+playButton.textContent = "ВЫБЕРИТЕ КЛАСС";
 playButton.style.padding = "16px 48px";
 playButton.style.fontSize = "18px";
 playButton.style.fontWeight = "700";
-playButton.style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+playButton.style.background = "linear-gradient(135deg, #6b7280, #4b5563)";
 playButton.style.border = "none";
 playButton.style.borderRadius = "12px";
-playButton.style.color = "#0a0e14";
-playButton.style.cursor = "pointer";
-playButton.style.transition = "transform 150ms, box-shadow 150ms";
-playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
+playButton.style.color = "#9ca3af";
+playButton.style.cursor = "not-allowed";
+playButton.style.transition = "transform 150ms, box-shadow 150ms, background 300ms";
+playButton.style.boxShadow = "0 8px 24px rgba(107, 114, 128, 0.2)";
+playButton.disabled = true;
+
+// Функция обновления состояния кнопки Play
+const updatePlayButton = () => {
+    if (selectedClassId >= 0 && selectedClassId <= 2) {
+        playButton.textContent = "▶ ИГРАТЬ";
+        playButton.style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+        playButton.style.color = "#0a0e14";
+        playButton.style.cursor = "pointer";
+        playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
+        playButton.disabled = false;
+    } else {
+        playButton.textContent = "ВЫБЕРИТЕ КЛАСС";
+        playButton.style.background = "linear-gradient(135deg, #6b7280, #4b5563)";
+        playButton.style.color = "#9ca3af";
+        playButton.style.cursor = "not-allowed";
+        playButton.style.boxShadow = "0 8px 24px rgba(107, 114, 128, 0.2)";
+        playButton.disabled = true;
+    }
+};
+
 playButton.addEventListener("mouseenter", () => {
-    playButton.style.transform = "scale(1.05)";
-    playButton.style.boxShadow = "0 12px 32px rgba(74, 222, 128, 0.4)";
+    if (!playButton.disabled) {
+        playButton.style.transform = "scale(1.05)";
+        playButton.style.boxShadow = "0 12px 32px rgba(74, 222, 128, 0.4)";
+    }
 });
 playButton.addEventListener("mouseleave", () => {
     playButton.style.transform = "scale(1)";
-    playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
+    if (!playButton.disabled) {
+        playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
+    }
 });
 
 // Собираем экран
@@ -645,9 +958,9 @@ let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
 let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
 const chestStyles = [
-    { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1 },
-    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1.08 },
-    { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.16 },
+    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1 },
+    { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.08 },
+    { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1.16 },
 ];
 
 const keyState = { up: false, down: false, left: false, right: false };
@@ -915,6 +1228,7 @@ type SnapshotChest = {
     vx: number;
     vy: number;
     type: number;
+    armorRings: number;
 };
 
 type SnapshotHotZone = {
@@ -925,24 +1239,61 @@ type SnapshotHotZone = {
     spawnMultiplier: number;
 };
 
+type SnapshotSlowZone = {
+    id: string;
+    ownerId: string;
+    x: number;
+    y: number;
+    radius: number;
+    slowPct: number;
+};
+
+type SnapshotProjectile = {
+    id: string;
+    ownerId: string;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    radius: number;
+    projectileType: number;  // 0 = normal, 1 = bomb
+};
+
+type SnapshotMine = {
+    id: string;
+    ownerId: string;
+    x: number;
+    y: number;
+    radius: number;
+};
+
 type Snapshot = {
     time: number;
     players: Map<string, SnapshotPlayer>;
     orbs: Map<string, SnapshotOrb>;
     chests: Map<string, SnapshotChest>;
     hotZones: Map<string, SnapshotHotZone>;
+    slowZones: Map<string, SnapshotSlowZone>;
+    projectiles: Map<string, SnapshotProjectile>;
+    mines: Map<string, SnapshotMine>;
 };
 
 type RenderPlayer = SnapshotPlayer & { alpha?: number };
 type RenderOrb = SnapshotOrb & { alpha?: number };
 type RenderChest = SnapshotChest & { alpha?: number };
 type RenderHotZone = SnapshotHotZone & { alpha?: number };
+type RenderSlowZone = SnapshotSlowZone & { alpha?: number };
+type RenderProjectile = SnapshotProjectile & { alpha?: number };
+type RenderMine = SnapshotMine & { alpha?: number };
 
 type RenderState = {
     players: Map<string, RenderPlayer>;
     orbs: Map<string, RenderOrb>;
     chests: Map<string, RenderChest>;
     hotZones: Map<string, RenderHotZone>;
+    slowZones: Map<string, RenderSlowZone>;
+    projectiles: Map<string, RenderProjectile>;
+    mines: Map<string, RenderMine>;
 };
 
 // U2-стиль: храним только последний снапшот
@@ -959,6 +1310,7 @@ type VisualEntity = {
 };
 const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
+const visualChests = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
 // Smoothing config - читаем из balance.json
@@ -977,6 +1329,7 @@ const resetSnapshotBuffer = () => {
     latestSnapshot = null;
     visualPlayers.clear();
     visualOrbs.clear();
+    visualChests.clear();
     lastRenderMs = 0;
 };
 
@@ -1055,11 +1408,33 @@ type CollectionLike<T> = {
     entries(): IterableIterator<[string, T]>;
 };
 
+type SnapshotProjectilePart = {
+    id?: string;
+    ownerId?: string;
+    x?: number;
+    y?: number;
+    vx?: number;
+    vy?: number;
+    radius?: number;
+    projectileType?: number;
+};
+
+type SnapshotMinePart = {
+    id?: string;
+    ownerId?: string;
+    x?: number;
+    y?: number;
+    radius?: number;
+};
+
 type GameStateLike = {
     players: CollectionLike<Partial<SnapshotPlayer>>;
     orbs: CollectionLike<Partial<SnapshotOrb>>;
     chests: CollectionLike<Partial<SnapshotChest>>;
     hotZones: CollectionLike<Partial<SnapshotHotZone>>;
+    slowZones: CollectionLike<Partial<SnapshotSlowZone>>;
+    projectiles: CollectionLike<SnapshotProjectilePart>;
+    mines: CollectionLike<SnapshotMinePart>;
 };
 
 const captureSnapshot = (state: GameStateLike) => {
@@ -1074,6 +1449,9 @@ const captureSnapshot = (state: GameStateLike) => {
         orbs: new Map(),
         chests: new Map(),
         hotZones: new Map(),
+        slowZones: new Map(),
+        projectiles: new Map(),
+        mines: new Map(),
     };
 
     for (const [id, player] of state.players.entries()) {
@@ -1113,6 +1491,7 @@ const captureSnapshot = (state: GameStateLike) => {
             vx: Number(chest.vx ?? 0),
             vy: Number(chest.vy ?? 0),
             type: Number(chest.type ?? 0),
+            armorRings: Number(chest.armorRings ?? 0),
         });
     }
 
@@ -1123,6 +1502,40 @@ const captureSnapshot = (state: GameStateLike) => {
             y: Number(zone.y ?? 0),
             radius: Number(zone.radius ?? 0),
             spawnMultiplier: Number(zone.spawnMultiplier ?? 0),
+        });
+    }
+
+    for (const [id, zone] of state.slowZones.entries()) {
+        snapshot.slowZones.set(id, {
+            id,
+            ownerId: String(zone.ownerId ?? ""),
+            x: Number(zone.x ?? 0),
+            y: Number(zone.y ?? 0),
+            radius: Number(zone.radius ?? 0),
+            slowPct: Number(zone.slowPct ?? 0.3),
+        });
+    }
+
+    for (const [id, proj] of state.projectiles.entries()) {
+        snapshot.projectiles.set(id, {
+            id,
+            ownerId: String(proj.ownerId ?? ""),
+            x: Number(proj.x ?? 0),
+            y: Number(proj.y ?? 0),
+            vx: Number(proj.vx ?? 0),
+            vy: Number(proj.vy ?? 0),
+            radius: Number(proj.radius ?? 8),
+            projectileType: Number(proj.projectileType ?? 0),
+        });
+    }
+
+    for (const [id, mine] of state.mines.entries()) {
+        snapshot.mines.set(id, {
+            id,
+            ownerId: String(mine.ownerId ?? ""),
+            x: Number(mine.x ?? 0),
+            y: Number(mine.y ?? 0),
+            radius: Number(mine.radius ?? 15),
         });
     }
 
@@ -1152,6 +1565,7 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
     const orbs = new Map<string, RenderOrb>();
     const chests = new Map<string, RenderChest>();
     const hotZones = new Map<string, RenderHotZone>();
+    const projectiles = new Map<string, RenderProjectile>();
     
     // Process players with visual smoothing
     for (const [id, player] of newest.players.entries()) {
@@ -1250,9 +1664,57 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         }
     }
     
-    // Chests - use direct values (they don't move fast)
+    // Chests - smoothing similar to orbs (they can move from push)
     for (const [id, chest] of newest.chests.entries()) {
-        chests.set(id, { ...chest });
+        let visual = visualChests.get(id);
+        if (!visual) {
+            visual = {
+                x: chest.x,
+                y: chest.y,
+                vx: chest.vx,
+                vy: chest.vy,
+                angle: 0,
+            };
+            visualChests.set(id, visual);
+        }
+        
+        const targetX = chest.x + chest.vx * lookAheadSec;
+        const targetY = chest.y + chest.vy * lookAheadSec;
+        
+        if (dtSec > 0) {
+            const cfg = getSmoothingConfig();
+            const dx = targetX - visual.x;
+            const dy = targetY - visual.y;
+            const error = Math.sqrt(dx * dx + dy * dy);
+            
+            if (error > cfg.teleportThreshold) {
+                visual.x = targetX;
+                visual.y = targetY;
+            } else if (error > 0.01) {
+                // Slower catch-up for chests (they're heavy)
+                const catchUpSpeed = Math.min(error * cfg.catchUpSpeed * 0.8, cfg.maxCatchUpSpeed * 0.5);
+                const t = Math.min(catchUpSpeed * dtSec / error, 1);
+                visual.x = lerp(visual.x, targetX, t);
+                visual.y = lerp(visual.y, targetY, t);
+            }
+            visual.vx = chest.vx;
+            visual.vy = chest.vy;
+        }
+        
+        chests.set(id, {
+            ...chest,
+            x: visual.x,
+            y: visual.y,
+            vx: visual.vx,
+            vy: visual.vy,
+        });
+    }
+    
+    // Clean up removed chests
+    for (const id of visualChests.keys()) {
+        if (!newest.chests.has(id)) {
+            visualChests.delete(id);
+        }
     }
     
     // Hot zones - use direct values
@@ -1260,11 +1722,37 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         hotZones.set(id, { ...zone });
     }
     
+    // Slow zones - use direct values
+    const slowZones = new Map<string, RenderSlowZone>();
+    for (const [id, zone] of newest.slowZones.entries()) {
+        slowZones.set(id, { ...zone });
+    }
+    
+    // Projectiles - simple interpolation (they move fast)
+    for (const [id, proj] of newest.projectiles.entries()) {
+        const targetX = proj.x + proj.vx * lookAheadSec;
+        const targetY = proj.y + proj.vy * lookAheadSec;
+        projectiles.set(id, {
+            ...proj,
+            x: targetX,
+            y: targetY,
+        });
+    }
+    
+    // Mines - use direct values (они не двигаются)
+    const mines = new Map<string, RenderMine>();
+    for (const [id, mine] of newest.mines.entries()) {
+        mines.set(id, { ...mine });
+    }
+    
     return {
         players,
         orbs,
         chests,
         hotZones,
+        slowZones,
+        projectiles,
+        mines,
     };
 };
 
@@ -1394,6 +1882,13 @@ function orbColor(colorId: number): string {
             return "#ff6f6f";
         case 3:
             return "#ffd166";
+        // Scatter orbs от слаймов (classId + 10)
+        case 10:
+            return "#4ade80"; // Hunter green
+        case 11:
+            return "#f87171"; // Warrior red
+        case 12:
+            return "#60a5fa"; // Collector blue
         default:
             return "#b0b0b0";
     }
@@ -1463,12 +1958,23 @@ async function connectToServer(playerName: string, classId: number) {
     canvas.style.display = "block";
     hud.style.display = "block";
     joinScreen.style.display = "none";
+    try {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        canvas.focus();
+    } catch {
+        // ignore focus errors
+    }
     
-    // Показываем кнопку способности и устанавливаем иконку
+    // Показываем кнопки способностей и устанавливаем иконку
     abilityButton.style.display = "flex";
     abilityButton.style.alignItems = "center";
     abilityButton.style.justifyContent = "center";
     abilityButtonIcon.textContent = abilityIcons[classId] ?? "⚡";
+    
+    // projectileButton и slot2Button будут показаны через updateSlot1Button/updateSlot2Button
+    // после подключения к комнате и получения состояния игрока
+    projectileButton.style.display = "none";
+    slot2Button.style.display = "none";
 
     hud.textContent = "Подключение к серверу...";
 
@@ -1493,6 +1999,7 @@ async function connectToServer(playerName: string, classId: number) {
                 name: playerName,
                 classId,
             });
+            activeRoom = room;
             hud.textContent = "Подключено к серверу";
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
@@ -1506,11 +2013,11 @@ async function connectToServer(playerName: string, classId: number) {
         let inputSeq = 0;
         let localPlayer: any = null;
         let renderStateForHud: RenderState | null = null;
-        let lastTalentsAvailable = 0;
         // Сглаженная позиция игрока для управления мышью
         let smoothedPlayerX = 0;
         let smoothedPlayerY = 0;
         let talentSelectionInFlight = false;
+        let classSelectMode = false;
 
         // Логирование для отладки
         console.log("Room joined:", room.id);
@@ -1518,84 +2025,217 @@ async function connectToServer(playerName: string, classId: number) {
         const handleStateChange = () => captureSnapshot(room.state);
         room.onStateChange(handleStateChange);
         captureSnapshot(room.state);
-
-        // Таймер автовыбора таланта (7 секунд)
-        const TALENT_AUTO_SELECT_MS = 7000;
-        let talentAutoSelectTimer: ReturnType<typeof setTimeout> | null = null;
-        let talentAutoSelectStartTime = 0;
-
-        const clearTalentAutoSelect = () => {
-            if (talentAutoSelectTimer !== null) {
-                clearTimeout(talentAutoSelectTimer);
-                talentAutoSelectTimer = null;
-            }
+        
+        const resetClassSelectionUi = () => {
+            selectedClassId = -1;
+            classCards.forEach((c) => {
+                c.style.background = "#111b2a";
+                c.style.border = `2px solid #2d4a6d`;
+                c.style.transform = "scale(1)";
+            });
+            updatePlayButton();
         };
 
-        const startTalentAutoSelect = () => {
-            clearTalentAutoSelect();
-            talentAutoSelectStartTime = Date.now();
-            talentAutoSelectTimer = setTimeout(() => {
-                // Автовыбор случайного таланта (0, 1 или 2)
-                const randomChoice = Math.floor(Math.random() * 3);
-                sendTalentChoice(randomChoice);
-            }, TALENT_AUTO_SELECT_MS);
+        const isValidClassId = (value: unknown) => {
+            const id = Number(value);
+            return Number.isInteger(id) && id >= 0 && id <= 2;
+        };
+
+        const setClassSelectMode = (enabled: boolean) => {
+            if (classSelectMode === enabled) return;
+            classSelectMode = enabled;
+
+            if (enabled) {
+                resetClassSelectionUi();
+
+                // В режиме выбора класса отключаем управление и возвращаем UI выбора
+                hasFocus = false;
+                keyState.up = keyState.down = keyState.left = keyState.right = false;
+                mouseState.active = false;
+                mouseState.moveX = 0;
+                mouseState.moveY = 0;
+                sendStopInput();
+                detachJoystickPointerListeners();
+                resetJoystick();
+
+                // Имя не меняем без переподключения
+                nameInput.disabled = true;
+                randomNameBtn.disabled = true;
+
+                canvas.style.display = "none";
+                hud.style.display = "none";
+                abilityButton.style.display = "none";
+                projectileButton.style.display = "none";
+                slot2Button.style.display = "none";
+                abilityCardModal.style.display = "none";
+                levelIndicator.style.display = "none";
+                talentModal.style.display = "none";
+                resultsOverlay.style.display = "none";
+                joinScreen.style.display = "flex";
+                return;
+            }
+
+            nameInput.disabled = false;
+            randomNameBtn.disabled = false;
+
+            joinScreen.style.display = "none";
+            canvas.style.display = "block";
+            hud.style.display = "block";
+            abilityButton.style.display = "flex";
+            abilityButton.style.alignItems = "center";
+            abilityButton.style.justifyContent = "center";
+            try {
+                (document.activeElement as HTMLElement | null)?.blur?.();
+                canvas.focus();
+            } catch {
+                // ignore focus errors
+            }
+            hasFocus = true;
+
+            // Иконка способности берётся из актуального classId игрока
+            const p = room.state.players.get(room.sessionId);
+            const cid = p?.classId ?? 0;
+            abilityButtonIcon.textContent = abilityIcons[cid] ?? "⚡";
         };
 
         const refreshTalentModal = () => {
             if (!localPlayer) {
                 talentModal.style.display = "none";
-                clearTalentAutoSelect();
                 return;
             }
-            const available = Number(localPlayer.talentsAvailable || 0);
-            if (available !== lastTalentsAvailable) {
-                talentSelectionInFlight = false;
-                lastTalentsAvailable = available;
-                // Новый талант доступен — запускаем таймер автовыбора
-                if (available > 0) {
-                    startTalentAutoSelect();
-                } else {
-                    clearTalentAutoSelect();
-                }
-            }
-            if (available <= 0) {
+            
+            const card = localPlayer.pendingTalentCard;
+            
+            if (!card || !card.option0) {
                 talentModal.style.display = "none";
                 return;
             }
-
+            
             talentModal.style.display = "flex";
             
-            // Показываем оставшееся время до автовыбора
-            const elapsed = Date.now() - talentAutoSelectStartTime;
-            const remaining = Math.max(0, Math.ceil((TALENT_AUTO_SELECT_MS - elapsed) / 1000));
-            talentCount.textContent = `Таланты: ${available} (авто через ${remaining}с)`;
+            // Таймер обратного отсчёта
+            const serverTick = room.state.serverTick ?? 0;
+            const ticksRemaining = Math.max(0, card.expiresAtTick - serverTick);
+            const tickRate = balanceConfig.server?.tickRate ?? 30;
+            const secondsRemaining = ticksRemaining / tickRate;
+            talentTimer.textContent = `Осталось: ${secondsRemaining.toFixed(1)}с`;
             
-            const canSelect = !talentSelectionInFlight;
-            for (const button of talentButtonsList) {
-                button.disabled = !canSelect;
-                button.style.opacity = canSelect ? "1" : "0.6";
-                button.style.cursor = canSelect ? "pointer" : "not-allowed";
+            // Заголовок с индикатором очереди
+            const queueCount = localPlayer.pendingTalentCount ?? 0;
+            const queueText = queueCount > 0 ? ` (+${queueCount} ожидает)` : "";
+            talentTitle.textContent = `Выбери талант${queueText}`;
+            
+            // Обновляем кнопки
+            const options = [
+                { talentId: card.option0, rarity: card.rarity0 },
+                { talentId: card.option1, rarity: card.rarity1 },
+                { talentId: card.option2, rarity: card.rarity2 }
+            ];
+            
+            for (let i = 0; i < 3; i++) {
+                const btn = talentButtonElements[i];
+                const opt = options[i];
+                
+                if (!opt.talentId) {
+                    btn.style.display = "none";
+                    continue;
+                }
+                
+                btn.style.display = "grid";
+                btn.style.gridTemplateColumns = "auto 1fr";
+                btn.style.gap = "12px";
+                btn.style.alignItems = "center";
+                
+                const info = talentInfo[opt.talentId] ?? { name: opt.talentId, icon: "❓", desc: "" };
+                const rarity = opt.rarity ?? 0;
+                const rarityColor = rarityColors[rarity] ?? "#6b7280";
+                
+                // Цвет рамки по редкости
+                btn.style.borderColor = rarityColor;
+                btn.style.borderWidth = "2px";
+                
+                btn.innerHTML = "";
+                
+                // Левая часть: клавиша + иконка
+                const leftPart = document.createElement("div");
+                leftPart.style.display = "flex";
+                leftPart.style.flexDirection = "column";
+                leftPart.style.alignItems = "center";
+                leftPart.style.gap = "4px";
+                
+                const keyHint = document.createElement("span");
+                keyHint.textContent = String(7 + i);
+                keyHint.style.fontSize = "11px";
+                keyHint.style.color = "#6a8099";
+                keyHint.style.padding = "2px 6px";
+                keyHint.style.background = "#1a2636";
+                keyHint.style.borderRadius = "4px";
+                leftPart.appendChild(keyHint);
+                
+                const icon = document.createElement("span");
+                icon.textContent = info.icon;
+                icon.style.fontSize = "28px";
+                leftPart.appendChild(icon);
+                
+                btn.appendChild(leftPart);
+                
+                // Правая часть: название, редкость, описание
+                const rightPart = document.createElement("div");
+                rightPart.style.display = "flex";
+                rightPart.style.flexDirection = "column";
+                rightPart.style.gap = "4px";
+                
+                const name = document.createElement("span");
+                name.textContent = info.name;
+                name.style.fontWeight = "700";
+                name.style.fontSize = "15px";
+                rightPart.appendChild(name);
+                
+                const rarityLabel = document.createElement("span");
+                rarityLabel.textContent = rarityNames[rarity] ?? "Обычный";
+                rarityLabel.style.fontSize = "11px";
+                rarityLabel.style.color = rarityColor;
+                rarityLabel.style.fontWeight = "600";
+                rightPart.appendChild(rarityLabel);
+                
+                const desc = document.createElement("span");
+                desc.textContent = info.desc;
+                desc.style.fontSize = "12px";
+                desc.style.color = "#9fb5cc";
+                rightPart.appendChild(desc);
+                
+                // Показываем уровень таланта, если он уже есть
+                const existingTalent = localPlayer.talents?.find((t: any) => t.id === opt.talentId);
+                if (existingTalent) {
+                    const levelLabel = document.createElement("span");
+                    levelLabel.textContent = `Уровень ${existingTalent.level} → ${existingTalent.level + 1}`;
+                    levelLabel.style.fontSize = "11px";
+                    levelLabel.style.color = "#fbbf24";
+                    levelLabel.style.fontWeight = "600";
+                    rightPart.appendChild(levelLabel);
+                }
+                
+                btn.appendChild(rightPart);
             }
         };
 
         const sendTalentChoice = (choice: number) => {
             if (talentSelectionInFlight) return;
             talentSelectionInFlight = true;
-            clearTalentAutoSelect();
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, talentChoice: choice });
             setTimeout(() => {
                 talentSelectionInFlight = false;
                 refreshTalentModal();
-            }, 1000);
+            }, 300);
             refreshTalentModal();
         };
 
-        for (const button of talentButtonsList) {
-            const rawChoice = Number(button.dataset.choice);
+        // Клик по кнопкам выбора таланта
+        for (let i = 0; i < talentButtonElements.length; i++) {
+            const button = talentButtonElements[i];
             button.addEventListener("click", () => {
-                if (!Number.isFinite(rawChoice)) return;
-                sendTalentChoice(rawChoice);
+                sendTalentChoice(i);
             });
         }
 
@@ -1609,7 +2249,6 @@ async function connectToServer(playerName: string, classId: number) {
                 // Сразу центрируем камеру на игроке
                 camera.x = player.x;
                 camera.y = player.y;
-                lastTalentsAvailable = Number(player.talentsAvailable || 0);
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
@@ -1696,6 +2335,144 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
             hud.textContent = lines.join("\n");
+        };
+        
+        // Обновление индикатора уровня
+        const updateLevelIndicator = () => {
+            const player = room.state.players.get(room.sessionId);
+            if (!player) {
+                levelIndicator.style.display = "none";
+                return;
+            }
+            levelIndicator.style.display = "block";
+            const level = player.level ?? 1;
+            const thresholds = balanceConfig.slime?.levelThresholds ?? [100, 200, 300, 500, 800];
+            const nextThreshold = thresholds[level] ?? null;
+            const progressText = nextThreshold 
+                ? ` (${player.mass.toFixed(0)}/${nextThreshold})`
+                : " MAX";
+            levelIndicator.textContent = `Ур. ${level}${progressText}`;
+        };
+        
+        // Обновление UI карточки выбора умений
+        const updateAbilityCardUI = () => {
+            const player = room.state.players.get(room.sessionId);
+            const card = player?.pendingAbilityCard;
+            
+            if (!card || !card.option0) {
+                abilityCardModal.style.display = "none";
+                return;
+            }
+            
+            abilityCardModal.style.display = "flex";
+            
+            // Таймер
+            const serverTick = room.state.serverTick ?? 0;
+            const ticksRemaining = Math.max(0, card.expiresAtTick - serverTick);
+            const tickRate = balanceConfig.server?.tickRate ?? 30;
+            const secondsRemaining = ticksRemaining / tickRate;
+            abilityCardTimer.textContent = `Осталось: ${secondsRemaining.toFixed(1)}с`;
+            
+            // Заголовок с номером слота и очередью
+            const slotNum = (card.slotIndex ?? 0) + 1;
+            const queueCount = player.pendingCardCount ?? 0;
+            const queueText = queueCount > 0 ? ` (+${queueCount} ожидает)` : "";
+            abilityCardTitle.textContent = `Слот ${slotNum}: выбери умение${queueText}`;
+            
+            // Обновляем кнопки
+            const options = [card.option0, card.option1, card.option2];
+            for (let i = 0; i < 3; i++) {
+                const btn = abilityCardBtns[i];
+                const abilityId = options[i];
+                
+                if (!abilityId) {
+                    btn.style.display = "none";
+                    continue;
+                }
+                
+                btn.style.display = "flex";
+                const info = abilityNames[abilityId] ?? { name: abilityId, icon: "❓", desc: "" };
+                
+                btn.innerHTML = "";
+                
+                const keyHint = document.createElement("span");
+                keyHint.textContent = String(7 + i);
+                keyHint.style.fontSize = "12px";
+                keyHint.style.color = "#6a8099";
+                keyHint.style.marginRight = "6px";
+                btn.appendChild(keyHint);
+                
+                const icon = document.createElement("span");
+                icon.textContent = info.icon;
+                icon.style.fontSize = "20px";
+                btn.appendChild(icon);
+                
+                const textContainer = document.createElement("div");
+                textContainer.style.display = "flex";
+                textContainer.style.flexDirection = "column";
+                
+                const name = document.createElement("span");
+                name.textContent = info.name;
+                name.style.fontWeight = "600";
+                textContainer.appendChild(name);
+                
+                const desc = document.createElement("span");
+                desc.textContent = info.desc;
+                desc.style.fontSize = "11px";
+                desc.style.color = "#9fb5cc";
+                textContainer.appendChild(desc);
+                
+                btn.appendChild(textContainer);
+            }
+        };
+        
+        // Обновление кнопки слота 2
+        const updateSlot2Button = () => {
+            const player = room.state.players.get(room.sessionId);
+            if (!player) {
+                slot2Button.style.display = "none";
+                return;
+            }
+            
+            const abilityId = player.abilitySlot2;
+            if (!abilityId) {
+                // Слот не разблокирован или пуст
+                const level = player.level ?? 1;
+                if (level < 5) {
+                    slot2Button.style.display = "none";
+                } else {
+                    slot2Button.style.display = "flex";
+                    slot2ButtonIcon.textContent = "🔒";
+                }
+                return;
+            }
+            
+            slot2Button.style.display = "flex";
+            const info = abilityNames[abilityId] ?? { icon: "❓" };
+            slot2ButtonIcon.textContent = info.icon;
+        };
+        
+        // Обновление иконки кнопки Slot 1 (projectile или другое умение)
+        const updateSlot1Button = () => {
+            const player = room.state.players.get(room.sessionId);
+            if (!player) return;
+            
+            const abilityId = player.abilitySlot1;
+            if (!abilityId) {
+                // Пока слот пуст — скрываем или показываем projectile по умолчанию
+                const level = player.level ?? 1;
+                if (level < 3) {
+                    projectileButton.style.display = "none";
+                } else {
+                    projectileButton.style.display = "flex";
+                    projectileButtonIcon.textContent = "🔒";
+                }
+                return;
+            }
+            
+            projectileButton.style.display = "flex";
+            const info = abilityNames[abilityId] ?? { icon: "💥" };
+            projectileButtonIcon.textContent = info.icon;
         };
 
         const updateResultsOverlay = () => {
@@ -1827,6 +2604,8 @@ async function connectToServer(playerName: string, classId: number) {
         const inputIntervalMs = Math.max(16, Math.round(1000 / balanceConfig.server.tickRate));
         const inputTimer = setInterval(() => {
             if (!hasFocus) return;
+            if (document.visibilityState !== "visible") return;
+            if (!document.hasFocus()) return;
             const { x, y } = computeMoveInput();
             const changed = Math.abs(x - lastSentInput.x) > 1e-3 || Math.abs(y - lastSentInput.y) > 1e-3;
             if (!changed) return;
@@ -1853,6 +2632,8 @@ async function connectToServer(playerName: string, classId: number) {
             const orbsView = renderState ? renderState.orbs : room.state.orbs;
             const chestsView = renderState ? renderState.chests : room.state.chests;
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
+            const slowZonesView = renderState ? renderState.slowZones : room.state.slowZones;
+            const projectilesView = renderState ? renderState.projectiles : room.state.projectiles;
 
             // Камера следит за сглаженной позицией игрока (плавное движение)
             const smoothedPlayer = renderState?.players.get(room.sessionId);
@@ -1872,7 +2653,28 @@ async function connectToServer(playerName: string, classId: number) {
             canvasCtx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
 
-            canvasCtx.fillStyle = "rgba(255, 99, 71, 0.08)";
+            // Hunger Zone: красный фон вне Sweet Zones (только в Hunt/Final)
+            const currentPhase = room.state.phase;
+            if ((currentPhase === "Hunt" || currentPhase === "Final") && hotZonesView.size > 0) {
+                // Рисуем красный фон на весь экран
+                canvasCtx.save();
+                canvasCtx.fillStyle = "rgba(139, 0, 0, 0.12)";
+                canvasCtx.fillRect(0, 0, cw, ch);
+                // Вырезаем Safe Zones (Sweet Zones) используя destination-out
+                canvasCtx.globalCompositeOperation = "destination-out";
+                for (const [, zone] of hotZonesView.entries()) {
+                    const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                    const alpha = zone.alpha ?? 1;
+                    if (alpha <= 0.01) continue;
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, zone.radius * scale, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+                    canvasCtx.fill();
+                }
+                canvasCtx.restore();
+            }
+
+            // Sweet Zones (бывшие Hot Zones) — золотой цвет
             for (const [, zone] of hotZonesView.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
@@ -1880,7 +2682,31 @@ async function connectToServer(playerName: string, classId: number) {
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
-                drawCircle(p.x, p.y, zone.radius * scale, "rgba(255, 99, 71, 0.08)", "rgba(255, 99, 71, 0.4)");
+                drawCircle(p.x, p.y, zone.radius * scale, "rgba(255, 215, 0, 0.08)", "rgba(255, 215, 0, 0.4)");
+                canvasCtx.restore();
+            }
+
+            // Slow Zones (замедление Собирателя) — фиолетовый градиент
+            for (const [, zone] of slowZonesView.entries()) {
+                if (Math.abs(zone.x - camera.x) > halfWorldW + zone.radius || Math.abs(zone.y - camera.y) > halfWorldH + zone.radius) continue;
+                const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                const alpha = zone.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha * 0.5;
+                // Фиолетовый градиент
+                const gradient = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, zone.radius * scale);
+                gradient.addColorStop(0, "rgba(148, 0, 211, 0.3)");
+                gradient.addColorStop(0.7, "rgba(148, 0, 211, 0.15)");
+                gradient.addColorStop(1, "rgba(148, 0, 211, 0)");
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.beginPath();
+                canvasCtx.arc(p.x, p.y, zone.radius * scale, 0, Math.PI * 2);
+                canvasCtx.fill();
+                // Обводка
+                canvasCtx.strokeStyle = "rgba(148, 0, 211, 0.6)";
+                canvasCtx.lineWidth = 2;
+                canvasCtx.stroke();
                 canvasCtx.restore();
             }
 
@@ -1914,11 +2740,103 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.shadowBlur = 12;
                 drawCircle(p.x, p.y, r, style.fill, style.stroke);
                 canvasCtx.shadowBlur = 0;
+                
+                // GDD v3.3: Отрисовка обручей (armorRings)
+                const rings = chest.armorRings ?? 0;
+                if (rings > 0) {
+                    canvasCtx.strokeStyle = "#888";
+                    canvasCtx.lineWidth = 2;
+                    for (let i = 0; i < rings; i++) {
+                        const ringR = r * (1.2 + i * 0.25);
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(p.x, p.y, ringR, 0, Math.PI * 2);
+                        canvasCtx.stroke();
+                    }
+                }
+                
                 canvasCtx.fillStyle = "#1b1b1b";
                 canvasCtx.font = "16px \"IBM Plex Mono\", monospace";
                 canvasCtx.textAlign = "center";
                 canvasCtx.fillText(style.icon, p.x, p.y + 5);
                 canvasCtx.restore();
+            }
+
+            // Рендеринг снарядов (projectiles)
+            for (const [, proj] of projectilesView.entries()) {
+                if (Math.abs(proj.x - camera.x) > halfWorldW + 50 || Math.abs(proj.y - camera.y) > halfWorldH + 50) continue;
+                const p = worldToScreen(proj.x, proj.y, scale, camera.x, camera.y, cw, ch);
+                const r = Math.max(4, proj.radius * scale);
+                const alpha = proj.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                
+                // Определяем цвет снаряда: свой = голубой, чужой = красный
+                // Bomb (projectileType = 1) — оранжевый
+                const isMine = proj.ownerId === room.sessionId;
+                const isBomb = proj.projectileType === 1;
+                let fillColor: string;
+                let strokeColor: string;
+                if (isBomb) {
+                    fillColor = "rgba(255, 165, 0, 0.9)";
+                    strokeColor = "#ff8c00";
+                } else {
+                    fillColor = isMine ? "rgba(100, 220, 255, 0.9)" : "rgba(255, 100, 100, 0.9)";
+                    strokeColor = isMine ? "#64dcff" : "#ff6464";
+                }
+                
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
+                canvasCtx.shadowColor = strokeColor;
+                canvasCtx.shadowBlur = isBomb ? 12 : 8;
+                drawCircle(p.x, p.y, r, fillColor, strokeColor);
+                canvasCtx.shadowBlur = 0;
+                canvasCtx.restore();
+            }
+            
+            // Рендеринг мин
+            const minesView = renderState ? renderState.mines : room.state.mines;
+            if (minesView) {
+                for (const [, mine] of minesView.entries()) {
+                    if (Math.abs(mine.x - camera.x) > halfWorldW + 50 || Math.abs(mine.y - camera.y) > halfWorldH + 50) continue;
+                    const p = worldToScreen(mine.x, mine.y, scale, camera.x, camera.y, cw, ch);
+                    const r = Math.max(6, mine.radius * scale);
+                    const alpha = mine.alpha ?? 1;
+                    if (alpha <= 0.01) continue;
+                    
+                    const isMine = mine.ownerId === room.sessionId;
+                    const fillColor = isMine ? "rgba(180, 100, 255, 0.7)" : "rgba(255, 50, 50, 0.7)";
+                    const strokeColor = isMine ? "#b464ff" : "#ff3232";
+                    
+                    canvasCtx.save();
+                    canvasCtx.globalAlpha = alpha;
+                    
+                    // Пульсирующий эффект
+                    const pulse = 1 + 0.15 * Math.sin(time * 6);
+                    const pulseR = r * pulse;
+                    
+                    // Внешний круг (зона детонации)
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, pulseR, 0, Math.PI * 2);
+                    canvasCtx.strokeStyle = strokeColor;
+                    canvasCtx.lineWidth = 2;
+                    canvasCtx.setLineDash([4, 4]);
+                    canvasCtx.stroke();
+                    canvasCtx.setLineDash([]);
+                    
+                    // Внутренний круг (ядро)
+                    canvasCtx.shadowColor = strokeColor;
+                    canvasCtx.shadowBlur = 10;
+                    drawCircle(p.x, p.y, r * 0.5, fillColor, strokeColor);
+                    canvasCtx.shadowBlur = 0;
+                    
+                    // Иконка
+                    canvasCtx.fillStyle = "#fff";
+                    canvasCtx.font = `${Math.max(10, r * 0.6)}px "IBM Plex Mono", monospace`;
+                    canvasCtx.textAlign = "center";
+                    canvasCtx.textBaseline = "middle";
+                    canvasCtx.fillText("💀", p.x, p.y);
+                    
+                    canvasCtx.restore();
+                }
             }
 
             for (const [id, player] of playersView.entries()) {
@@ -1998,6 +2916,31 @@ async function connectToServer(playerName: string, classId: number) {
                         canvasCtx.lineTo(p.x + Math.cos(angle) * magnetRadius * 0.9, p.y + Math.sin(angle) * magnetRadius * 0.9);
                         canvasCtx.stroke();
                     }
+                }
+
+                if ((player.flags & FLAG_PUSHING) !== 0) {
+                    const pushRadius = (balanceConfig.abilities?.push?.radiusM ?? 80) * scale;
+                    const pulse = 1 + 0.08 * Math.sin(time * 10);
+                    const ringRadius = pushRadius * pulse;
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, ringRadius, 0, Math.PI * 2);
+                    canvasCtx.strokeStyle = "rgba(120, 220, 255, 0.7)";
+                    canvasCtx.lineWidth = 3;
+                    canvasCtx.setLineDash([8, 6]);
+                    canvasCtx.shadowColor = "rgba(120, 220, 255, 0.8)";
+                    canvasCtx.shadowBlur = 12;
+                    canvasCtx.stroke();
+                    canvasCtx.setLineDash([]);
+                    canvasCtx.shadowBlur = 0;
+
+                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, ringRadius);
+                    gradient.addColorStop(0, "rgba(120, 220, 255, 0.15)");
+                    gradient.addColorStop(0.6, "rgba(120, 220, 255, 0.08)");
+                    gradient.addColorStop(1, "rgba(120, 220, 255, 0)");
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, ringRadius, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = gradient;
+                    canvasCtx.fill();
                 }
                 
                 // Визуализация щита воина
@@ -2139,13 +3082,56 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const onKeyDown = (event: KeyboardEvent) => {
+            if (document.visibilityState !== "visible") return;
+            if (!document.hasFocus()) return;
+            if (event.ctrlKey || event.metaKey || event.altKey) return;
             if (event.repeat) return;
+            if (classSelectMode) return;
             const key = event.key.toLowerCase();
+            hasFocus = true;
             
-            // Способность активируется клавишей 1 (slot 0 — классовая способность)
+            // Способность активируется клавишей 1 (slot 0 - классовая способность)
             if (key === "1") {
                 inputSeq += 1;
                 room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+                event.preventDefault();
+                return;
+            }
+            
+            // Выброс активируется клавишей 2 (slot 1)
+            if (key === "2") {
+                inputSeq += 1;
+                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+                event.preventDefault();
+                return;
+            }
+            
+            // Slot 2 активируется клавишей 3
+            if (key === "3") {
+                inputSeq += 1;
+                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
+                event.preventDefault();
+                return;
+            }
+            
+            // Выбор из карточки умений или талантов клавишами 7/8/9
+            if (key === "7" || key === "8" || key === "9") {
+                const choiceIndex = parseInt(key) - 7; // 7->0, 8->1, 9->2
+                
+                // Проверяем, что открыто: карточка умений или талантов
+                const player = room.state.players.get(room.sessionId);
+                const hasAbilityCard = player?.pendingAbilityCard && player.pendingAbilityCard.option0;
+                const hasTalentCard = player?.pendingTalentCard && player.pendingTalentCard.option0;
+                
+                if (hasTalentCard) {
+                    // Отправляем выбор таланта
+                    sendTalentChoice(choiceIndex);
+                } else if (hasAbilityCard) {
+                    // Отправляем выбор умения
+                    inputSeq += 1;
+                    room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, cardChoice: choiceIndex });
+                }
+                
                 event.preventDefault();
                 return;
             }
@@ -2170,7 +3156,6 @@ async function connectToServer(playerName: string, classId: number) {
                 default:
                     return;
             }
-            hasFocus = true;
             event.preventDefault();
         };
 
@@ -2292,6 +3277,11 @@ async function connectToServer(playerName: string, classId: number) {
             detachJoystickPointerListeners();
             resetJoystick();
         };
+        
+        const onFocus = () => {
+            if (classSelectMode) return;
+            hasFocus = true;
+        };
 
         const onVisibilityChange = () => {
             if (document.visibilityState === "hidden") {
@@ -2317,6 +3307,7 @@ async function connectToServer(playerName: string, classId: number) {
             
             // Не активируем если уже активен джойстик
             if (joystickState.active) return;
+            if (classSelectMode) return;
             
             hasFocus = true;
             mouseState.active = true;
@@ -2324,11 +3315,14 @@ async function connectToServer(playerName: string, classId: number) {
             mouseState.screenY = event.clientY;
         };
 
-        const onMouseLeave = () => {
-            // Отключаем управление мышью когда курсор покидает окно
-            mouseState.active = false;
-            mouseState.moveX = 0;
-            mouseState.moveY = 0;
+        const onMouseLeave = (event: MouseEvent) => {
+            if (document.visibilityState !== "visible") return;
+            if (!document.hasFocus()) return;
+            if (classSelectMode) return;
+            const rect = canvas.getBoundingClientRect();
+            mouseState.active = true;
+            mouseState.screenX = clamp(event.clientX, rect.left + 1, rect.right - 1);
+            mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
         };
         
         // Обработчик кнопки способности
@@ -2337,24 +3331,71 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
+        
+        // Обработчик кнопки Выброса (Projectile)
+        const onProjectileButtonClick = () => {
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+        };
+        projectileButton.addEventListener("click", onProjectileButtonClick);
+        
+        // Обработчик кнопки Slot 2
+        const onSlot2ButtonClick = () => {
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
+        };
+        slot2Button.addEventListener("click", onSlot2ButtonClick);
+        
+        // Обработчики кнопок карточки умений
+        const onAbilityCardChoice = (choiceIndex: number) => {
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, cardChoice: choiceIndex });
+        };
+        for (let i = 0; i < abilityCardBtns.length; i++) {
+            const btn = abilityCardBtns[i];
+            btn.addEventListener("click", () => onAbilityCardChoice(i));
+        }
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
         canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
         canvas.addEventListener("mousemove", onMouseMove, { passive: true });
         canvas.addEventListener("mouseleave", onMouseLeave, { passive: true });
+        window.addEventListener("focus", onFocus);
         window.addEventListener("blur", onBlur);
         document.addEventListener("visibilitychange", onVisibilityChange);
 
         updateHud();
         updateResultsOverlay();
         refreshTalentModal();
+        updateLevelIndicator();
+        updateAbilityCardUI();
+        updateSlot1Button();
+        updateSlot2Button();
         render();
 
         const hudTimer = setInterval(() => {
             updateHud();
             updateResultsOverlay();
             refreshTalentModal();
+            updateLevelIndicator();
+            updateAbilityCardUI();
+            updateSlot1Button();
+            updateSlot2Button();
+            
+            const phase = room.state.phase;
+            const selfPlayer = room.state.players.get(room.sessionId);
+            if (phase !== "Results" && selfPlayer) {
+                if (!isValidClassId(selfPlayer.classId)) {
+                    // Между матчами класс сбрасывается на сервере — возвращаем экран выбора
+                    if (!nameInput.disabled) {
+                        nameInput.value = String(selfPlayer.name ?? nameInput.value);
+                    }
+                    setClassSelectMode(true);
+                } else {
+                    setClassSelectMode(false);
+                }
+            }
         }, 200);
 
         room.onLeave(() => {
@@ -2371,14 +3412,22 @@ async function connectToServer(playerName: string, classId: number) {
             canvas.removeEventListener("pointerdown", onPointerDown);
             canvas.removeEventListener("mousemove", onMouseMove);
             canvas.removeEventListener("mouseleave", onMouseLeave);
+            window.removeEventListener("focus", onFocus);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
             abilityButton.removeEventListener("click", onAbilityButtonClick);
+            projectileButton.removeEventListener("click", onProjectileButtonClick);
+            slot2Button.removeEventListener("click", onSlot2ButtonClick);
+            activeRoom = null;
             
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
             hud.style.display = "none";
             abilityButton.style.display = "none";
+            projectileButton.style.display = "none";
+            slot2Button.style.display = "none";
+            abilityCardModal.style.display = "none";
+            levelIndicator.style.display = "none";
             joinScreen.style.display = "flex";
         });
     } catch (e) {
@@ -2393,6 +3442,13 @@ async function connectToServer(playerName: string, classId: number) {
 
 // Обработчик кнопки "Играть"
 playButton.addEventListener("click", () => {
+    if (playButton.disabled || selectedClassId < 0 || selectedClassId > 2) {
+        return; // Класс не выбран
+    }
+    if (activeRoom) {
+        activeRoom.send("selectClass", { classId: selectedClassId });
+        return;
+    }
     const name = nameInput.value.trim() || generateRandomName();
     connectToServer(name, selectedClassId);
 });
