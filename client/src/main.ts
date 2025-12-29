@@ -105,15 +105,15 @@ talentCard.style.display = "grid";
 talentCard.style.gap = "12px";
 
 const talentTitle = document.createElement("div");
-talentTitle.textContent = "Choose a Talent";
+talentTitle.textContent = "Выбери талант";
 talentTitle.style.fontSize = "18px";
 talentTitle.style.fontWeight = "700";
 talentTitle.style.letterSpacing = "0.5px";
 
-const talentHint = document.createElement("div");
-talentHint.textContent = "Spend one available talent to gain a boost.";
-talentHint.style.fontSize = "13px";
-talentHint.style.color = "#9fb5cc";
+const talentTimer = document.createElement("div");
+talentTimer.style.fontSize = "13px";
+talentTimer.style.color = "#fbbf24";
+talentTimer.style.fontWeight = "600";
 
 const talentCount = document.createElement("div");
 talentCount.style.fontSize = "12px";
@@ -123,65 +123,100 @@ const talentButtons = document.createElement("div");
 talentButtons.style.display = "grid";
 talentButtons.style.gap = "10px";
 
-const talentChoices = [
-    { id: 0, name: "Mass Surge", detail: "+5% массы" },
-    { id: 1, name: "Mass Boost", detail: "+30% массы" },
-    { id: 2, name: "Guard Pulse", detail: "+3% массы + щит" },
-];
-
 const talentButtonsList: HTMLButtonElement[] = [];
+const talentButtonElements: HTMLButtonElement[] = [];
 
-const styleTalentButton = (button: HTMLButtonElement) => {
+// Создаём 3 кнопки для выбора талантов
+for (let i = 0; i < 3; i++) {
+    const button = document.createElement("button");
     button.type = "button";
-    button.style.display = "grid";
-    button.style.gap = "4px";
-    button.style.padding = "12px 14px";
+    button.style.display = "none";
+    button.style.gap = "8px";
+    button.style.padding = "14px 16px";
     button.style.background = "#111b2a";
-    button.style.border = "1px solid #2d4a6d";
+    button.style.border = "2px solid #2d4a6d";
     button.style.borderRadius = "12px";
     button.style.color = "#e6f3ff";
     button.style.fontSize = "14px";
     button.style.textAlign = "left";
     button.style.cursor = "pointer";
-    button.style.transition = "transform 120ms ease, box-shadow 120ms ease, background 120ms ease";
-
+    button.style.transition = "transform 120ms ease, box-shadow 120ms ease, background 120ms ease, border-color 120ms ease";
+    
     button.addEventListener("mouseenter", () => {
         if (button.disabled) return;
         button.style.transform = "translateY(-2px)";
         button.style.background = "#1b2c45";
         button.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
     });
-
+    
     button.addEventListener("mouseleave", () => {
         button.style.transform = "translateY(0)";
         button.style.background = "#111b2a";
         button.style.boxShadow = "none";
     });
-};
-
-for (const choice of talentChoices) {
-    const button = document.createElement("button");
-    const label = document.createElement("div");
-    label.textContent = choice.name;
-    label.style.fontWeight = "600";
-    const detail = document.createElement("div");
-    detail.textContent = choice.detail;
-    detail.style.fontSize = "12px";
-    detail.style.color = "#a9bdd6";
-    button.dataset.choice = String(choice.id);
-    styleTalentButton(button);
-    button.appendChild(label);
-    button.appendChild(detail);
+    
     talentButtons.appendChild(button);
+    talentButtonElements.push(button);
     talentButtonsList.push(button);
 }
 
 talentCard.appendChild(talentTitle);
-talentCard.appendChild(talentHint);
+talentCard.appendChild(talentTimer);
 talentCard.appendChild(talentCount);
 talentCard.appendChild(talentButtons);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
+
+// Маппинг талантов: название, иконка, описание (будет загружаться из balance.json)
+const talentInfo: Record<string, { name: string; icon: string; desc: string }> = {
+    // Common talents
+    fastLegs: { name: "Быстрые ноги", icon: "🦵", desc: "+% к макс. скорости" },
+    spinner: { name: "Юла", icon: "🌀", desc: "+% к повороту" },
+    sharpTeeth: { name: "Острые зубы", icon: "🦷", desc: "+% к урону укусом" },
+    glutton: { name: "Обжора", icon: "😋", desc: "+% массы от пузырей" },
+    thickSkin: { name: "Толстая шкура", icon: "🛡️", desc: "−% потери от укусов" },
+    economical: { name: "Экономный", icon: "💰", desc: "−% стоимость умений" },
+    recharge: { name: "Перезарядка", icon: "⚡", desc: "−% кулдауны" },
+    aggressor: { name: "Агрессор", icon: "💢", desc: "+12% урон, +12% потери" },
+    sturdy: { name: "Стойкий", icon: "🗿", desc: "−10% к потерям" },
+    accelerator: { name: "Ускоритель", icon: "🚀", desc: "+15% маршевый двигатель" },
+    anchor: { name: "Якорь", icon: "⚓", desc: "+20% тормозной двигатель" },
+    crab: { name: "Краб", icon: "🦀", desc: "+15% боковые двигатели" },
+    bloodlust: { name: "Кровожадность", icon: "🩸", desc: "+15% массы от убийств" },
+    secondWind: { name: "Второе дыхание", icon: "💨", desc: "Респаун 150 кг" },
+    
+    // Rare talents
+    poison: { name: "Яд", icon: "☠️", desc: "Укус отравляет" },
+    frost: { name: "Мороз", icon: "❄️", desc: "Укус замедляет" },
+    vampire: { name: "Вампир", icon: "🧛", desc: "Больше массы от укуса" },
+    vacuum: { name: "Вакуум", icon: "🌪️", desc: "Пузыри к пасти" },
+    motor: { name: "Мотор", icon: "⚙️", desc: "+25% все двигатели" },
+    ricochet: { name: "Рикошет", icon: "↩️", desc: "Выброс отскакивает" },
+    piercing: { name: "Пробивание", icon: "➡️", desc: "Выброс сквозь цель" },
+    longDash: { name: "Длинный рывок", icon: "🏃", desc: "+40% дистанция рывка" },
+    backNeedles: { name: "Иглы назад", icon: "🔱", desc: "3 снаряда при гибели" },
+    toxic: { name: "Токсичный", icon: "☣️", desc: "×2 лужа при гибели" },
+    
+    // Epic talents
+    lightning: { name: "Молния", icon: "⚡", desc: "+25% скорость, оглушение" },
+    doubleActivation: { name: "Двойная активация", icon: "✖️", desc: "Повтор умения за 1 сек" },
+    explosion: { name: "Взрыв", icon: "💥", desc: "При гибели AoE урон" },
+    leviathan: { name: "Левиафан", icon: "🐋", desc: "Размер ×1.3, пасть ×1.5" },
+    invisible: { name: "Невидимка", icon: "👻", desc: "1.5 сек после рывка" },
+};
+
+// Цвета рамки по редкости (GDD-Talents.md)
+const rarityColors: Record<number, string> = {
+    0: "#6b7280", // Common (серый)
+    1: "#3b82f6", // Rare (синий)
+    2: "#a855f7", // Epic (фиолетовый)
+};
+
+const rarityNames: Record<number, string> = {
+    0: "Обычный",
+    1: "Редкий",
+    2: "Эпический",
+};
 
 // Results overlay для фазы Results
 const resultsOverlay = document.createElement("div");
@@ -1978,7 +2013,6 @@ async function connectToServer(playerName: string, classId: number) {
         let inputSeq = 0;
         let localPlayer: any = null;
         let renderStateForHud: RenderState | null = null;
-        let lastTalentsAvailable = 0;
         // Сглаженная позиция игрока для управления мышью
         let smoothedPlayerX = 0;
         let smoothedPlayerY = 0;
@@ -2064,83 +2098,144 @@ async function connectToServer(playerName: string, classId: number) {
             abilityButtonIcon.textContent = abilityIcons[cid] ?? "⚡";
         };
 
-        // Таймер автовыбора таланта (7 секунд)
-        const TALENT_AUTO_SELECT_MS = 7000;
-        let talentAutoSelectTimer: ReturnType<typeof setTimeout> | null = null;
-        let talentAutoSelectStartTime = 0;
-
-        const clearTalentAutoSelect = () => {
-            if (talentAutoSelectTimer !== null) {
-                clearTimeout(talentAutoSelectTimer);
-                talentAutoSelectTimer = null;
-            }
-        };
-
-        const startTalentAutoSelect = () => {
-            clearTalentAutoSelect();
-            talentAutoSelectStartTime = Date.now();
-            talentAutoSelectTimer = setTimeout(() => {
-                // Автовыбор случайного таланта (0, 1 или 2)
-                const randomChoice = Math.floor(Math.random() * 3);
-                sendTalentChoice(randomChoice);
-            }, TALENT_AUTO_SELECT_MS);
-        };
-
         const refreshTalentModal = () => {
             if (!localPlayer) {
                 talentModal.style.display = "none";
-                clearTalentAutoSelect();
                 return;
             }
-            const available = Number(localPlayer.talentsAvailable || 0);
-            if (available !== lastTalentsAvailable) {
-                talentSelectionInFlight = false;
-                lastTalentsAvailable = available;
-                // Новый талант доступен — запускаем таймер автовыбора
-                if (available > 0) {
-                    startTalentAutoSelect();
-                } else {
-                    clearTalentAutoSelect();
-                }
-            }
-            if (available <= 0) {
+            
+            const card = localPlayer.pendingTalentCard;
+            
+            if (!card || !card.option0) {
                 talentModal.style.display = "none";
                 return;
             }
-
+            
             talentModal.style.display = "flex";
             
-            // Показываем оставшееся время до автовыбора
-            const elapsed = Date.now() - talentAutoSelectStartTime;
-            const remaining = Math.max(0, Math.ceil((TALENT_AUTO_SELECT_MS - elapsed) / 1000));
-            talentCount.textContent = `Таланты: ${available} (авто через ${remaining}с)`;
+            // Таймер обратного отсчёта
+            const serverTick = room.state.serverTick ?? 0;
+            const ticksRemaining = Math.max(0, card.expiresAtTick - serverTick);
+            const tickRate = balanceConfig.server?.tickRate ?? 30;
+            const secondsRemaining = ticksRemaining / tickRate;
+            talentTimer.textContent = `Осталось: ${secondsRemaining.toFixed(1)}с`;
             
-            const canSelect = !talentSelectionInFlight;
-            for (const button of talentButtonsList) {
-                button.disabled = !canSelect;
-                button.style.opacity = canSelect ? "1" : "0.6";
-                button.style.cursor = canSelect ? "pointer" : "not-allowed";
+            // Заголовок с индикатором очереди
+            const queueCount = localPlayer.pendingTalentCount ?? 0;
+            const queueText = queueCount > 0 ? ` (+${queueCount} ожидает)` : "";
+            talentTitle.textContent = `Выбери талант${queueText}`;
+            
+            // Обновляем кнопки
+            const options = [
+                { talentId: card.option0, rarity: card.rarity0 },
+                { talentId: card.option1, rarity: card.rarity1 },
+                { talentId: card.option2, rarity: card.rarity2 }
+            ];
+            
+            for (let i = 0; i < 3; i++) {
+                const btn = talentButtonElements[i];
+                const opt = options[i];
+                
+                if (!opt.talentId) {
+                    btn.style.display = "none";
+                    continue;
+                }
+                
+                btn.style.display = "grid";
+                btn.style.gridTemplateColumns = "auto 1fr";
+                btn.style.gap = "12px";
+                btn.style.alignItems = "center";
+                
+                const info = talentInfo[opt.talentId] ?? { name: opt.talentId, icon: "❓", desc: "" };
+                const rarity = opt.rarity ?? 0;
+                const rarityColor = rarityColors[rarity] ?? "#6b7280";
+                
+                // Цвет рамки по редкости
+                btn.style.borderColor = rarityColor;
+                btn.style.borderWidth = "2px";
+                
+                btn.innerHTML = "";
+                
+                // Левая часть: клавиша + иконка
+                const leftPart = document.createElement("div");
+                leftPart.style.display = "flex";
+                leftPart.style.flexDirection = "column";
+                leftPart.style.alignItems = "center";
+                leftPart.style.gap = "4px";
+                
+                const keyHint = document.createElement("span");
+                keyHint.textContent = String(7 + i);
+                keyHint.style.fontSize = "11px";
+                keyHint.style.color = "#6a8099";
+                keyHint.style.padding = "2px 6px";
+                keyHint.style.background = "#1a2636";
+                keyHint.style.borderRadius = "4px";
+                leftPart.appendChild(keyHint);
+                
+                const icon = document.createElement("span");
+                icon.textContent = info.icon;
+                icon.style.fontSize = "28px";
+                leftPart.appendChild(icon);
+                
+                btn.appendChild(leftPart);
+                
+                // Правая часть: название, редкость, описание
+                const rightPart = document.createElement("div");
+                rightPart.style.display = "flex";
+                rightPart.style.flexDirection = "column";
+                rightPart.style.gap = "4px";
+                
+                const name = document.createElement("span");
+                name.textContent = info.name;
+                name.style.fontWeight = "700";
+                name.style.fontSize = "15px";
+                rightPart.appendChild(name);
+                
+                const rarityLabel = document.createElement("span");
+                rarityLabel.textContent = rarityNames[rarity] ?? "Обычный";
+                rarityLabel.style.fontSize = "11px";
+                rarityLabel.style.color = rarityColor;
+                rarityLabel.style.fontWeight = "600";
+                rightPart.appendChild(rarityLabel);
+                
+                const desc = document.createElement("span");
+                desc.textContent = info.desc;
+                desc.style.fontSize = "12px";
+                desc.style.color = "#9fb5cc";
+                rightPart.appendChild(desc);
+                
+                // Показываем уровень таланта, если он уже есть
+                const existingTalent = localPlayer.talents?.find((t: any) => t.id === opt.talentId);
+                if (existingTalent) {
+                    const levelLabel = document.createElement("span");
+                    levelLabel.textContent = `Уровень ${existingTalent.level} → ${existingTalent.level + 1}`;
+                    levelLabel.style.fontSize = "11px";
+                    levelLabel.style.color = "#fbbf24";
+                    levelLabel.style.fontWeight = "600";
+                    rightPart.appendChild(levelLabel);
+                }
+                
+                btn.appendChild(rightPart);
             }
         };
 
         const sendTalentChoice = (choice: number) => {
             if (talentSelectionInFlight) return;
             talentSelectionInFlight = true;
-            clearTalentAutoSelect();
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, talentChoice: choice });
             setTimeout(() => {
                 talentSelectionInFlight = false;
                 refreshTalentModal();
-            }, 1000);
+            }, 300);
             refreshTalentModal();
         };
 
-        for (const button of talentButtonsList) {
-            const rawChoice = Number(button.dataset.choice);
+        // Клик по кнопкам выбора таланта
+        for (let i = 0; i < talentButtonElements.length; i++) {
+            const button = talentButtonElements[i];
             button.addEventListener("click", () => {
-                if (!Number.isFinite(rawChoice)) return;
-                sendTalentChoice(rawChoice);
+                sendTalentChoice(i);
             });
         }
 
@@ -2154,7 +2249,6 @@ async function connectToServer(playerName: string, classId: number) {
                 // Сразу центрируем камеру на игроке
                 camera.x = player.x;
                 camera.y = player.y;
-                lastTalentsAvailable = Number(player.talentsAvailable || 0);
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
@@ -3020,11 +3114,24 @@ async function connectToServer(playerName: string, classId: number) {
                 return;
             }
             
-            // Выбор из карточки умений клавишами 7/8/9
+            // Выбор из карточки умений или талантов клавишами 7/8/9
             if (key === "7" || key === "8" || key === "9") {
-                const cardChoice = parseInt(key) - 7; // 7->0, 8->1, 9->2
-                inputSeq += 1;
-                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, cardChoice });
+                const choiceIndex = parseInt(key) - 7; // 7->0, 8->1, 9->2
+                
+                // Проверяем, что открыто: карточка умений или талантов
+                const player = room.state.players.get(room.sessionId);
+                const hasAbilityCard = player?.pendingAbilityCard && player.pendingAbilityCard.option0;
+                const hasTalentCard = player?.pendingTalentCard && player.pendingTalentCard.option0;
+                
+                if (hasTalentCard) {
+                    // Отправляем выбор таланта
+                    sendTalentChoice(choiceIndex);
+                } else if (hasAbilityCard) {
+                    // Отправляем выбор умения
+                    inputSeq += 1;
+                    room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, cardChoice: choiceIndex });
+                }
+                
                 event.preventDefault();
                 return;
             }
