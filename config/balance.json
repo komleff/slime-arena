@@ -434,8 +434,19 @@
       "Final": { "rare": 50, "epic": 35, "gold": 15 }
     },
     "rewards": {
-      "massPercent": [0.12, 0.18, 0.28],
-      "talentChance": 0.4
+      "scatterTotalMassPct": [0.12, 0.18, 0.28],
+      "scatterBubbleCount": [10, 16, 24],
+      "scatterInnerFrac": [0.30, 0.30, 0.25],
+      "scatterInnerSpeedMpsMin": [25, 25, 25],
+      "scatterInnerSpeedMpsMax": [45, 45, 40],
+      "scatterOuterSpeedMpsMin": [55, 65, 75],
+      "scatterOuterSpeedMpsMax": [75, 85, 95],
+      "scatterSmallBubbleSpeedMul": 1.25,
+      "talentRarityWeights": {
+        "rare": { "common": 80, "rare": 20, "epic": 0 },
+        "epic": { "common": 30, "rare": 60, "epic": 10 },
+        "gold": { "common": 0, "rare": 40, "epic": 60 }
+      }
     }
   },
   "hotZones": {
