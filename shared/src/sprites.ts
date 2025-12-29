@@ -11,12 +11,12 @@ export interface SlimeSprite {
 }
 
 export const SLIME_SPRITES: Record<number, SlimeSprite> = {
-    // Base класс (classId = 0)
+    // Hunter (classId = 0)
     0: {
-        idle: "/sprites/slimes/base/slime-idle.png",
-        moving: "/sprites/slimes/base/slime-moving.png",
-        eating: "/sprites/slimes/base/slime-eating.png",
-        damaged: "/sprites/slimes/base/slime-damaged.png",
+        idle: "/sprites/slimes/hunter/hunter-idle.png",
+        moving: "/sprites/slimes/hunter/hunter-moving.png",
+        hunting: "/sprites/slimes/hunter/hunter-hunting.png",
+        damaged: "/sprites/slimes/hunter/hunter-damaged.png",
     },
     // Warrior (classId = 1)
     1: {
@@ -31,13 +31,6 @@ export const SLIME_SPRITES: Record<number, SlimeSprite> = {
         moving: "/sprites/slimes/collector/collector-moving.png",
         absorbing: "/sprites/slimes/collector/collector-absorbing.png",
         damaged: "/sprites/slimes/collector/collector-damaged.png",
-    },
-    // Hunter (classId = 3)
-    3: {
-        idle: "/sprites/slimes/hunter/hunter-idle.png",
-        moving: "/sprites/slimes/hunter/hunter-moving.png",
-        hunting: "/sprites/slimes/hunter/hunter-hunting.png",
-        damaged: "/sprites/slimes/hunter/hunter-damaged.png",
     },
 };
 

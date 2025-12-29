@@ -10,15 +10,13 @@
     "abilityQueueSize": 1
   },
   "match": {
-    "durationSec": 150,
-    "resultsDurationSec": 10,
+    "durationSec": 180,
+    "resultsDurationSec": 12,
     "restartDelaySec": 3,
     "phases": [
-      { "id": "Spawn", "startSec": 0, "endSec": 15 },
-      { "id": "Collect", "startSec": 15, "endSec": 60 },
-      { "id": "Hunt", "startSec": 60, "endSec": 90 },
-      { "id": "Chaos", "startSec": 90, "endSec": 120 },
-      { "id": "Final", "startSec": 120, "endSec": 150 }
+      { "id": "Growth", "startSec": 0, "endSec": 60 },
+      { "id": "Hunt", "startSec": 60, "endSec": 120 },
+      { "id": "Final", "startSec": 120, "endSec": 180 }
     ]
   },
   "physics": {
@@ -65,7 +63,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -89,7 +88,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -118,7 +117,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -142,7 +142,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -171,7 +171,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -195,7 +196,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -224,7 +225,8 @@
       },
       "assist": {
         "comfortableBrakingTimeS": 3.5,
-        "angularStopTimeS": 0.3,
+        "angularStopTimeS": 0.2,
+        "angularBrakeBoostFactor": 1.5,
         "autoBrakeMaxThrustFraction": 0.6,
         "overspeedDampingRate": 0.2,
         "yawFullDeflectionAngleDeg": 90,
@@ -248,7 +250,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -258,7 +260,7 @@
   },
   "worldPhysics": {
     "linearDragK": 0.1,
-    "angularDragK": 0.0,
+    "angularDragK": 1.0,
     "restitution": 0.9,
     "maxPositionCorrectionM": 0.5,
     "worldShape": "rectangle",
@@ -276,7 +278,11 @@
   "slime": {
     "initialMass": 100,
     "initialLevel": 1,
-    "initialClassId": 0
+    "initialClassId": 0,
+    "levelThresholds": [100, 200, 300, 500, 800],
+    "slotUnlockLevels": [1, 3, 5],
+    "cardChoiceTimeoutSec": 12,
+    "abilityPool": ["pull", "projectile", "spit", "bomb", "push", "mine"]
   },
   "combat": {
     "mouthArcDeg": 120,
@@ -323,13 +329,13 @@
   "classes": {
     "hunter": {
       "speedMult": 1.15,
-      "hpMult": 0.9,
+      "biteResistPct": 0,
       "swallowLimit": 50,
       "biteFraction": 0.3
     },
     "warrior": {
       "speedMult": 0.9,
-      "hpMult": 1.15,
+      "biteResistPct": 0.15,
       "damageVsSlimeMult": 1.1,
       "swallowLimit": 45,
       "biteFraction": 0.35
@@ -352,7 +358,7 @@
     "shield": {
       "massCostPct": 0.04,
       "cooldownSec": 8,
-      "durationSec": 3.0
+      "durationSec": 2.5
     },
     "magnet": {
       "massCostPct": 0.015,
@@ -360,13 +366,71 @@
       "durationSec": 1.5,
       "radiusM": 150,
       "pullSpeedMps": 50
+    },
+    "slow": {
+      "massCostPct": 0.02,
+      "cooldownSec": 7,
+      "durationSec": 2,
+      "radiusM": 80,
+      "slowPct": 0.30
+    },
+    "projectile": {
+      "massCostPct": 0.02,
+      "cooldownSec": 3,
+      "speedMps": 400,
+      "rangeM": 300,
+      "damagePct": 0.15,
+      "radiusM": 8
+    },
+    "spit": {
+      "massCostPct": 0.03,
+      "cooldownSec": 4,
+      "speedMps": 350,
+      "rangeM": 200,
+      "damagePct": 0.08,
+      "radiusM": 6,
+      "projectileCount": 3,
+      "spreadAngleDeg": 30
+    },
+    "bomb": {
+      "massCostPct": 0.04,
+      "cooldownSec": 6,
+      "speedMps": 200,
+      "rangeM": 250,
+      "damagePct": 0.12,
+      "radiusM": 10,
+      "explosionRadiusM": 50
+    },
+    "push": {
+      "massCostPct": 0.03,
+      "cooldownSec": 6,
+      "radiusM": 80,
+      "impulseNs": 50000
+    },
+    "mine": {
+      "massCostPct": 0.02,
+      "cooldownSec": 10,
+      "damagePct": 0.15,
+      "radiusM": 15,
+      "durationSec": 20,
+      "maxMines": 1
     }
   },
   "chests": {
     "maxCount": 3,
     "spawnIntervalSec": 20,
-    "mass": 200,
+    "mass": 250,
     "radius": 14,
+    "types": {
+      "rare": { "armorRings": 0, "mass": 250 },
+      "epic": { "armorRings": 1, "mass": 350 },
+      "gold": { "armorRings": 2, "mass": 450 }
+    },
+    "phaseWeights": {
+      "Growth": { "rare": 85, "epic": 15, "gold": 0 },
+      "Hunt": { "rare": 65, "epic": 30, "gold": 5 },
+      "Final": { "rare": 50, "epic": 35, "gold": 15 }
+    },
     "rewards": {
       "massPercent": [0.1, 0.2, 0.3],
       "talentChance": 0.4
@@ -388,5 +452,48 @@
   "rebel": {
     "updateIntervalSec": 5,
     "massThresholdMultiplier": 1.2
+  },
+  "talents": {
+    "cardChoiceTimeoutSec": 12,
+    "talentPool": {
+      "common": ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind"],
+      "rare": ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
+      "epic": ["lightning", "doubleActivation", "explosion", "leviathan", "invisible"]
+    },
+    "common": {
+      "fastLegs": { "name": "Быстрые ноги", "maxLevel": 3, "values": [0.10, 0.18, 0.25], "effect": "speedLimitBonus" },
+      "spinner": { "name": "Юла", "maxLevel": 3, "values": [0.10, 0.18, 0.25], "effect": "turnBonus" },
+      "sharpTeeth": { "name": "Острые зубы", "maxLevel": 3, "values": [0.15, 0.25, 0.35], "effect": "biteDamageBonus" },
+      "glutton": { "name": "Обжора", "maxLevel": 3, "values": [0.20, 0.35, 0.50], "effect": "orbMassBonus" },
+      "thickSkin": { "name": "Толстая шкура", "maxLevel": 3, "values": [0.12, 0.20, 0.27], "effect": "biteResistBonus" },
+      "economical": { "name": "Экономный", "maxLevel": 3, "values": [0.15, 0.25, 0.33], "effect": "abilityCostReduction" },
+      "recharge": { "name": "Перезарядка", "maxLevel": 3, "values": [0.15, 0.25, 0.33], "effect": "cooldownReduction" },
+      "aggressor": { "name": "Агрессор", "maxLevel": 1, "values": [0.12], "effect": "aggressorDual" },
+      "sturdy": { "name": "Стойкий", "maxLevel": 1, "values": [0.10], "effect": "allDamageReduction" },
+      "accelerator": { "name": "Ускоритель", "maxLevel": 1, "values": [0.15], "effect": "thrustForwardBonus" },
+      "anchor": { "name": "Якорь", "maxLevel": 1, "values": [0.20], "effect": "thrustReverseBonus" },
+      "crab": { "name": "Краб", "maxLevel": 1, "values": [0.15], "effect": "thrustLateralBonus" },
+      "bloodlust": { "name": "Кровожадность", "maxLevel": 1, "values": [0.15], "effect": "killMassBonus" },
+      "secondWind": { "name": "Второе дыхание", "maxLevel": 1, "values": [150], "effect": "respawnMass" }
+    },
+    "rare": {
+      "poison": { "name": "Яд", "maxLevel": 2, "values": [[0.02, 3], [0.03, 3]], "effect": "poisonOnBite", "requirement": null },
+      "frost": { "name": "Мороз", "maxLevel": 2, "values": [[0.30, 2], [0.40, 2.5]], "effect": "frostOnBite", "requirement": null },
+      "vampire": { "name": "Вампир", "maxLevel": 1, "values": [[0.20, 0.25]], "effect": "vampireBite", "requirement": null },
+      "vacuum": { "name": "Вакуум", "maxLevel": 2, "values": [[40, 15], [60, 20]], "effect": "vacuumOrbs", "requirement": null },
+      "motor": { "name": "Мотор", "maxLevel": 1, "values": [0.25], "effect": "allThrustBonus", "requirement": null },
+      "ricochet": { "name": "Рикошет", "maxLevel": 1, "values": [1], "effect": "projectileRicochet", "requirement": "projectile" },
+      "piercing": { "name": "Пробивание", "maxLevel": 1, "values": [[1.0, 0.6]], "effect": "projectilePiercing", "requirement": "projectile" },
+      "longDash": { "name": "Длинный рывок", "maxLevel": 1, "values": [0.40], "effect": "dashDistanceBonus", "requirement": "dash" },
+      "backNeedles": { "name": "Иглы назад", "maxLevel": 1, "values": [[3, 0.10]], "effect": "deathNeedles", "requirement": null },
+      "toxic": { "name": "Токсичный", "maxLevel": 1, "values": [2.0], "effect": "toxicPoolBonus", "requirement": null }
+    },
+    "epic": {
+      "lightning": { "name": "Молния", "maxLevel": 1, "values": [[0.25, 0.3]], "effect": "lightningSpeed", "requirement": null },
+      "doubleActivation": { "name": "Двойная активация", "maxLevel": 1, "values": [[1.0, 0.80]], "effect": "doubleAbility", "requirement": null },
+      "explosion": { "name": "Взрыв", "maxLevel": 1, "values": [[60, 0.08]], "effect": "deathExplosion", "requirement": null },
+      "leviathan": { "name": "Левиафан", "maxLevel": 1, "values": [[1.3, 1.5]], "effect": "leviathanSize", "requirement": null },
+      "invisible": { "name": "Невидимка", "maxLevel": 1, "values": [1.5], "effect": "invisibleAfterDash", "requirement": "dash" }
+    }
   }
 }

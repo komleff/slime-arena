@@ -1,5 +1,5 @@
 import { Room, Client } from "colyseus";
-import { GameState, Player, Orb, Chest, HotZone } from "./schema/GameState";
+import { GameState, Player, Orb, Chest, HotZone, SlowZone, Projectile, Mine, Talent, TalentCard } from "./schema/GameState";
 import {
     InputCommand,
     MatchPhaseId,
@@ -14,9 +14,12 @@ import {
     FLAG_IS_DEAD,
     FLAG_DASHING,
     FLAG_MAGNETIZING,
+    FLAG_SLOWED,
+    FLAG_PUSHING,
     ResolvedBalanceConfig,
     SlimeConfig,
     generateUniqueName,
+    TalentConfig,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
@@ -26,6 +29,7 @@ type ContactZone = "mouth" | "tail" | "side";
 interface ClassStats {
     radiusMult: number;
     damageMult: number;
+    biteResistPct: number;
     swallowLimit: number;
     biteFraction: number;
     eatingPowerMult: number;
@@ -40,6 +44,9 @@ export class ArenaRoom extends Room<GameState> {
     private orbIdCounter = 0;
     private chestIdCounter = 0;
     private hotZoneIdCounter = 0;
+    private slowZoneIdCounter = 0;
+    private projectileIdCounter = 0;
+    private mineIdCounter = 0;
     private lastOrbSpawnTick = 0;
     private lastChestSpawnTick = 0;
     private lastPhaseId: MatchPhaseId | null = null;
@@ -87,6 +94,55 @@ export class ArenaRoom extends Room<GameState> {
         this.setState(new GameState());
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
+
+        this.onMessage("selectClass", (client, data: { classId?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player) return;
+            if (this.isMatchEnded || this.state.phase === "Results") return;
+
+            const currentClassId = Number(player.classId);
+            const needsClass = !(Number.isInteger(currentClassId) && currentClassId >= 0 && currentClassId <= 2);
+            if (!needsClass) return;
+
+            const rawClassId = Number((data as any)?.classId);
+            if (!Number.isInteger(rawClassId) || rawClassId < 0 || rawClassId > 2) return;
+
+            player.classId = rawClassId;
+
+            const classAbilities = ["dash", "shield", "slow"];
+            player.abilitySlot0 = classAbilities[player.classId] || "dash";
+            player.abilitySlot1 = "";
+            player.abilitySlot2 = "";
+            player.pendingAbilityCard = null;
+            player.cardChoicePressed = null;
+            player.pendingCardSlots = [];
+            player.pendingCardCount = 0;
+
+            if (!this.isMatchEnded && this.state.phase !== "Results") {
+                player.vx = 0;
+                player.vy = 0;
+                player.angVel = 0;
+                player.angle = 0;
+                player.mass = this.balance.slime.initialMass;
+                player.level = this.balance.slime.initialLevel;
+                player.isDead = false;
+                player.isLastBreath = false;
+                player.lastBreathEndTick = 0;
+                player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
+                player.respawnAtTick = 0;
+                player.gcdReadyTick = this.tick;
+                player.abilityCooldownTick = this.tick;
+                player.queuedAbilitySlot = null;
+                player.queuedAbilityTick = 0;
+                player.abilitySlotPressed = null;
+                player.lastAttackTick = 0;
+                player.lastBiteTick = 0;
+                player.lastInputTick = this.tick;
+                player.flags = 0;
+
+                this.updateLeaderboard();
+            }
+        });
 
         this.onMessage("input", (client, data: InputCommand) => {
             const player = this.state.players.get(client.sessionId);
@@ -142,6 +198,32 @@ export class ArenaRoom extends Room<GameState> {
             } else {
                 player.talentChoicePressed = null;
             }
+            
+            // Выбор из карточки умений (GDD v3.3 §1.3)
+            if ("cardChoice" in data) {
+                const cardChoice = data.cardChoice;
+                if (
+                    typeof cardChoice === "number" &&
+                    Number.isInteger(cardChoice) &&
+                    cardChoice >= 0 &&
+                    cardChoice <= 2
+                ) {
+                    player.cardChoicePressed = cardChoice;
+                }
+            }
+            
+            // Выбор из карточки талантов (GDD-Talents.md)
+            if ("talentChoice" in data) {
+                const talentChoice = data.talentChoice;
+                if (
+                    typeof talentChoice === "number" &&
+                    Number.isInteger(talentChoice) &&
+                    talentChoice >= 0 &&
+                    talentChoice <= 2
+                ) {
+                    player.talentChoicePressed2 = talentChoice;
+                }
+            }
         });
 
         this.setSimulationInterval(() => this.onTick(), this.balance.server.simulationIntervalMs);
@@ -175,19 +257,44 @@ export class ArenaRoom extends Room<GameState> {
         player.mass = this.balance.slime.initialMass;
         player.level = this.balance.slime.initialLevel;
         
-        // Класс: 0 = Hunter, 1 = Warrior, 2 = Collector (по умолчанию Hunter)
-        const rawClassId = typeof options.classId === "number" ? options.classId : this.balance.slime.initialClassId;
-        player.classId = Math.max(0, Math.min(2, Math.floor(rawClassId)));
+        // Класс: 0 = Hunter, 1 = Warrior, 2 = Collector
+        // Если classId не передан или некорректен, игрок ждёт выбора класса
+        let rawClassId = typeof options.classId === "number" ? options.classId : -1;
+        if (rawClassId < 0 || rawClassId > 2) {
+            rawClassId = -1;
+        }
+        player.classId = rawClassId;
+        
+        // Классовое умение в слот 0 (GDD v3.3 §1.3)
+        const classAbilities = ["dash", "shield", "slow"];
+        player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
+        player.abilitySlot1 = "";  // Разблокируется на level 3
+        player.abilitySlot2 = "";  // Разблокируется на level 5
+        player.pendingAbilityCard = null;
         
         player.talentsAvailable = 0;
         player.angle = 0;
         player.angVel = 0;
-        player.isDead = false;
         player.isDrifting = false;
         player.gcdReadyTick = this.tick;
         player.lastInputTick = this.tick;
+        
+        // Если матч завершён (фаза Results) или класс не выбран, игрок ждёт следующий раунд
+        // Помечаем как isDead, чтобы не попал в таблицу лидеров текущего матча
+        if (player.classId < 0 || this.isMatchEnded || this.state.phase === "Results") {
+            player.isDead = true;
+            player.respawnAtTick = Number.MAX_SAFE_INTEGER;
+        } else {
+            player.isDead = false;
+        }
+        
         this.state.players.set(client.sessionId, player);
-        this.updateLeaderboard();
+        
+        // Не обновляем таблицу лидеров если матч завершён
+        if (!this.isMatchEnded && this.state.phase !== "Results") {
+            this.updateLeaderboard();
+        }
+        
         client.send("balance", this.balance);
         console.log(`${client.sessionId} joined!`);
     }
@@ -221,11 +328,16 @@ export class ArenaRoom extends Room<GameState> {
         this.collectInputs();
         this.applyInputs();
         this.abilitySystem();
+        this.abilityCardSystem();  // GDD v3.3: обработка карточек выбора умений
+        this.talentCardSystem();   // GDD-Talents: обработка карточек выбора талантов
         this.updateOrbs();
         this.updateChests();
+        this.slowZoneSystem();  // GDD v3.3: до flightAssist чтобы FLAG_SLOWED был актуален
         this.flightAssistSystem();
         this.physicsSystem();
         this.collisionSystem();
+        this.projectileSystem();
+        this.mineSystem();
         this.chestSystem();
         this.deathSystem();
         this.hungerSystem();
@@ -308,8 +420,15 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private activateAbility(player: Player, slot: number) {
-        // Slot 0 = class ability
-        if (slot !== 0) return;
+        // GDD v3.3 §1.3: Слоты 0-2, проверяем наличие умения в слоте
+        if (slot < 0 || slot > 2) return;
+        
+        // Получаем ID умения из слота
+        const slotAbilities = [player.abilitySlot0, player.abilitySlot1, player.abilitySlot2];
+        const abilityId = slotAbilities[slot];
+        
+        // Слот пустой — не активируем
+        if (!abilityId) return;
         
         // Проверка кулдауна способности
         if (this.tick < player.abilityCooldownTick) return;
@@ -317,16 +436,37 @@ export class ArenaRoom extends Room<GameState> {
         const abilities = this.balance.abilities;
         const tickRate = this.balance.server.tickRate;
         
-        switch (player.classId) {
-            case 0: // Hunter - Dash
+        // Активация по ID умения
+        switch (abilityId) {
+            case "dash":
                 this.activateDash(player, abilities.dash, tickRate);
                 break;
-            case 1: // Warrior - Shield
+            case "shield":
                 this.activateShield(player, abilities.shield, tickRate);
                 break;
-            case 2: // Collector - Magnet
+            case "slow":
+                this.activateSlow(player, abilities.slow, tickRate);
+                break;
+            case "projectile":
+                this.activateProjectile(player, abilities.projectile, tickRate);
+                break;
+            case "pull":
                 this.activateMagnet(player, abilities.magnet, tickRate);
                 break;
+            case "spit":
+                this.activateSpit(player, abilities.spit, tickRate);
+                break;
+            case "bomb":
+                this.activateBomb(player, abilities.bomb, tickRate);
+                break;
+            case "push":
+                this.activatePush(player, abilities.push, tickRate);
+                break;
+            case "mine":
+                this.activateMine(player, abilities.mine, tickRate);
+                break;
+            default:
+                return;  // Неизвестное умение
         }
         
         player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
@@ -386,6 +526,240 @@ export class ArenaRoom extends Room<GameState> {
         
         // Устанавливаем флаг
         player.flags |= FLAG_MAGNETIZING;
+    }
+    
+    private activateSlow(player: Player, config: typeof this.balance.abilities.slow, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Создаём зону замедления
+        const zone = new SlowZone();
+        zone.id = `slow_${++this.slowZoneIdCounter}`;
+        zone.ownerId = player.id;
+        zone.x = player.x;
+        zone.y = player.y;
+        zone.radius = config.radiusM;
+        zone.slowPct = config.slowPct;
+        zone.endTick = this.tick + Math.round(config.durationSec * tickRate);
+        
+        this.state.slowZones.set(zone.id, zone);
+    }
+    
+    private activateProjectile(player: Player, config: typeof this.balance.abilities.projectile, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Создаём снаряд
+        const proj = new Projectile();
+        proj.id = `proj_${++this.projectileIdCounter}`;
+        proj.ownerId = player.id;
+        proj.x = player.x;
+        proj.y = player.y;
+        proj.startX = player.x;
+        proj.startY = player.y;
+        proj.vx = Math.cos(player.angle) * config.speedMps;
+        proj.vy = Math.sin(player.angle) * config.speedMps;
+        proj.radius = config.radiusM;
+        proj.damagePct = config.damagePct;
+        proj.spawnTick = this.tick;
+        proj.maxRangeM = config.rangeM;
+        
+        this.state.projectiles.set(proj.id, proj);
+    }
+
+    private activateSpit(player: Player, config: typeof this.balance.abilities.spit, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Создаём веер снарядов
+        const count = config.projectileCount;
+        const spreadRad = (config.spreadAngleDeg * Math.PI) / 180;
+        const startAngle = player.angle - spreadRad / 2;
+        const angleStep = count > 1 ? spreadRad / (count - 1) : 0;
+        
+        for (let i = 0; i < count; i++) {
+            const angle = startAngle + angleStep * i;
+            const proj = new Projectile();
+            proj.id = `proj_${++this.projectileIdCounter}`;
+            proj.ownerId = player.id;
+            proj.x = player.x;
+            proj.y = player.y;
+            proj.startX = player.x;
+            proj.startY = player.y;
+            proj.vx = Math.cos(angle) * config.speedMps;
+            proj.vy = Math.sin(angle) * config.speedMps;
+            proj.radius = config.radiusM;
+            proj.damagePct = config.damagePct;
+            proj.spawnTick = this.tick;
+            proj.maxRangeM = config.rangeM;
+            proj.projectileType = 0;
+            
+            this.state.projectiles.set(proj.id, proj);
+        }
+    }
+
+    private activateBomb(player: Player, config: typeof this.balance.abilities.bomb, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Создаём бомбу (медленный снаряд с AoE)
+        const proj = new Projectile();
+        proj.id = `proj_${++this.projectileIdCounter}`;
+        proj.ownerId = player.id;
+        proj.x = player.x;
+        proj.y = player.y;
+        proj.startX = player.x;
+        proj.startY = player.y;
+        proj.vx = Math.cos(player.angle) * config.speedMps;
+        proj.vy = Math.sin(player.angle) * config.speedMps;
+        proj.radius = config.radiusM;
+        proj.damagePct = config.damagePct;
+        proj.spawnTick = this.tick;
+        proj.maxRangeM = config.rangeM;
+        proj.projectileType = 1;  // Bomb type
+        proj.explosionRadiusM = config.explosionRadiusM;
+        
+        this.state.projectiles.set(proj.id, proj);
+    }
+
+    private activatePush(player: Player, config: typeof this.balance.abilities.push, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        player.pushEndTick = this.tick + Math.max(1, Math.round(0.25 * tickRate));
+        
+        const radiusSq = config.radiusM * config.radiusM;
+        
+        // Отталкиваем игроков в радиусе
+        for (const other of this.state.players.values()) {
+            if (other.id === player.id || other.isDead) continue;
+            
+            const dx = other.x - player.x;
+            const dy = other.y - player.y;
+            const distSq = dx * dx + dy * dy;
+            
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            // Скорость = impulse / mass, но с ограничением
+            const otherMass = Math.max(other.mass, this.balance.physics.minSlimeMass);
+            const speed = this.clamp(config.impulseNs / otherMass, 30, 120);
+            
+            other.vx += nx * speed;
+            other.vy += ny * speed;
+        }
+        
+        // Отталкиваем орбы в радиусе
+        for (const orb of this.state.orbs.values()) {
+            const dx = orb.x - player.x;
+            const dy = orb.y - player.y;
+            const distSq = dx * dx + dy * dy;
+            
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            // Орбы легче — отталкиваются сильнее
+            const orbMass = Math.max(orb.mass, 1);
+            const speed = this.clamp(config.impulseNs / orbMass, 50, 200);
+            
+            orb.vx += nx * speed;
+            orb.vy += ny * speed;
+        }
+        
+        // Отталкиваем сундуки в радиусе (та же формула, но они тяжелее)
+        for (const chest of this.state.chests.values()) {
+            const dx = chest.x - player.x;
+            const dy = chest.y - player.y;
+            const distSq = dx * dx + dy * dy;
+            
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            // GDD v3.3: Масса сундука зависит от типа
+            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
+            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
+            const speed = this.clamp(config.impulseNs / chestMass, 20, 80);
+            
+            chest.vx += nx * speed;
+            chest.vy += ny * speed;
+        }
+    }
+
+    private activateMine(player: Player, config: typeof this.balance.abilities.mine, tickRate: number) {
+        const massCost = player.mass * config.massCostPct;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        
+        // Проверяем лимит мин
+        let mineCount = 0;
+        for (const mine of this.state.mines.values()) {
+            if (mine.ownerId === player.id) mineCount++;
+        }
+        
+        // Удаляем старую мину если достигнут лимит
+        if (mineCount >= config.maxMines) {
+            for (const [id, mine] of this.state.mines.entries()) {
+                if (mine.ownerId === player.id) {
+                    this.state.mines.delete(id);
+                    break;
+                }
+            }
+        }
+        
+        // Списываем массу
+        this.applyMassDelta(player, -massCost);
+        
+        // Устанавливаем кулдаун
+        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        
+        // Создаём мину
+        const mine = new Mine();
+        mine.id = `mine_${++this.mineIdCounter}`;
+        mine.ownerId = player.id;
+        mine.x = player.x;
+        mine.y = player.y;
+        mine.radius = config.radiusM;
+        mine.damagePct = config.damagePct;
+        mine.endTick = this.tick + Math.round(config.durationSec * tickRate);
+        
+        this.state.mines.set(mine.id, mine);
     }
 
     private applyTalentChoice(player: Player, choice: number) {
@@ -493,6 +867,25 @@ export class ArenaRoom extends Room<GameState> {
                 angularLimit *= penalty;
             }
 
+            // Замедление от SlowZone (GDD v3.3: влияет только на вражеских слаймов)
+            if ((player.flags & FLAG_SLOWED) !== 0) {
+                // Найдём максимальное замедление среди активных зон
+                let maxSlowPct = 0;
+                for (const zone of this.state.slowZones.values()) {
+                    if (zone.ownerId === player.id) continue;
+                    const dx = player.x - zone.x;
+                    const dy = player.y - zone.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < zone.radius * zone.radius) {
+                        maxSlowPct = Math.max(maxSlowPct, zone.slowPct);
+                    }
+                }
+                const slowMult = 1 - maxSlowPct;
+                speedLimitForward *= slowMult;
+                speedLimitReverse *= slowMult;
+                speedLimitLateral *= slowMult;
+            }
+
             // Максимальное угловое ускорение из ТТХ
             const maxAngularAccel = turnTorque / inertia;
 
@@ -510,6 +903,8 @@ export class ArenaRoom extends Room<GameState> {
 
             // === ПОВОРОТ (fly-by-wire с честной физикой) ===
             let yawCmd = 0;
+            let predictiveBraking = false; // Флаг опережающего торможения
+            
             if (hasInput) {
                 const targetAngle = Math.atan2(inputY, inputX);
                 const angleDelta = this.normalizeAngle(targetAngle - player.angle);
@@ -518,9 +913,25 @@ export class ArenaRoom extends Room<GameState> {
                 if (Math.abs(angleDelta) > angularDeadzone) {
                     const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
                     if (yawFull > 1e-6) {
-                        yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
-                        yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
-                        yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
+                        // Опережающее торможение (U2 FA:ON стиль):
+                        // Учитываем пассивное демпфирование angularDragK при расчёте stoppingAngle
+                        // effectiveDecel = maxAngularAccel + angularDragK * |angVel| (примерно)
+                        const angularDragK = this.balance.worldPhysics.angularDragK;
+                        const effectiveDecel = maxAngularAccel + angularDragK * Math.abs(player.angVel);
+                        const stoppingAngle = (player.angVel * player.angVel) / (2 * effectiveDecel + 1e-6);
+                        const movingTowardsTarget = (player.angVel > 0 && angleDelta > 0) || (player.angVel < 0 && angleDelta < 0);
+                        
+                        if (movingTowardsTarget && stoppingAngle >= Math.abs(angleDelta)) {
+                            // Перелёт неизбежен → тормозим
+                            predictiveBraking = true;
+                            yawCmd = 0;
+                            // Очищаем историю осцилляций при торможении
+                            player.yawSignHistory.length = 0;
+                        } else {
+                            yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
+                            yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
+                            yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
+                        }
                     }
                 } else {
                     player.yawSignHistory.length = 0;
@@ -529,7 +940,7 @@ export class ArenaRoom extends Room<GameState> {
                 player.yawSignHistory.length = 0;
             }
 
-            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps;
+            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps && !predictiveBraking;
             let torque = 0;
             if (hasYawInput) {
                 const desiredAngVel = yawCmd * angularLimit;
@@ -540,7 +951,12 @@ export class ArenaRoom extends Room<GameState> {
                 const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
                 torque = inertia * clampedAlpha;
             } else if (Math.abs(player.angVel) > 1e-3) {
-                const brakeTime = Math.max(slimeConfig.assist.angularStopTimeS, dt);
+                // Brake boost: торможение быстрее при отсутствии ввода (как в U2 FA:ON)
+                // При опережающем торможении используем максимальное ускорение
+                const boostFactor = predictiveBraking ? 1.0 : (slimeConfig.assist.angularBrakeBoostFactor || 1.0);
+                const brakeTime = predictiveBraking 
+                    ? dt  // Максимально быстрое торможение при опережающем
+                    : Math.max(slimeConfig.assist.angularStopTimeS / boostFactor, dt);
                 const desiredAlpha = -player.angVel / brakeTime;
                 const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
                 torque = inertia * clampedAlpha;
@@ -710,6 +1126,7 @@ export class ArenaRoom extends Room<GameState> {
     private collisionSystem() {
         const players = Array.from(this.state.players.values());
         const orbs = Array.from(this.state.orbs.entries());
+        const chests = Array.from(this.state.chests.entries());
         const iterations = 4;
         const slop = 0.001;
         const percent = 0.8;
@@ -831,8 +1248,64 @@ export class ArenaRoom extends Room<GameState> {
                     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                     const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
 
-                    if (isMouthHit && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
+                    // GDD v3.3: GCD между умениями и укусами
+                    const gcdReady = this.tick >= player.gcdReadyTick;
+                    if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
                         this.tryEatOrb(player, orbId, orb);
+                    }
+                }
+            }
+
+            // Столкновения слайм-сундук (физика)
+            for (const player of players) {
+                if (player.isDead) continue;
+                const playerRadius = this.getPlayerRadius(player);
+
+                for (const [chestId, chest] of chests) {
+                    if (!this.state.chests.has(chestId)) continue;
+
+                    const dx = chest.x - player.x;
+                    const dy = chest.y - player.y;
+                    const minDist = playerRadius + this.balance.chests.radius;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(distSq);
+                    const nx = dist > 0 ? dx / dist : 1;
+                    const ny = dist > 0 ? dy / dist : 0;
+                    const penetration = minDist - (dist || 0);
+
+                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
+                    const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
+                    const chestMass = Math.max(
+                        this.balance.chests.types?.[chestTypeId]?.mass ?? this.balance.chests.mass,
+                        50
+                    );
+                    const invMassChest = chestMass > 0 ? 1 / chestMass : 0;
+                    const invMassSum = invMassPlayer + invMassChest;
+
+                    if (invMassSum > 0) {
+                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
+                        const corrMag = Math.min(corrRaw, maxCorrection);
+                        const corrX = nx * corrMag;
+                        const corrY = ny * corrMag;
+                        player.x -= corrX * invMassPlayer;
+                        player.y -= corrY * invMassPlayer;
+                        chest.x += corrX * invMassChest;
+                        chest.y += corrY * invMassChest;
+
+                        const rvx = chest.vx - player.vx;
+                        const rvy = chest.vy - player.vy;
+                        const velAlongNormal = rvx * nx + rvy * ny;
+                        if (velAlongNormal <= 0) {
+                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
+                            const impulseX = nx * jImpulse;
+                            const impulseY = ny * jImpulse;
+                            player.vx -= impulseX * invMassPlayer;
+                            player.vy -= impulseY * invMassPlayer;
+                            chest.vx += impulseX * invMassChest;
+                            chest.vy += impulseY * invMassChest;
+                        }
                     }
                 }
             }
@@ -852,6 +1325,8 @@ export class ArenaRoom extends Room<GameState> {
      */
     private tryEatOrb(player: Player, orbId: string, orb: Orb) {
         player.lastBiteTick = this.tick;
+        // GDD v3.3: GCD после укуса
+        player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
 
         const slimeConfig = this.getSlimeConfig(player);
         const bitePct = slimeConfig.combat.orbBitePctOfMass;
@@ -936,14 +1411,23 @@ export class ArenaRoom extends Room<GameState> {
     private processCombat(attacker: Player, defender: Player, dx: number, dy: number) {
         if (attacker.isDead || defender.isDead) return;
         if (this.tick < attacker.lastAttackTick + this.attackCooldownTicks) return;
-        if (this.tick < defender.invulnerableUntilTick) return;
+        // GDD v3.3: GCD между умениями и укусами
+        if (this.tick < attacker.gcdReadyTick) return;
         
-        // Щит блокирует урон полностью
+        // Неуязвимость защитника — укус не проходит, но GCD применяется
+        if (this.tick < defender.invulnerableUntilTick) {
+            attacker.lastAttackTick = this.tick;
+            attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
+            return;
+        }
+        
+        // Щит блокирует урон полностью — GCD применяется
         if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
             // Щит снимается при атаке (согласно GDD)
             defender.shieldEndTick = 0;
             defender.flags &= ~FLAG_ABILITY_SHIELD; // Очищаем флаг сразу
             attacker.lastAttackTick = this.tick; // Атака уходит на кулдаун
+            attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
             return;
         }
 
@@ -959,15 +1443,21 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         const classStats = this.getClassStats(attacker);
+        const defenderClassStats = this.getClassStats(defender);
         const minSlimeMass = this.balance.physics.minSlimeMass;
         
         // Mass-as-HP: укус отбирает % массы жертвы
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
         const victimMassBefore = Math.max(0, defender.mass);
         const multiplier = zoneMultiplier * classStats.damageMult;
-        let massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier;
+        
+        // Защита от укусов: класс + талант (cap 50%)
+        const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
+        let massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier * (1 - totalResist);
 
         attacker.lastAttackTick = this.tick;
+        // GDD v3.3: GCD после укуса слайма
+        attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
 
         // Проверка Last Breath: если масса упадёт ниже минимума
         const newDefenderMass = defender.mass - massLoss;
@@ -995,9 +1485,9 @@ export class ArenaRoom extends Room<GameState> {
         this.applyMassDelta(defender, -massLoss);
         this.applyMassDelta(attacker, attackerGain);
         
-        // Scatter orbs: разлёт пузырей от укуса
+        // Scatter orbs: разлёт пузырей цвета жертвы
         if (scatterMass > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, defender.classId + 10);
         }
 
         // Активируем Last Breath после применения массы
@@ -1014,8 +1504,9 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Создаёт орбы, разлетающиеся от точки укуса PvP.
      * Эти орбы игнорируют maxCount — боевая механика важнее лимита.
+     * @param colorId - colorId орбов (classId + 10 для цвета жертвы)
      */
-    private spawnPvPBiteOrbs(x: number, y: number, totalMass: number): void {
+    private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
         if (count <= 0 || totalMass <= 0) return;
         
@@ -1026,14 +1517,257 @@ export class ArenaRoom extends Room<GameState> {
         for (let i = 0; i < count; i++) {
             const angle = i * angleStep + this.rng.range(-0.3, 0.3);
             // Force spawn: scatter orbs игнорируют maxCount
-            const orb = this.forceSpawnOrb(x, y, perOrbMass);
+            const orb = this.forceSpawnOrb(x, y, perOrbMass, colorId);
             orb.vx = Math.cos(angle) * speed;
             orb.vy = Math.sin(angle) * speed;
         }
     }
+    
+    private projectileSystem() {
+        const dt = 1 / this.balance.server.tickRate;
+        const toRemove: string[] = [];
+        const mapSize = this.balance.world.mapSize;
+        const worldHalfW = mapSize / 2;
+        const worldHalfH = mapSize / 2;
+        
+        for (const [projId, proj] of this.state.projectiles.entries()) {
+            // Движение
+            proj.x += proj.vx * dt;
+            proj.y += proj.vy * dt;
+            
+            // Проверка дистанции
+            const dx = proj.x - proj.startX;
+            const dy = proj.y - proj.startY;
+            const distSq = dx * dx + dy * dy;
+            const maxDistReached = distSq > proj.maxRangeM * proj.maxRangeM;
+            
+            // Проверка границ мира
+            const outOfBounds = Math.abs(proj.x) > worldHalfW || Math.abs(proj.y) > worldHalfH;
+            
+            // Bomb взрывается при достижении макс. дистанции
+            if (maxDistReached || outOfBounds) {
+                if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
+                    this.explodeBomb(proj);
+                }
+                toRemove.push(projId);
+                continue;
+            }
+            
+            // Столкновение со слаймами (кроме владельца)
+            let hitPlayer = false;
+            for (const player of this.state.players.values()) {
+                if (player.isDead || player.id === proj.ownerId) continue;
+                if (player.isLastBreath) continue;
+                if (this.tick < player.invulnerableUntilTick) continue;
+                
+                // Щит блокирует снаряд
+                if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                    // Щит снимается при попадании
+                    player.shieldEndTick = 0;
+                    player.flags &= ~FLAG_ABILITY_SHIELD;
+                    // Bomb взрывается даже при попадании в щит
+                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
+                        this.explodeBomb(proj);
+                    }
+                    toRemove.push(projId);
+                    hitPlayer = true;
+                    break;
+                }
+                
+                const playerRadius = this.getPlayerRadius(player);
+                const pdx = proj.x - player.x;
+                const pdy = proj.y - player.y;
+                const pdistSq = pdx * pdx + pdy * pdy;
+                const touchDist = playerRadius + proj.radius;
+                
+                if (pdistSq <= touchDist * touchDist) {
+                    // Попадание! 
+                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
+                        // Bomb — AoE взрыв
+                        this.explodeBomb(proj);
+                    } else {
+                        // Обычный снаряд — прямой урон
+                        const owner = this.state.players.get(proj.ownerId);
+                        if (owner && !owner.isDead) {
+                            this.applyProjectileDamage(owner, player, proj.damagePct);
+                        }
+                    }
+                    toRemove.push(projId);
+                    hitPlayer = true;
+                    break;
+                }
+            }
+            
+            if (hitPlayer) continue;
+        }
+        
+        // Удаляем снаряды
+        for (const id of toRemove) {
+            this.state.projectiles.delete(id);
+        }
+    }
+    
+    /**
+     * Взрыв бомбы — AoE урон всем в радиусе
+     */
+    private explodeBomb(proj: Projectile) {
+        const owner = this.state.players.get(proj.ownerId);
+        if (!owner || owner.isDead) return;
+        
+        const radiusSq = proj.explosionRadiusM * proj.explosionRadiusM;
+        
+        for (const player of this.state.players.values()) {
+            if (player.isDead || player.id === proj.ownerId) continue;
+            if (player.isLastBreath) continue;
+            if (this.tick < player.invulnerableUntilTick) continue;
+            
+            // Щит блокирует взрыв
+            if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                player.shieldEndTick = 0;
+                player.flags &= ~FLAG_ABILITY_SHIELD;
+                continue;
+            }
+            
+            const dx = player.x - proj.x;
+            const dy = player.y - proj.y;
+            const distSq = dx * dx + dy * dy;
+            
+            if (distSq <= radiusSq) {
+                this.applyProjectileDamage(owner, player, proj.damagePct);
+            }
+        }
+    }
+    
+    /**
+     * Система мин — детонация при контакте с врагами
+     */
+    private mineSystem() {
+        const toRemove: string[] = [];
+        
+        for (const [mineId, mine] of this.state.mines.entries()) {
+            // Проверка истечения срока
+            if (this.tick >= mine.endTick) {
+                toRemove.push(mineId);
+                continue;
+            }
+            
+            const owner = this.state.players.get(mine.ownerId);
+            const radiusSq = mine.radius * mine.radius;
+            
+            // Проверка коллизий со всеми игроками (включая владельца)
+            for (const player of this.state.players.values()) {
+                if (player.isDead) continue;
+                if (player.isLastBreath) continue;
+                if (this.tick < player.invulnerableUntilTick) continue;
+                if (player.id === mine.ownerId) continue;
+                
+                const playerRadius = this.getPlayerRadius(player);
+                const dx = player.x - mine.x;
+                const dy = player.y - mine.y;
+                const distSq = dx * dx + dy * dy;
+                const touchDist = playerRadius + mine.radius;
+                
+                if (distSq <= touchDist * touchDist) {
+                    // Детонация!
+                    
+                    // Щит блокирует мину
+                    if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                        player.shieldEndTick = 0;
+                        player.flags &= ~FLAG_ABILITY_SHIELD;
+                    } else if (owner && !owner.isDead) {
+                        // Урон врагу с передачей массы владельцу
+                        this.applyProjectileDamage(owner, player, mine.damagePct);
+                    }
+                    
+                    toRemove.push(mineId);
+                    break;
+                }
+            }
+        }
+        
+        // Удаляем сдетонировавшие/истекшие мины
+        for (const id of toRemove) {
+            this.state.mines.delete(id);
+        }
+    }
+    
+    private applyProjectileDamage(attacker: Player, defender: Player, damagePct: number) {
+        const minSlimeMass = this.balance.physics.minSlimeMass;
+        
+        // Защита от укусов применяется и к снарядам
+        const defenderClassStats = this.getClassStats(defender);
+        const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
+        
+        let massLoss = defender.mass * damagePct * (1 - totalResist);
+        
+        // Last Breath check
+        const newDefenderMass = defender.mass - massLoss;
+        const triggersLastBreath =
+            newDefenderMass <= minSlimeMass &&
+            !defender.isLastBreath &&
+            this.lastBreathTicks > 0 &&
+            !defender.isDead;
+        
+        if (triggersLastBreath) {
+            massLoss = Math.max(0, defender.mass - minSlimeMass);
+        }
+        
+        // Снаряд не даёт массу атакующему (только урон)
+        this.applyMassDelta(defender, -massLoss);
+        
+        // Scatter orbs цвета жертвы от урона снаряда
+        if (massLoss > 0) {
+            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, defender.classId + 10);
+        }
+        
+        if (triggersLastBreath) {
+            defender.isLastBreath = true;
+            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
+            defender.invulnerableUntilTick = defender.lastBreathEndTick;
+            return;
+        }
+        
+        defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+    }
+
+    /**
+     * Самоурон (от своей мины) — без передачи массы, но с Last Breath
+     */
+    private applySelfDamage(player: Player, damagePct: number) {
+        const minSlimeMass = this.balance.physics.minSlimeMass;
+        
+        let massLoss = player.mass * damagePct;
+        
+        // Last Breath check
+        const newMass = player.mass - massLoss;
+        const triggersLastBreath =
+            newMass <= minSlimeMass &&
+            !player.isLastBreath &&
+            this.lastBreathTicks > 0 &&
+            !player.isDead;
+        
+        if (triggersLastBreath) {
+            massLoss = Math.max(0, player.mass - minSlimeMass);
+        }
+        
+        this.applyMassDelta(player, -massLoss);
+        
+        // Scatter orbs от самоурона
+        if (massLoss > 0) {
+            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, player.classId + 10);
+        }
+        
+        if (triggersLastBreath) {
+            player.isLastBreath = true;
+            player.lastBreathEndTick = this.tick + this.lastBreathTicks;
+            player.invulnerableUntilTick = player.lastBreathEndTick;
+            return;
+        }
+        
+        player.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+    }
 
     private chestSystem() {
-        const dt = 1 / this.balance.server.tickRate;
         const chestEntries = Array.from(this.state.chests.entries());
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
@@ -1055,14 +1789,20 @@ export class ArenaRoom extends Room<GameState> {
                 while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
                 const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
 
-                if (isMouthHit && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
-                    this.openChest(player, chestId);
+                // GDD v3.3: GCD между умениями и укусами
+                const gcdReady = this.tick >= player.gcdReadyTick;
+                if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
+                    // GDD v3.3: Система обручей (armorRings)
+                    if (chest.armorRings > 0) {
+                        // Снимаем один обруч
+                        chest.armorRings--;
+                    } else {
+                        // Обручей нет - открываем сундук
+                        this.openChest(player, chestId);
+                    }
                     player.lastBiteTick = this.tick;
-                } else {
-                    const dist = Math.sqrt(distSq) || 1;
-                    const push = this.balance.orbs.pushForce;
-                    chest.vx += (dx / dist) * push * dt;
-                    chest.vy += (dy / dist) * push * dt;
+                    // GDD v3.3: GCD после укуса
+                    player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
                 }
             }
         }
@@ -1082,8 +1822,8 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private grantTalent(player: Player): boolean {
-        if (player.talentsAvailable >= this.maxTalentQueue) return false;
-        player.talentsAvailable += 1;
+        // Выдаём карточку таланта через новую систему
+        this.awardTalentToPlayer(player);
         return true;
     }
 
@@ -1266,9 +2006,53 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
+    private slowZoneSystem() {
+        // Удаляем истекшие зоны
+        const expiredZones: string[] = [];
+        for (const zone of this.state.slowZones.values()) {
+            if (this.tick >= zone.endTick) {
+                expiredZones.push(zone.id);
+            }
+        }
+        for (const id of expiredZones) {
+            this.state.slowZones.delete(id);
+        }
+
+        // Применяем замедление к вражеским слаймам (не владельцу)
+        for (const player of this.state.players.values()) {
+            if (player.isDead) continue;
+            
+            let isSlowed = false;
+            let maxSlowPct = 0;
+            
+            for (const zone of this.state.slowZones.values()) {
+                // Не замедляем владельца зоны
+                if (zone.ownerId === player.id) continue;
+                
+                const dx = player.x - zone.x;
+                const dy = player.y - zone.y;
+                const distSq = dx * dx + dy * dy;
+                const radiusSq = zone.radius * zone.radius;
+                
+                if (distSq < radiusSq) {
+                    isSlowed = true;
+                    maxSlowPct = Math.max(maxSlowPct, zone.slowPct);
+                }
+            }
+            
+            // Устанавливаем/снимаем флаг замедления
+            if (isSlowed) {
+                player.flags |= FLAG_SLOWED;
+            } else {
+                player.flags &= ~FLAG_SLOWED;
+            }
+        }
+    }
+
     private hungerSystem() {
         const phase = this.state.phase as MatchPhaseId;
-        if (phase !== "Chaos" && phase !== "Final") return;
+        // GDD v3.3: Hunger активен в Hunt и Final
+        if (phase !== "Hunt" && phase !== "Final") return;
         if (this.state.hotZones.size === 0) return;
 
         const dt = 1 / this.balance.server.tickRate;
@@ -1362,6 +2146,17 @@ export class ArenaRoom extends Room<GameState> {
                 // Magnet ended
                 player.magnetEndTick = 0;
             }
+
+            if (this.tick < player.pushEndTick) {
+                flags |= FLAG_PUSHING;
+            } else if (player.pushEndTick > 0) {
+                player.pushEndTick = 0;
+            }
+            
+            // FLAG_SLOWED устанавливается в slowZoneSystem() и должен сохраняться
+            if ((player.flags & FLAG_SLOWED) !== 0) {
+                flags |= FLAG_SLOWED;
+            }
             
             player.flags = flags;
         }
@@ -1437,11 +2232,14 @@ export class ArenaRoom extends Room<GameState> {
         this.orbIdCounter = 0;
         this.chestIdCounter = 0;
         this.hotZoneIdCounter = 0;
+        this.slowZoneIdCounter = 0;
 
         // Очистка состояния
         this.state.orbs.clear();
         this.state.chests.clear();
         this.state.hotZones.clear();
+        this.state.slowZones.clear();
+        this.state.projectiles.clear();
         this.state.rebelId = "";
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
@@ -1458,18 +2256,52 @@ export class ArenaRoom extends Room<GameState> {
             player.angle = 0;
             player.mass = this.balance.slime.initialMass;
             player.level = this.balance.slime.initialLevel;
-            player.isDead = false;
+            // Новый матч: игрок не добавляется в бой до выбора класса
+            player.isDead = true;
             player.isLastBreath = false;
             player.lastBreathEndTick = 0;
-            player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
-            player.respawnAtTick = 0;
+            player.invulnerableUntilTick = 0;
+            player.respawnAtTick = Number.MAX_SAFE_INTEGER;
             player.gcdReadyTick = this.tick;
+            player.abilityCooldownTick = this.tick;
             player.queuedAbilitySlot = null;
+            player.queuedAbilityTick = 0;
+            player.abilitySlotPressed = null;
             player.talentsAvailable = 0;
             player.lastAttackTick = 0;
             player.lastBiteTick = 0;
             player.inputX = 0;
             player.inputY = 0;
+            player.lastInputTick = this.tick;
+            player.flags = 0;
+            player.yawSignHistory.length = 0;
+            player.assistFx = 0;
+            player.assistFy = 0;
+            player.assistTorque = 0;
+            
+            // GDD-Talents: Сброс талантов между матчами
+            player.pendingTalentCard = null;
+            player.pendingTalentCount = 0;
+            player.pendingTalentQueue = [];
+            player.talentChoicePressed2 = null;
+            player.talentChoicePressed = null;
+            player.talents.splice(0, player.talents.length);
+            this.recalculateTalentModifiers(player);
+            
+            // Сброс состояний способностей
+            player.dashEndTick = 0;
+            player.shieldEndTick = 0;
+            player.magnetEndTick = 0;
+
+            // GDD v3.3: Сброс слотов умений между матчами
+            player.classId = -1;
+            player.abilitySlot0 = "";
+            player.abilitySlot1 = "";
+            player.abilitySlot2 = "";
+            player.pendingAbilityCard = null;
+            player.cardChoicePressed = null;
+            player.pendingCardSlots = [];
+            player.pendingCardCount = 0;
         }
 
         this.spawnInitialOrbs();
@@ -1479,7 +2311,8 @@ export class ArenaRoom extends Room<GameState> {
 
     private handlePhaseChange(phase: MatchPhaseId) {
         this.state.hotZones.clear();
-        if (phase === "Chaos") {
+        // GDD v3.3: Hot zones появляются в Hunt и Final
+        if (phase === "Hunt") {
             this.spawnHotZones(this.balance.hotZones.chaosCount, this.balance.hotZones.spawnMultiplierChaos);
         } else if (phase === "Final") {
             this.spawnHotZones(this.balance.hotZones.finalCount, this.balance.hotZones.spawnMultiplierFinal, true);
@@ -1553,7 +2386,7 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
      */
-    private forceSpawnOrb(x?: number, y?: number, massOverride?: number): Orb {
+    private forceSpawnOrb(x?: number, y?: number, massOverride?: number, colorId?: number): Orb {
         const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
         const orb = new Orb();
@@ -1563,7 +2396,7 @@ export class ArenaRoom extends Room<GameState> {
         orb.mass =
             massOverride ??
             this.rng.range(typePick.type.massRange[0], typePick.type.massRange[1]);
-        orb.colorId = typePick.index;
+        orb.colorId = colorId ?? typePick.index;
         orb.vx = 0;
         orb.vy = 0;
         this.state.orbs.set(orb.id, orb);
@@ -1594,7 +2427,33 @@ export class ArenaRoom extends Room<GameState> {
         chest.y = spawn.y;
         chest.vx = 0;
         chest.vy = 0;
-        chest.type = this.rng.int(0, this.balance.chests.rewards.massPercent.length);
+        
+        // GDD v3.3: Выбор типа сундука по фазе
+        const phase = this.state.phase as "Growth" | "Hunt" | "Final";
+        const phaseWeights = this.balance.chests.phaseWeights;
+        const weights = phaseWeights?.[phase] ?? 
+                        phaseWeights?.Growth ?? 
+                        { rare: 85, epic: 15, gold: 0 };
+        
+        const totalWeight = weights.rare + weights.epic + weights.gold;
+        const roll = this.rng.next() * totalWeight;
+        
+        let chestTypeId: "rare" | "epic" | "gold" = "rare";
+        if (roll < weights.rare) {
+            chestTypeId = "rare";
+        } else if (roll < weights.rare + weights.epic) {
+            chestTypeId = "epic";
+        } else {
+            chestTypeId = "gold";
+        }
+        
+        // type: 0 = rare, 1 = epic, 2 = gold
+        chest.type = chestTypeId === "rare" ? 0 : chestTypeId === "epic" ? 1 : 2;
+        
+        // GDD v3.3: armorRings по типу
+        const typeConfig = this.balance.chests.types?.[chestTypeId];
+        chest.armorRings = typeConfig?.armorRings ?? 0;
+        
         this.state.chests.set(chest.id, chest);
     }
 
@@ -1610,6 +2469,7 @@ export class ArenaRoom extends Room<GameState> {
                 return {
                     radiusMult: 1,
                     damageMult: this.balance.classes.warrior.damageVsSlimeMult,
+                    biteResistPct: this.balance.classes.warrior.biteResistPct,
                     swallowLimit: this.balance.classes.warrior.swallowLimit,
                     biteFraction: this.balance.classes.warrior.biteFraction,
                     eatingPowerMult: 1,
@@ -1618,6 +2478,7 @@ export class ArenaRoom extends Room<GameState> {
                 return {
                     radiusMult: this.balance.classes.collector.radiusMult,
                     damageMult: 1,
+                    biteResistPct: 0,
                     swallowLimit: this.balance.classes.collector.swallowLimit,
                     biteFraction: this.balance.classes.collector.biteFraction,
                     eatingPowerMult: this.balance.classes.collector.eatingPowerMult,
@@ -1627,6 +2488,7 @@ export class ArenaRoom extends Room<GameState> {
                 return {
                     radiusMult: 1,
                     damageMult: 1,
+                    biteResistPct: this.balance.classes.hunter.biteResistPct,
                     swallowLimit: this.balance.classes.hunter.swallowLimit,
                     biteFraction: this.balance.classes.hunter.biteFraction,
                     eatingPowerMult: 1,
@@ -1708,7 +2570,454 @@ export class ArenaRoom extends Room<GameState> {
         const minMass = this.balance.physics.minSlimeMass;
         const nextMass = Math.max(minMass, player.mass + delta);
         if (nextMass === player.mass) return;
+        const oldMass = player.mass;
         player.mass = nextMass;
+        
+        // Проверяем изменение уровня при росте массы
+        if (nextMass > oldMass) {
+            this.updatePlayerLevel(player);
+        }
+    }
+    
+    /**
+     * Обновляет уровень игрока по массе (GDD v3.3 §1.3)
+     * При достижении level 3/5 открываются слоты 2/3 и показывается карточка выбора
+     */
+    private updatePlayerLevel(player: Player) {
+        const thresholds = this.balance.slime.levelThresholds;
+        const slotUnlockLevels = this.balance.slime.slotUnlockLevels;
+        
+        // Вычисляем текущий уровень по массе
+        let newLevel = 1;
+        for (let i = 0; i < thresholds.length; i++) {
+            if (player.mass >= thresholds[i]) {
+                newLevel = i + 1;
+            }
+        }
+        
+        if (newLevel <= player.level) return;
+        
+        const oldLevel = player.level;
+        player.level = newLevel;
+        
+        // Проверяем разблокировку слотов
+        // slotUnlockLevels = [1, 3, 5] => slot 0 на level 1, slot 1 на level 3, slot 2 на level 5
+        for (let slotIdx = 1; slotIdx < slotUnlockLevels.length; slotIdx++) {
+            const unlockLevel = slotUnlockLevels[slotIdx];
+            // Если перешли через порог разблокировки и слот ещё пустой
+            if (oldLevel < unlockLevel && newLevel >= unlockLevel) {
+                const slotProp = slotIdx === 1 ? "abilitySlot1" : "abilitySlot2";
+                if (player[slotProp] === "") {
+                    // Добавляем слот в очередь (карточка сгенерируется после предыдущей)
+                    if (!player.pendingCardSlots.includes(slotIdx)) {
+                        player.pendingCardSlots.push(slotIdx);
+                        player.pendingCardCount = player.pendingCardSlots.length;
+                    }
+                }
+            }
+        }
+        
+        // Генерируем карточку для первого слота в очереди (если нет активной)
+        this.tryGenerateNextCard(player);
+    }
+    
+    /**
+     * Пытается сгенерировать следующую карточку из очереди
+     */
+    private tryGenerateNextCard(player: Player) {
+        if (player.pendingAbilityCard !== null) return;
+        if (player.pendingCardSlots.length === 0) return;
+        
+        const nextSlot = player.pendingCardSlots.shift()!;
+        player.pendingCardCount = player.pendingCardSlots.length;
+        this.generateAbilityCard(player, nextSlot);
+    }
+    
+    /**
+     * Генерирует карточку выбора умения для слота (GDD v3.3 §1.3)
+     */
+    private generateAbilityCard(player: Player, slotIndex: number) {
+        // Уже есть активная карточка — не генерируем новую
+        if (player.pendingAbilityCard !== null) return;
+        
+        const pool = this.balance.slime.abilityPool;
+        const usedAbilities = new Set([player.abilitySlot0, player.abilitySlot1, player.abilitySlot2]);
+        
+        // Фильтруем доступные умения (которых ещё нет у игрока)
+        const available = pool.filter(ab => !usedAbilities.has(ab));
+        if (available.length === 0) return;
+        
+        // Выбираем 3 случайных (или меньше если не хватает)
+        const shuffled = [...available];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(this.rng.next() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        
+        const { AbilityCard } = require("./schema/GameState");
+        const card = new AbilityCard();
+        card.slotIndex = slotIndex;
+        card.option0 = shuffled[0] || "";
+        card.option1 = shuffled[1] || "";
+        card.option2 = shuffled[2] || "";
+        card.expiresAtTick = this.tick + this.secondsToTicks(this.balance.slime.cardChoiceTimeoutSec);
+        
+        player.pendingAbilityCard = card;
+    }
+    
+    /**
+     * Система обработки карточек умений
+     */
+    private abilityCardSystem() {
+        const currentTick = this.tick;
+        
+        for (const player of this.state.players.values()) {
+            // Очистка cardChoicePressed если нет активной карточки (Codex fix)
+            if (!player.pendingAbilityCard && player.cardChoicePressed !== null) {
+                player.cardChoicePressed = null;
+            }
+            
+            if (player.isDead || !player.pendingAbilityCard) continue;
+            
+            const card = player.pendingAbilityCard;
+            
+            // Обработка выбора игрока
+            if (player.cardChoicePressed !== null) {
+                this.applyAbilityCardChoice(player, player.cardChoicePressed);
+                player.cardChoicePressed = null;
+                continue;
+            }
+            
+            // Автовыбор по таймауту
+            if (currentTick >= card.expiresAtTick) {
+                this.applyAbilityCardChoice(player, 0);  // Автовыбор первого варианта
+            }
+        }
+    }
+    
+    /**
+     * Применяет выбор из карточки умений
+     */
+    private applyAbilityCardChoice(player: Player, choiceIndex: number) {
+        const card = player.pendingAbilityCard;
+        if (!card) return;
+        
+        const options = [card.option0, card.option1, card.option2];
+        const chosen = options[choiceIndex] || options[0] || "";
+        
+        if (!chosen) {
+            player.pendingAbilityCard = null;
+            return;
+        }
+        
+        // Присваиваем умение в соответствующий слот
+        if (card.slotIndex === 1) {
+            player.abilitySlot1 = chosen;
+        } else if (card.slotIndex === 2) {
+            player.abilitySlot2 = chosen;
+        }
+        
+        player.pendingAbilityCard = null;
+        
+        // Генерируем следующую карточку из очереди (если есть)
+        this.tryGenerateNextCard(player);
+    }
+    
+    /**
+     * Система обработки карточек талантов (GDD-Talents.md)
+     */
+    private talentCardSystem() {
+        const currentTick = this.tick;
+        
+        for (const player of this.state.players.values()) {
+            // Очистка talentChoicePressed если нет активной карточки
+            if (!player.pendingTalentCard && player.talentChoicePressed2 !== null) {
+                player.talentChoicePressed2 = null;
+            }
+            
+            if (player.isDead || !player.pendingTalentCard) continue;
+            
+            const card = player.pendingTalentCard;
+            
+            // Обработка выбора игрока
+            if (player.talentChoicePressed2 !== null) {
+                this.applyTalentCardChoice(player, player.talentChoicePressed2);
+                player.talentChoicePressed2 = null;
+                continue;
+            }
+            
+            // Автовыбор по таймауту
+            if (currentTick >= card.expiresAtTick) {
+                this.applyTalentCardChoice(player, 0);  // Автовыбор первого варианта
+            }
+        }
+    }
+    
+    /**
+     * Применяет выбор таланта и пересчитывает модификаторы
+     */
+    private applyTalentCardChoice(player: Player, choiceIndex: number) {
+        const card = player.pendingTalentCard;
+        if (!card) return;
+        
+        const options = [card.option0, card.option1, card.option2];
+        const chosen = options[choiceIndex] || options[0] || "";
+        
+        if (!chosen) {
+            player.pendingTalentCard = null;
+            return;
+        }
+        
+        // Добавляем или повышаем уровень таланта
+        this.addTalentToPlayer(player, chosen);
+        
+        player.pendingTalentCard = null;
+        
+        // Генерируем следующую карточку талантов из очереди (если есть)
+        this.tryGenerateNextTalentCard(player);
+    }
+    
+    /**
+     * Добавляет талант игроку или повышает уровень существующего
+     */
+    private addTalentToPlayer(player: Player, talentId: string) {
+        // Найдём существующий талант
+        let existingTalent: Talent | null = null;
+        for (const t of player.talents) {
+            if (t.id === talentId) {
+                existingTalent = t;
+                break;
+            }
+        }
+        
+        // Получаем конфиг таланта
+        const talentConfig = this.getTalentConfig(talentId);
+        if (!talentConfig) return;
+        
+        if (existingTalent) {
+            // Повышаем уровень если возможно
+            if (existingTalent.level < talentConfig.maxLevel) {
+                existingTalent.level += 1;
+            }
+        } else {
+            // Добавляем новый талант
+            const newTalent = new Talent();
+            newTalent.id = talentId;
+            newTalent.level = 1;
+            player.talents.push(newTalent);
+        }
+        
+        // Пересчитываем модификаторы
+        this.recalculateTalentModifiers(player);
+    }
+    
+    /**
+     * Получает конфиг таланта по ID
+     */
+    private getTalentConfig(talentId: string): TalentConfig | null {
+        const talents = this.balance.talents;
+        if (talents.common[talentId]) return talents.common[talentId];
+        if (talents.rare[talentId]) return talents.rare[talentId];
+        if (talents.epic[talentId]) return talents.epic[talentId];
+        return null;
+    }
+    
+    /**
+     * Определяет редкость таланта (0=common, 1=rare, 2=epic)
+     */
+    private getTalentRarity(talentId: string): number {
+        const talents = this.balance.talents;
+        if (talents.common[talentId]) return 0;
+        if (talents.rare[talentId]) return 1;
+        if (talents.epic[talentId]) return 2;
+        return 0;
+    }
+    
+    /**
+     * Пересчитывает все модификаторы игрока на основе его талантов
+     */
+    private recalculateTalentModifiers(player: Player) {
+        // Сбрасываем модификаторы
+        player.mod_speedLimitBonus = 0;
+        player.mod_turnBonus = 0;
+        player.mod_biteDamageBonus = 0;
+        player.mod_orbMassBonus = 0;
+        player.mod_abilityCostReduction = 0;
+        player.mod_cooldownReduction = 0;
+        player.mod_allDamageReduction = 0;
+        player.mod_thrustForwardBonus = 0;
+        player.mod_thrustReverseBonus = 0;
+        player.mod_thrustLateralBonus = 0;
+        player.mod_killMassBonus = 0;
+        player.mod_respawnMass = 100;  // Default
+        player.biteResistPct = 0;
+        
+        // Применяем каждый талант
+        for (const talent of player.talents) {
+            const config = this.getTalentConfig(talent.id);
+            if (!config) continue;
+            
+            const level = talent.level;
+            const values = config.values;
+            
+            // Получаем значение для текущего уровня
+            let value: number | number[] = 0;
+            if (Array.isArray(values)) {
+                if (level <= values.length) {
+                    value = values[level - 1];
+                }
+            } else {
+                value = values;
+            }
+            
+            // Применяем эффект
+            switch (config.effect) {
+                case "speedLimitBonus":
+                    player.mod_speedLimitBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "turnBonus":
+                    player.mod_turnBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "biteDamageBonus":
+                    player.mod_biteDamageBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "orbMassBonus":
+                    player.mod_orbMassBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "biteResistBonus":
+                    player.biteResistPct += typeof value === "number" ? value : 0;
+                    break;
+                case "abilityCostReduction":
+                    player.mod_abilityCostReduction += typeof value === "number" ? value : 0;
+                    break;
+                case "cooldownReduction":
+                    player.mod_cooldownReduction += typeof value === "number" ? value : 0;
+                    break;
+                case "allDamageReduction":
+                    player.mod_allDamageReduction += typeof value === "number" ? value : 0;
+                    break;
+                case "thrustForwardBonus":
+                    player.mod_thrustForwardBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "thrustReverseBonus":
+                    player.mod_thrustReverseBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "thrustLateralBonus":
+                    player.mod_thrustLateralBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "killMassBonus":
+                    player.mod_killMassBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "respawnMass":
+                    player.mod_respawnMass = typeof value === "number" ? value : 100;
+                    break;
+                case "aggressorDual":
+                    // +damage, +loss — обрабатывается отдельно в processCombat
+                    player.mod_biteDamageBonus += typeof value === "number" ? value : 0;
+                    break;
+                case "allThrustBonus":
+                    // motor: +25% ко всем двигателям
+                    const motorBonus = typeof value === "number" ? value : 0;
+                    player.mod_thrustForwardBonus += motorBonus;
+                    player.mod_thrustReverseBonus += motorBonus;
+                    player.mod_thrustLateralBonus += motorBonus;
+                    break;
+            }
+        }
+        
+        // Применяем cap на biteResistPct (max 50%)
+        player.biteResistPct = Math.min(player.biteResistPct, 0.5);
+    }
+    
+    /**
+     * Генерирует карточку выбора таланта для игрока
+     */
+    private generateTalentCard(player: Player) {
+        const talents = this.balance.talents;
+        const tickRate = this.balance.server.tickRate;
+        const timeoutTicks = this.secondsToTicks(talents.cardChoiceTimeoutSec);
+        
+        // Собираем доступные таланты (без дубликатов на макс. уровне)
+        const availableTalents: { id: string; rarity: number }[] = [];
+        
+        const addFromPool = (pool: string[], configs: Record<string, TalentConfig>, rarity: number) => {
+            for (const id of pool) {
+                const config = configs[id];
+                if (!config) continue;
+                
+                // Проверяем требование
+                if (config.requirement) {
+                    const hasRequirement = 
+                        player.abilitySlot0 === config.requirement ||
+                        player.abilitySlot1 === config.requirement ||
+                        player.abilitySlot2 === config.requirement;
+                    if (!hasRequirement) continue;
+                }
+                
+                // Проверяем не на макс. уровне ли уже
+                let currentLevel = 0;
+                for (const t of player.talents) {
+                    if (t.id === id) {
+                        currentLevel = t.level;
+                        break;
+                    }
+                }
+                
+                if (currentLevel < config.maxLevel) {
+                    availableTalents.push({ id, rarity });
+                }
+            }
+        };
+        
+        addFromPool(talents.talentPool.common, talents.common, 0);
+        addFromPool(talents.talentPool.rare, talents.rare, 1);
+        addFromPool(talents.talentPool.epic, talents.epic, 2);
+        
+        if (availableTalents.length === 0) return;
+        
+        // Выбираем 3 случайных (или меньше если мало)
+        const shuffled = [...availableTalents];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(this.rng.next() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        
+        const selected = shuffled.slice(0, 3);
+        
+        const card = new TalentCard();
+        card.option0 = selected[0]?.id || "";
+        card.option1 = selected[1]?.id || "";
+        card.option2 = selected[2]?.id || "";
+        card.rarity0 = selected[0]?.rarity ?? 0;
+        card.rarity1 = selected[1]?.rarity ?? 0;
+        card.rarity2 = selected[2]?.rarity ?? 0;
+        card.expiresAtTick = this.tick + timeoutTicks;
+        
+        player.pendingTalentCard = card;
+    }
+    
+    /**
+     * Пытается сгенерировать следующую карточку таланта из очереди
+     */
+    private tryGenerateNextTalentCard(player: Player) {
+        if (player.pendingTalentQueue.length > 0 && !player.pendingTalentCard) {
+            player.pendingTalentQueue.shift();
+            this.generateTalentCard(player);
+        }
+        player.pendingTalentCount = player.pendingTalentQueue.length;
+    }
+    
+    /**
+     * Выдаёт игроку талант (например, из сундука)
+     */
+    private awardTalentToPlayer(player: Player) {
+        if (player.pendingTalentCard) {
+            // Уже есть активная карточка — добавляем в очередь
+            player.pendingTalentQueue.push(1);
+            player.pendingTalentCount = player.pendingTalentQueue.length;
+        } else {
+            this.generateTalentCard(player);
+        }
     }
 
     private clamp(value: number, min: number, max: number): number {
