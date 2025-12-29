@@ -107,10 +107,11 @@ docker-compose -f docker/docker-compose.yml up
 
 ## Документация
 
-- [Игровой дизайн (GDD)](docs/SlimeArena-GDD-v2.5.md) — правила и механики.
-- [Архитектура](docs/SlimeArena-Architecture-v1.5.md) — техническое устройство системы.
-- [План разработки](docs/SlimeArena-Plan-v1.8.md) — этапы реализации.
-- [Список задач](TODO.md) — текущий прогресс и ближайшие цели.
+- [Игровой дизайн (GDD)](docs/gdd/GDD-Core.md) - модульный пакет v3.3 (базовые правила, механики, таланты, арена).
+- [Архитектура](docs/SlimeArena-Architecture-v3.3.md) - техническое устройство системы.
+- [План разработки](docs/SlimeArena-Plan-v3.3.md) - этапы реализации.
+- [Project Brief](docs/SlimeArena-ProjectBrief.md) - краткое описание целей проекта.
+- [Список задач](TODO.md) - текущий прогресс и ближайшие цели.
 
 ## Разработка
 

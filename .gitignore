@@ -9,3 +9,6 @@ shared/dist/
 .vscode/
 .obsidian/workspace.json
 .obsidian/workspace
+.u2/
+_ext/u2/
+legacy/
