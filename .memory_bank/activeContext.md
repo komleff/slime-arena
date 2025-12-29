@@ -32,6 +32,7 @@
 - Коммит 77432b8 в feat/gameplay-mvp-classes отброшен.
 - legacy/ удален из репозитория; .u2 и _ext/u2 выведены из индекса и добавлены в .gitignore.
 - npm run build и npm run test - ok.
+- README обновлен на актуальные документы v3.3.
 
 ---
 
