@@ -31,6 +31,7 @@ export {
     FLAG_DASHING,
     FLAG_MAGNETIZING,
     FLAG_SLOWED,
+    FLAG_PUSHING,
 } from "./constants.js";
 export type { SlimeSprite } from "./sprites.js";
 export {

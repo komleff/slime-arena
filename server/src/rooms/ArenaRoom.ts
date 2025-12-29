@@ -15,6 +15,7 @@ import {
     FLAG_DASHING,
     FLAG_MAGNETIZING,
     FLAG_SLOWED,
+    FLAG_PUSHING,
     ResolvedBalanceConfig,
     SlimeConfig,
     generateUniqueName,
@@ -654,6 +655,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Устанавливаем кулдаун
         player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
+        player.pushEndTick = this.tick + Math.max(1, Math.round(0.25 * tickRate));
         
         const radiusSq = config.radiusM * config.radiusM;
         
@@ -1124,6 +1126,7 @@ export class ArenaRoom extends Room<GameState> {
     private collisionSystem() {
         const players = Array.from(this.state.players.values());
         const orbs = Array.from(this.state.orbs.entries());
+        const chests = Array.from(this.state.chests.entries());
         const iterations = 4;
         const slop = 0.001;
         const percent = 0.8;
@@ -1249,6 +1252,60 @@ export class ArenaRoom extends Room<GameState> {
                     const gcdReady = this.tick >= player.gcdReadyTick;
                     if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
                         this.tryEatOrb(player, orbId, orb);
+                    }
+                }
+            }
+
+            // Столкновения слайм-сундук (физика)
+            for (const player of players) {
+                if (player.isDead) continue;
+                const playerRadius = this.getPlayerRadius(player);
+
+                for (const [chestId, chest] of chests) {
+                    if (!this.state.chests.has(chestId)) continue;
+
+                    const dx = chest.x - player.x;
+                    const dy = chest.y - player.y;
+                    const minDist = playerRadius + this.balance.chests.radius;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(distSq);
+                    const nx = dist > 0 ? dx / dist : 1;
+                    const ny = dist > 0 ? dy / dist : 0;
+                    const penetration = minDist - (dist || 0);
+
+                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
+                    const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
+                    const chestMass = Math.max(
+                        this.balance.chests.types?.[chestTypeId]?.mass ?? this.balance.chests.mass,
+                        50
+                    );
+                    const invMassChest = chestMass > 0 ? 1 / chestMass : 0;
+                    const invMassSum = invMassPlayer + invMassChest;
+
+                    if (invMassSum > 0) {
+                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
+                        const corrMag = Math.min(corrRaw, maxCorrection);
+                        const corrX = nx * corrMag;
+                        const corrY = ny * corrMag;
+                        player.x -= corrX * invMassPlayer;
+                        player.y -= corrY * invMassPlayer;
+                        chest.x += corrX * invMassChest;
+                        chest.y += corrY * invMassChest;
+
+                        const rvx = chest.vx - player.vx;
+                        const rvy = chest.vy - player.vy;
+                        const velAlongNormal = rvx * nx + rvy * ny;
+                        if (velAlongNormal <= 0) {
+                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
+                            const impulseX = nx * jImpulse;
+                            const impulseY = ny * jImpulse;
+                            player.vx -= impulseX * invMassPlayer;
+                            player.vy -= impulseY * invMassPlayer;
+                            chest.vx += impulseX * invMassChest;
+                            chest.vy += impulseY * invMassChest;
+                        }
                     }
                 }
             }
@@ -1711,7 +1768,6 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private chestSystem() {
-        const dt = 1 / this.balance.server.tickRate;
         const chestEntries = Array.from(this.state.chests.entries());
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
@@ -1741,17 +1797,12 @@ export class ArenaRoom extends Room<GameState> {
                         // Снимаем один обруч
                         chest.armorRings--;
                     } else {
-                        // Обручей нет — открываем сундук
+                        // Обручей нет - открываем сундук
                         this.openChest(player, chestId);
                     }
                     player.lastBiteTick = this.tick;
                     // GDD v3.3: GCD после укуса
                     player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-                } else {
-                    const dist = Math.sqrt(distSq) || 1;
-                    const push = this.balance.orbs.pushForce;
-                    chest.vx += (dx / dist) * push * dt;
-                    chest.vy += (dy / dist) * push * dt;
                 }
             }
         }
@@ -2094,6 +2145,12 @@ export class ArenaRoom extends Room<GameState> {
             } else if (player.magnetEndTick > 0) {
                 // Magnet ended
                 player.magnetEndTick = 0;
+            }
+
+            if (this.tick < player.pushEndTick) {
+                flags |= FLAG_PUSHING;
+            } else if (player.pushEndTick > 0) {
+                player.pushEndTick = 0;
             }
             
             // FLAG_SLOWED устанавливается в slowZoneSystem() и должен сохраняться

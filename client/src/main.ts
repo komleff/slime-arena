@@ -10,6 +10,7 @@ import {
     FLAG_ABILITY_SHIELD,
     FLAG_DASHING,
     FLAG_MAGNETIZING,
+    FLAG_PUSHING,
     clamp,
     lerp,
     wrapAngle,
@@ -922,9 +923,9 @@ let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
 let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
 const chestStyles = [
-    { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1 },
-    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1.08 },
-    { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.16 },
+    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1 },
+    { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.08 },
+    { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1.16 },
 ];
 
 const keyState = { up: false, down: false, left: false, right: false };
@@ -2822,6 +2823,31 @@ async function connectToServer(playerName: string, classId: number) {
                         canvasCtx.stroke();
                     }
                 }
+
+                if ((player.flags & FLAG_PUSHING) !== 0) {
+                    const pushRadius = (balanceConfig.abilities?.push?.radiusM ?? 80) * scale;
+                    const pulse = 1 + 0.08 * Math.sin(time * 10);
+                    const ringRadius = pushRadius * pulse;
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, ringRadius, 0, Math.PI * 2);
+                    canvasCtx.strokeStyle = "rgba(120, 220, 255, 0.7)";
+                    canvasCtx.lineWidth = 3;
+                    canvasCtx.setLineDash([8, 6]);
+                    canvasCtx.shadowColor = "rgba(120, 220, 255, 0.8)";
+                    canvasCtx.shadowBlur = 12;
+                    canvasCtx.stroke();
+                    canvasCtx.setLineDash([]);
+                    canvasCtx.shadowBlur = 0;
+
+                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, ringRadius);
+                    gradient.addColorStop(0, "rgba(120, 220, 255, 0.15)");
+                    gradient.addColorStop(0.6, "rgba(120, 220, 255, 0.08)");
+                    gradient.addColorStop(1, "rgba(120, 220, 255, 0)");
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, ringRadius, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = gradient;
+                    canvasCtx.fill();
+                }
                 
                 // Визуализация щита воина
                 if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
@@ -3182,11 +3208,14 @@ async function connectToServer(playerName: string, classId: number) {
             mouseState.screenY = event.clientY;
         };
 
-        const onMouseLeave = () => {
-            // Отключаем управление мышью когда курсор покидает окно
-            mouseState.active = false;
-            mouseState.moveX = 0;
-            mouseState.moveY = 0;
+        const onMouseLeave = (event: MouseEvent) => {
+            if (document.visibilityState !== "visible") return;
+            if (!document.hasFocus()) return;
+            if (classSelectMode) return;
+            const rect = canvas.getBoundingClientRect();
+            mouseState.active = true;
+            mouseState.screenX = clamp(event.clientX, rect.left + 1, rect.right - 1);
+            mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
         };
         
         // Обработчик кнопки способности

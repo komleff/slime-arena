@@ -169,6 +169,15 @@
 - [x] Build — ok
 - [x] Determinism test — passed
 
+### Исправления сундуков, отталкивания, мыши (✅ ЗАВЕРШЕНО — 30 дек 2025)
+- [x] client/src/main.ts: chestStyles приведён к порядку rare/epic/gold
+- [x] server/src/rooms/ArenaRoom.ts: добавлены столкновения slime-chest в collisionSystem
+- [x] server/src/rooms/ArenaRoom.ts: убран push в chestSystem, оставлена физика
+- [x] FLAG_PUSHING + pushEndTick + визуал отталкивания на клиенте
+- [x] client/src/main.ts: onMouseLeave сохраняет управление у края окна
+- [x] Build - ok
+- [x] Determinism test - passed
+
 ### Этап 6.2: UI карточки талантов (🔜 СЛЕДУЮЩИЙ)
 **Клиентская часть:**
 - [ ] `talentCardModal` — модальное окно выбора таланта

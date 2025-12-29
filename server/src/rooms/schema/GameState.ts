@@ -85,6 +85,7 @@ export class Player extends Schema {
     dashTargetY: number = 0;
     shieldEndTick: number = 0;
     magnetEndTick: number = 0;
+    pushEndTick: number = 0;
     
     // Card choice (server-only)
     cardChoicePressed: number | null = null;  // 0, 1, 2 — выбор из карточки

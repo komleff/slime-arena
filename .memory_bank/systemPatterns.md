@@ -53,6 +53,7 @@
 | `FLAG_STUNNED` | Оглушён |
 | `FLAG_INVISIBLE` | Невидимость |
 | `FLAG_INVULNERABLE` | Неуязвимость после урона |
+| `FLAG_PUSHING` | Визуализация отталкивания |
 
 ## U2-стиль сглаживания (v1.0)
 - **Visual State System**: Визуальное состояние (`visualPlayers`, `visualOrbs`) отделено от серверного.
