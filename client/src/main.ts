@@ -51,6 +51,8 @@ canvas.style.height = "100vh";
 canvas.style.display = "block";
 canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
 canvas.style.touchAction = "none";
+canvas.tabIndex = 0;
+canvas.style.outline = "none";
 root.appendChild(canvas);
 
 const getCanvasContext = () => {
@@ -771,6 +773,7 @@ const classesData = [
 ];
 
 let selectedClassId = -1;  // -1 = класс не выбран
+let activeRoom: any = null;
 
 const classCardsContainer = document.createElement("div");
 classCardsContainer.style.display = "flex";
@@ -1189,6 +1192,7 @@ type SnapshotChest = {
     vx: number;
     vy: number;
     type: number;
+    armorRings: number;
 };
 
 type SnapshotHotZone = {
@@ -1270,6 +1274,7 @@ type VisualEntity = {
 };
 const visualPlayers = new Map<string, VisualEntity>();
 const visualOrbs = new Map<string, VisualEntity>();
+const visualChests = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
 // Smoothing config - читаем из balance.json
@@ -1288,6 +1293,7 @@ const resetSnapshotBuffer = () => {
     latestSnapshot = null;
     visualPlayers.clear();
     visualOrbs.clear();
+    visualChests.clear();
     lastRenderMs = 0;
 };
 
@@ -1449,6 +1455,7 @@ const captureSnapshot = (state: GameStateLike) => {
             vx: Number(chest.vx ?? 0),
             vy: Number(chest.vy ?? 0),
             type: Number(chest.type ?? 0),
+            armorRings: Number(chest.armorRings ?? 0),
         });
     }
 
@@ -1621,9 +1628,57 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         }
     }
     
-    // Chests - use direct values (they don't move fast)
+    // Chests - smoothing similar to orbs (they can move from push)
     for (const [id, chest] of newest.chests.entries()) {
-        chests.set(id, { ...chest });
+        let visual = visualChests.get(id);
+        if (!visual) {
+            visual = {
+                x: chest.x,
+                y: chest.y,
+                vx: chest.vx,
+                vy: chest.vy,
+                angle: 0,
+            };
+            visualChests.set(id, visual);
+        }
+        
+        const targetX = chest.x + chest.vx * lookAheadSec;
+        const targetY = chest.y + chest.vy * lookAheadSec;
+        
+        if (dtSec > 0) {
+            const cfg = getSmoothingConfig();
+            const dx = targetX - visual.x;
+            const dy = targetY - visual.y;
+            const error = Math.sqrt(dx * dx + dy * dy);
+            
+            if (error > cfg.teleportThreshold) {
+                visual.x = targetX;
+                visual.y = targetY;
+            } else if (error > 0.01) {
+                // Slower catch-up for chests (they're heavy)
+                const catchUpSpeed = Math.min(error * cfg.catchUpSpeed * 0.8, cfg.maxCatchUpSpeed * 0.5);
+                const t = Math.min(catchUpSpeed * dtSec / error, 1);
+                visual.x = lerp(visual.x, targetX, t);
+                visual.y = lerp(visual.y, targetY, t);
+            }
+            visual.vx = chest.vx;
+            visual.vy = chest.vy;
+        }
+        
+        chests.set(id, {
+            ...chest,
+            x: visual.x,
+            y: visual.y,
+            vx: visual.vx,
+            vy: visual.vy,
+        });
+    }
+    
+    // Clean up removed chests
+    for (const id of visualChests.keys()) {
+        if (!newest.chests.has(id)) {
+            visualChests.delete(id);
+        }
     }
     
     // Hot zones - use direct values
@@ -1867,6 +1922,12 @@ async function connectToServer(playerName: string, classId: number) {
     canvas.style.display = "block";
     hud.style.display = "block";
     joinScreen.style.display = "none";
+    try {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        canvas.focus();
+    } catch {
+        // ignore focus errors
+    }
     
     // Показываем кнопки способностей и устанавливаем иконку
     abilityButton.style.display = "flex";
@@ -1902,6 +1963,7 @@ async function connectToServer(playerName: string, classId: number) {
                 name: playerName,
                 classId,
             });
+            activeRoom = room;
             hud.textContent = "Подключено к серверу";
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
@@ -1920,6 +1982,7 @@ async function connectToServer(playerName: string, classId: number) {
         let smoothedPlayerX = 0;
         let smoothedPlayerY = 0;
         let talentSelectionInFlight = false;
+        let classSelectMode = false;
 
         // Логирование для отладки
         console.log("Room joined:", room.id);
@@ -1927,6 +1990,78 @@ async function connectToServer(playerName: string, classId: number) {
         const handleStateChange = () => captureSnapshot(room.state);
         room.onStateChange(handleStateChange);
         captureSnapshot(room.state);
+        
+        const resetClassSelectionUi = () => {
+            selectedClassId = -1;
+            classCards.forEach((c) => {
+                c.style.background = "#111b2a";
+                c.style.border = `2px solid #2d4a6d`;
+                c.style.transform = "scale(1)";
+            });
+            updatePlayButton();
+        };
+
+        const isValidClassId = (value: unknown) => {
+            const id = Number(value);
+            return Number.isInteger(id) && id >= 0 && id <= 2;
+        };
+
+        const setClassSelectMode = (enabled: boolean) => {
+            if (classSelectMode === enabled) return;
+            classSelectMode = enabled;
+
+            if (enabled) {
+                resetClassSelectionUi();
+
+                // В режиме выбора класса отключаем управление и возвращаем UI выбора
+                hasFocus = false;
+                keyState.up = keyState.down = keyState.left = keyState.right = false;
+                mouseState.active = false;
+                mouseState.moveX = 0;
+                mouseState.moveY = 0;
+                sendStopInput();
+                detachJoystickPointerListeners();
+                resetJoystick();
+
+                // Имя не меняем без переподключения
+                nameInput.disabled = true;
+                randomNameBtn.disabled = true;
+
+                canvas.style.display = "none";
+                hud.style.display = "none";
+                abilityButton.style.display = "none";
+                projectileButton.style.display = "none";
+                slot2Button.style.display = "none";
+                abilityCardModal.style.display = "none";
+                levelIndicator.style.display = "none";
+                talentModal.style.display = "none";
+                resultsOverlay.style.display = "none";
+                joinScreen.style.display = "flex";
+                return;
+            }
+
+            nameInput.disabled = false;
+            randomNameBtn.disabled = false;
+
+            joinScreen.style.display = "none";
+            canvas.style.display = "block";
+            hud.style.display = "block";
+            abilityButton.style.display = "flex";
+            abilityButton.style.alignItems = "center";
+            abilityButton.style.justifyContent = "center";
+            try {
+                (document.activeElement as HTMLElement | null)?.blur?.();
+                canvas.focus();
+            } catch {
+                // ignore focus errors
+            }
+            hasFocus = true;
+
+            // Иконка способности берётся из актуального classId игрока
+            const p = room.state.players.get(room.sessionId);
+            const cid = p?.classId ?? 0;
+            abilityButtonIcon.textContent = abilityIcons[cid] ?? "⚡";
+        };
 
         // Таймер автовыбора таланта (7 секунд)
         const TALENT_AUTO_SELECT_MS = 7000;
@@ -2374,6 +2509,8 @@ async function connectToServer(playerName: string, classId: number) {
         const inputIntervalMs = Math.max(16, Math.round(1000 / balanceConfig.server.tickRate));
         const inputTimer = setInterval(() => {
             if (!hasFocus) return;
+            if (document.visibilityState !== "visible") return;
+            if (!document.hasFocus()) return;
             const { x, y } = computeMoveInput();
             const changed = Math.abs(x - lastSentInput.x) > 1e-3 || Math.abs(y - lastSentInput.y) > 1e-3;
             if (!changed) return;
@@ -2508,6 +2645,20 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.shadowBlur = 12;
                 drawCircle(p.x, p.y, r, style.fill, style.stroke);
                 canvasCtx.shadowBlur = 0;
+                
+                // GDD v3.3: Отрисовка обручей (armorRings)
+                const rings = chest.armorRings ?? 0;
+                if (rings > 0) {
+                    canvasCtx.strokeStyle = "#888";
+                    canvasCtx.lineWidth = 2;
+                    for (let i = 0; i < rings; i++) {
+                        const ringR = r * (1.2 + i * 0.25);
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(p.x, p.y, ringR, 0, Math.PI * 2);
+                        canvasCtx.stroke();
+                    }
+                }
+                
                 canvasCtx.fillStyle = "#1b1b1b";
                 canvasCtx.font = "16px \"IBM Plex Mono\", monospace";
                 canvasCtx.textAlign = "center";
@@ -2811,10 +2962,15 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const onKeyDown = (event: KeyboardEvent) => {
+            if (document.visibilityState !== "visible") return;
+            if (!document.hasFocus()) return;
+            if (event.ctrlKey || event.metaKey || event.altKey) return;
             if (event.repeat) return;
+            if (classSelectMode) return;
             const key = event.key.toLowerCase();
+            hasFocus = true;
             
-            // Способность активируется клавишей 1 (slot 0 — классовая способность)
+            // Способность активируется клавишей 1 (slot 0 - классовая способность)
             if (key === "1") {
                 inputSeq += 1;
                 room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
@@ -2867,7 +3023,6 @@ async function connectToServer(playerName: string, classId: number) {
                 default:
                     return;
             }
-            hasFocus = true;
             event.preventDefault();
         };
 
@@ -2989,6 +3144,11 @@ async function connectToServer(playerName: string, classId: number) {
             detachJoystickPointerListeners();
             resetJoystick();
         };
+        
+        const onFocus = () => {
+            if (classSelectMode) return;
+            hasFocus = true;
+        };
 
         const onVisibilityChange = () => {
             if (document.visibilityState === "hidden") {
@@ -3014,6 +3174,7 @@ async function connectToServer(playerName: string, classId: number) {
             
             // Не активируем если уже активен джойстик
             if (joystickState.active) return;
+            if (classSelectMode) return;
             
             hasFocus = true;
             mouseState.active = true;
@@ -3064,6 +3225,7 @@ async function connectToServer(playerName: string, classId: number) {
         canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
         canvas.addEventListener("mousemove", onMouseMove, { passive: true });
         canvas.addEventListener("mouseleave", onMouseLeave, { passive: true });
+        window.addEventListener("focus", onFocus);
         window.addEventListener("blur", onBlur);
         document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -3084,6 +3246,20 @@ async function connectToServer(playerName: string, classId: number) {
             updateAbilityCardUI();
             updateSlot1Button();
             updateSlot2Button();
+            
+            const phase = room.state.phase;
+            const selfPlayer = room.state.players.get(room.sessionId);
+            if (phase !== "Results" && selfPlayer) {
+                if (!isValidClassId(selfPlayer.classId)) {
+                    // Между матчами класс сбрасывается на сервере — возвращаем экран выбора
+                    if (!nameInput.disabled) {
+                        nameInput.value = String(selfPlayer.name ?? nameInput.value);
+                    }
+                    setClassSelectMode(true);
+                } else {
+                    setClassSelectMode(false);
+                }
+            }
         }, 200);
 
         room.onLeave(() => {
@@ -3100,11 +3276,13 @@ async function connectToServer(playerName: string, classId: number) {
             canvas.removeEventListener("pointerdown", onPointerDown);
             canvas.removeEventListener("mousemove", onMouseMove);
             canvas.removeEventListener("mouseleave", onMouseLeave);
+            window.removeEventListener("focus", onFocus);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
             abilityButton.removeEventListener("click", onAbilityButtonClick);
             projectileButton.removeEventListener("click", onProjectileButtonClick);
             slot2Button.removeEventListener("click", onSlot2ButtonClick);
+            activeRoom = null;
             
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
@@ -3130,6 +3308,10 @@ async function connectToServer(playerName: string, classId: number) {
 playButton.addEventListener("click", () => {
     if (playButton.disabled || selectedClassId < 0 || selectedClassId > 2) {
         return; // Класс не выбран
+    }
+    if (activeRoom) {
+        activeRoom.send("selectClass", { classId: selectedClassId });
+        return;
     }
     const name = nameInput.value.trim() || generateRandomName();
     connectToServer(name, selectedClassId);

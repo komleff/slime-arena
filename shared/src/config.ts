@@ -295,6 +295,16 @@ export interface BalanceConfig {
             massPercent: number[];
             talentChance: number;
         };
+        types?: {
+            rare?: { armorRings: number; mass: number };
+            epic?: { armorRings: number; mass: number };
+            gold?: { armorRings: number; mass: number };
+        };
+        phaseWeights?: {
+            Growth?: { rare: number; epic: number; gold: number };
+            Hunt?: { rare: number; epic: number; gold: number };
+            Final?: { rare: number; epic: number; gold: number };
+        };
     };
     hotZones: {
         chaosCount: number;
@@ -1733,6 +1743,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     "chests.rewards.talentChance"
                 ),
             },
+            // GDD v3.3: типы сундуков и фазовые веса
+            types: isRecord(chests.types) ? chests.types as BalanceConfig["chests"]["types"] : undefined,
+            phaseWeights: isRecord(chests.phaseWeights) ? chests.phaseWeights as BalanceConfig["chests"]["phaseWeights"] : undefined,
         },
         hotZones: {
             chaosCount: readNumber(

@@ -94,6 +94,55 @@ export class ArenaRoom extends Room<GameState> {
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
 
+        this.onMessage("selectClass", (client, data: { classId?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player) return;
+            if (this.isMatchEnded || this.state.phase === "Results") return;
+
+            const currentClassId = Number(player.classId);
+            const needsClass = !(Number.isInteger(currentClassId) && currentClassId >= 0 && currentClassId <= 2);
+            if (!needsClass) return;
+
+            const rawClassId = Number((data as any)?.classId);
+            if (!Number.isInteger(rawClassId) || rawClassId < 0 || rawClassId > 2) return;
+
+            player.classId = rawClassId;
+
+            const classAbilities = ["dash", "shield", "slow"];
+            player.abilitySlot0 = classAbilities[player.classId] || "dash";
+            player.abilitySlot1 = "";
+            player.abilitySlot2 = "";
+            player.pendingAbilityCard = null;
+            player.cardChoicePressed = null;
+            player.pendingCardSlots = [];
+            player.pendingCardCount = 0;
+
+            if (!this.isMatchEnded && this.state.phase !== "Results") {
+                player.vx = 0;
+                player.vy = 0;
+                player.angVel = 0;
+                player.angle = 0;
+                player.mass = this.balance.slime.initialMass;
+                player.level = this.balance.slime.initialLevel;
+                player.isDead = false;
+                player.isLastBreath = false;
+                player.lastBreathEndTick = 0;
+                player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
+                player.respawnAtTick = 0;
+                player.gcdReadyTick = this.tick;
+                player.abilityCooldownTick = this.tick;
+                player.queuedAbilitySlot = null;
+                player.queuedAbilityTick = 0;
+                player.abilitySlotPressed = null;
+                player.lastAttackTick = 0;
+                player.lastBiteTick = 0;
+                player.lastInputTick = this.tick;
+                player.flags = 0;
+
+                this.updateLeaderboard();
+            }
+        });
+
         this.onMessage("input", (client, data: InputCommand) => {
             const player = this.state.players.get(client.sessionId);
             if (!player || !data) return;
@@ -208,17 +257,16 @@ export class ArenaRoom extends Room<GameState> {
         player.level = this.balance.slime.initialLevel;
         
         // Класс: 0 = Hunter, 1 = Warrior, 2 = Collector
-        // Если classId не передан или некорректен, используем случайный класс
+        // Если classId не передан или некорректен, игрок ждёт выбора класса
         let rawClassId = typeof options.classId === "number" ? options.classId : -1;
         if (rawClassId < 0 || rawClassId > 2) {
-            // Используем RNG для случайного выбора класса (детерминированно)
-            rawClassId = this.rng.int(0, 3); // int(0,3) → 0,1,2
+            rawClassId = -1;
         }
         player.classId = rawClassId;
         
         // Классовое умение в слот 0 (GDD v3.3 §1.3)
         const classAbilities = ["dash", "shield", "slow"];
-        player.abilitySlot0 = classAbilities[player.classId] || "dash";
+        player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
         player.abilitySlot1 = "";  // Разблокируется на level 3
         player.abilitySlot2 = "";  // Разблокируется на level 5
         player.pendingAbilityCard = null;
@@ -230,10 +278,11 @@ export class ArenaRoom extends Room<GameState> {
         player.gcdReadyTick = this.tick;
         player.lastInputTick = this.tick;
         
-        // Если матч завершён (фаза Results), игрок ждёт следующий раунд
+        // Если матч завершён (фаза Results) или класс не выбран, игрок ждёт следующий раунд
         // Помечаем как isDead, чтобы не попал в таблицу лидеров текущего матча
-        if (this.isMatchEnded || this.state.phase === "Results") {
+        if (player.classId < 0 || this.isMatchEnded || this.state.phase === "Results") {
             player.isDead = true;
+            player.respawnAtTick = Number.MAX_SAFE_INTEGER;
         } else {
             player.isDead = false;
         }
@@ -662,8 +711,9 @@ export class ArenaRoom extends Room<GameState> {
             const nx = dx / dist;
             const ny = dy / dist;
             
-            // Сундуки тяжелее орбов — используем массу сундука
-            const chestMass = Math.max(this.balance.chests.mass, 100);
+            // GDD v3.3: Масса сундука зависит от типа
+            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
+            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
             const speed = this.clamp(config.impulseNs / chestMass, 20, 80);
             
             chest.vx += nx * speed;
@@ -862,15 +912,19 @@ export class ArenaRoom extends Room<GameState> {
                     const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
                     if (yawFull > 1e-6) {
                         // Опережающее торможение (U2 FA:ON стиль):
-                        // Если текущая angVel гарантирует перелёт, начинаем тормозить
-                        // stoppingAngle = angVel² / (2 * maxAngularAccel)
-                        const stoppingAngle = (player.angVel * player.angVel) / (2 * maxAngularAccel + 1e-6);
+                        // Учитываем пассивное демпфирование angularDragK при расчёте stoppingAngle
+                        // effectiveDecel = maxAngularAccel + angularDragK * |angVel| (примерно)
+                        const angularDragK = this.balance.worldPhysics.angularDragK;
+                        const effectiveDecel = maxAngularAccel + angularDragK * Math.abs(player.angVel);
+                        const stoppingAngle = (player.angVel * player.angVel) / (2 * effectiveDecel + 1e-6);
                         const movingTowardsTarget = (player.angVel > 0 && angleDelta > 0) || (player.angVel < 0 && angleDelta < 0);
                         
                         if (movingTowardsTarget && stoppingAngle >= Math.abs(angleDelta)) {
                             // Перелёт неизбежен → тормозим
                             predictiveBraking = true;
                             yawCmd = 0;
+                            // Очищаем историю осцилляций при торможении
+                            player.yawSignHistory.length = 0;
                         } else {
                             yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
                             yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
@@ -1548,6 +1602,7 @@ export class ArenaRoom extends Room<GameState> {
                 if (player.isDead) continue;
                 if (player.isLastBreath) continue;
                 if (this.tick < player.invulnerableUntilTick) continue;
+                if (player.id === mine.ownerId) continue;
                 
                 const playerRadius = this.getPlayerRadius(player);
                 const dx = player.x - mine.x;
@@ -1562,9 +1617,6 @@ export class ArenaRoom extends Room<GameState> {
                     if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
                         player.shieldEndTick = 0;
                         player.flags &= ~FLAG_ABILITY_SHIELD;
-                    } else if (player.id === mine.ownerId) {
-                        // Самоподрыв: урон без передачи массы
-                        this.applySelfDamage(player, mine.damagePct);
                     } else if (owner && !owner.isDead) {
                         // Урон врагу с передачей массы владельцу
                         this.applyProjectileDamage(owner, player, mine.damagePct);
@@ -1684,7 +1736,14 @@ export class ArenaRoom extends Room<GameState> {
                 // GDD v3.3: GCD между умениями и укусами
                 const gcdReady = this.tick >= player.gcdReadyTick;
                 if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
-                    this.openChest(player, chestId);
+                    // GDD v3.3: Система обручей (armorRings)
+                    if (chest.armorRings > 0) {
+                        // Снимаем один обруч
+                        chest.armorRings--;
+                    } else {
+                        // Обручей нет — открываем сундук
+                        this.openChest(player, chestId);
+                    }
                     player.lastBiteTick = this.tick;
                     // GDD v3.3: GCD после укуса
                     player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
@@ -2140,22 +2199,46 @@ export class ArenaRoom extends Room<GameState> {
             player.angle = 0;
             player.mass = this.balance.slime.initialMass;
             player.level = this.balance.slime.initialLevel;
-            player.isDead = false;
+            // Новый матч: игрок не добавляется в бой до выбора класса
+            player.isDead = true;
             player.isLastBreath = false;
             player.lastBreathEndTick = 0;
-            player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
-            player.respawnAtTick = 0;
+            player.invulnerableUntilTick = 0;
+            player.respawnAtTick = Number.MAX_SAFE_INTEGER;
             player.gcdReadyTick = this.tick;
+            player.abilityCooldownTick = this.tick;
             player.queuedAbilitySlot = null;
+            player.queuedAbilityTick = 0;
+            player.abilitySlotPressed = null;
             player.talentsAvailable = 0;
             player.lastAttackTick = 0;
             player.lastBiteTick = 0;
             player.inputX = 0;
             player.inputY = 0;
+            player.lastInputTick = this.tick;
+            player.flags = 0;
+            player.yawSignHistory.length = 0;
+            player.assistFx = 0;
+            player.assistFy = 0;
+            player.assistTorque = 0;
             
+            // GDD-Talents: Сброс талантов между матчами
+            player.pendingTalentCard = null;
+            player.pendingTalentCount = 0;
+            player.pendingTalentQueue = [];
+            player.talentChoicePressed2 = null;
+            player.talentChoicePressed = null;
+            player.talents.splice(0, player.talents.length);
+            this.recalculateTalentModifiers(player);
+            
+            // Сброс состояний способностей
+            player.dashEndTick = 0;
+            player.shieldEndTick = 0;
+            player.magnetEndTick = 0;
+
             // GDD v3.3: Сброс слотов умений между матчами
-            const classAbilities = ["dash", "shield", "slow"];
-            player.abilitySlot0 = classAbilities[player.classId] || "dash";
+            player.classId = -1;
+            player.abilitySlot0 = "";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
             player.pendingAbilityCard = null;
@@ -2287,7 +2370,33 @@ export class ArenaRoom extends Room<GameState> {
         chest.y = spawn.y;
         chest.vx = 0;
         chest.vy = 0;
-        chest.type = this.rng.int(0, this.balance.chests.rewards.massPercent.length);
+        
+        // GDD v3.3: Выбор типа сундука по фазе
+        const phase = this.state.phase as "Growth" | "Hunt" | "Final";
+        const phaseWeights = this.balance.chests.phaseWeights;
+        const weights = phaseWeights?.[phase] ?? 
+                        phaseWeights?.Growth ?? 
+                        { rare: 85, epic: 15, gold: 0 };
+        
+        const totalWeight = weights.rare + weights.epic + weights.gold;
+        const roll = this.rng.next() * totalWeight;
+        
+        let chestTypeId: "rare" | "epic" | "gold" = "rare";
+        if (roll < weights.rare) {
+            chestTypeId = "rare";
+        } else if (roll < weights.rare + weights.epic) {
+            chestTypeId = "epic";
+        } else {
+            chestTypeId = "gold";
+        }
+        
+        // type: 0 = rare, 1 = epic, 2 = gold
+        chest.type = chestTypeId === "rare" ? 0 : chestTypeId === "epic" ? 1 : 2;
+        
+        // GDD v3.3: armorRings по типу
+        const typeConfig = this.balance.chests.types?.[chestTypeId];
+        chest.armorRings = typeConfig?.armorRings ?? 0;
+        
         this.state.chests.set(chest.id, chest);
     }
 

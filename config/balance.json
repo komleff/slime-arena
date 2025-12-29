@@ -88,7 +88,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -142,7 +142,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -196,7 +196,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -250,7 +250,7 @@
         "thrustForwardN": { "type": "power", "exp": 0.5 },
         "thrustReverseN": { "type": "power", "exp": 0.5 },
         "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.5 },
+        "turnTorqueNm": { "type": "power", "exp": 1.7 },
         "speedLimitForwardMps": { "type": "power", "exp": 0 },
         "speedLimitReverseMps": { "type": "power", "exp": 0 },
         "speedLimitLateralMps": { "type": "power", "exp": 0 },
@@ -419,8 +419,18 @@
   "chests": {
     "maxCount": 3,
     "spawnIntervalSec": 20,
-    "mass": 200,
+    "mass": 250,
     "radius": 14,
+    "types": {
+      "rare": { "armorRings": 0, "mass": 250 },
+      "epic": { "armorRings": 1, "mass": 350 },
+      "gold": { "armorRings": 2, "mass": 450 }
+    },
+    "phaseWeights": {
+      "Growth": { "rare": 85, "epic": 15, "gold": 0 },
+      "Hunt": { "rare": 65, "epic": 30, "gold": 5 },
+      "Final": { "rare": 50, "epic": 35, "gold": 15 }
+    },
     "rewards": {
       "massPercent": [0.1, 0.2, 0.3],
       "talentChance": 0.4

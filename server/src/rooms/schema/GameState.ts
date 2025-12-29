@@ -126,6 +126,7 @@ export class Chest extends Schema {
     @type("number") vx: number = 0;
     @type("number") vy: number = 0;
     @type("number") type: number = 0;
+    @type("number") armorRings: number = 0;
 }
 
 export class HotZone extends Schema {
