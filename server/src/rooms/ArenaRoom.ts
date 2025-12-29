@@ -1981,12 +1981,14 @@ export class ArenaRoom extends Room<GameState> {
         const angleStep = (Math.PI * 2) / bubbleCount;
         for (let i = 0; i < bubbleCount; i += 1) {
             const isInner = i < innerCount;
-            const speedMin = isInner
-                ? rewards.scatterInnerSpeedMpsMin[typeIndex]
-                : rewards.scatterOuterSpeedMpsMin[typeIndex];
-            const speedMax = isInner
-                ? rewards.scatterInnerSpeedMpsMax[typeIndex]
-                : rewards.scatterOuterSpeedMpsMax[typeIndex];
+            const speedMin =
+                (isInner
+                    ? rewards.scatterInnerSpeedMpsMin[typeIndex]
+                    : rewards.scatterOuterSpeedMpsMin[typeIndex]) ?? 0;
+            const speedMax =
+                (isInner
+                    ? rewards.scatterInnerSpeedMpsMax[typeIndex]
+                    : rewards.scatterOuterSpeedMpsMax[typeIndex]) ?? speedMin;
             const baseSpeed = this.rng.range(speedMin, speedMax);
             const orbMass = totalMass * (massWeights[i] / totalWeight);
             const speedMultiplier = orbMass < avgOrbMass ? rewards.scatterSmallBubbleSpeedMul : 1;
