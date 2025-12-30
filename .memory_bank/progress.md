@@ -11,6 +11,7 @@
 - Сервер: кулдауны умений переведены на per-slot поля с reset/legacy helper'ами.
 - Клиент: индикаторы КД работают для слотов 1/2 и используют per-slot тики.
 - Открыто: GDD-boost при отсутствии доступных талантов (BoostSystem отсутствует).
+- Review: замечание про fallback BoostSystem отражено в TECH_DEBT.
 
 ## Задача: Gameplay MVP (В ПРОЦЕССЕ)
 
