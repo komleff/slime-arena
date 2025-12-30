@@ -149,8 +149,9 @@ export interface BalanceConfig {
         initialMass: number;
         initialLevel: number;
         initialClassId: number;
-        levelThresholds: number[];       // [100, 200, 300, 500, 800]
+        levelThresholds: number[];       // [100, 180, 300, 500, 800, 1200] (GDD v3.3)
         slotUnlockLevels: number[];      // [1, 3, 5]
+        talentGrantLevels: number[];     // [2, 4, 6] - уровни, дающие карточки талантов
         cardChoiceTimeoutSec: number;    // 12
         abilityPool: string[];           // ["pull", "projectile", "spit", ...]
     };
@@ -344,14 +345,18 @@ export interface BalanceConfig {
     };
     talents: {
         cardChoiceTimeoutSec: number;
+        cardQueueMax: number;
         talentPool: {
             common: string[];
             rare: string[];
             epic: string[];
         };
+        talentRarityByLevel: Record<string, { common: number; rare: number; epic: number }>;
+        autoPickPriorities: Record<string, Record<string, number>>;
         common: Record<string, TalentConfig>;
         rare: Record<string, TalentConfig>;
         epic: Record<string, TalentConfig>;
+        classTalents: Record<string, Record<string, ClassTalentConfig>>;
     };
 }
 
@@ -362,6 +367,12 @@ export interface TalentConfig {
     values: number[] | number[][] | number;  // Значения по уровням
     effect: string;
     requirement?: string | null;
+    category?: string;
+}
+
+// Конфиг классового таланта
+export interface ClassTalentConfig extends TalentConfig {
+    rarity: "rare" | "epic";
 }
 
 export interface ResolvedBalanceConfig extends BalanceConfig {
@@ -655,8 +666,9 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         initialMass: 100,
         initialLevel: 1,
         initialClassId: 0,
-        levelThresholds: [100, 200, 300, 500, 800],
+        levelThresholds: [100, 180, 300, 500, 800, 1200],
         slotUnlockLevels: [1, 3, 5],
+        talentGrantLevels: [2, 4, 6],
         cardChoiceTimeoutSec: 12,
         abilityPool: ["pull", "projectile", "spit", "bomb", "push", "mine"],
     },
@@ -840,45 +852,78 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     talents: {
         cardChoiceTimeoutSec: 12,
+        cardQueueMax: 3,
         talentPool: {
-            common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind"],
+            common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
             rare: ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
             epic: ["lightning", "doubleActivation", "explosion", "leviathan", "invisible"],
         },
+        talentRarityByLevel: {
+            "2": { common: 100, rare: 0, epic: 0 },
+            "3": { common: 85, rare: 15, epic: 0 },
+            "4": { common: 70, rare: 28, epic: 2 },
+            "5": { common: 60, rare: 35, epic: 5 },
+            "6": { common: 50, rare: 40, epic: 10 },
+            "7": { common: 40, rare: 45, epic: 15 },
+        },
+        autoPickPriorities: {
+            hunter: { speed: 3, damage: 2, defense: 1, gather: 1 },
+            warrior: { defense: 3, damage: 2, speed: 1, gather: 1 },
+            collector: { gather: 3, defense: 2, speed: 1, damage: 1 },
+        },
         common: {
-            fastLegs: { name: "Быстрые ноги", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "speedLimitBonus" },
-            spinner: { name: "Юла", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "turnBonus" },
-            sharpTeeth: { name: "Острые зубы", maxLevel: 3, values: [0.15, 0.25, 0.35], effect: "biteDamageBonus" },
-            glutton: { name: "Обжора", maxLevel: 3, values: [0.20, 0.35, 0.50], effect: "orbMassBonus" },
-            thickSkin: { name: "Толстая шкура", maxLevel: 3, values: [0.12, 0.20, 0.27], effect: "biteResistBonus" },
-            economical: { name: "Экономный", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "abilityCostReduction" },
-            recharge: { name: "Перезарядка", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "cooldownReduction" },
-            aggressor: { name: "Агрессор", maxLevel: 1, values: [0.12], effect: "aggressorDual" },
-            sturdy: { name: "Стойкий", maxLevel: 1, values: [0.10], effect: "allDamageReduction" },
-            accelerator: { name: "Ускоритель", maxLevel: 1, values: [0.15], effect: "thrustForwardBonus" },
-            anchor: { name: "Якорь", maxLevel: 1, values: [0.20], effect: "thrustReverseBonus" },
-            crab: { name: "Краб", maxLevel: 1, values: [0.15], effect: "thrustLateralBonus" },
-            bloodlust: { name: "Кровожадность", maxLevel: 1, values: [0.15], effect: "killMassBonus" },
-            secondWind: { name: "Второе дыхание", maxLevel: 1, values: [150], effect: "respawnMass" },
+            fastLegs: { name: "Быстрые ноги", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "speedLimitBonus", category: "speed" },
+            spinner: { name: "Юла", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "turnBonus", category: "speed" },
+            sharpTeeth: { name: "Острые зубы", maxLevel: 3, values: [0.15, 0.25, 0.35], effect: "biteDamageBonus", category: "damage" },
+            glutton: { name: "Обжора", maxLevel: 3, values: [0.20, 0.35, 0.50], effect: "orbMassBonus", category: "gather" },
+            thickSkin: { name: "Толстая шкура", maxLevel: 3, values: [0.12, 0.20, 0.27], effect: "biteResistBonus", category: "defense" },
+            economical: { name: "Экономный", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "abilityCostReduction", category: "gather" },
+            recharge: { name: "Перезарядка", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "cooldownReduction", category: "speed" },
+            aggressor: { name: "Агрессор", maxLevel: 1, values: [0.12], effect: "aggressorDual", category: "damage" },
+            sturdy: { name: "Стойкий", maxLevel: 1, values: [0.10], effect: "allDamageReduction", category: "defense" },
+            accelerator: { name: "Ускоритель", maxLevel: 1, values: [0.15], effect: "thrustForwardBonus", category: "speed" },
+            anchor: { name: "Якорь", maxLevel: 1, values: [0.20], effect: "thrustReverseBonus", category: "defense" },
+            crab: { name: "Краб", maxLevel: 1, values: [0.15], effect: "thrustLateralBonus", category: "speed" },
+            bloodlust: { name: "Кровожадность", maxLevel: 1, values: [0.15], effect: "killMassBonus", category: "damage" },
+            secondWind: { name: "Второе дыхание", maxLevel: 1, values: [150], effect: "respawnMass", category: "defense" },
+            sense: { name: "Чутьё", maxLevel: 2, values: [2, 5], effect: "chestSense", category: "gather" },
+            regeneration: { name: "Регенерация", maxLevel: 2, values: [[0.01, 5], [0.01, 4]], effect: "outOfCombatRegen", category: "defense" },
         },
         rare: {
-            poison: { name: "Яд", maxLevel: 2, values: [[0.02, 3], [0.03, 3]], effect: "poisonOnBite", requirement: null },
-            frost: { name: "Мороз", maxLevel: 2, values: [[0.30, 2], [0.40, 2.5]], effect: "frostOnBite", requirement: null },
-            vampire: { name: "Вампир", maxLevel: 1, values: [[0.20, 0.25]], effect: "vampireBite", requirement: null },
-            vacuum: { name: "Вакуум", maxLevel: 2, values: [[40, 15], [60, 20]], effect: "vacuumOrbs", requirement: null },
-            motor: { name: "Мотор", maxLevel: 1, values: [0.25], effect: "allThrustBonus", requirement: null },
-            ricochet: { name: "Рикошет", maxLevel: 1, values: [1], effect: "projectileRicochet", requirement: "projectile" },
-            piercing: { name: "Пробивание", maxLevel: 1, values: [[1.0, 0.6]], effect: "projectilePiercing", requirement: "projectile" },
-            longDash: { name: "Длинный рывок", maxLevel: 1, values: [0.40], effect: "dashDistanceBonus", requirement: "dash" },
-            backNeedles: { name: "Иглы назад", maxLevel: 1, values: [[3, 0.10]], effect: "deathNeedles", requirement: null },
-            toxic: { name: "Токсичный", maxLevel: 1, values: [2.0], effect: "toxicPoolBonus", requirement: null },
+            poison: { name: "Яд", maxLevel: 2, values: [[0.02, 3], [0.03, 3]], effect: "poisonOnBite", requirement: null, category: "damage" },
+            frost: { name: "Мороз", maxLevel: 2, values: [[0.30, 2], [0.40, 2.5]], effect: "frostOnBite", requirement: null, category: "damage" },
+            vampire: { name: "Вампир", maxLevel: 1, values: [[0.20, 0.25]], effect: "vampireBite", requirement: null, category: "gather" },
+            vacuum: { name: "Вакуум", maxLevel: 2, values: [[40, 15], [60, 20]], effect: "vacuumOrbs", requirement: null, category: "gather" },
+            motor: { name: "Мотор", maxLevel: 1, values: [0.25], effect: "allThrustBonus", requirement: null, category: "speed" },
+            ricochet: { name: "Рикошет", maxLevel: 1, values: [1], effect: "projectileRicochet", requirement: "projectile", category: "damage" },
+            piercing: { name: "Пробивание", maxLevel: 1, values: [[1.0, 0.6]], effect: "projectilePiercing", requirement: "projectile", category: "damage" },
+            longDash: { name: "Длинный рывок", maxLevel: 1, values: [0.40], effect: "dashDistanceBonus", requirement: "dash", category: "speed" },
+            backNeedles: { name: "Иглы назад", maxLevel: 1, values: [[3, 0.10]], effect: "deathNeedles", requirement: null, category: "damage" },
+            toxic: { name: "Токсичный", maxLevel: 1, values: [2.0], effect: "toxicPoolBonus", requirement: null, category: "damage" },
         },
         epic: {
-            lightning: { name: "Молния", maxLevel: 1, values: [[0.25, 0.3]], effect: "lightningSpeed", requirement: null },
-            doubleActivation: { name: "Двойная активация", maxLevel: 1, values: [[1.0, 0.80]], effect: "doubleAbility", requirement: null },
-            explosion: { name: "Взрыв", maxLevel: 1, values: [[60, 0.08]], effect: "deathExplosion", requirement: null },
-            leviathan: { name: "Левиафан", maxLevel: 1, values: [[1.3, 1.5]], effect: "leviathanSize", requirement: null },
-            invisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash" },
+            lightning: { name: "Молния", maxLevel: 1, values: [[0.25, 0.3]], effect: "lightningSpeed", requirement: null, category: "speed" },
+            doubleActivation: { name: "Двойная активация", maxLevel: 1, values: [[1.0, 0.80]], effect: "doubleAbility", requirement: null, category: "damage" },
+            explosion: { name: "Взрыв", maxLevel: 1, values: [[60, 0.08]], effect: "deathExplosion", requirement: null, category: "damage" },
+            leviathan: { name: "Левиафан", maxLevel: 1, values: [[1.3, 1.5]], effect: "leviathanSize", requirement: null, category: "defense" },
+            invisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash", category: "speed" },
+        },
+        classTalents: {
+            hunter: {
+                ambush: { name: "Засада", maxLevel: 1, values: [0.30], effect: "ambushDamage", rarity: "rare", category: "damage" },
+                momentum: { name: "Разгон", maxLevel: 1, values: [[0.05, 0.20]], effect: "movementSpeedBonus", rarity: "rare", category: "speed" },
+                hunterInvisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash", rarity: "epic", category: "speed" },
+            },
+            warrior: {
+                indestructible: { name: "Несокрушимый", maxLevel: 1, values: [0.15], effect: "allDamageReduction", rarity: "rare", category: "defense" },
+                thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" },
+                berserk: { name: "Берсерк", maxLevel: 1, values: [[0.03, 0.30]], effect: "berserkDamage", rarity: "epic", category: "damage" },
+            },
+            collector: {
+                parasite: { name: "Паразит", maxLevel: 1, values: [0.05], effect: "parasiteMass", rarity: "rare", category: "gather" },
+                magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" },
+                symbiosis: { name: "Симбиоз", maxLevel: 1, values: [0.50], effect: "symbiosisBubbles", rarity: "epic", category: "gather" },
+            },
         },
     },
 };
@@ -1462,6 +1507,10 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 ? slime.slotUnlockLevels.map((v: unknown, i: number) =>
                     readNumber(v, DEFAULT_BALANCE_CONFIG.slime.slotUnlockLevels[i] ?? 1, `slime.slotUnlockLevels[${i}]`))
                 : DEFAULT_BALANCE_CONFIG.slime.slotUnlockLevels,
+            talentGrantLevels: Array.isArray(slime.talentGrantLevels)
+                ? slime.talentGrantLevels.map((v: unknown, i: number) =>
+                    readNumber(v, DEFAULT_BALANCE_CONFIG.slime.talentGrantLevels[i] ?? 2, `slime.talentGrantLevels[${i}]`))
+                : DEFAULT_BALANCE_CONFIG.slime.talentGrantLevels,
             cardChoiceTimeoutSec: readNumber(
                 slime.cardChoiceTimeoutSec,
                 DEFAULT_BALANCE_CONFIG.slime.cardChoiceTimeoutSec,
@@ -1924,6 +1973,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         talents: (() => {
             const talents = isRecord(data.talents) ? data.talents : {};
             const talentPool = isRecord(talents.talentPool) ? talents.talentPool : {};
+            const talentRarityByLevel = isRecord(talents.talentRarityByLevel) ? talents.talentRarityByLevel : {};
+            const autoPickPriorities = isRecord(talents.autoPickPriorities) ? talents.autoPickPriorities : {};
+            const classTalents = isRecord(talents.classTalents) ? talents.classTalents : {};
             
             // Parse talent configs from JSON, falling back to defaults
             const parseTalentRecord = (
@@ -1932,16 +1984,85 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ): Record<string, TalentConfig> => {
                 if (!isRecord(source)) return defaults;
                 const result: Record<string, TalentConfig> = {};
-                for (const key of Object.keys(defaults)) {
+                // Merge source keys with defaults
+                const allKeys = new Set([...Object.keys(defaults), ...Object.keys(source)]);
+                for (const key of allKeys) {
                     const src = isRecord(source[key]) ? source[key] : {};
-                    const def = defaults[key];
+                    const def = defaults[key] || { name: key, maxLevel: 1, values: [0], effect: key };
                     result[key] = {
                         name: typeof src.name === "string" ? src.name : def.name,
                         maxLevel: typeof src.maxLevel === "number" ? src.maxLevel : def.maxLevel,
                         values: Array.isArray(src.values) ? src.values : def.values,
                         effect: typeof src.effect === "string" ? src.effect : def.effect,
                         requirement: src.requirement !== undefined ? src.requirement as string | null : def.requirement,
+                        category: typeof src.category === "string" ? src.category : def.category,
                     };
+                }
+                return result;
+            };
+            
+            // Parse class talents
+            const parseClassTalents = (
+                source: unknown,
+                defaults: Record<string, Record<string, ClassTalentConfig>>
+            ): Record<string, Record<string, ClassTalentConfig>> => {
+                if (!isRecord(source)) return defaults;
+                const result: Record<string, Record<string, ClassTalentConfig>> = {};
+                for (const className of Object.keys(defaults)) {
+                    const srcClass = isRecord(source[className]) ? source[className] : {};
+                    const defClass = defaults[className];
+                    result[className] = {};
+                    const allKeys = new Set([...Object.keys(defClass), ...Object.keys(srcClass)]);
+                    for (const talentKey of allKeys) {
+                        const src = isRecord(srcClass[talentKey]) ? srcClass[talentKey] : {};
+                        const def = defClass[talentKey] || { name: talentKey, maxLevel: 1, values: [0], effect: talentKey, rarity: "rare" as const, category: "damage" };
+                        result[className][talentKey] = {
+                            name: typeof src.name === "string" ? src.name : def.name,
+                            maxLevel: typeof src.maxLevel === "number" ? src.maxLevel : def.maxLevel,
+                            values: Array.isArray(src.values) ? src.values : def.values,
+                            effect: typeof src.effect === "string" ? src.effect : def.effect,
+                            requirement: src.requirement !== undefined ? src.requirement as string | null : def.requirement,
+                            rarity: (src.rarity === "rare" || src.rarity === "epic") ? src.rarity : def.rarity,
+                            category: typeof src.category === "string" ? src.category : def.category,
+                        };
+                    }
+                }
+                return result;
+            };
+            
+            // Parse rarity by level
+            const parseRarityByLevel = (
+                source: unknown,
+                defaults: Record<string, { common: number; rare: number; epic: number }>
+            ): Record<string, { common: number; rare: number; epic: number }> => {
+                if (!isRecord(source)) return defaults;
+                const result: Record<string, { common: number; rare: number; epic: number }> = {};
+                for (const lvl of Object.keys(defaults)) {
+                    const src = isRecord(source[lvl]) ? source[lvl] : {};
+                    const def = defaults[lvl];
+                    result[lvl] = {
+                        common: typeof src.common === "number" ? src.common : def.common,
+                        rare: typeof src.rare === "number" ? src.rare : def.rare,
+                        epic: typeof src.epic === "number" ? src.epic : def.epic,
+                    };
+                }
+                return result;
+            };
+            
+            // Parse auto pick priorities
+            const parseAutoPickPriorities = (
+                source: unknown,
+                defaults: Record<string, Record<string, number>>
+            ): Record<string, Record<string, number>> => {
+                if (!isRecord(source)) return defaults;
+                const result: Record<string, Record<string, number>> = {};
+                for (const className of Object.keys(defaults)) {
+                    const srcClass = isRecord(source[className]) ? source[className] : {};
+                    const defClass = defaults[className];
+                    result[className] = {};
+                    for (const cat of Object.keys(defClass)) {
+                        result[className][cat] = typeof srcClass[cat] === "number" ? srcClass[cat] as number : defClass[cat];
+                    }
                 }
                 return result;
             };
@@ -1952,14 +2073,22 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     DEFAULT_BALANCE_CONFIG.talents.cardChoiceTimeoutSec,
                     "talents.cardChoiceTimeoutSec"
                 ),
+                cardQueueMax: readNumber(
+                    talents.cardQueueMax,
+                    DEFAULT_BALANCE_CONFIG.talents.cardQueueMax,
+                    "talents.cardQueueMax"
+                ),
                 talentPool: {
                     common: readStringArray(talentPool.common, DEFAULT_BALANCE_CONFIG.talents.talentPool.common, "talents.talentPool.common"),
                     rare: readStringArray(talentPool.rare, DEFAULT_BALANCE_CONFIG.talents.talentPool.rare, "talents.talentPool.rare"),
                     epic: readStringArray(talentPool.epic, DEFAULT_BALANCE_CONFIG.talents.talentPool.epic, "talents.talentPool.epic"),
                 },
+                talentRarityByLevel: parseRarityByLevel(talentRarityByLevel, DEFAULT_BALANCE_CONFIG.talents.talentRarityByLevel),
+                autoPickPriorities: parseAutoPickPriorities(autoPickPriorities, DEFAULT_BALANCE_CONFIG.talents.autoPickPriorities),
                 common: parseTalentRecord(talents.common, DEFAULT_BALANCE_CONFIG.talents.common),
                 rare: parseTalentRecord(talents.rare, DEFAULT_BALANCE_CONFIG.talents.rare),
                 epic: parseTalentRecord(talents.epic, DEFAULT_BALANCE_CONFIG.talents.epic),
+                classTalents: parseClassTalents(classTalents, DEFAULT_BALANCE_CONFIG.talents.classTalents),
             };
         })(),
     };

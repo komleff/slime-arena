@@ -154,6 +154,13 @@ export class Player extends Schema {
     mod_deathNeedlesCount: number = 0;
     mod_deathNeedlesDamagePct: number = 0;
     mod_toxicPoolBonus: number = 1;
+    
+    // New class talent modifiers
+    mod_thornsDamage: number = 0;        // Warrior: reflect damage on bite
+    mod_ambushDamage: number = 0;        // Hunter: bonus damage from invisibility
+    mod_parasiteMass: number = 0;        // Collector: mass steal on damage
+    mod_magnetRadius: number = 0;        // Collector: orb attraction radius
+    mod_magnetSpeed: number = 0;         // Collector: orb attraction speed
 }
 
 export class Orb extends Schema {
