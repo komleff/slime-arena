@@ -582,13 +582,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private getDamageBonusMultiplier(attacker: Player, includeBiteBonus: boolean): number {
-        let bonus = attacker.mod_damageBonus + (includeBiteBonus ? attacker.mod_biteDamageBonus : 0);
-        
-        // Талант "Засада" (Hunter): бонус урона при атаке из невидимости
-        if (attacker.mod_ambushDamage > 0 && this.tick < attacker.invisibleEndTick) {
-            bonus += attacker.mod_ambushDamage;
-        }
-        
+        const bonus = attacker.mod_damageBonus + (includeBiteBonus ? attacker.mod_biteDamageBonus : 0);
         return Math.max(0, 1 + bonus);
     }
 
@@ -1646,7 +1640,10 @@ export class ArenaRoom extends Room<GameState> {
         // Mass-as-HP: укус отбирает % массы жертвы
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
         const victimMassBefore = Math.max(0, defender.mass);
-        const damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
+        let damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
+        if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
+            damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
+        }
         const damageTakenMult = this.getDamageTakenMultiplier(defender);
         const multiplier = zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult;
         
@@ -2193,6 +2190,33 @@ export class ArenaRoom extends Room<GameState> {
         addFromPool(talents.talentPool.common, talents.common, available.common);
         addFromPool(talents.talentPool.rare, talents.rare, available.rare);
         addFromPool(talents.talentPool.epic, talents.epic, available.epic);
+
+        const className = this.getClassName(player.classId);
+        const classTalents = talents.classTalents[className];
+        if (classTalents) {
+            for (const [id, config] of Object.entries(classTalents)) {
+                if (config.requirement) {
+                    const hasRequirement =
+                        player.abilitySlot0 === config.requirement ||
+                        player.abilitySlot1 === config.requirement ||
+                        player.abilitySlot2 === config.requirement;
+                    if (!hasRequirement) continue;
+                }
+
+                let currentLevel = 0;
+                for (const t of player.talents) {
+                    if (t.id === id) {
+                        currentLevel = t.level;
+                        break;
+                    }
+                }
+
+                if (currentLevel < config.maxLevel) {
+                    const dest = config.rarity === "epic" ? available.epic : available.rare;
+                    dest.push(id);
+                }
+            }
+        }
 
         return available;
     }
@@ -3315,15 +3339,17 @@ export class ArenaRoom extends Room<GameState> {
         
         // GDD v3.3 5.1: уровни 7+ дают карточки талантов за каждый уровень
         // Пороги после базовых: 1800 * 1.5^n
-        if (newLevel > thresholds.length) {
+        if (thresholds.length > 0) {
             const lastThreshold = thresholds[thresholds.length - 1];
             let dynamicThreshold = lastThreshold * 1.5;
-            let dynamicLevel = thresholds.length + 1;
-            while (player.mass >= dynamicThreshold) {
-                dynamicLevel++;
-                dynamicThreshold *= 1.5;
+            if (player.mass >= dynamicThreshold) {
+                let dynamicLevel = thresholds.length + 1;
+                while (player.mass >= dynamicThreshold) {
+                    newLevel = dynamicLevel;
+                    dynamicLevel += 1;
+                    dynamicThreshold *= 1.5;
+                }
             }
-            newLevel = dynamicLevel;
         }
         
         if (newLevel <= player.level) return;
@@ -3562,6 +3588,9 @@ export class ArenaRoom extends Room<GameState> {
         if (talents.common[talentId]) return talents.common[talentId];
         if (talents.rare[talentId]) return talents.rare[talentId];
         if (talents.epic[talentId]) return talents.epic[talentId];
+        for (const classPool of Object.values(talents.classTalents)) {
+            if (classPool[talentId]) return classPool[talentId];
+        }
         return null;
     }
     
@@ -3573,6 +3602,10 @@ export class ArenaRoom extends Room<GameState> {
         if (talents.common[talentId]) return 0;
         if (talents.rare[talentId]) return 1;
         if (talents.epic[talentId]) return 2;
+        for (const classPool of Object.values(talents.classTalents)) {
+            const classTalent = classPool[talentId];
+            if (classTalent) return classTalent.rarity === "epic" ? 2 : 1;
+        }
         return 0;
     }
     
