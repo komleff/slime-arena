@@ -4,7 +4,16 @@
 ## Контроль изменений
 - **last_checked_commit**: main @ df8f6bb (31 декабря 2025)
 - **GDD версия**: v3.3 (модульный пакет документов)
-- **Резюме**: Исправления по аудиту Codex (талант система) - 31 дек 2025.
+- **Резюме**: Tech Debt Batch 1 - 2 янв 2026.
+
+## Последние изменения (ветка `fix/tech-debt-batch-1`, 2 янв 2026)
+Исправлены задачи из TECH_DEBT.md:
+- **PvP mass from nothing**: награда рассчитывается от `actualLoss` (defenderMassBefore - defenderMassAfter)
+- **Freeze на Results**: добавлен `freezeVisualState` флаг, интерполяция орбов останавливается
+- **Dash bounds**: добавлен clamp `dashTargetX/Y` к границам карты
+- **applyMassDelta JSDoc**: задокументирован clamp-инвариант
+- **GCD**: проверено — уже корректно (GCD только при успешной активации)
+- **Dynamic joystick**: закрыто как несущественное
 
 ## Последние изменения (ветка `review/gdd-talents-levels-chests`, 1 янв 2026)
 - Исправлено применение классовых талантов (поиск в `classTalents`) и их учёт в наградах сундуков.

@@ -635,8 +635,14 @@ export class ArenaRoom extends Room<GameState> {
         // Расчёт направления рывка (по текущему углу слайма)
         const angle = player.angle;
         const distance = config.distanceM * (1 + player.mod_dashDistanceBonus);
-        player.dashTargetX = player.x + Math.cos(angle) * distance;
-        player.dashTargetY = player.y + Math.sin(angle) * distance;
+        const rawTargetX = player.x + Math.cos(angle) * distance;
+        const rawTargetY = player.y + Math.sin(angle) * distance;
+        
+        // Clamp к границам мира (игрок не может выйти за пределы карты)
+        const worldSize = this.balance.worldPhysics?.widthM ?? this.balance.world.mapSize;
+        const halfWorld = worldSize / 2;
+        player.dashTargetX = Math.max(-halfWorld, Math.min(halfWorld, rawTargetX));
+        player.dashTargetY = Math.max(-halfWorld, Math.min(halfWorld, rawTargetY));
         player.dashEndTick = this.tick + Math.round(config.durationSec * tickRate);
         
         // Устанавливаем флаг
@@ -1689,18 +1695,25 @@ export class ArenaRoom extends Room<GameState> {
             attackerGainPct = attacker.mod_vampireTailGainPct;
             scatterPct = Math.max(0, totalRewardPct - attackerGainPct);
         }
-        const attackerGain = totalRewardPct > 0 ? massLoss * (attackerGainPct / totalRewardPct) : 0;
-        const scatterMass = totalRewardPct > 0 ? massLoss * (scatterPct / totalRewardPct) : 0;
-
-        // Применяем изменения массы
+        // Применяем потерю массы жертвы сначала, чтобы получить ФАКТИЧЕСКУЮ потерю
+        const defenderMassBefore = defender.mass;
         this.applyMassDelta(defender, -massLoss);
+        const defenderMassAfter = defender.mass;
+        const actualLoss = defenderMassBefore - defenderMassAfter;
+        
+        // ИНВАРИАНТ: награды рассчитываются от ФАКТИЧЕСКОЙ потери (после clamp)
+        // Это гарантирует, что масса не создаётся из воздуха
+        const attackerGain = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (attackerGainPct / totalRewardPct) : 0;
+        const scatterMass = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (scatterPct / totalRewardPct) : 0;
+
+        // Применяем прибыль атакующему
         this.applyMassDelta(attacker, attackerGain);
         defender.lastDamagedById = attacker.id;
         defender.lastDamagedAtTick = this.tick;
         
         // Талант "Шипы" (Warrior): отражение урона атакующему
-        if (defender.mod_thornsDamage > 0 && massLoss > 0) {
-            const reflectedDamage = massLoss * defender.mod_thornsDamage;
+        if (defender.mod_thornsDamage > 0 && actualLoss > 0) {
+            const reflectedDamage = actualLoss * defender.mod_thornsDamage;
             this.applyMassDelta(attacker, -reflectedDamage);
             // Scatter orbs цвета атакующего от отражённого урона
             if (reflectedDamage > 0) {
@@ -1710,8 +1723,8 @@ export class ArenaRoom extends Room<GameState> {
         }
         
         // Талант "Паразит" (Collector): кража массы при нанесении урона
-        if (attacker.mod_parasiteMass > 0 && massLoss > 0) {
-            const stolenMass = massLoss * attacker.mod_parasiteMass;
+        if (attacker.mod_parasiteMass > 0 && actualLoss > 0) {
+            const stolenMass = actualLoss * attacker.mod_parasiteMass;
             this.applyMassDelta(attacker, stolenMass);
         }
         
@@ -3311,6 +3324,16 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(inertia, 1e-6);
     }
 
+    /**
+     * Изменяет массу игрока на delta.
+     * 
+     * ИНВАРИАНТ: после применения delta, масса clamp'ится к [minSlimeMass, ∞).
+     * Фактическое изменение массы может быть меньше delta, если игрок уже на минимуме.
+     * Смерть обрабатывается отдельно при mass <= minSlimeMass в deathSystem().
+     * 
+     * @param player - игрок
+     * @param delta - изменение массы (может быть отрицательным)
+     */
     private applyMassDelta(player: Player, delta: number) {
         if (!Number.isFinite(delta) || delta === 0) return;
         const minMass = this.balance.physics.minSlimeMass;
