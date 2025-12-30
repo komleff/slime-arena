@@ -2686,6 +2686,7 @@ export class ArenaRoom extends Room<GameState> {
         const dt = 1 / this.balance.server.tickRate;
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
+            if (this.tick < player.invulnerableUntilTick) continue;
             if (player.poisonEndTick > this.tick && player.poisonDamagePctPerSec > 0) {
                 const damageTakenMult = this.getDamageTakenMultiplier(player);
                 const massLoss = player.mass * player.poisonDamagePctPerSec * dt * damageTakenMult;
