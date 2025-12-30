@@ -326,6 +326,12 @@ export interface BalanceConfig {
         spawnMultiplierChaos: number;
         spawnMultiplierFinal: number;
     };
+    toxicPools: {
+        radiusM: number;
+        durationSec: number;
+        damagePctPerSec: number;
+        slowPct: number;
+    };
     hunger: {
         baseDrainPerSec: number;
         scalingPerMass: number;
@@ -816,6 +822,12 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         spawnMultiplierChaos: 3,
         spawnMultiplierFinal: 5,
     },
+    toxicPools: {
+        radiusM: 20,
+        durationSec: 3,
+        damagePctPerSec: 0.01,
+        slowPct: 0.2,
+    },
     hunger: {
         baseDrainPerSec: 2,
         scalingPerMass: 0.01,
@@ -1199,6 +1211,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const classes = isRecord(data.classes) ? data.classes : {};
     const chests = isRecord(data.chests) ? data.chests : {};
     const hotZones = isRecord(data.hotZones) ? data.hotZones : {};
+    const toxicPools = isRecord(data.toxicPools) ? data.toxicPools : {};
     const hunger = isRecord(data.hunger) ? data.hunger : {};
     const rebel = isRecord(data.rebel) ? data.rebel : {};
     const baseSlime = isRecord(slimeConfigs.base) ? slimeConfigs.base : {};
@@ -1859,6 +1872,20 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.hotZones.spawnMultiplierFinal,
                 "hotZones.spawnMultiplierFinal"
             ),
+        },
+        toxicPools: {
+            radiusM: readNumber(toxicPools.radiusM, DEFAULT_BALANCE_CONFIG.toxicPools.radiusM, "toxicPools.radiusM"),
+            durationSec: readNumber(
+                toxicPools.durationSec,
+                DEFAULT_BALANCE_CONFIG.toxicPools.durationSec,
+                "toxicPools.durationSec"
+            ),
+            damagePctPerSec: readNumber(
+                toxicPools.damagePctPerSec,
+                DEFAULT_BALANCE_CONFIG.toxicPools.damagePctPerSec,
+                "toxicPools.damagePctPerSec"
+            ),
+            slowPct: readNumber(toxicPools.slowPct, DEFAULT_BALANCE_CONFIG.toxicPools.slowPct, "toxicPools.slowPct"),
         },
         hunger: {
             baseDrainPerSec: readNumber(

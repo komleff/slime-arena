@@ -93,6 +93,10 @@ export class Player extends Schema {
     assistFx: number = 0;
     assistFy: number = 0;
     assistTorque: number = 0;
+    slowPct: number = 0;
+    doubleAbilityWindowEndTick: number = 0;
+    doubleAbilitySlot: number | null = null;
+    doubleAbilitySecondUsed: boolean = false;
     
     // Ability state (server-only)
     dashEndTick: number = 0;
@@ -149,11 +153,6 @@ export class Player extends Schema {
     mod_deathNeedlesCount: number = 0;
     mod_deathNeedlesDamagePct: number = 0;
     mod_toxicPoolBonus: number = 1;
-
-    // Double activation (server-only)
-    doubleAbilitySlot: number | null = null;
-    doubleAbilityWindowEndTick: number = 0;
-    doubleAbilityUsed: boolean = false;
 }
 
 export class Orb extends Schema {
@@ -225,6 +224,10 @@ export class Projectile extends Schema {
     startX: number = 0;
     startY: number = 0;
     explosionRadiusM: number = 0;  // For bomb type
+    remainingRicochets: number = 0;
+    remainingPierces: number = 0;
+    piercingDamagePct: number = 0;
+    lastHitId: string = "";
 }
 
 export class Mine extends Schema {

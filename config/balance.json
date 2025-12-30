@@ -456,6 +456,12 @@
     "spawnMultiplierChaos": 3,
     "spawnMultiplierFinal": 5
   },
+  "toxicPools": {
+    "radiusM": 20,
+    "durationSec": 3,
+    "damagePctPerSec": 0.01,
+    "slowPct": 0.2
+  },
   "hunger": {
     "baseDrainPerSec": 2,
     "scalingPerMass": 0.01,
