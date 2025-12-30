@@ -178,7 +178,7 @@ export class ArenaRoom extends Room<GameState> {
             player.lastInputTick = this.tick;
 
             // Обрабатываем abilitySlot только если он явно передан в пакете
-            // Не сбрасываем, если поле отсутствует — чтобы обычные input'ы движения не перезатирали нажатие
+            // Не сбрасываем, если поле отсутствует - чтобы обычные input'ы движения не перезатирали нажатие
             if ("abilitySlot" in data) {
                 const abilitySlot = data.abilitySlot;
                 if (
@@ -875,7 +875,7 @@ export class ArenaRoom extends Room<GameState> {
             const nx = dx / dist;
             const ny = dy / dist;
             
-            // Орбы легче — отталкиваются сильнее
+            // Орбы легче - отталкиваются сильнее
             const orbMass = Math.max(orb.mass, 1);
             const speed = this.clamp(config.impulseNs / orbMass, 50, 200);
             
@@ -1605,14 +1605,14 @@ export class ArenaRoom extends Room<GameState> {
         // GDD v3.3: GCD между умениями и укусами
         if (this.tick < attacker.gcdReadyTick) return;
         
-        // Неуязвимость защитника — укус не проходит, но GCD применяется
+        // Неуязвимость защитника - укус не проходит, но GCD применяется
         if (this.tick < defender.invulnerableUntilTick) {
             attacker.lastAttackTick = this.tick;
             attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
             return;
         }
         
-        // Щит блокирует урон полностью — GCD применяется
+        // Щит блокирует урон полностью - GCD применяется
         if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
             // Щит снимается при атаке (согласно GDD)
             defender.shieldEndTick = 0;
@@ -1735,7 +1735,7 @@ export class ArenaRoom extends Room<GameState> {
 
     /**
      * Создаёт орбы, разлетающиеся от точки укуса PvP.
-     * Эти орбы игнорируют maxCount — боевая механика важнее лимита.
+     * Эти орбы игнорируют maxCount - боевая механика важнее лимита.
      * @param colorId - colorId орбов (classId + 10 для цвета жертвы)
      */
     private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
@@ -1792,6 +1792,8 @@ export class ArenaRoom extends Room<GameState> {
                     proj.y = Math.sign(proj.y) * worldHalfH;
                 }
                 proj.remainingRicochets -= 1;
+                proj.startX = proj.x;
+                proj.startY = proj.y;
                 continue;
             }
 
@@ -1840,18 +1842,20 @@ export class ArenaRoom extends Room<GameState> {
                     } else {
                         // Обычный снаряд - прямой урон
                         const owner = this.state.players.get(proj.ownerId);
-                        if (owner && !owner.isDead) {
+                        if (owner && (!owner.isDead || proj.allowDeadOwner)) {
                             this.applyProjectileDamage(owner, player, proj.damagePct);
                         }
                     }
                     proj.lastHitId = player.id;
-                    if (proj.remainingPierces > 1) {
+                    if (proj.remainingPierces > 0) {
                         proj.remainingPierces -= 1;
                         if (proj.remainingPierces === 1 && proj.piercingDamagePct > 0) {
                             proj.damagePct *= proj.piercingDamagePct;
                         }
-                        hitPlayer = true;
-                        continue;
+                        if (proj.remainingPierces > 0) {
+                            hitPlayer = true;
+                            continue;
+                        }
                     }
                     toRemove.push(projId);
                     hitPlayer = true;
@@ -1869,7 +1873,7 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Взрыв бомбы — AoE урон всем в радиусе
+     * Взрыв бомбы - AoE урон всем в радиусе
      */
     private explodeBomb(proj: Projectile) {
         const owner = this.state.players.get(proj.ownerId);
@@ -1900,7 +1904,7 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Система мин — детонация при контакте с врагами
+     * Система мин - детонация при контакте с врагами
      */
     private mineSystem() {
         const toRemove: string[] = [];
@@ -1996,7 +2000,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     /**
-     * Самоурон (от своей мины) — без передачи массы, но с Last Breath
+     * Самоурон (от своей мины) - без передачи массы, но с Last Breath
      */
     private applySelfDamage(player: Player, damagePct: number) {
         const minSlimeMass = this.balance.physics.minSlimeMass;
@@ -2410,6 +2414,7 @@ export class ArenaRoom extends Room<GameState> {
             proj.damagePct = damagePct;
             proj.spawnTick = this.tick;
             proj.maxRangeM = config.rangeM;
+            proj.allowDeadOwner = true;
             this.state.projectiles.set(proj.id, proj);
         }
     }
@@ -2418,6 +2423,7 @@ export class ArenaRoom extends Room<GameState> {
         const baseRadius = this.balance.toxicPools.radiusM;
         const durationSec = this.balance.toxicPools.durationSec;
         if (baseRadius <= 0 || durationSec <= 0) return;
+        if (player.mod_toxicPoolBonus <= 1) return;
 
         const pool = new ToxicPool();
         pool.id = `toxic_${++this.toxicPoolIdCounter}`;
@@ -2655,6 +2661,8 @@ export class ArenaRoom extends Room<GameState> {
         const dt = 1 / this.balance.server.tickRate;
         for (const player of this.state.players.values()) {
             if (player.isDead) continue;
+            if (player.isLastBreath) continue;
+            if (this.tick < player.invulnerableUntilTick) continue;
             let totalDamagePctPerSec = 0;
             for (const pool of this.state.toxicPools.values()) {
                 const dx = player.x - pool.x;
@@ -2828,7 +2836,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private updateMatchPhase() {
-        // Если матч завершён и в фазе Results — проверяем время для перезапуска
+        // Если матч завершён и в фазе Results - проверяем время для перезапуска
         if (this.isMatchEnded) {
             const ticksSinceResults = this.tick - this.resultsStartTick;
             const totalResultsTicks = this.resultsDurationTicks + this.restartDelayTicks;
@@ -3314,7 +3322,7 @@ export class ArenaRoom extends Room<GameState> {
      * Генерирует карточку выбора умения для слота (GDD v3.3 1.3)
      */
     private generateAbilityCard(player: Player, slotIndex: number) {
-        // Уже есть активная карточка — не генерируем новую
+        // Уже есть активная карточка - не генерируем новую
         if (player.pendingAbilityCard !== null) return;
         
         const pool = this.balance.slime.abilityPool;
@@ -3788,7 +3796,7 @@ export class ArenaRoom extends Room<GameState> {
      */
     private awardTalentToPlayer(player: Player) {
         if (player.pendingTalentCard) {
-            // Уже есть активная карточка — добавляем в очередь
+            // Уже есть активная карточка - добавляем в очередь
             player.pendingTalentQueue.push(1);
             player.pendingTalentCount = player.pendingTalentQueue.length;
         } else {
