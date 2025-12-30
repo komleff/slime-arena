@@ -1630,7 +1630,13 @@ export class ArenaRoom extends Room<GameState> {
         if (defenderZone === "tail") {
             zoneMultiplier = this.balance.combat.tailDamageMultiplier;
         } else if (defenderZone === "mouth") {
-            zoneMultiplier = 0.5;
+            const attackerMass = attacker.mass;
+            const defenderMass = defender.mass;
+            if (!(attackerMass > defenderMass * 1.1)) {
+                attacker.lastAttackTick = this.tick;
+                attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
+                return;
+            }
         }
 
         const classStats = this.getClassStats(attacker);
@@ -1640,7 +1646,10 @@ export class ArenaRoom extends Room<GameState> {
         // Mass-as-HP: укус отбирает % массы жертвы
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
         const victimMassBefore = Math.max(0, defender.mass);
-        const damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
+        let damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
+        if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
+            damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
+        }
         const damageTakenMult = this.getDamageTakenMultiplier(defender);
         const multiplier = zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult;
         
@@ -1688,6 +1697,23 @@ export class ArenaRoom extends Room<GameState> {
         this.applyMassDelta(attacker, attackerGain);
         defender.lastDamagedById = attacker.id;
         defender.lastDamagedAtTick = this.tick;
+        
+        // Талант "Шипы" (Warrior): отражение урона атакующему
+        if (defender.mod_thornsDamage > 0 && massLoss > 0) {
+            const reflectedDamage = massLoss * defender.mod_thornsDamage;
+            this.applyMassDelta(attacker, -reflectedDamage);
+            // Scatter orbs цвета атакующего от отражённого урона
+            if (reflectedDamage > 0) {
+                const scatterReflected = reflectedDamage * this.balance.combat.pvpBiteScatterPct;
+                this.spawnPvPBiteOrbs(attacker.x, attacker.y, scatterReflected, attacker.classId + 10);
+            }
+        }
+        
+        // Талант "Паразит" (Collector): кража массы при нанесении урона
+        if (attacker.mod_parasiteMass > 0 && massLoss > 0) {
+            const stolenMass = massLoss * attacker.mod_parasiteMass;
+            this.applyMassDelta(attacker, stolenMass);
+        }
         
         // Scatter orbs: разлёт пузырей цвета жертвы
         if (scatterMass > 0) {
@@ -2171,6 +2197,33 @@ export class ArenaRoom extends Room<GameState> {
         addFromPool(talents.talentPool.rare, talents.rare, available.rare);
         addFromPool(talents.talentPool.epic, talents.epic, available.epic);
 
+        const className = this.getClassName(player.classId);
+        const classTalents = talents.classTalents[className];
+        if (classTalents) {
+            for (const [id, config] of Object.entries(classTalents)) {
+                if (config.requirement) {
+                    const hasRequirement =
+                        player.abilitySlot0 === config.requirement ||
+                        player.abilitySlot1 === config.requirement ||
+                        player.abilitySlot2 === config.requirement;
+                    if (!hasRequirement) continue;
+                }
+
+                let currentLevel = 0;
+                for (const t of player.talents) {
+                    if (t.id === id) {
+                        currentLevel = t.level;
+                        break;
+                    }
+                }
+
+                if (currentLevel < config.maxLevel) {
+                    const dest = config.rarity === "epic" ? available.epic : available.rare;
+                    dest.push(id);
+                }
+            }
+        }
+
         return available;
     }
 
@@ -2503,8 +2556,11 @@ export class ArenaRoom extends Room<GameState> {
             const magnetSpeed = magnetActive ? magnetConfig.pullSpeedMps : 0;
             const vacuumRadius = player.mod_vacuumRadius;
             const vacuumSpeed = player.mod_vacuumSpeed;
-            const radius = Math.max(magnetRadius, vacuumRadius);
-            const speed = Math.max(magnetSpeed, vacuumSpeed);
+            // Талант "Магнит" (Collector): пассивное притяжение орбов
+            const talentMagnetRadius = player.mod_magnetRadius;
+            const talentMagnetSpeed = player.mod_magnetSpeed;
+            const radius = Math.max(magnetRadius, vacuumRadius, talentMagnetRadius);
+            const speed = Math.max(magnetSpeed, vacuumSpeed, talentMagnetSpeed);
             if (radius <= 0 || speed <= 0) continue;
             magnetPlayers.push({ player, radiusSq: radius * radius, speed });
         }
@@ -3270,12 +3326,14 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Обновляет уровень игрока по массе (GDD v3.3 1.3)
-     * При достижении level 3/5 открываются слоты 2/3 и показывается карточка выбора
+     * Обновляет уровень игрока по массе (GDD v3.3 5.1)
+     * При достижении level 3/5 открываются слоты 2/3 и показывается карточка выбора умения
+     * При достижении level 2/4/6/7+ показывается карточка выбора таланта
      */
     private updatePlayerLevel(player: Player) {
         const thresholds = this.balance.slime.levelThresholds;
         const slotUnlockLevels = this.balance.slime.slotUnlockLevels;
+        const talentGrantLevels = this.balance.slime.talentGrantLevels;
         
         // Вычисляем текущий уровень по массе
         let newLevel = 1;
@@ -3285,25 +3343,46 @@ export class ArenaRoom extends Room<GameState> {
             }
         }
         
+        // GDD v3.3 5.1: уровни 7+ дают карточки талантов за каждый уровень
+        // Пороги после базовых: 1800 * 1.5^n
+        if (thresholds.length > 0) {
+            const lastThreshold = thresholds[thresholds.length - 1];
+            let dynamicThreshold = lastThreshold * 1.5;
+            if (player.mass >= dynamicThreshold) {
+                let dynamicLevel = thresholds.length + 1;
+                while (player.mass >= dynamicThreshold) {
+                    newLevel = dynamicLevel;
+                    dynamicLevel += 1;
+                    dynamicThreshold *= 1.5;
+                }
+            }
+        }
+        
         if (newLevel <= player.level) return;
         
         const oldLevel = player.level;
         player.level = newLevel;
         
-        // Проверяем разблокировку слотов
-        // slotUnlockLevels = [1, 3, 5] => slot 0 на level 1, slot 1 на level 3, slot 2 на level 5
-        for (let slotIdx = 1; slotIdx < slotUnlockLevels.length; slotIdx++) {
-            const unlockLevel = slotUnlockLevels[slotIdx];
-            // Если перешли через порог разблокировки и слот ещё пустой
-            if (oldLevel < unlockLevel && newLevel >= unlockLevel) {
-                const slotProp = slotIdx === 1 ? "abilitySlot1" : "abilitySlot2";
-                if (player[slotProp] === "") {
-                    // Добавляем слот в очередь (карточка сгенерируется после предыдущей)
-                    if (!player.pendingCardSlots.includes(slotIdx)) {
-                        player.pendingCardSlots.push(slotIdx);
-                        player.pendingCardCount = player.pendingCardSlots.length;
+        // Обрабатываем каждый пройденный уровень
+        for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+            // Проверяем разблокировку слотов умений (уровни 3, 5)
+            for (let slotIdx = 1; slotIdx < slotUnlockLevels.length; slotIdx++) {
+                const unlockLevel = slotUnlockLevels[slotIdx];
+                if (lvl === unlockLevel) {
+                    const slotProp = slotIdx === 1 ? "abilitySlot1" : "abilitySlot2";
+                    if (player[slotProp] === "") {
+                        if (!player.pendingCardSlots.includes(slotIdx)) {
+                            player.pendingCardSlots.push(slotIdx);
+                            player.pendingCardCount = player.pendingCardSlots.length;
+                        }
                     }
                 }
+            }
+            
+            // Проверяем выдачу таланта (уровни 2, 4, 6, 7+)
+            const isTalentLevel = talentGrantLevels.includes(lvl) || lvl > thresholds.length;
+            if (isTalentLevel) {
+                this.awardTalentToPlayer(player);
             }
         }
         
@@ -3425,9 +3504,15 @@ export class ArenaRoom extends Room<GameState> {
                 player.talentChoicePressed2 = null;
             }
             
-            if (player.isDead || !player.pendingTalentCard) continue;
+            if (!player.pendingTalentCard) continue;
             
             const card = player.pendingTalentCard;
+            
+            // GDD 7.4.2: При смерти таймер приостанавливается (сдвигаем deadline)
+            if (player.isDead) {
+                card.expiresAtTick += 1;
+                continue;
+            }
             
             // Обработка выбора игрока
             if (player.talentChoicePressed2 !== null) {
@@ -3436,9 +3521,9 @@ export class ArenaRoom extends Room<GameState> {
                 continue;
             }
             
-            // Автовыбор по таймауту
+            // GDD 7.4.1: Автовыбор по таймауту с приоритетами класса
             if (currentTick >= card.expiresAtTick) {
-                this.applyTalentCardChoice(player, 0);  // Автовыбор первого варианта
+                this.forceAutoPickTalent(player);
             }
         }
     }
@@ -3509,6 +3594,9 @@ export class ArenaRoom extends Room<GameState> {
         if (talents.common[talentId]) return talents.common[talentId];
         if (talents.rare[talentId]) return talents.rare[talentId];
         if (talents.epic[talentId]) return talents.epic[talentId];
+        for (const classPool of Object.values(talents.classTalents)) {
+            if (classPool[talentId]) return classPool[talentId];
+        }
         return null;
     }
     
@@ -3520,6 +3608,10 @@ export class ArenaRoom extends Room<GameState> {
         if (talents.common[talentId]) return 0;
         if (talents.rare[talentId]) return 1;
         if (talents.epic[talentId]) return 2;
+        for (const classPool of Object.values(talents.classTalents)) {
+            const classTalent = classPool[talentId];
+            if (classTalent) return classTalent.rarity === "epic" ? 2 : 1;
+        }
         return 0;
     }
     
@@ -3567,6 +3659,13 @@ export class ArenaRoom extends Room<GameState> {
         player.mod_deathNeedlesDamagePct = 0;
         player.mod_toxicPoolBonus = 1;
         player.biteResistPct = 0;
+        
+        // New class talent modifiers
+        player.mod_thornsDamage = 0;
+        player.mod_ambushDamage = 0;
+        player.mod_parasiteMass = 0;
+        player.mod_magnetRadius = 0;
+        player.mod_magnetSpeed = 0;
         
         // Применяем каждый талант
         for (const talent of player.talents) {
@@ -3711,6 +3810,26 @@ export class ArenaRoom extends Room<GameState> {
                 case "invisibleAfterDash":
                     player.mod_invisibleDurationSec = typeof value === "number" ? value : 0;
                     break;
+                // Class talent effects
+                case "thornsDamage":
+                    // Warrior: отражает % урона при получении укуса
+                    player.mod_thornsDamage = typeof value === "number" ? value : 0;
+                    break;
+                case "ambushDamage":
+                    // Hunter: бонусный урон из невидимости/засады
+                    player.mod_ambushDamage = typeof value === "number" ? value : 0;
+                    break;
+                case "parasiteMass":
+                    // Collector: при нанесении урона крадёт часть массы
+                    player.mod_parasiteMass = typeof value === "number" ? value : 0;
+                    break;
+                case "magnetOrbs":
+                    // Collector: притягивает орбы (аналог vacuum но слабее)
+                    if (Array.isArray(value)) {
+                        player.mod_magnetRadius = Number(value[0] ?? 0);
+                        player.mod_magnetSpeed = Number(value[1] ?? 0);
+                    }
+                    break;
             }
         }
         
@@ -3719,59 +3838,165 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Генерирует карточку выбора таланта для игрока
+     * Получает имя класса по classId
+     */
+    private getClassName(classId: number): string {
+        if (classId === 0) return "hunter";
+        if (classId === 1) return "warrior";
+        if (classId === 2) return "collector";
+        return "hunter";
+    }
+    
+    /**
+     * Генерирует карточку выбора таланта для игрока (GDD v3.3 7.2-7.3)
      */
     private generateTalentCard(player: Player) {
         const talents = this.balance.talents;
-        const tickRate = this.balance.server.tickRate;
         const timeoutTicks = this.secondsToTicks(talents.cardChoiceTimeoutSec);
+        const className = this.getClassName(player.classId);
         
-        // Собираем доступные таланты (без дубликатов на макс. уровне)
-        const availableTalents: { id: string; rarity: number }[] = [];
+        // Получаем веса редкостей по уровню игрока (GDD 7.2.1)
+        const levelKey = player.level >= 7 ? "7" : String(player.level);
+        const rarityWeights = talents.talentRarityByLevel[levelKey] || talents.talentRarityByLevel["2"];
         
-        const addFromPool = (pool: string[], configs: Record<string, TalentConfig>, rarity: number) => {
-            for (const id of pool) {
-                const config = configs[id];
-                if (!config) continue;
-                
-                // Проверяем требование
-                if (config.requirement) {
-                    const hasRequirement = 
-                        player.abilitySlot0 === config.requirement ||
-                        player.abilitySlot1 === config.requirement ||
-                        player.abilitySlot2 === config.requirement;
-                    if (!hasRequirement) continue;
-                }
-                
-                // Проверяем не на макс. уровне ли уже
-                let currentLevel = 0;
-                for (const t of player.talents) {
-                    if (t.id === id) {
-                        currentLevel = t.level;
-                        break;
-                    }
-                }
-                
-                if (currentLevel < config.maxLevel) {
-                    availableTalents.push({ id, rarity });
-                }
-            }
+        // Собираем доступные таланты по редкостям
+        const availableByRarity: { common: { id: string; rarity: number; category?: string }[]; rare: { id: string; rarity: number; category?: string }[]; epic: { id: string; rarity: number; category?: string }[] } = {
+            common: [],
+            rare: [],
+            epic: [],
         };
         
-        addFromPool(talents.talentPool.common, talents.common, 0);
-        addFromPool(talents.talentPool.rare, talents.rare, 1);
-        addFromPool(talents.talentPool.epic, talents.epic, 2);
+        // Собираем классовые таланты
+        const classTalentsAvailable: { id: string; rarity: number; category?: string }[] = [];
         
-        if (availableTalents.length === 0) return;
+        const checkTalentAvailable = (id: string, config: TalentConfig, rarity: number): boolean => {
+            // Проверяем требование
+            if (config.requirement) {
+                const hasRequirement = 
+                    player.abilitySlot0 === config.requirement ||
+                    player.abilitySlot1 === config.requirement ||
+                    player.abilitySlot2 === config.requirement;
+                if (!hasRequirement) return false;
+            }
+            
+            // Проверяем не на макс. уровне ли уже
+            let currentLevel = 0;
+            for (const t of player.talents) {
+                if (t.id === id) {
+                    currentLevel = t.level;
+                    break;
+                }
+            }
+            
+            return currentLevel < config.maxLevel;
+        };
         
-        // Выбираем 3 случайных (или меньше если мало)
-        const shuffled = [...availableTalents];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(this.rng.next() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        // Добавляем общие таланты
+        for (const id of talents.talentPool.common) {
+            const config = talents.common[id];
+            if (config && checkTalentAvailable(id, config, 0)) {
+                availableByRarity.common.push({ id, rarity: 0, category: config.category });
+            }
         }
         
-        const selected = shuffled.slice(0, 3);
+        for (const id of talents.talentPool.rare) {
+            const config = talents.rare[id];
+            if (config && checkTalentAvailable(id, config, 1)) {
+                availableByRarity.rare.push({ id, rarity: 1, category: config.category });
+            }
+        }
+        
+        for (const id of talents.talentPool.epic) {
+            const config = talents.epic[id];
+            if (config && checkTalentAvailable(id, config, 2)) {
+                availableByRarity.epic.push({ id, rarity: 2, category: config.category });
+            }
+        }
+        
+        // Добавляем классовые таланты (GDD 7.3.4)
+        const classTalentConfigs = talents.classTalents[className];
+        if (classTalentConfigs) {
+            for (const [id, config] of Object.entries(classTalentConfigs)) {
+                const rarity = config.rarity === "epic" ? 2 : 1;
+                if (checkTalentAvailable(id, config, rarity)) {
+                    classTalentsAvailable.push({ id, rarity, category: config.category });
+                    // Также добавляем в общий пул по редкости
+                    if (rarity === 1) {
+                        availableByRarity.rare.push({ id, rarity, category: config.category });
+                    } else {
+                        availableByRarity.epic.push({ id, rarity, category: config.category });
+                    }
+                }
+            }
+        }
+        
+        const allAvailable = [...availableByRarity.common, ...availableByRarity.rare, ...availableByRarity.epic];
+        if (allAvailable.length === 0) return;
+        
+        // Выбираем 3 таланта по правилам GDD 7.3
+        const selected: { id: string; rarity: number; category?: string }[] = [];
+        const usedEffects = new Set<string>();
+        
+        // GDD 7.3.5: Гарантия хотя бы 1 классового таланта (если доступен)
+        if (classTalentsAvailable.length > 0) {
+            const idx = Math.floor(this.rng.next() * classTalentsAvailable.length);
+            const classTalent = classTalentsAvailable[idx];
+            selected.push(classTalent);
+            if (classTalent.category) usedEffects.add(classTalent.category);
+        }
+        
+        // Заполняем остальные слоты
+        while (selected.length < 3 && allAvailable.length > 0) {
+            // Бросаем кубик редкости по уровню (GDD 7.2.1)
+            const roll = this.rng.next() * 100;
+            let targetRarity: number;
+            if (roll < rarityWeights.common) {
+                targetRarity = 0;
+            } else if (roll < rarityWeights.common + rarityWeights.rare) {
+                targetRarity = 1;
+            } else {
+                targetRarity = 2;
+            }
+            
+            // Выбираем пул по редкости (с fallback на более низкую)
+            let pool: { id: string; rarity: number; category?: string }[];
+            if (targetRarity === 2 && availableByRarity.epic.length > 0) {
+                pool = availableByRarity.epic;
+            } else if (targetRarity >= 1 && availableByRarity.rare.length > 0) {
+                pool = availableByRarity.rare;
+            } else if (availableByRarity.common.length > 0) {
+                pool = availableByRarity.common;
+            } else {
+                // Берём из любого доступного пула
+                pool = allAvailable;
+            }
+            
+            // Фильтруем уже выбранные и проверяем правило "не 3 одинаковых эффекта"
+            const candidates = pool.filter(t => {
+                if (selected.some(s => s.id === t.id)) return false;
+                // GDD 7.3.3: Запрет на 3 карточки одного типа эффекта
+                if (t.category && usedEffects.has(t.category)) {
+                    const sameCategory = selected.filter(s => s.category === t.category).length;
+                    if (sameCategory >= 2) return false;
+                }
+                return true;
+            });
+            
+            if (candidates.length === 0) {
+                // Если не можем найти кандидата - берём любой не выбранный
+                const remaining = allAvailable.filter(t => !selected.some(s => s.id === t.id));
+                if (remaining.length === 0) break;
+                const idx = Math.floor(this.rng.next() * remaining.length);
+                selected.push(remaining[idx]);
+            } else {
+                const idx = Math.floor(this.rng.next() * candidates.length);
+                const chosen = candidates[idx];
+                selected.push(chosen);
+                if (chosen.category) usedEffects.add(chosen.category);
+            }
+        }
+        
+        if (selected.length === 0) return;
         
         const card = new TalentCard();
         card.option0 = selected[0]?.id || "";
@@ -3797,9 +4022,54 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
+     * Принудительный автовыбор таланта при переполнении очереди (GDD 7.4)
+     * Использует приоритеты класса для выбора лучшего варианта
+     */
+    private forceAutoPickTalent(player: Player) {
+        const card = player.pendingTalentCard;
+        if (!card) return;
+        
+        const talents = this.balance.talents;
+        const className = this.getClassName(player.classId);
+        const priorities = talents.autoPickPriorities[className] || [];
+        
+        const options = [card.option0, card.option1, card.option2];
+        let bestIndex = 0;
+        let bestScore = -1;
+        
+        // Ищем талант с наивысшим приоритетом по категории (больше число = выше приоритет)
+        for (let i = 0; i < options.length; i++) {
+            const talentId = options[i];
+            if (!talentId) continue;
+            
+            // Получаем категорию таланта
+            const talentConfig = this.getTalentConfig(talentId);
+            if (!talentConfig) continue;
+            
+            const category = talentConfig.category || "other";
+            const score = priorities[category] || 0;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+        
+        // Применяем выбор
+        this.applyTalentCardChoice(player, bestIndex);
+    }
+    
+    /**
      * Выдаёт игроку талант (например, из сундука)
      */
     private awardTalentToPlayer(player: Player) {
+        const cardQueueMax = this.balance.talents.cardQueueMax || 3;
+        
+        // GDD 7.4: При переполнении очереди - принудительный автовыбор
+        if (player.pendingTalentQueue.length >= cardQueueMax) {
+            this.forceAutoPickTalent(player);
+        }
+        
         if (player.pendingTalentCard) {
             // Уже есть активная карточка - добавляем в очередь
             player.pendingTalentQueue.push(1);

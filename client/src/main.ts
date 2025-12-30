@@ -220,6 +220,8 @@ const talentInfo: Record<string, { name: string; icon: string; desc: string }> =
     crab: { name: "Краб", icon: "🦀", desc: "+15% боковые двигатели" },
     bloodlust: { name: "Кровожадность", icon: "🩸", desc: "+15% массы от убийств" },
     secondWind: { name: "Второе дыхание", icon: "💨", desc: "Респаун 150 кг" },
+    sense: { name: "Чутьё", icon: "👁️", desc: "Видеть сундуки заранее" },
+    regeneration: { name: "Регенерация", icon: "💚", desc: "+1% массы вне боя" },
     
     // Rare talents
     poison: { name: "Яд", icon: "☠️", desc: "Укус отравляет" },
@@ -239,6 +241,21 @@ const talentInfo: Record<string, { name: string; icon: string; desc: string }> =
     explosion: { name: "Взрыв", icon: "💥", desc: "При гибели AoE урон" },
     leviathan: { name: "Левиафан", icon: "🐋", desc: "Размер ×1.3, пасть ×1.5" },
     invisible: { name: "Невидимка", icon: "👻", desc: "1.5 сек после рывка" },
+    
+    // Class talents - Hunter
+    ambush: { name: "Засада", icon: "🎯", desc: "+30% урон в бок/хвост" },
+    momentum: { name: "Разгон", icon: "💨", desc: "+5%/сек скорость (макс +20%)" },
+    hunterInvisible: { name: "Невидимка", icon: "👻", desc: "1.5 сек после рывка" },
+    
+    // Class talents - Warrior
+    indestructible: { name: "Несокрушимый", icon: "🏰", desc: "−15% к потерям" },
+    thorns: { name: "Шипы", icon: "🌵", desc: "Атакующий теряет 10% урона" },
+    berserk: { name: "Берсерк", icon: "🔥", desc: "+3% урон за 100кг потерь" },
+    
+    // Class talents - Collector
+    parasite: { name: "Паразит", icon: "🦠", desc: "+5% массы от укуса слайма" },
+    magnet: { name: "Магнит", icon: "🧲", desc: "Пузыри в 50м к пасти" },
+    symbiosis: { name: "Симбиоз", icon: "🤝", desc: "+50% пузырей при укусе" },
 };
 
 // Цвета рамки по редкости (GDD-Talents.md)
@@ -3100,10 +3117,10 @@ async function connectToServer(playerName: string, classId: number) {
             ctx.rect(mapX, mapY, mapW, mapH);
             ctx.clip();
 
-            // Coordinate conversion
+            // Coordinate conversion (Y inverted: world Y grows up, canvas Y grows down)
             const worldToMap = (wx: number, wy: number) => {
                 const nx = (wx + worldWidth / 2) / worldWidth;
-                const ny = (wy + worldHeight / 2) / worldHeight;
+                const ny = (worldHeight / 2 - wy) / worldHeight;
                 return {
                     x: mapX + nx * mapW,
                     y: mapY + ny * mapH
