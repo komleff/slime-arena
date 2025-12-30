@@ -385,6 +385,17 @@ abilityButton.appendChild(abilityButtonTimer);
 
 document.body.appendChild(abilityButton);
 
+const abilityCooldownUi: CooldownUi = {
+    button: abilityButton,
+    overlay: abilityButtonCooldown,
+    timer: abilityButtonTimer,
+    progressCircle: abilityProgressCircle,
+    baseShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
+    baseBorder: "3px solid #4a90c2",
+    readyShadow: "0 0 15px 5px rgba(100, 220, 255, 0.7), inset 0 0 15px rgba(100, 220, 255, 0.3)",
+    readyBorder: "3px solid #64dcff",
+};
+
 // === Кнопка Выброса (Projectile) - Slot 1, клавиша 2 ===
 const projectileButton = document.createElement("button");
 projectileButton.type = "button";
@@ -472,6 +483,17 @@ projectileButton.appendChild(projectileTimer);
 
 document.body.appendChild(projectileButton);
 
+const projectileCooldownUi: CooldownUi = {
+    button: projectileButton,
+    overlay: projectileCooldown,
+    timer: projectileTimer,
+    progressCircle: projectileProgressCircle,
+    baseShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
+    baseBorder: "3px solid #9a4ac2",
+    readyShadow: "0 0 12px 4px rgba(199, 79, 247, 0.6), inset 0 0 12px rgba(199, 79, 247, 0.3)",
+    readyBorder: "3px solid #c74ff7",
+};
+
 // ============================================
 // SLOT 2 BUTTON — кнопка умения слота 2 (клавиша 3)
 // ============================================
@@ -512,7 +534,65 @@ slot2ButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
 slot2ButtonLabel.style.pointerEvents = "none";
 slot2Button.appendChild(slot2ButtonLabel);
 
+// Тёмный оверлей кулдауна для Slot 2
+const slot2Cooldown = document.createElement("div");
+slot2Cooldown.style.position = "absolute";
+slot2Cooldown.style.inset = "0";
+slot2Cooldown.style.borderRadius = "50%";
+slot2Cooldown.style.background = "rgba(0, 0, 0, 0.8)";
+slot2Cooldown.style.pointerEvents = "none";
+slot2Cooldown.style.display = "none";
+slot2Button.appendChild(slot2Cooldown);
+
+// SVG прогресс для Slot 2
+const slot2Progress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+slot2Progress.setAttribute("viewBox", "0 0 100 100");
+slot2Progress.style.position = "absolute";
+slot2Progress.style.inset = "0";
+slot2Progress.style.width = "100%";
+slot2Progress.style.height = "100%";
+slot2Progress.style.transform = "rotate(-90deg)";
+slot2Progress.style.pointerEvents = "none";
+
+const slot2ProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+slot2ProgressCircle.setAttribute("cx", "50");
+slot2ProgressCircle.setAttribute("cy", "50");
+slot2ProgressCircle.setAttribute("r", "45");
+slot2ProgressCircle.setAttribute("fill", "none");
+slot2ProgressCircle.setAttribute("stroke", "#4ac27a");
+slot2ProgressCircle.setAttribute("stroke-width", "6");
+slot2ProgressCircle.setAttribute("stroke-linecap", "round");
+slot2ProgressCircle.setAttribute("stroke-dasharray", "283");
+slot2ProgressCircle.setAttribute("stroke-dashoffset", "283");
+slot2ProgressCircle.style.filter = "drop-shadow(0 0 4px #4ac27a)";
+slot2Progress.appendChild(slot2ProgressCircle);
+slot2Button.appendChild(slot2Progress);
+
+const slot2Timer = document.createElement("span");
+slot2Timer.style.position = "absolute";
+slot2Timer.style.top = "50%";
+slot2Timer.style.left = "50%";
+slot2Timer.style.transform = "translate(-50%, -50%)";
+slot2Timer.style.fontSize = "14px";
+slot2Timer.style.fontWeight = "bold";
+slot2Timer.style.color = "#fff";
+slot2Timer.style.textShadow = "0 0 4px #000";
+slot2Timer.style.pointerEvents = "none";
+slot2Timer.style.display = "none";
+slot2Button.appendChild(slot2Timer);
+
 document.body.appendChild(slot2Button);
+
+const slot2CooldownUi: CooldownUi = {
+    button: slot2Button,
+    overlay: slot2Cooldown,
+    timer: slot2Timer,
+    progressCircle: slot2ProgressCircle,
+    baseShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
+    baseBorder: "3px solid #4ac27a",
+    readyShadow: "0 0 12px 4px rgba(120, 255, 190, 0.6), inset 0 0 12px rgba(120, 255, 190, 0.3)",
+    readyBorder: "3px solid #4ac27a",
+};
 
 // ============================================
 // ABILITY CARD UI — карточка выбора умения
@@ -647,60 +727,97 @@ const classIcons: Record<number, string> = {
     2: "🧲", // Collector
 };
 
-// Длительность кулдауна способности по классам (секунды)
-function getAbilityCooldownSec(classId: number): number {
-    switch (classId) {
-        case 0: return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
-        case 1: return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
-        case 2: return balanceConfig.abilities?.slow?.cooldownSec ?? 6;
-        default: return 5;
+type CooldownUi = {
+    button: HTMLButtonElement;
+    overlay: HTMLDivElement;
+    timer: HTMLSpanElement;
+    progressCircle: SVGCircleElement;
+    baseShadow: string;
+    baseBorder: string;
+    readyShadow: string;
+    readyBorder: string;
+};
+
+// Длительность кулдауна способности по id (секунды)
+function getAbilityCooldownSecById(abilityId: string | null | undefined, classId?: number): number {
+    if (!abilityId) {
+        switch (classId) {
+            case 0: return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
+            case 1: return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
+            case 2: return balanceConfig.abilities?.slow?.cooldownSec ?? 6;
+            default: return 5;
+        }
+    }
+
+    switch (abilityId) {
+        case "dash":
+            return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
+        case "shield":
+            return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
+        case "slow":
+            return balanceConfig.abilities?.slow?.cooldownSec ?? 6;
+        case "projectile":
+            return balanceConfig.abilities?.projectile?.cooldownSec ?? 4;
+        case "pull":
+            return balanceConfig.abilities?.magnet?.cooldownSec ?? 8;
+        case "spit":
+            return balanceConfig.abilities?.spit?.cooldownSec ?? 5;
+        case "bomb":
+            return balanceConfig.abilities?.bomb?.cooldownSec ?? 6;
+        case "push":
+            return balanceConfig.abilities?.push?.cooldownSec ?? 6;
+        case "mine":
+            return balanceConfig.abilities?.mine?.cooldownSec ?? 10;
+        default:
+            return 5;
     }
 }
 
-// Обновление индикатора кулдауна на кнопке способности
-function updateAbilityCooldown(player: { abilityCooldownTick?: number; classId?: number } | null, serverTick: number, tickRate: number) {
-    if (!player) {
-        abilityButtonCooldown.style.display = "none";
-        abilityButtonTimer.style.display = "none";
-        abilityProgressCircle.setAttribute("stroke-dashoffset", "0");
-        abilityButton.style.opacity = "1";
-        abilityButton.style.boxShadow = "0 0 15px 5px rgba(100, 220, 255, 0.7), inset 0 0 15px rgba(100, 220, 255, 0.3)";
-        abilityButton.style.border = "3px solid #64dcff";
+function updateCooldownUi(
+    ui: CooldownUi,
+    options: {
+        abilityId?: string;
+        classId?: number;
+        cooldownStartTick?: number;
+        cooldownEndTick?: number;
+        serverTick: number;
+        tickRate: number;
+    }
+) {
+    const startTick = Number.isFinite(options.cooldownStartTick) ? Number(options.cooldownStartTick) : 0;
+    const endTick = Number.isFinite(options.cooldownEndTick) ? Number(options.cooldownEndTick) : 0;
+    const hasAbility = Boolean(options.abilityId);
+
+    if (!hasAbility || endTick <= options.serverTick || endTick <= 0 || endTick <= startTick) {
+        ui.overlay.style.display = "none";
+        ui.timer.style.display = "none";
+        ui.progressCircle.setAttribute("stroke-dashoffset", "0");
+        ui.button.style.opacity = "1";
+        ui.button.style.boxShadow = hasAbility ? ui.readyShadow : ui.baseShadow;
+        ui.button.style.border = hasAbility ? ui.readyBorder : ui.baseBorder;
         return;
     }
-    
-    const cooldownTick = player.abilityCooldownTick ?? 0;
-    if (cooldownTick <= serverTick) {
-        // Способность готова - яркое свечение
-        abilityButtonCooldown.style.display = "none";
-        abilityButtonTimer.style.display = "none";
-        abilityProgressCircle.setAttribute("stroke-dashoffset", "0");
-        abilityButton.style.opacity = "1";
-        abilityButton.style.boxShadow = "0 0 15px 5px rgba(100, 220, 255, 0.7), inset 0 0 15px rgba(100, 220, 255, 0.3)";
-        abilityButton.style.border = "3px solid #64dcff";
-        return;
+
+    const ticksRemaining = endTick - options.serverTick;
+    let totalTicks = endTick - startTick;
+    if (!Number.isFinite(totalTicks) || totalTicks <= 0) {
+        const totalSec = getAbilityCooldownSecById(options.abilityId, options.classId);
+        totalTicks = totalSec * options.tickRate;
     }
-    
-    const ticksRemaining = cooldownTick - serverTick;
-    const secondsRemaining = ticksRemaining / tickRate;
-    const totalCooldownSec = getAbilityCooldownSec(player.classId ?? 0);
-    const totalTicks = totalCooldownSec * tickRate;
+    totalTicks = Math.max(1, totalTicks);
     const progress = 1 - Math.min(1, ticksRemaining / totalTicks); // 0 = начало кд, 1 = готово
-    
-    // Тёмный оверлей и убираем яркое свечение
-    abilityButtonCooldown.style.display = "block";
-    abilityButton.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.5)";
-    abilityButton.style.border = "3px solid #333";
-    
-    // Яркая полоска прогресса (283 = полный круг)
+
+    ui.overlay.style.display = "block";
+    ui.button.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.5)";
+    ui.button.style.border = "3px solid #333";
+
     const circumference = 283;
     const offset = circumference * (1 - progress);
-    abilityProgressCircle.setAttribute("stroke-dashoffset", String(offset));
-    
-    // Показываем оставшееся время
-    abilityButtonTimer.textContent = secondsRemaining.toFixed(1);
-    abilityButtonTimer.style.display = "block";
-    abilityButton.style.opacity = "1";
+    ui.progressCircle.setAttribute("stroke-dashoffset", String(offset));
+
+    ui.timer.textContent = (ticksRemaining / options.tickRate).toFixed(1);
+    ui.timer.style.display = "block";
+    ui.button.style.opacity = "1";
 }
 
 // Функция для получения отображаемого имени с иконкой класса
@@ -3068,9 +3185,33 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
 
-            // Обновление индикатора кулдауна способности
+            // Обновление индикаторов кулдауна
             const tickRate = balanceConfig.server?.tickRate ?? 30;
-            updateAbilityCooldown(localPlayer, room.state.serverTick ?? 0, tickRate);
+            const serverTick = room.state.serverTick ?? 0;
+            updateCooldownUi(abilityCooldownUi, {
+                abilityId: localPlayer?.abilitySlot0,
+                classId: localPlayer?.classId,
+                cooldownStartTick: localPlayer?.abilityCooldownStartTick0,
+                cooldownEndTick: localPlayer?.abilityCooldownEndTick0,
+                serverTick,
+                tickRate,
+            });
+            updateCooldownUi(projectileCooldownUi, {
+                abilityId: localPlayer?.abilitySlot1,
+                classId: localPlayer?.classId,
+                cooldownStartTick: localPlayer?.abilityCooldownStartTick1,
+                cooldownEndTick: localPlayer?.abilityCooldownEndTick1,
+                serverTick,
+                tickRate,
+            });
+            updateCooldownUi(slot2CooldownUi, {
+                abilityId: localPlayer?.abilitySlot2,
+                classId: localPlayer?.classId,
+                cooldownStartTick: localPlayer?.abilityCooldownStartTick2,
+                cooldownEndTick: localPlayer?.abilityCooldownEndTick2,
+                serverTick,
+                tickRate,
+            });
 
             rafId = requestAnimationFrame(render);
         };

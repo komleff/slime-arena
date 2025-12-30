@@ -48,7 +48,7 @@ export class Player extends Schema {
     @type("number") abilityCooldownEndTick2: number = 0;
     @type("number") biteResistPct: number = 0; // Накопленный бонус от талантов
     
-    // Слоты умений (GDD v3.3 §1.3)
+    // Слоты умений (GDD v3.3 1.3)
     @type("string") abilitySlot0: string = "";  // Классовое умение
     @type("string") abilitySlot1: string = "";  // Слот 2 (level 3)
     @type("string") abilitySlot2: string = "";  // Слот 3 (level 5)
@@ -254,3 +254,4 @@ export class GameState extends Schema {
     @type({ map: Mine }) mines = new MapSchema<Mine>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
 }
+

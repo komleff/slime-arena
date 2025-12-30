@@ -294,8 +294,19 @@ export interface BalanceConfig {
         mass: number;
         radius: number;
         rewards: {
-            massPercent: number[];
-            talentChance: number;
+            scatterTotalMassPct: number[];
+            scatterBubbleCount: number[];
+            scatterInnerFrac: number[];
+            scatterInnerSpeedMpsMin: number[];
+            scatterInnerSpeedMpsMax: number[];
+            scatterOuterSpeedMpsMin: number[];
+            scatterOuterSpeedMpsMax: number[];
+            scatterSmallBubbleSpeedMul: number;
+            talentRarityWeights: {
+                rare: { common: number; rare: number; epic: number };
+                epic: { common: number; rare: number; epic: number };
+                gold: { common: number; rare: number; epic: number };
+            };
         };
         types?: {
             rare?: { armorRings: number; mass: number };
@@ -783,8 +794,19 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         mass: 200,
         radius: 14,
         rewards: {
-            massPercent: [0.12, 0.18, 0.28],
-            talentChance: 0.4,
+            scatterTotalMassPct: [0.12, 0.18, 0.28],
+            scatterBubbleCount: [10, 16, 24],
+            scatterInnerFrac: [0.30, 0.30, 0.25],
+            scatterInnerSpeedMpsMin: [25, 25, 25],
+            scatterInnerSpeedMpsMax: [45, 45, 40],
+            scatterOuterSpeedMpsMin: [55, 65, 75],
+            scatterOuterSpeedMpsMax: [75, 85, 95],
+            scatterSmallBubbleSpeedMul: 1.25,
+            talentRarityWeights: {
+                rare: { common: 80, rare: 20, epic: 0 },
+                epic: { common: 30, rare: 60, epic: 10 },
+                gold: { common: 0, rare: 40, epic: 60 },
+            },
         },
     },
     hotZones: {
@@ -1192,6 +1214,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const warrior = isRecord(classes.warrior) ? classes.warrior : {};
     const collector = isRecord(classes.collector) ? classes.collector : {};
     const chestRewards = isRecord(chests.rewards) ? chests.rewards : {};
+    const chestRewardWeights = isRecord(chestRewards.talentRarityWeights)
+        ? chestRewards.talentRarityWeights
+        : {};
     const worldMapSize = readNumber(world.mapSize, DEFAULT_BALANCE_CONFIG.world.mapSize, "world.mapSize");
 
     const resolved: BalanceConfig = {
@@ -1738,16 +1763,75 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             mass: readNumber(chests.mass, DEFAULT_BALANCE_CONFIG.chests.mass, "chests.mass"),
             radius: readNumber(chests.radius, DEFAULT_BALANCE_CONFIG.chests.radius, "chests.radius"),
             rewards: {
-                massPercent: readNumberArray(
-                    chestRewards.massPercent,
-                    DEFAULT_BALANCE_CONFIG.chests.rewards.massPercent,
-                    "chests.rewards.massPercent"
+                scatterTotalMassPct: readNumberArray(
+                    chestRewards.scatterTotalMassPct,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterTotalMassPct,
+                    "chests.rewards.scatterTotalMassPct"
                 ),
-                talentChance: readNumber(
-                    chestRewards.talentChance,
-                    DEFAULT_BALANCE_CONFIG.chests.rewards.talentChance,
-                    "chests.rewards.talentChance"
+                scatterBubbleCount: readNumberArray(
+                    chestRewards.scatterBubbleCount,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterBubbleCount,
+                    "chests.rewards.scatterBubbleCount"
                 ),
+                scatterInnerFrac: readNumberArray(
+                    chestRewards.scatterInnerFrac,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterInnerFrac,
+                    "chests.rewards.scatterInnerFrac"
+                ),
+                scatterInnerSpeedMpsMin: readNumberArray(
+                    chestRewards.scatterInnerSpeedMpsMin,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterInnerSpeedMpsMin,
+                    "chests.rewards.scatterInnerSpeedMpsMin"
+                ),
+                scatterInnerSpeedMpsMax: readNumberArray(
+                    chestRewards.scatterInnerSpeedMpsMax,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterInnerSpeedMpsMax,
+                    "chests.rewards.scatterInnerSpeedMpsMax"
+                ),
+                scatterOuterSpeedMpsMin: readNumberArray(
+                    chestRewards.scatterOuterSpeedMpsMin,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterOuterSpeedMpsMin,
+                    "chests.rewards.scatterOuterSpeedMpsMin"
+                ),
+                scatterOuterSpeedMpsMax: readNumberArray(
+                    chestRewards.scatterOuterSpeedMpsMax,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterOuterSpeedMpsMax,
+                    "chests.rewards.scatterOuterSpeedMpsMax"
+                ),
+                scatterSmallBubbleSpeedMul: readNumber(
+                    chestRewards.scatterSmallBubbleSpeedMul,
+                    DEFAULT_BALANCE_CONFIG.chests.rewards.scatterSmallBubbleSpeedMul,
+                    "chests.rewards.scatterSmallBubbleSpeedMul"
+                ),
+                talentRarityWeights: {
+                    rare: (() => {
+                        const entry = isRecord(chestRewardWeights.rare) ? chestRewardWeights.rare : {};
+                        const fallback = DEFAULT_BALANCE_CONFIG.chests.rewards.talentRarityWeights.rare;
+                        return {
+                            common: readNumber(entry.common, fallback.common, "chests.rewards.talentRarityWeights.rare.common"),
+                            rare: readNumber(entry.rare, fallback.rare, "chests.rewards.talentRarityWeights.rare.rare"),
+                            epic: readNumber(entry.epic, fallback.epic, "chests.rewards.talentRarityWeights.rare.epic"),
+                        };
+                    })(),
+                    epic: (() => {
+                        const entry = isRecord(chestRewardWeights.epic) ? chestRewardWeights.epic : {};
+                        const fallback = DEFAULT_BALANCE_CONFIG.chests.rewards.talentRarityWeights.epic;
+                        return {
+                            common: readNumber(entry.common, fallback.common, "chests.rewards.talentRarityWeights.epic.common"),
+                            rare: readNumber(entry.rare, fallback.rare, "chests.rewards.talentRarityWeights.epic.rare"),
+                            epic: readNumber(entry.epic, fallback.epic, "chests.rewards.talentRarityWeights.epic.epic"),
+                        };
+                    })(),
+                    gold: (() => {
+                        const entry = isRecord(chestRewardWeights.gold) ? chestRewardWeights.gold : {};
+                        const fallback = DEFAULT_BALANCE_CONFIG.chests.rewards.talentRarityWeights.gold;
+                        return {
+                            common: readNumber(entry.common, fallback.common, "chests.rewards.talentRarityWeights.gold.common"),
+                            rare: readNumber(entry.rare, fallback.rare, "chests.rewards.talentRarityWeights.gold.rare"),
+                            epic: readNumber(entry.epic, fallback.epic, "chests.rewards.talentRarityWeights.gold.epic"),
+                        };
+                    })(),
+                },
             },
             // GDD v3.3: типы сундуков и фазовые веса
             types: isRecord(chests.types) ? chests.types as BalanceConfig["chests"]["types"] : undefined,

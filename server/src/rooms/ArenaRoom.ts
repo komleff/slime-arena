@@ -131,7 +131,7 @@ export class ArenaRoom extends Room<GameState> {
                 player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
                 player.respawnAtTick = 0;
                 player.gcdReadyTick = this.tick;
-                player.abilityCooldownTick = this.tick;
+                this.resetAbilityCooldowns(player, this.tick);
                 player.queuedAbilitySlot = null;
                 player.queuedAbilityTick = 0;
                 player.abilitySlotPressed = null;
@@ -199,7 +199,7 @@ export class ArenaRoom extends Room<GameState> {
                 player.talentChoicePressed = null;
             }
             
-            // Выбор из карточки умений (GDD v3.3 §1.3)
+            // Выбор из карточки умений (GDD v3.3 1.3)
             if ("cardChoice" in data) {
                 const cardChoice = data.cardChoice;
                 if (
@@ -265,7 +265,7 @@ export class ArenaRoom extends Room<GameState> {
         }
         player.classId = rawClassId;
         
-        // Классовое умение в слот 0 (GDD v3.3 §1.3)
+        // Классовое умение в слот 0 (GDD v3.3 1.3)
         const classAbilities = ["dash", "shield", "slow"];
         player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
         player.abilitySlot1 = "";  // Разблокируется на level 3
@@ -277,6 +277,7 @@ export class ArenaRoom extends Room<GameState> {
         player.angVel = 0;
         player.isDrifting = false;
         player.gcdReadyTick = this.tick;
+        this.resetAbilityCooldowns(player, this.tick);
         player.lastInputTick = this.tick;
         
         // Если матч завершён (фаза Results) или класс не выбран, игрок ждёт следующий раунд
@@ -420,68 +421,130 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private activateAbility(player: Player, slot: number) {
-        // GDD v3.3 §1.3: Слоты 0-2, проверяем наличие умения в слоте
+        // GDD v3.3 1.3: Слоты 0-2, проверяем наличие умения в слоте
         if (slot < 0 || slot > 2) return;
-        
+
         // Получаем ID умения из слота
         const slotAbilities = [player.abilitySlot0, player.abilitySlot1, player.abilitySlot2];
         const abilityId = slotAbilities[slot];
-        
-        // Слот пустой — не активируем
+
+        // Слот пустой - не активируем
         if (!abilityId) return;
-        
-        // Проверка кулдауна способности
-        if (this.tick < player.abilityCooldownTick) return;
-        
+
+        const cooldownEndTick = this.getAbilityCooldownEndTick(player, slot);
+        if (this.tick < cooldownEndTick) return;
+
         const abilities = this.balance.abilities;
         const tickRate = this.balance.server.tickRate;
-        
+        let activated = false;
+        let cooldownSec = 0;
+
         // Активация по ID умения
         switch (abilityId) {
             case "dash":
-                this.activateDash(player, abilities.dash, tickRate);
+                activated = this.activateDash(player, abilities.dash, tickRate);
+                cooldownSec = abilities.dash.cooldownSec;
                 break;
             case "shield":
-                this.activateShield(player, abilities.shield, tickRate);
+                activated = this.activateShield(player, abilities.shield, tickRate);
+                cooldownSec = abilities.shield.cooldownSec;
                 break;
             case "slow":
-                this.activateSlow(player, abilities.slow, tickRate);
+                activated = this.activateSlow(player, abilities.slow, tickRate);
+                cooldownSec = abilities.slow.cooldownSec;
                 break;
             case "projectile":
-                this.activateProjectile(player, abilities.projectile, tickRate);
+                activated = this.activateProjectile(player, abilities.projectile, tickRate);
+                cooldownSec = abilities.projectile.cooldownSec;
                 break;
             case "pull":
-                this.activateMagnet(player, abilities.magnet, tickRate);
+                activated = this.activateMagnet(player, abilities.magnet, tickRate);
+                cooldownSec = abilities.magnet.cooldownSec;
                 break;
             case "spit":
-                this.activateSpit(player, abilities.spit, tickRate);
+                activated = this.activateSpit(player, abilities.spit, tickRate);
+                cooldownSec = abilities.spit.cooldownSec;
                 break;
             case "bomb":
-                this.activateBomb(player, abilities.bomb, tickRate);
+                activated = this.activateBomb(player, abilities.bomb, tickRate);
+                cooldownSec = abilities.bomb.cooldownSec;
                 break;
             case "push":
-                this.activatePush(player, abilities.push, tickRate);
+                activated = this.activatePush(player, abilities.push, tickRate);
+                cooldownSec = abilities.push.cooldownSec;
                 break;
             case "mine":
-                this.activateMine(player, abilities.mine, tickRate);
+                activated = this.activateMine(player, abilities.mine, tickRate);
+                cooldownSec = abilities.mine.cooldownSec;
                 break;
             default:
                 return;  // Неизвестное умение
         }
-        
+
+        if (!activated) return;
+
+        const cooldownTicks = this.secondsToTicks(cooldownSec);
+        this.setAbilityCooldown(player, slot, this.tick, this.tick + cooldownTicks);
         player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
         player.queuedAbilitySlot = null;
     }
-    
-    private activateDash(player: Player, config: typeof this.balance.abilities.dash, tickRate: number) {
+
+    private getAbilityCooldownEndTick(player: Player, slot: number): number {
+        switch (slot) {
+            case 0:
+                return player.abilityCooldownEndTick0;
+            case 1:
+                return player.abilityCooldownEndTick1;
+            case 2:
+                return player.abilityCooldownEndTick2;
+            default:
+                return 0;
+        }
+    }
+
+    private setAbilityCooldown(player: Player, slot: number, startTick: number, endTick: number) {
+        const start = Math.max(0, Math.floor(startTick));
+        const end = Math.max(start, Math.floor(endTick));
+        switch (slot) {
+            case 0:
+                player.abilityCooldownStartTick0 = start;
+                player.abilityCooldownEndTick0 = end;
+                break;
+            case 1:
+                player.abilityCooldownStartTick1 = start;
+                player.abilityCooldownEndTick1 = end;
+                break;
+            case 2:
+                player.abilityCooldownStartTick2 = start;
+                player.abilityCooldownEndTick2 = end;
+                break;
+            default:
+                return;
+        }
+        this.updateLegacyAbilityCooldownTick(player);
+    }
+
+    private resetAbilityCooldowns(player: Player, tick: number) {
+        const safeTick = Math.max(0, Math.floor(tick));
+        player.abilityCooldownStartTick0 = safeTick;
+        player.abilityCooldownEndTick0 = safeTick;
+        player.abilityCooldownStartTick1 = safeTick;
+        player.abilityCooldownEndTick1 = safeTick;
+        player.abilityCooldownStartTick2 = safeTick;
+        player.abilityCooldownEndTick2 = safeTick;
+        this.updateLegacyAbilityCooldownTick(player);
+    }
+
+    private updateLegacyAbilityCooldownTick(player: Player) {
+        player.abilityCooldownTick = player.abilityCooldownEndTick0;
+    }
+
+    private activateDash(player: Player, config: typeof this.balance.abilities.dash, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Расчёт направления рывка (по текущему углу слайма)
         const angle = player.angle;
@@ -492,51 +555,45 @@ export class ArenaRoom extends Room<GameState> {
         
         // Устанавливаем флаг
         player.flags |= FLAG_DASHING;
+        return true;
     }
     
-    private activateShield(player: Player, config: typeof this.balance.abilities.shield, tickRate: number) {
+    private activateShield(player: Player, config: typeof this.balance.abilities.shield, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Устанавливаем длительность щита
         player.shieldEndTick = this.tick + Math.round(config.durationSec * tickRate);
         
         // Устанавливаем флаг
         player.flags |= FLAG_ABILITY_SHIELD;
+        return true;
     }
     
-    private activateMagnet(player: Player, config: typeof this.balance.abilities.magnet, tickRate: number) {
+    private activateMagnet(player: Player, config: typeof this.balance.abilities.magnet, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Устанавливаем длительность притяжения
         player.magnetEndTick = this.tick + Math.round(config.durationSec * tickRate);
         
         // Устанавливаем флаг
         player.flags |= FLAG_MAGNETIZING;
+        return true;
     }
     
-    private activateSlow(player: Player, config: typeof this.balance.abilities.slow, tickRate: number) {
+    private activateSlow(player: Player, config: typeof this.balance.abilities.slow, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Создаём зону замедления
         const zone = new SlowZone();
@@ -549,17 +606,15 @@ export class ArenaRoom extends Room<GameState> {
         zone.endTick = this.tick + Math.round(config.durationSec * tickRate);
         
         this.state.slowZones.set(zone.id, zone);
+        return true;
     }
     
-    private activateProjectile(player: Player, config: typeof this.balance.abilities.projectile, tickRate: number) {
+    private activateProjectile(player: Player, config: typeof this.balance.abilities.projectile, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Создаём снаряд
         const proj = new Projectile();
@@ -577,17 +632,15 @@ export class ArenaRoom extends Room<GameState> {
         proj.maxRangeM = config.rangeM;
         
         this.state.projectiles.set(proj.id, proj);
+        return true;
     }
 
-    private activateSpit(player: Player, config: typeof this.balance.abilities.spit, tickRate: number) {
+    private activateSpit(player: Player, config: typeof this.balance.abilities.spit, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Создаём веер снарядов
         const count = config.projectileCount;
@@ -614,17 +667,15 @@ export class ArenaRoom extends Room<GameState> {
             
             this.state.projectiles.set(proj.id, proj);
         }
+        return true;
     }
 
-    private activateBomb(player: Player, config: typeof this.balance.abilities.bomb, tickRate: number) {
+    private activateBomb(player: Player, config: typeof this.balance.abilities.bomb, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         
         // Создаём бомбу (медленный снаряд с AoE)
         const proj = new Projectile();
@@ -644,17 +695,16 @@ export class ArenaRoom extends Room<GameState> {
         proj.explosionRadiusM = config.explosionRadiusM;
         
         this.state.projectiles.set(proj.id, proj);
+        return true;
     }
 
-    private activatePush(player: Player, config: typeof this.balance.abilities.push, tickRate: number) {
+    private activatePush(player: Player, config: typeof this.balance.abilities.push, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Списываем массу
         this.applyMassDelta(player, -massCost);
         
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
         player.pushEndTick = this.tick + Math.max(1, Math.round(0.25 * tickRate));
         
         const radiusSq = config.radiusM * config.radiusM;
@@ -721,11 +771,12 @@ export class ArenaRoom extends Room<GameState> {
             chest.vx += nx * speed;
             chest.vy += ny * speed;
         }
+        return true;
     }
 
-    private activateMine(player: Player, config: typeof this.balance.abilities.mine, tickRate: number) {
+    private activateMine(player: Player, config: typeof this.balance.abilities.mine, tickRate: number): boolean {
         const massCost = player.mass * config.massCostPct;
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return;
+        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
         
         // Проверяем лимит мин
         let mineCount = 0;
@@ -746,9 +797,6 @@ export class ArenaRoom extends Room<GameState> {
         // Списываем массу
         this.applyMassDelta(player, -massCost);
         
-        // Устанавливаем кулдаун
-        player.abilityCooldownTick = this.tick + Math.round(config.cooldownSec * tickRate);
-        
         // Создаём мину
         const mine = new Mine();
         mine.id = `mine_${++this.mineIdCounter}`;
@@ -760,6 +808,7 @@ export class ArenaRoom extends Room<GameState> {
         mine.endTick = this.tick + Math.round(config.durationSec * tickRate);
         
         this.state.mines.set(mine.id, mine);
+        return true;
     }
 
     private applyTalentChoice(player: Player, choice: number) {
@@ -1798,7 +1847,7 @@ export class ArenaRoom extends Room<GameState> {
                         chest.armorRings--;
                     } else {
                         // Обручей нет - открываем сундук
-                        this.openChest(player, chestId);
+                        this.openChest(player, chest);
                     }
                     player.lastBiteTick = this.tick;
                     // GDD v3.3: GCD после укуса
@@ -1808,17 +1857,166 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private openChest(player: Player, chestId: string) {
-        const grantedTalent =
-            this.rng.next() < this.balance.chests.rewards.talentChance && this.grantTalent(player);
-        if (!grantedTalent) {
-            const rewards = this.balance.chests.rewards.massPercent;
-            const rewardIndex = this.rng.int(0, rewards.length);
-            const gain = player.mass * rewards[rewardIndex];
-            this.applyMassDelta(player, gain);
+    private openChest(player: Player, chest: Chest) {
+        const chestTypeId = this.getChestTypeId(chest.type);
+        this.awardChestTalent(player, chestTypeId);
+        this.spawnChestRewardOrbs(chestTypeId, chest.x, chest.y);
+        this.state.chests.delete(chest.id);
+    }
+
+    private getChestTypeId(type: number): "rare" | "epic" | "gold" {
+        if (type === 1) return "epic";
+        if (type === 2) return "gold";
+        return "rare";
+    }
+
+    private getChestTypeIndex(typeId: "rare" | "epic" | "gold"): number {
+        return typeId === "epic" ? 1 : typeId === "gold" ? 2 : 0;
+    }
+
+    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+        const available = this.getAvailableTalentsByRarity(player);
+        if (
+            available.common.length === 0 &&
+            available.rare.length === 0 &&
+            available.epic.length === 0
+        ) {
+            return false;
         }
 
-        this.state.chests.delete(chestId);
+        const weights = this.balance.chests.rewards.talentRarityWeights[chestTypeId];
+        const pickedRarity = this.pickTalentRarity(weights);
+        const rarityOrder = pickedRarity === 2 ? [2, 1, 0] : pickedRarity === 1 ? [1, 0] : [0];
+        const rarityPools = [available.common, available.rare, available.epic];
+
+        for (const rarity of rarityOrder) {
+            const pool = rarityPools[rarity];
+            if (pool.length === 0) continue;
+            const choice = pool[Math.floor(this.rng.next() * pool.length)];
+            this.addTalentToPlayer(player, choice);
+            return true;
+        }
+
+        return false;
+    }
+
+    private pickTalentRarity(weights: { common: number; rare: number; epic: number }): number {
+        const total = weights.common + weights.rare + weights.epic;
+        if (total <= 0) return 0;
+        const roll = this.rng.next() * total;
+        if (roll < weights.common) return 0;
+        if (roll < weights.common + weights.rare) return 1;
+        return 2;
+    }
+
+    private getAvailableTalentsByRarity(player: Player) {
+        const talents = this.balance.talents;
+        const available = {
+            common: [] as string[],
+            rare: [] as string[],
+            epic: [] as string[],
+        };
+        const addFromPool = (
+            pool: string[],
+            configs: Record<string, TalentConfig>,
+            dest: string[]
+        ) => {
+            for (const id of pool) {
+                const config = configs[id];
+                if (!config) continue;
+
+                if (config.requirement) {
+                    const hasRequirement =
+                        player.abilitySlot0 === config.requirement ||
+                        player.abilitySlot1 === config.requirement ||
+                        player.abilitySlot2 === config.requirement;
+                    if (!hasRequirement) continue;
+                }
+
+                let currentLevel = 0;
+                for (const t of player.talents) {
+                    if (t.id === id) {
+                        currentLevel = t.level;
+                        break;
+                    }
+                }
+
+                if (currentLevel < config.maxLevel) {
+                    dest.push(id);
+                }
+            }
+        };
+
+        addFromPool(talents.talentPool.common, talents.common, available.common);
+        addFromPool(talents.talentPool.rare, talents.rare, available.rare);
+        addFromPool(talents.talentPool.epic, talents.epic, available.epic);
+
+        return available;
+    }
+
+    private spawnChestRewardOrbs(chestTypeId: "rare" | "epic" | "gold", x: number, y: number) {
+        const rewards = this.balance.chests.rewards;
+        const typeIndex = this.getChestTypeIndex(chestTypeId);
+        const bubbleCount = Math.max(0, Math.floor(rewards.scatterBubbleCount[typeIndex] ?? 0));
+        const totalMassPct = rewards.scatterTotalMassPct[typeIndex] ?? 0;
+        if (bubbleCount <= 0 || totalMassPct <= 0) return;
+
+        const averageMass = this.getAveragePlayerMass();
+        const totalMass = averageMass * totalMassPct;
+        if (totalMass <= 0) return;
+
+        const innerFrac = this.clamp(rewards.scatterInnerFrac[typeIndex] ?? 0, 0, 1);
+        const innerCount = Math.min(bubbleCount, Math.round(bubbleCount * innerFrac));
+        const avgOrbMass = totalMass / bubbleCount;
+        const goldColorId = this.getOrbTypeIndexById("gold");
+
+        const massWeights: number[] = [];
+        let totalWeight = 0;
+        for (let i = 0; i < bubbleCount; i += 1) {
+            const weight = this.rng.range(0.7, 1.3);
+            massWeights.push(weight);
+            totalWeight += weight;
+        }
+
+        const angleStep = (Math.PI * 2) / bubbleCount;
+        for (let i = 0; i < bubbleCount; i += 1) {
+            const isInner = i < innerCount;
+            const speedMin =
+                (isInner
+                    ? rewards.scatterInnerSpeedMpsMin[typeIndex]
+                    : rewards.scatterOuterSpeedMpsMin[typeIndex]) ?? 0;
+            const speedMax =
+                (isInner
+                    ? rewards.scatterInnerSpeedMpsMax[typeIndex]
+                    : rewards.scatterOuterSpeedMpsMax[typeIndex]) ?? speedMin;
+            const baseSpeed = this.rng.range(speedMin, speedMax);
+            const orbMass = totalMass * (massWeights[i] / totalWeight);
+            const speedMultiplier = orbMass < avgOrbMass ? rewards.scatterSmallBubbleSpeedMul : 1;
+            const speed = baseSpeed * speedMultiplier;
+            const angle = i * angleStep + this.rng.range(-0.35, 0.35);
+            const orb = this.forceSpawnOrb(x, y, orbMass, goldColorId);
+            orb.vx = Math.cos(angle) * speed;
+            orb.vy = Math.sin(angle) * speed;
+        }
+    }
+
+    private getAveragePlayerMass(): number {
+        let total = 0;
+        let count = 0;
+        for (const player of this.state.players.values()) {
+            if (player.isDead) continue;
+            total += player.mass;
+            count += 1;
+        }
+        return count > 0 ? total / count : this.balance.slime.initialMass;
+    }
+
+    private getOrbTypeIndexById(id: string): number {
+        const types = this.balance.orbs.types;
+        for (let i = 0; i < types.length; i += 1) {
+            if (types[i]?.id === id) return i;
+        }
+        return Math.max(0, types.length - 1);
     }
 
     private grantTalent(player: Player): boolean {
@@ -2263,7 +2461,7 @@ export class ArenaRoom extends Room<GameState> {
             player.invulnerableUntilTick = 0;
             player.respawnAtTick = Number.MAX_SAFE_INTEGER;
             player.gcdReadyTick = this.tick;
-            player.abilityCooldownTick = this.tick;
+            this.resetAbilityCooldowns(player, this.tick);
             player.queuedAbilitySlot = null;
             player.queuedAbilityTick = 0;
             player.abilitySlotPressed = null;
@@ -2580,7 +2778,7 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Обновляет уровень игрока по массе (GDD v3.3 §1.3)
+     * Обновляет уровень игрока по массе (GDD v3.3 1.3)
      * При достижении level 3/5 открываются слоты 2/3 и показывается карточка выбора
      */
     private updatePlayerLevel(player: Player) {
@@ -2634,7 +2832,7 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Генерирует карточку выбора умения для слота (GDD v3.3 §1.3)
+     * Генерирует карточку выбора умения для слота (GDD v3.3 1.3)
      */
     private generateAbilityCard(player: Player, slotIndex: number) {
         // Уже есть активная карточка — не генерируем новую
@@ -3150,3 +3348,5 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 }
+
+
