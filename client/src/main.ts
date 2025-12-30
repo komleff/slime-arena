@@ -335,63 +335,21 @@ resultsOverlay.appendChild(resultsContent);
 document.body.appendChild(resultsOverlay);
 
 // Class Selection Buttons for Results Screen
-const classOptions = [
-    { id: 0, name: "Охотник", icon: "🏹", color: "#ef4444" },
-    { id: 1, name: "Воин", icon: "🛡️", color: "#3b82f6" },
-    { id: 2, name: "Собиратель", icon: "🧪", color: "#10b981" }
-];
-
+// Используем classesData (определён ниже) для единого источника данных о классах
 const resultsClassButtons: HTMLButtonElement[] = [];
 
 function syncResultsClassButtons() {
     resultsClassButtons.forEach((btn) => {
         const classId = Number(btn.dataset.classId);
-        const option = classOptions.find((opt) => opt.id === classId);
-        if (!option) return;
+        const clsData = classesData.find((c) => c.id === classId);
+        if (!clsData) return;
         const isSelected = classId === selectedClassId;
-        btn.style.background = isSelected ? option.color : "rgba(255, 255, 255, 0.05)";
+        btn.style.background = isSelected ? clsData.color : "rgba(255, 255, 255, 0.05)";
         btn.style.transform = isSelected ? "scale(1.05)" : "scale(1)";
     });
 }
 
-classOptions.forEach(opt => {
-    const btn = document.createElement("button");
-    btn.style.display = "flex";
-    btn.style.flexDirection = "column";
-    btn.style.alignItems = "center";
-    btn.style.gap = "4px";
-    btn.style.padding = "12px";
-    btn.style.background = "rgba(255, 255, 255, 0.05)";
-    btn.style.border = `2px solid ${opt.color}`;
-    btn.style.borderRadius = "12px";
-    btn.style.color = "#fff";
-    btn.style.cursor = "pointer";
-    btn.style.width = "100px";
-    btn.style.transition = "all 0.2s";
-    btn.dataset.classId = String(opt.id);
-
-    const icon = document.createElement("span");
-    icon.textContent = opt.icon;
-    icon.style.fontSize = "24px";
-    
-    const name = document.createElement("span");
-    name.textContent = opt.name;
-    name.style.fontSize = "12px";
-    name.style.fontWeight = "bold";
-
-    btn.appendChild(icon);
-    btn.appendChild(name);
-
-    btn.onclick = () => {
-        selectedClassId = opt.id;
-        syncClassCards();
-        syncResultsClassButtons();
-        updatePlayButton();
-    };
-
-    resultsClassSelection.appendChild(btn);
-    resultsClassButtons.push(btn);
-});
+// Кнопки создаются после определения classesData (см. initResultsClassButtons)
 
 const joystickLayer = document.createElement("div");
 joystickLayer.style.position = "fixed";
@@ -880,7 +838,6 @@ queueIndicator.style.fontSize = "14px";
 queueIndicator.style.zIndex = "50";
 queueIndicator.style.display = "none";
 queueIndicator.style.boxShadow = "0 0 15px rgba(255, 165, 0, 0.6)";
-queueIndicator.style.cursor = "pointer";
 queueIndicator.style.animation = "pulse 1.5s infinite";
 document.body.appendChild(queueIndicator);
 
@@ -1106,6 +1063,51 @@ const classesData = [
         color: "#60a5fa"
     },
 ];
+
+// Инициализация кнопок выбора класса на экране результатов
+function initResultsClassButtons() {
+    classesData.forEach(cls => {
+        const btn = document.createElement("button");
+        btn.style.display = "flex";
+        btn.style.flexDirection = "column";
+        btn.style.alignItems = "center";
+        btn.style.gap = "4px";
+        btn.style.padding = "12px";
+        btn.style.background = "rgba(255, 255, 255, 0.05)";
+        btn.style.border = `2px solid ${cls.color}`;
+        btn.style.borderRadius = "12px";
+        btn.style.color = "#fff";
+        btn.style.cursor = "pointer";
+        btn.style.width = "100px";
+        btn.style.transition = "all 0.2s";
+        btn.dataset.classId = String(cls.id);
+
+        const icon = document.createElement("span");
+        icon.textContent = cls.emoji;
+        icon.style.fontSize = "24px";
+        
+        const name = document.createElement("span");
+        name.textContent = cls.name;
+        name.style.fontSize = "12px";
+        name.style.fontWeight = "bold";
+
+        btn.appendChild(icon);
+        btn.appendChild(name);
+
+        btn.onclick = () => {
+            selectedClassId = cls.id;
+            syncClassCards();
+            syncResultsClassButtons();
+            updatePlayButton();
+        };
+
+        resultsClassSelection.appendChild(btn);
+        resultsClassButtons.push(btn);
+    });
+}
+
+// Вызываем после определения classesData
+initResultsClassButtons();
 
 let selectedClassId = -1;  // -1 = класс не выбран
 let activeRoom: any = null;
@@ -2662,6 +2664,10 @@ async function connectToServer(playerName: string, classId: number) {
             zone.onChange(() => {});
         });
 
+        room.state.zones.onRemove(() => {
+            // Симметрия с другими коллекциями
+        });
+
         const updateHud = () => {
             // Update Top Center HUD (Timer & Kills)
             const timeRem = room.state.timeRemaining ?? 0;
@@ -2754,7 +2760,7 @@ async function connectToServer(playerName: string, classId: number) {
             
             if (totalPending > 0) {
                 queueIndicator.style.display = "block";
-                queueIndicator.textContent = `Cards: ${totalPending}`;
+                queueIndicator.textContent = `Карточек: ${totalPending}`;
             } else {
                 queueIndicator.style.display = "none";
             }
@@ -3121,14 +3127,17 @@ async function connectToServer(playerName: string, classId: number) {
                 ctx.fill();
             }
 
-            // Draw Hot Zones (Sweet) - Gold
+            // Draw Hot Zones (Sweet) - Orange с обводкой для отличия от NECTAR
             for (const [, zone] of hotZones.entries()) {
                 const p = worldToMap(zone.x, zone.y);
                 const r = (zone.radius / worldWidth) * mapW;
-                ctx.fillStyle = "rgba(255, 215, 0, 0.3)";
+                ctx.fillStyle = "rgba(255, 165, 0, 0.35)";
+                ctx.strokeStyle = "rgba(255, 140, 0, 0.9)";
+                ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.stroke();
             }
 
             // Draw Slow Zones - Purple
