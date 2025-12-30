@@ -53,6 +53,35 @@ hud.style.minWidth = "220px";
 hud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
 root.appendChild(hud);
 
+const topCenterHud = document.createElement("div");
+topCenterHud.style.position = "fixed";
+topCenterHud.style.top = "12px";
+topCenterHud.style.left = "50%";
+topCenterHud.style.transform = "translateX(-50%)";
+topCenterHud.style.textAlign = "center";
+topCenterHud.style.color = "#e6f3ff";
+topCenterHud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
+topCenterHud.style.pointerEvents = "none";
+topCenterHud.style.display = "none";
+topCenterHud.style.flexDirection = "column";
+topCenterHud.style.alignItems = "center";
+topCenterHud.style.gap = "4px";
+topCenterHud.style.textShadow = "0 2px 4px rgba(0,0,0,0.8)";
+root.appendChild(topCenterHud);
+
+const matchTimer = document.createElement("div");
+matchTimer.style.fontSize = "24px";
+matchTimer.style.fontWeight = "bold";
+matchTimer.style.color = "#fff";
+topCenterHud.appendChild(matchTimer);
+
+const killCounter = document.createElement("div");
+killCounter.style.fontSize = "16px";
+killCounter.style.color = "#ff4d4d";
+killCounter.style.fontWeight = "bold";
+killCounter.style.display = "none"; // Hidden by default
+topCenterHud.appendChild(killCounter);
+
 const canvas = document.createElement("canvas");
 canvas.style.width = "100%";
 canvas.style.height = "100vh";
@@ -240,18 +269,21 @@ resultsOverlay.style.color = "#e6f3ff";
 
 const resultsContent = document.createElement("div");
 resultsContent.style.textAlign = "center";
-resultsContent.style.maxWidth = "500px";
+resultsContent.style.maxWidth = "600px";
+resultsContent.style.width = "90%";
 resultsContent.style.padding = "20px";
+resultsContent.style.display = "flex";
+resultsContent.style.flexDirection = "column";
+resultsContent.style.gap = "16px";
 
 const resultsTitle = document.createElement("h1");
 resultsTitle.style.fontSize = "32px";
-resultsTitle.style.marginBottom = "10px";
+resultsTitle.style.margin = "0";
 resultsTitle.style.color = "#ffc857";
 resultsTitle.style.textShadow = "0 0 20px rgba(255, 200, 87, 0.5)";
 
 const resultsWinner = document.createElement("div");
 resultsWinner.style.fontSize = "24px";
-resultsWinner.style.marginBottom = "20px";
 resultsWinner.style.color = "#9be070";
 
 const resultsLeaderboard = document.createElement("div");
@@ -259,18 +291,107 @@ resultsLeaderboard.style.textAlign = "left";
 resultsLeaderboard.style.background = "rgba(0, 0, 0, 0.3)";
 resultsLeaderboard.style.borderRadius = "8px";
 resultsLeaderboard.style.padding = "15px";
-resultsLeaderboard.style.marginBottom = "20px";
+resultsLeaderboard.style.maxHeight = "200px";
+resultsLeaderboard.style.overflowY = "auto";
+
+const resultsPersonalStats = document.createElement("div");
+resultsPersonalStats.style.display = "flex";
+resultsPersonalStats.style.justifyContent = "space-around";
+resultsPersonalStats.style.background = "rgba(255, 255, 255, 0.05)";
+resultsPersonalStats.style.borderRadius = "8px";
+resultsPersonalStats.style.padding = "12px";
+resultsPersonalStats.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+
+const resultsClassSelection = document.createElement("div");
+resultsClassSelection.style.display = "flex";
+resultsClassSelection.style.gap = "10px";
+resultsClassSelection.style.justifyContent = "center";
+resultsClassSelection.style.marginTop = "10px";
 
 const resultsTimer = document.createElement("div");
 resultsTimer.style.fontSize = "16px";
 resultsTimer.style.color = "#6fd6ff";
 
+const resultsExitButton = document.createElement("button");
+resultsExitButton.textContent = "Выйти в меню";
+resultsExitButton.style.padding = "10px 20px";
+resultsExitButton.style.background = "#ef4444";
+resultsExitButton.style.border = "none";
+resultsExitButton.style.borderRadius = "8px";
+resultsExitButton.style.color = "white";
+resultsExitButton.style.cursor = "pointer";
+resultsExitButton.style.fontSize = "14px";
+resultsExitButton.style.marginTop = "10px";
+resultsExitButton.onclick = () => window.location.reload();
+
 resultsContent.appendChild(resultsTitle);
 resultsContent.appendChild(resultsWinner);
 resultsContent.appendChild(resultsLeaderboard);
+resultsContent.appendChild(resultsPersonalStats);
+resultsContent.appendChild(resultsClassSelection);
 resultsContent.appendChild(resultsTimer);
+resultsContent.appendChild(resultsExitButton);
 resultsOverlay.appendChild(resultsContent);
 document.body.appendChild(resultsOverlay);
+
+// Class Selection Buttons for Results Screen
+const classOptions = [
+    { id: 0, name: "Охотник", icon: "🏹", color: "#ef4444" },
+    { id: 1, name: "Воин", icon: "🛡️", color: "#3b82f6" },
+    { id: 2, name: "Собиратель", icon: "🧪", color: "#10b981" }
+];
+
+const resultsClassButtons: HTMLButtonElement[] = [];
+
+function syncResultsClassButtons() {
+    resultsClassButtons.forEach((btn) => {
+        const classId = Number(btn.dataset.classId);
+        const option = classOptions.find((opt) => opt.id === classId);
+        if (!option) return;
+        const isSelected = classId === selectedClassId;
+        btn.style.background = isSelected ? option.color : "rgba(255, 255, 255, 0.05)";
+        btn.style.transform = isSelected ? "scale(1.05)" : "scale(1)";
+    });
+}
+
+classOptions.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.style.display = "flex";
+    btn.style.flexDirection = "column";
+    btn.style.alignItems = "center";
+    btn.style.gap = "4px";
+    btn.style.padding = "12px";
+    btn.style.background = "rgba(255, 255, 255, 0.05)";
+    btn.style.border = `2px solid ${opt.color}`;
+    btn.style.borderRadius = "12px";
+    btn.style.color = "#fff";
+    btn.style.cursor = "pointer";
+    btn.style.width = "100px";
+    btn.style.transition = "all 0.2s";
+    btn.dataset.classId = String(opt.id);
+
+    const icon = document.createElement("span");
+    icon.textContent = opt.icon;
+    icon.style.fontSize = "24px";
+    
+    const name = document.createElement("span");
+    name.textContent = opt.name;
+    name.style.fontSize = "12px";
+    name.style.fontWeight = "bold";
+
+    btn.appendChild(icon);
+    btn.appendChild(name);
+
+    btn.onclick = () => {
+        selectedClassId = opt.id;
+        syncClassCards();
+        syncResultsClassButtons();
+        updatePlayButton();
+    };
+
+    resultsClassSelection.appendChild(btn);
+    resultsClassButtons.push(btn);
+});
 
 const joystickLayer = document.createElement("div");
 joystickLayer.style.position = "fixed";
@@ -300,7 +421,7 @@ joystickLayer.appendChild(joystickKnob);
 document.body.appendChild(joystickLayer);
 
 // ============================================
-// ABILITY BUTTON — кнопка способности класса
+// ABILITY BUTTON - кнопка способности класса
 // ============================================
 
 const abilityButton = document.createElement("button");
@@ -502,7 +623,7 @@ const projectileCooldownUi: CooldownUi = {
 };
 
 // ============================================
-// SLOT 2 BUTTON — кнопка умения слота 2 (клавиша 3)
+// SLOT 2 BUTTON - кнопка умения слота 2 (клавиша 3)
 // ============================================
 const slot2Button = document.createElement("button");
 slot2Button.type = "button";
@@ -602,7 +723,7 @@ const slot2CooldownUi: CooldownUi = {
 };
 
 // ============================================
-// ABILITY CARD UI — карточка выбора умения
+// ABILITY CARD UI - карточка выбора умения
 // ============================================
 const abilityCardModal = document.createElement("div");
 abilityCardModal.style.position = "fixed";
@@ -713,12 +834,66 @@ levelIndicator.style.padding = "8px 14px";
 levelIndicator.style.background = "rgba(0, 0, 0, 0.55)";
 levelIndicator.style.border = "1px solid rgba(255, 255, 255, 0.1)";
 levelIndicator.style.borderRadius = "10px";
-levelIndicator.style.fontSize = "14px";
-levelIndicator.style.color = "#e6f3ff";
-levelIndicator.style.fontFamily = "\"IBM Plex Mono\", monospace";
 levelIndicator.style.display = "none";
 levelIndicator.style.zIndex = "50";
+levelIndicator.style.flexDirection = "column";
+levelIndicator.style.gap = "4px";
+levelIndicator.style.minWidth = "140px";
+
+const levelText = document.createElement("div");
+levelText.style.fontSize = "14px";
+levelText.style.color = "#e6f3ff";
+levelText.style.fontFamily = "\"IBM Plex Mono\", monospace";
+levelText.style.fontWeight = "bold";
+levelText.style.display = "flex";
+levelText.style.justifyContent = "space-between";
+levelIndicator.appendChild(levelText);
+
+const levelBarContainer = document.createElement("div");
+levelBarContainer.style.width = "100%";
+levelBarContainer.style.height = "6px";
+levelBarContainer.style.background = "rgba(255, 255, 255, 0.1)";
+levelBarContainer.style.borderRadius = "3px";
+levelBarContainer.style.overflow = "hidden";
+levelIndicator.appendChild(levelBarContainer);
+
+const levelBarFill = document.createElement("div");
+levelBarFill.style.width = "0%";
+levelBarFill.style.height = "100%";
+levelBarFill.style.background = "linear-gradient(90deg, #4ade80, #22c55e)";
+levelBarFill.style.transition = "width 0.3s ease";
+levelBarContainer.appendChild(levelBarFill);
+
 document.body.appendChild(levelIndicator);
+
+// Индикатор очереди карточек
+const queueIndicator = document.createElement("div");
+queueIndicator.style.position = "fixed";
+queueIndicator.style.right = "20px";
+queueIndicator.style.bottom = "100px";
+queueIndicator.style.padding = "8px 12px";
+queueIndicator.style.background = "rgba(255, 165, 0, 0.9)";
+queueIndicator.style.borderRadius = "20px";
+queueIndicator.style.color = "#fff";
+queueIndicator.style.fontWeight = "bold";
+queueIndicator.style.fontSize = "14px";
+queueIndicator.style.zIndex = "50";
+queueIndicator.style.display = "none";
+queueIndicator.style.boxShadow = "0 0 15px rgba(255, 165, 0, 0.6)";
+queueIndicator.style.cursor = "pointer";
+queueIndicator.style.animation = "pulse 1.5s infinite";
+document.body.appendChild(queueIndicator);
+
+// Add pulse animation style
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+@keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 165, 0, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(255, 165, 0, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 165, 0, 0); }
+}
+`;
+document.head.appendChild(styleSheet);
 
 // Иконки способностей по классам
 const abilityIcons: Record<number, string> = {
@@ -828,14 +1003,14 @@ function updateCooldownUi(
 }
 
 // Функция для получения отображаемого имени с иконкой класса
-// Если игрок — Король (Rebel), показываем корону вместо класса
+// Если игрок - Король (Rebel), показываем корону вместо класса
 function getDisplayName(name: string, classId: number, isRebel: boolean): string {
     const icon = isRebel ? "👑" : (classIcons[classId] ?? "");
     return `${icon} ${name}`;
 }
 
 // ============================================
-// JOIN SCREEN — экран выбора перед входом в игру
+// JOIN SCREEN - экран выбора перед входом в игру
 // ============================================
 
 const joinScreen = document.createElement("div");
@@ -944,6 +1119,16 @@ classCardsContainer.style.justifyContent = "center";
 
 const classCards: HTMLButtonElement[] = [];
 
+function syncClassCards() {
+    classCards.forEach((c, i) => {
+        const clsData = classesData[i];
+        const isSelected = i === selectedClassId;
+        c.style.background = isSelected ? "#1b2c45" : "#111b2a";
+        c.style.border = isSelected ? `2px solid ${clsData.color}` : "2px solid #2d4a6d";
+        c.style.transform = isSelected ? "scale(1.05)" : "scale(1)";
+    });
+}
+
 for (const cls of classesData) {
     const card = document.createElement("button");
     card.type = "button";
@@ -998,12 +1183,8 @@ for (const cls of classesData) {
     });
     card.addEventListener("click", () => {
         selectedClassId = cls.id;
-        classCards.forEach((c, i) => {
-            const clsData = classesData[i];
-            c.style.background = i === selectedClassId ? "#1b2c45" : "#111b2a";
-            c.style.border = i === selectedClassId ? `2px solid ${clsData.color}` : "2px solid #2d4a6d";
-            c.style.transform = i === selectedClassId ? "scale(1.05)" : "scale(1)";
-        });
+        syncClassCards();
+        syncResultsClassButtons();
         updatePlayButton();
     });
 
@@ -1330,6 +1511,7 @@ type SnapshotPlayer = {
     angle: number;
     angVel: number;
     mass: number;
+    killCount: number;
     classId: number;
     talentsAvailable: number;
     flags: number;
@@ -1603,6 +1785,7 @@ const captureSnapshot = (state: GameStateLike) => {
             angle: Number(player.angle ?? 0),
             angVel: Number(player.angVel ?? 0),
             mass: Number(player.mass ?? 0),
+            killCount: Number(player.killCount ?? 0),
             classId: Number(player.classId ?? 0),
             talentsAvailable: Number(player.talentsAvailable ?? 0),
             flags: Number(player.flags ?? 0),
@@ -2122,6 +2305,7 @@ async function connectToServer(playerName: string, classId: number) {
     // Показываем canvas и HUD
     canvas.style.display = "block";
     hud.style.display = "block";
+    topCenterHud.style.display = "flex";
     joinScreen.style.display = "none";
     try {
         (document.activeElement as HTMLElement | null)?.blur?.();
@@ -2193,11 +2377,8 @@ async function connectToServer(playerName: string, classId: number) {
         
         const resetClassSelectionUi = () => {
             selectedClassId = -1;
-            classCards.forEach((c) => {
-                c.style.background = "#111b2a";
-                c.style.border = `2px solid #2d4a6d`;
-                c.style.transform = "scale(1)";
-            });
+            syncClassCards();
+            syncResultsClassButtons();
             updatePlayButton();
         };
 
@@ -2211,7 +2392,13 @@ async function connectToServer(playerName: string, classId: number) {
             classSelectMode = enabled;
 
             if (enabled) {
-                resetClassSelectionUi();
+                if (!isValidClassId(selectedClassId)) {
+                    resetClassSelectionUi();
+                } else {
+                    syncClassCards();
+                    syncResultsClassButtons();
+                    updatePlayButton();
+                }
 
                 // В режиме выбора класса отключаем управление и возвращаем UI выбора
                 hasFocus = false;
@@ -2236,6 +2423,7 @@ async function connectToServer(playerName: string, classId: number) {
                 levelIndicator.style.display = "none";
                 talentModal.style.display = "none";
                 resultsOverlay.style.display = "none";
+                topCenterHud.style.display = "none";
                 joinScreen.style.display = "flex";
                 return;
             }
@@ -2246,6 +2434,7 @@ async function connectToServer(playerName: string, classId: number) {
             joinScreen.style.display = "none";
             canvas.style.display = "block";
             hud.style.display = "block";
+            topCenterHud.style.display = "flex";
             abilityButton.style.display = "flex";
             abilityButton.style.alignItems = "center";
             abilityButton.style.justifyContent = "center";
@@ -2468,19 +2657,40 @@ async function connectToServer(playerName: string, classId: number) {
             console.log(`Hot zone removed, total: ${hotZonesCount}`);
         });
 
+        // Подписка на zones
+        room.state.zones.onAdd((zone: any) => {
+            zone.onChange(() => {});
+        });
+
         const updateHud = () => {
+            // Update Top Center HUD (Timer & Kills)
+            const timeRem = room.state.timeRemaining ?? 0;
+            const minutes = Math.floor(timeRem / 60);
+            const seconds = Math.floor(timeRem % 60);
+            matchTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            const hudPlayer = renderStateForHud?.players.get(room.sessionId) ?? localPlayer;
+            if (hudPlayer && hudPlayer.killCount !== undefined && hudPlayer.killCount > 0) {
+                killCounter.style.display = "block";
+                killCounter.textContent = `☠ ${hudPlayer.killCount}`;
+            } else {
+                killCounter.style.display = "none";
+            }
+
+            // Update Left HUD (Debug info + Mass)
             const lines: string[] = [];
-            lines.push(`Фаза: ${room.state.phase}`);
-            lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`);
+            // lines.push(`Фаза: ${room.state.phase}`);
+            // lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`); // Moved to center
             lines.push(`Игроки: ${playersCount}`);
             lines.push(`Орбы: ${orbsCount}/${balanceConfig.orbs.maxCount}`);
             lines.push(`Сундуки: ${chestsCount}/${balanceConfig.chests.maxCount}`);
             lines.push(`Hot Zones: ${hotZonesCount}`);
-            const hudPlayer = renderStateForHud?.players.get(room.sessionId) ?? localPlayer;
+            
             if (hudPlayer) {
                 lines.push(
                     `Моя масса: ${hudPlayer.mass.toFixed(0)} кг`
                 );
+                // Kill count moved to center
                 if (hudPlayer.talentsAvailable > 0) {
                     lines.push(`Таланты: ${hudPlayer.talentsAvailable}`);
                 }
@@ -2509,14 +2719,45 @@ async function connectToServer(playerName: string, classId: number) {
                 levelIndicator.style.display = "none";
                 return;
             }
-            levelIndicator.style.display = "block";
+            levelIndicator.style.display = "flex";
             const level = player.level ?? 1;
             const thresholds = balanceConfig.slime?.levelThresholds ?? [100, 200, 300, 500, 800];
             const nextThreshold = thresholds[level] ?? null;
-            const progressText = nextThreshold 
-                ? ` (${player.mass.toFixed(0)}/${nextThreshold})`
-                : " MAX";
-            levelIndicator.textContent = `Ур. ${level}${progressText}`;
+            const prevThreshold = level > 0 ? (thresholds[level - 1] ?? 0) : 0;
+            
+            let progressPct = 0;
+            let progressText = " MAX";
+            
+            if (nextThreshold) {
+                const current = Math.max(0, player.mass - prevThreshold);
+                const total = nextThreshold - prevThreshold;
+                progressPct = Math.min(100, Math.max(0, (current / total) * 100));
+                progressText = ` ${player.mass.toFixed(0)}/${nextThreshold}`;
+            } else {
+                progressPct = 100;
+            }
+            
+            levelText.textContent = `Ур. ${level}${progressText}`;
+            levelBarFill.style.width = `${progressPct}%`;
+        };
+
+        const updateQueueIndicator = () => {
+            const player = room.state.players.get(room.sessionId);
+            if (!player) {
+                queueIndicator.style.display = "none";
+                return;
+            }
+            
+            const pendingCards = player.pendingCardCount ?? 0;
+            const pendingTalents = player.pendingTalentCount ?? 0;
+            const totalPending = pendingCards + pendingTalents;
+            
+            if (totalPending > 0) {
+                queueIndicator.style.display = "block";
+                queueIndicator.textContent = `Cards: ${totalPending}`;
+            } else {
+                queueIndicator.style.display = "none";
+            }
         };
         
         // Обновление UI карточки выбора умений
@@ -2624,7 +2865,7 @@ async function connectToServer(playerName: string, classId: number) {
             
             const abilityId = player.abilitySlot1;
             if (!abilityId) {
-                // Пока слот пуст — скрываем или показываем projectile по умолчанию
+                // Пока слот пуст - скрываем или показываем projectile по умолчанию
                 const level = player.level ?? 1;
                 if (level < 3) {
                     projectileButton.style.display = "none";
@@ -2661,7 +2902,7 @@ async function connectToServer(playerName: string, classId: number) {
                 resultsWinner.textContent = "Нет победителя";
             }
 
-            // Формируем лидерборд с использованием DOM API (безопаснее innerHTML)
+            // Формируем лидерборд
             resultsLeaderboard.innerHTML = "";
             
             const leaderboardTitle = document.createElement("div");
@@ -2688,9 +2929,46 @@ async function connectToServer(playerName: string, classId: number) {
                     row.style.color = "#6fd6ff";
                     row.style.fontWeight = "bold";
                 }
-                // textContent безопасно экранирует имя
-                row.textContent = `${medal} ${displayName} - ${player.mass.toFixed(0)} масса`;
+                const kills = player.killCount ?? 0;
+                row.textContent = `${medal} ${displayName} - ${player.mass.toFixed(0)} кг | 🎯 ${kills}`;
                 resultsLeaderboard.appendChild(row);
+            }
+
+            // Личная статистика
+            const self = room.state.players.get(room.sessionId);
+            if (self) {
+                resultsPersonalStats.innerHTML = "";
+                
+                const myRank = room.state.leaderboard.indexOf(room.sessionId) + 1;
+                const rankText = myRank > 0 ? `#${myRank}` : "-";
+                
+                const stats = [
+                    { label: "Место", value: rankText, color: "#fff" },
+                    { label: "Масса", value: self.mass.toFixed(0), color: "#9be070" },
+                    { label: "Убийства", value: self.killCount ?? 0, color: "#ff4d4d" }
+                ];
+                
+                stats.forEach(stat => {
+                    const div = document.createElement("div");
+                    div.style.display = "flex";
+                    div.style.flexDirection = "column";
+                    div.style.alignItems = "center";
+                    
+                    const val = document.createElement("div");
+                    val.textContent = String(stat.value);
+                    val.style.fontSize = "20px";
+                    val.style.fontWeight = "bold";
+                    val.style.color = stat.color;
+                    
+                    const lbl = document.createElement("div");
+                    lbl.textContent = stat.label;
+                    lbl.style.fontSize = "12px";
+                    lbl.style.color = "#9fb5cc";
+                    
+                    div.appendChild(val);
+                    div.appendChild(lbl);
+                    resultsPersonalStats.appendChild(div);
+                });
             }
 
             // Таймер до рестарта
@@ -2779,6 +3057,166 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: inputSeq, moveX: x, moveY: y });
         }, inputIntervalMs);
 
+        const drawMinimap = (
+            ctx: CanvasRenderingContext2D,
+            cw: number,
+            ch: number,
+            scale: number,
+            cameraX: number,
+            cameraY: number,
+            players: Map<string, any>,
+            chests: Map<string, any>,
+            hotZones: Map<string, any>,
+            slowZones: Map<string, any>,
+            toxicPools: Map<string, any>,
+            zones: Map<string, any>,
+            safeZones: any[],
+            rebelId: string
+        ) => {
+            // Minimap settings (GDD: 15% width)
+            const mapW = cw * 0.15;
+            const mapH = mapW * (worldHeight / worldWidth);
+            const margin = 20;
+            const mapX = cw - mapW - margin;
+            const mapY = margin;
+
+            ctx.save();
+            
+            // Background
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.fillRect(mapX, mapY, mapW, mapH);
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(mapX, mapY, mapW, mapH);
+
+            // Clip to minimap area
+            ctx.beginPath();
+            ctx.rect(mapX, mapY, mapW, mapH);
+            ctx.clip();
+
+            // Coordinate conversion
+            const worldToMap = (wx: number, wy: number) => {
+                const nx = (wx + worldWidth / 2) / worldWidth;
+                const ny = (wy + worldHeight / 2) / worldHeight;
+                return {
+                    x: mapX + nx * mapW,
+                    y: mapY + ny * mapH
+                };
+            };
+
+            // Draw Generic Zones (New types)
+            for (const [, zone] of zones.entries()) {
+                const p = worldToMap(zone.x, zone.y);
+                const r = (zone.radius / worldWidth) * mapW;
+                
+                let color = "rgba(200, 200, 200, 0.3)";
+                if (zone.type === ZONE_TYPE_NECTAR) color = "rgba(255, 215, 0, 0.3)";
+                else if (zone.type === ZONE_TYPE_ICE) color = "rgba(0, 255, 255, 0.3)";
+                else if (zone.type === ZONE_TYPE_LAVA) color = "rgba(255, 69, 0, 0.3)";
+                else if (zone.type === ZONE_TYPE_TURBO) color = "rgba(0, 255, 0, 0.3)";
+                
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Hot Zones (Sweet) - Gold
+            for (const [, zone] of hotZones.entries()) {
+                const p = worldToMap(zone.x, zone.y);
+                const r = (zone.radius / worldWidth) * mapW;
+                ctx.fillStyle = "rgba(255, 215, 0, 0.3)";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Slow Zones - Purple
+            for (const [, zone] of slowZones.entries()) {
+                const p = worldToMap(zone.x, zone.y);
+                const r = (zone.radius / worldWidth) * mapW;
+                ctx.fillStyle = "rgba(148, 0, 211, 0.3)";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Toxic Pools - Green
+            for (const [, zone] of toxicPools.entries()) {
+                const p = worldToMap(zone.x, zone.y);
+                const r = (zone.radius / worldWidth) * mapW;
+                ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Safe Zones (if any)
+            if (safeZones) {
+                for (const zone of safeZones) {
+                    const p = worldToMap(zone.x, zone.y);
+                    const r = (zone.radius / worldWidth) * mapW;
+                    ctx.strokeStyle = "#00ff00";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw Chests
+            for (const [, chest] of chests.entries()) {
+                const p = worldToMap(chest.x, chest.y);
+                const style = chestStyles[chest.type] ?? chestStyles[0];
+                ctx.fillStyle = style.fill;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw King
+            if (rebelId) {
+                const king = players.get(rebelId);
+                if (king) {
+                    const p = worldToMap(king.x, king.y);
+                    ctx.fillStyle = "#ffc857";
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Crown icon
+                    ctx.font = "8px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText("👑", p.x, p.y - 4);
+                }
+            }
+
+            // Draw Viewport Rect
+            const vpW = cw / scale;
+            const vpH = ch / scale;
+            const vpLeft = cameraX - vpW / 2;
+            const vpTop = cameraY - vpH / 2;
+            
+            const p1 = worldToMap(vpLeft, vpTop);
+            const p2 = worldToMap(vpLeft + vpW, vpTop + vpH);
+            
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+
+            // Draw Self Marker
+            const self = players.get(room.sessionId);
+            if (self) {
+                const p = worldToMap(self.x, self.y);
+                ctx.fillStyle = "#6fd6ff";
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        };
+
         const render = () => {
             if (!isRendering) return;
             const now = performance.now();
@@ -2840,7 +3278,7 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.restore();
             }
 
-            // Sweet Zones (бывшие Hot Zones) — золотой цвет
+            // Sweet Zones (бывшие Hot Zones) - золотой цвет
             for (const [, zone] of hotZonesView.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + hotZoneRadius || Math.abs(zone.y - camera.y) > halfWorldH + hotZoneRadius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
@@ -2958,7 +3396,7 @@ async function connectToServer(playerName: string, classId: number) {
                 if (alpha <= 0.01) continue;
                 
                 // Определяем цвет снаряда: свой = голубой, чужой = красный
-                // Bomb (projectileType = 1) — оранжевый
+                // Bomb (projectileType = 1) - оранжевый
                 const isMine = proj.ownerId === room.sessionId;
                 const isBomb = proj.projectileType === 1;
                 let fillColor: string;
@@ -3053,7 +3491,33 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
                 
-                // Визуализация рывка охотника — реактивные следы
+                // Визуализация респаун-щита
+                if ((player.flags & FLAG_RESPAWN_SHIELD) !== 0) {
+                    const shieldR = r * 1.6;
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, shieldR, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = `rgba(100, 200, 255, ${0.2 + 0.1 * Math.sin(time * 10)})`;
+                    canvasCtx.fill();
+                    canvasCtx.strokeStyle = `rgba(150, 220, 255, ${0.5 + 0.2 * Math.sin(time * 10)})`;
+                    canvasCtx.lineWidth = 2;
+                    canvasCtx.stroke();
+                }
+
+                // Визуализация золотого свечения Короля
+                if (isRebel) {
+                    const glowR = r * 1.4;
+                    const glowAlpha = 0.3 + 0.1 * Math.sin(time * 5);
+                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, glowR);
+                    gradient.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha})`);
+                    gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
+                    
+                    canvasCtx.beginPath();
+                    canvasCtx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+                    canvasCtx.fillStyle = gradient;
+                    canvasCtx.fill();
+                }
+
+                // Визуализация рывка охотника - реактивные следы
                 if ((player.flags & FLAG_DASHING) !== 0) {
                     const trailCount = 5;
                     const trailSpacing = r * 0.6;
@@ -3289,6 +3753,24 @@ async function connectToServer(playerName: string, classId: number) {
                 serverTick,
                 tickRate,
             });
+
+            // Minimap
+            drawMinimap(
+                canvasCtx,
+                cw,
+                ch,
+                scale,
+                camera.x,
+                camera.y,
+                playersView,
+                chestsView,
+                hotZonesView,
+                slowZonesView,
+                toxicPoolsView,
+                room.state.zones,
+                room.state.safeZones,
+                room.state.rebelId
+            );
 
             rafId = requestAnimationFrame(render);
         };
@@ -3597,6 +4079,7 @@ async function connectToServer(playerName: string, classId: number) {
             updateResultsOverlay();
             refreshTalentModal();
             updateLevelIndicator();
+            updateQueueIndicator();
             updateAbilityCardUI();
             updateSlot1Button();
             updateSlot2Button();
@@ -3605,7 +4088,7 @@ async function connectToServer(playerName: string, classId: number) {
             const selfPlayer = room.state.players.get(room.sessionId);
             if (phase !== "Results" && selfPlayer) {
                 if (!isValidClassId(selfPlayer.classId)) {
-                    // Между матчами класс сбрасывается на сервере — возвращаем экран выбора
+                    // Между матчами класс сбрасывается на сервере - возвращаем экран выбора
                     if (!nameInput.disabled) {
                         nameInput.value = String(selfPlayer.name ?? nameInput.value);
                     }
@@ -3636,6 +4119,13 @@ async function connectToServer(playerName: string, classId: number) {
             abilityButton.removeEventListener("click", onAbilityButtonClick);
             projectileButton.removeEventListener("click", onProjectileButtonClick);
             slot2Button.removeEventListener("click", onSlot2ButtonClick);
+            
+            // Hide HUD elements
+            hud.style.display = "none";
+            topCenterHud.style.display = "none";
+            queueIndicator.style.display = "none";
+            levelIndicator.style.display = "none";
+            
             activeRoom = null;
             
             // Показываем экран выбора при отключении
@@ -3654,6 +4144,7 @@ async function connectToServer(playerName: string, classId: number) {
         // Вернём экран выбора при ошибке
         canvas.style.display = "none";
         hud.style.display = "none";
+        topCenterHud.style.display = "none";
         joinScreen.style.display = "flex";
     }
 }

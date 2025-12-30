@@ -2281,6 +2281,7 @@ export class ArenaRoom extends Room<GameState> {
         if (killerId) {
             const killer = this.state.players.get(killerId);
             if (killer && !killer.isDead && killer.id !== player.id) {
+                killer.killCount++;
                 this.awardKillMass(killer);
             }
         }
@@ -2916,6 +2917,8 @@ export class ArenaRoom extends Room<GameState> {
         this.state.chests.clear();
         this.state.hotZones.clear();
         this.state.slowZones.clear();
+        this.state.zones.clear();
+        this.state.safeZones.splice(0, this.state.safeZones.length);
         this.state.toxicPools.clear();
         this.state.projectiles.clear();
         this.state.mines.clear();
@@ -2934,6 +2937,7 @@ export class ArenaRoom extends Room<GameState> {
             player.angVel = 0;
             player.angle = 0;
             player.mass = this.balance.slime.initialMass;
+            player.killCount = 0;
             player.level = this.balance.slime.initialLevel;
             // Новый матч: игрок не добавляется в бой до выбора класса
             player.isDead = true;
