@@ -9,3 +9,4 @@ export const FLAG_SLOWED = 1 << 7;
 export const FLAG_PUSHING = 1 << 8;
 export const FLAG_STUNNED = 1 << 9;
 export const FLAG_INVISIBLE = 1 << 10;
+export const FLAG_LEVIATHAN = 1 << 11;

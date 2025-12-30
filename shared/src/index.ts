@@ -34,6 +34,7 @@ export {
     FLAG_PUSHING,
     FLAG_STUNNED,
     FLAG_INVISIBLE,
+    FLAG_LEVIATHAN,
 } from "./constants.js";
 export type { SlimeSprite } from "./sprites.js";
 export {

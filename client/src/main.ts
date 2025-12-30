@@ -11,6 +11,8 @@ import {
     FLAG_DASHING,
     FLAG_MAGNETIZING,
     FLAG_PUSHING,
+    FLAG_INVISIBLE,
+    FLAG_LEVIATHAN,
     clamp,
     lerp,
     wrapAngle,
@@ -1075,7 +1077,7 @@ let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
 let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
 const chestStyles = [
-    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1 },
+    { fill: "#7adf7a", stroke: "#b6f0b6", glow: "rgba(120,220,140,0.55)", icon: "🎁", scale: 1 },
     { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.08 },
     { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1.16 },
 ];
@@ -1365,6 +1367,15 @@ type SnapshotSlowZone = {
     slowPct: number;
 };
 
+type SnapshotToxicPool = {
+    id: string;
+    x: number;
+    y: number;
+    radius: number;
+    slowPct: number;
+    damagePctPerSec: number;
+};
+
 type SnapshotProjectile = {
     id: string;
     ownerId: string;
@@ -1391,6 +1402,7 @@ type Snapshot = {
     chests: Map<string, SnapshotChest>;
     hotZones: Map<string, SnapshotHotZone>;
     slowZones: Map<string, SnapshotSlowZone>;
+    toxicPools: Map<string, SnapshotToxicPool>;
     projectiles: Map<string, SnapshotProjectile>;
     mines: Map<string, SnapshotMine>;
 };
@@ -1400,6 +1412,7 @@ type RenderOrb = SnapshotOrb & { alpha?: number };
 type RenderChest = SnapshotChest & { alpha?: number };
 type RenderHotZone = SnapshotHotZone & { alpha?: number };
 type RenderSlowZone = SnapshotSlowZone & { alpha?: number };
+type RenderToxicPool = SnapshotToxicPool & { alpha?: number };
 type RenderProjectile = SnapshotProjectile & { alpha?: number };
 type RenderMine = SnapshotMine & { alpha?: number };
 
@@ -1409,6 +1422,7 @@ type RenderState = {
     chests: Map<string, RenderChest>;
     hotZones: Map<string, RenderHotZone>;
     slowZones: Map<string, RenderSlowZone>;
+    toxicPools: Map<string, RenderToxicPool>;
     projectiles: Map<string, RenderProjectile>;
     mines: Map<string, RenderMine>;
 };
@@ -1550,6 +1564,7 @@ type GameStateLike = {
     chests: CollectionLike<Partial<SnapshotChest>>;
     hotZones: CollectionLike<Partial<SnapshotHotZone>>;
     slowZones: CollectionLike<Partial<SnapshotSlowZone>>;
+    toxicPools: CollectionLike<Partial<SnapshotToxicPool>>;
     projectiles: CollectionLike<SnapshotProjectilePart>;
     mines: CollectionLike<SnapshotMinePart>;
 };
@@ -1567,6 +1582,7 @@ const captureSnapshot = (state: GameStateLike) => {
         chests: new Map(),
         hotZones: new Map(),
         slowZones: new Map(),
+        toxicPools: new Map(),
         projectiles: new Map(),
         mines: new Map(),
     };
@@ -1630,6 +1646,17 @@ const captureSnapshot = (state: GameStateLike) => {
             y: Number(zone.y ?? 0),
             radius: Number(zone.radius ?? 0),
             slowPct: Number(zone.slowPct ?? 0.3),
+        });
+    }
+
+    for (const [id, pool] of state.toxicPools.entries()) {
+        snapshot.toxicPools.set(id, {
+            id,
+            x: Number(pool.x ?? 0),
+            y: Number(pool.y ?? 0),
+            radius: Number(pool.radius ?? 0),
+            slowPct: Number(pool.slowPct ?? 0),
+            damagePctPerSec: Number(pool.damagePctPerSec ?? 0),
         });
     }
 
@@ -1844,6 +1871,12 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
     for (const [id, zone] of newest.slowZones.entries()) {
         slowZones.set(id, { ...zone });
     }
+
+    // Toxic pools - use direct values
+    const toxicPools = new Map<string, RenderToxicPool>();
+    for (const [id, pool] of newest.toxicPools.entries()) {
+        toxicPools.set(id, { ...pool });
+    }
     
     // Projectiles - simple interpolation (they move fast)
     for (const [id, proj] of newest.projectiles.entries()) {
@@ -1868,6 +1901,7 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         chests,
         hotZones,
         slowZones,
+        toxicPools,
         projectiles,
         mines,
     };
@@ -1944,6 +1978,15 @@ function getSlimeConfigForPlayer(classId: number) {
         default:
             return balanceConfig.slimeConfigs.base;
     }
+}
+
+function getLeviathanRadiusMul() {
+    const values = balanceConfig?.talents?.epic?.leviathan?.values;
+    if (Array.isArray(values) && Array.isArray(values[0])) {
+        const radiusMul = Number(values[0][0] ?? 1);
+        return radiusMul > 0 ? radiusMul : 1;
+    }
+    return 1;
 }
 
 function resizeCanvas() {
@@ -2750,6 +2793,7 @@ async function connectToServer(playerName: string, classId: number) {
             const chestsView = renderState ? renderState.chests : room.state.chests;
             const hotZonesView = renderState ? renderState.hotZones : room.state.hotZones;
             const slowZonesView = renderState ? renderState.slowZones : room.state.slowZones;
+            const toxicPoolsView = renderState ? renderState.toxicPools : room.state.toxicPools;
             const projectilesView = renderState ? renderState.projectiles : room.state.projectiles;
 
             // Камера следит за сглаженной позицией игрока (плавное движение)
@@ -2803,7 +2847,7 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.restore();
             }
 
-            // Slow Zones (замедление Собирателя) — фиолетовый градиент
+            // Slow Zones (замедление Собирателя) - фиолетовый градиент
             for (const [, zone] of slowZonesView.entries()) {
                 if (Math.abs(zone.x - camera.x) > halfWorldW + zone.radius || Math.abs(zone.y - camera.y) > halfWorldH + zone.radius) continue;
                 const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
@@ -2822,6 +2866,28 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.fill();
                 // Обводка
                 canvasCtx.strokeStyle = "rgba(148, 0, 211, 0.6)";
+                canvasCtx.lineWidth = 2;
+                canvasCtx.stroke();
+                canvasCtx.restore();
+            }
+
+            // Toxic Pools - зелёный градиент
+            for (const [, pool] of toxicPoolsView.entries()) {
+                if (Math.abs(pool.x - camera.x) > halfWorldW + pool.radius || Math.abs(pool.y - camera.y) > halfWorldH + pool.radius) continue;
+                const p = worldToScreen(pool.x, pool.y, scale, camera.x, camera.y, cw, ch);
+                const alpha = pool.alpha ?? 1;
+                if (alpha <= 0.01) continue;
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha * 0.55;
+                const gradient = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, pool.radius * scale);
+                gradient.addColorStop(0, "rgba(34, 197, 94, 0.35)");
+                gradient.addColorStop(0.7, "rgba(34, 197, 94, 0.15)");
+                gradient.addColorStop(1, "rgba(34, 197, 94, 0)");
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.beginPath();
+                canvasCtx.arc(p.x, p.y, pool.radius * scale, 0, Math.PI * 2);
+                canvasCtx.fill();
+                canvasCtx.strokeStyle = "rgba(34, 197, 94, 0.6)";
                 canvasCtx.lineWidth = 2;
                 canvasCtx.stroke();
                 canvasCtx.restore();
@@ -2962,8 +3028,11 @@ async function connectToServer(playerName: string, classId: number) {
                 const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
                 const slimeConfig = getSlimeConfigForPlayer(player.classId);
                 const baseRadius = getSlimeRadiusFromConfig(player.mass, slimeConfig);
-                const radius = baseRadius * classRadiusMult * scale;
                 const isSelf = id === room.sessionId;
+                const isInvisible = (player.flags & FLAG_INVISIBLE) !== 0;
+                if (isInvisible && !isSelf) continue;
+                const leviathanMul = (player.flags & FLAG_LEVIATHAN) !== 0 ? getLeviathanRadiusMul() : 1;
+                const radius = baseRadius * classRadiusMult * leviathanMul * scale;
                 const isRebel = id === room.state.rebelId || (player.flags & FLAG_IS_REBEL) !== 0;
                 const color = isSelf ? "#6fd6ff" : "#9be070";
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
@@ -2971,7 +3040,10 @@ async function connectToServer(playerName: string, classId: number) {
                 const angleRad = player.angle ?? 0;
                 const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(id);
                 const sprite = loadSprite(spriteName);
-                const alpha = player.alpha ?? 1;
+                let alpha = player.alpha ?? 1;
+                if (isInvisible && isSelf) {
+                    alpha *= 0.5;
+                }
                 if (alpha <= 0.01) continue;
                 canvasCtx.save();
                 canvasCtx.globalAlpha = alpha;
