@@ -35,6 +35,10 @@ export {
     FLAG_STUNNED,
     FLAG_INVISIBLE,
     FLAG_LEVIATHAN,
+    ZONE_TYPE_NECTAR,
+    ZONE_TYPE_ICE,
+    ZONE_TYPE_LAVA,
+    ZONE_TYPE_TURBO,
 } from "./constants.js";
 export type { SlimeSprite } from "./sprites.js";
 export {

@@ -35,6 +35,7 @@ export class Player extends Schema {
     @type("number") angle: number = 0;
     @type("number") angVel: number = 0;
     @type("number") mass: number = 0;
+    @type("number") killCount: number = 0;
     @type("number") level: number = 0;
     @type("number") classId: number = 0;
     @type("number") talentsAvailable: number = 0;
@@ -243,6 +244,20 @@ export class Mine extends Schema {
     endTick: number = 0;
 }
 
+export class Zone extends Schema {
+    @type("string") id: string = "";
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") radius: number = 0;
+    @type("number") type: number = 0; // ZONE_TYPE_*
+}
+
+export class SafeZone extends Schema {
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") radius: number = 0;
+}
+
 export class GameState extends Schema {
     @type("string") phase: string = "Spawn";
     @type("number") timeRemaining: number = 0;
@@ -256,6 +271,8 @@ export class GameState extends Schema {
     @type({ map: ToxicPool }) toxicPools = new MapSchema<ToxicPool>();
     @type({ map: Projectile }) projectiles = new MapSchema<Projectile>();
     @type({ map: Mine }) mines = new MapSchema<Mine>();
+    @type({ map: Zone }) zones = new MapSchema<Zone>();
+    @type({ array: SafeZone }) safeZones = new ArraySchema<SafeZone>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
 }
 
