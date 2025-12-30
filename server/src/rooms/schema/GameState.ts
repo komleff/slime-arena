@@ -228,6 +228,7 @@ export class Projectile extends Schema {
     remainingPierces: number = 0;
     piercingDamagePct: number = 0;
     lastHitId: string = "";
+    allowDeadOwner: boolean = false;
 }
 
 export class Mine extends Schema {

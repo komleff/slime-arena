@@ -1077,7 +1077,7 @@ let chestRadius = balanceConfig.chests.radius;
 let hotZoneRadius = balanceConfig.hotZones.radius;
 let collectorRadiusMult = balanceConfig.classes.collector.radiusMult;
 const chestStyles = [
-    { fill: "#9ad4ff", stroke: "#c9e6ff", glow: "rgba(120,190,255,0.6)", icon: "🎁", scale: 1 },
+    { fill: "#7adf7a", stroke: "#b6f0b6", glow: "rgba(120,220,140,0.55)", icon: "🎁", scale: 1 },
     { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.08 },
     { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1.16 },
 ];
