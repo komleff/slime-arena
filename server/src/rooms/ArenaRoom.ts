@@ -1630,7 +1630,13 @@ export class ArenaRoom extends Room<GameState> {
         if (defenderZone === "tail") {
             zoneMultiplier = this.balance.combat.tailDamageMultiplier;
         } else if (defenderZone === "mouth") {
-            zoneMultiplier = 0.5;
+            const attackerMass = attacker.mass;
+            const defenderMass = defender.mass;
+            if (!(attackerMass > defenderMass * 1.1)) {
+                attacker.lastAttackTick = this.tick;
+                attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
+                return;
+            }
         }
 
         const classStats = this.getClassStats(attacker);
@@ -3835,7 +3841,6 @@ export class ArenaRoom extends Room<GameState> {
      * Получает имя класса по classId
      */
     private getClassName(classId: number): string {
-        const classes = this.balance.classes;
         if (classId === 0) return "hunter";
         if (classId === 1) return "warrior";
         if (classId === 2) return "collector";
