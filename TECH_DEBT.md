@@ -65,12 +65,16 @@ this.applyMassDelta(defender, -massLoss);
 const actualLoss = defenderMassBefore - defender.mass;
 const attackerGain = actualLoss * (attackerGainPct / totalRewardPct);
 const scatterMass = actualLoss * (scatterPct / totalRewardPct);
+// Invariant check
+if (attackerGain + scatterMass > actualLoss + 0.001) {
+    console.warn(`[processCombat] Invariant violation`);
+}
 ```
 
 **Файлы:**
-- `server/src/rooms/ArenaRoom.ts` — `processCombat()`, строки 1692-1702
+- `server/src/rooms/ArenaRoom.ts` — `processCombat()`, строки 1692-1710
 
-**Статус:** ✅ Исправлено (31 дек 2025)
+**Статус:** ✅ Исправлено (31 дек 2025) — добавлена проверка инварианта
 
 ---
 
@@ -84,12 +88,12 @@ const scatterMass = actualLoss * (scatterPct / totalRewardPct);
 **Решение:**
 - Добавлен флаг `freezeVisualState` в client/src/main.ts
 - При `phase === "Results"` флаг устанавливается в true
-- В `getSmoothedRenderState` smoothStep для орбов пропускается при freezeVisualState
+- В `getSmoothedRenderState` smoothStep для орбов и сундуков пропускается при freezeVisualState
 
 **Файлы:**
 - `client/src/main.ts` — переменная `freezeVisualState`, render loop
 
-**Статус:** ✅ Исправлено (31 дек 2025)
+**Статус:** ✅ Исправлено (31 дек 2025) — орбы и сундуки замораживаются
 
 ---
 
@@ -173,15 +177,18 @@ const scatterMass = actualLoss * (scatterPct / totalRewardPct);
 
 **Контекст:**
 - `activateDash()` меняла позицию, но не проверяла границы мира
-- Игрок мог выйти за пределы карты
+- Первая версия исправления использовала только `widthM`, игнорируя `worldShape` и `heightM`
+- При круговой карте или прямоугольной с разной шириной/высотой цель рывка могла выйти за границы
 
 **Решение:**
-- Добавлен clamp `dashTargetX/Y` к `[-halfWidth, halfWidth]` и `[-halfHeight, halfHeight]`
+- Используется существующий метод `clampPointToWorld()`, который корректно обрабатывает:
+  - `worldShape: "rectangle"` с учётом `widthM` и `heightM`
+  - `worldShape: "circle"` с учётом `radiusM`
 
 **Файлы:**
 - `server/src/rooms/ArenaRoom.ts` — `activateDash()`, строки 636-644
 
-**Статус:** ✅ Исправлено (31 дек 2025)
+**Статус:** ✅ Исправлено (31 дек 2025) — обновлено с clampPointToWorld
 
 ---
 

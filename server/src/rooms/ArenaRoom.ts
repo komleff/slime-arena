@@ -638,11 +638,10 @@ export class ArenaRoom extends Room<GameState> {
         const rawTargetX = player.x + Math.cos(angle) * distance;
         const rawTargetY = player.y + Math.sin(angle) * distance;
         
-        // Clamp к границам мира (игрок не может выйти за пределы карты)
-        const worldSize = this.balance.worldPhysics?.widthM ?? this.balance.world.mapSize;
-        const halfWorld = worldSize / 2;
-        player.dashTargetX = Math.max(-halfWorld, Math.min(halfWorld, rawTargetX));
-        player.dashTargetY = Math.max(-halfWorld, Math.min(halfWorld, rawTargetY));
+        // Clamp к границам мира (учитывает worldShape: rectangle/circle и width/height)
+        const clamped = this.clampPointToWorld(rawTargetX, rawTargetY);
+        player.dashTargetX = clamped.x;
+        player.dashTargetY = clamped.y;
         player.dashEndTick = this.tick + Math.round(config.durationSec * tickRate);
         
         // Устанавливаем флаг
@@ -1705,6 +1704,11 @@ export class ArenaRoom extends Room<GameState> {
         // Это гарантирует, что масса не создаётся из воздуха
         const attackerGain = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (attackerGainPct / totalRewardPct) : 0;
         const scatterMass = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (scatterPct / totalRewardPct) : 0;
+
+        // Проверка инварианта: награды не могут превысить фактическую потерю
+        if (attackerGain + scatterMass > actualLoss + 0.001) {
+            console.warn(`[processCombat] Invariant violation: rewards ${attackerGain + scatterMass} > actualLoss ${actualLoss}`);
+        }
 
         // Применяем прибыль атакующему
         this.applyMassDelta(attacker, attackerGain);

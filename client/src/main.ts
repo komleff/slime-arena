@@ -1651,7 +1651,8 @@ const visualChests = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
 // Флаг для заморозки визуального состояния при Results
-// При true: smoothStep не применяется, орбы и сундуки остаются на месте
+// При true: smoothStep не применяется, орбы остаются на месте
+// (сундуки также замораживаются в getSmoothedRenderState)
 let freezeVisualState = false;
 
 // Smoothing config - читаем из balance.json
@@ -2037,7 +2038,8 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         const targetX = chest.x + chest.vx * lookAheadSec;
         const targetY = chest.y + chest.vy * lookAheadSec;
         
-        if (dtSec > 0) {
+        // При Results заморозить сундуки на месте (как орбы)
+        if (dtSec > 0 && !freezeVisualState) {
             const cfg = getSmoothingConfig();
             const dx = targetX - visual.x;
             const dy = targetY - visual.y;

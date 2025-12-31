@@ -7,13 +7,18 @@
 - **Резюме**: Tech Debt Batch 1 - 2 янв 2026.
 
 ## Последние изменения (ветка `fix/tech-debt-batch-1`, 2 янв 2026)
-Исправлены задачи из TECH_DEBT.md:
-- **PvP mass from nothing**: награда рассчитывается от `actualLoss` (defenderMassBefore - defenderMassAfter)
-- **Freeze на Results**: добавлен `freezeVisualState` флаг, интерполяция орбов останавливается
-- **Dash bounds**: добавлен clamp `dashTargetX/Y` к границам карты
+Исправлены задачи из TECH_DEBT.md + замечания Codex review:
+- **PvP mass from nothing**: награда от `actualLoss` + invariant check
+- **Freeze на Results**: `freezeVisualState` для орбов и сундуков
+- **Dash bounds**: `clampPointToWorld()` для корректной обработки `worldShape` и `heightM`
 - **applyMassDelta JSDoc**: задокументирован clamp-инвариант
-- **GCD**: проверено — уже корректно (GCD только при успешной активации)
-- **Dynamic joystick**: закрыто как несущественное
+- **GCD**: проверено — уже корректно
+- **Dynamic joystick**: закрыто
+
+**Codex review (31 дек):**
+- activateDash использует clampPointToWorld вместо ручного clamp по widthM
+- freezeVisualState применяется к сундукам (ранее только орбы)
+- Добавлен invariant check для attackerGain + scatterMass <= actualLoss
 
 ## Последние изменения (ветка `review/gdd-talents-levels-chests`, 1 янв 2026)
 - Исправлено применение классовых талантов (поиск в `classTalents`) и их учёт в наградах сундуков.

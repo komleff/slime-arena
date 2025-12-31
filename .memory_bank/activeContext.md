@@ -8,20 +8,25 @@
 **GDD обновлён до v3.3** - модульный пакет документов.
 
 ### ✅ Tech Debt Batch 1 (ветка `fix/tech-debt-batch-1`, 2 янв 2026)
-Исправлены и закрыты задачи технического долга:
+Исправлены задачи из TECH_DEBT.md + замечания Codex review:
 
 | Задача | Статус |
 |--------|--------|
-| PvP укус создаёт массу из ничего | ✅ Исправлено: награда рассчитывается от `actualLoss` (разница масс до/после) |
-| Freeze при Results не полный | ✅ Исправлено: добавлен `freezeVisualState` флаг, интерполяция останавливается |
-| GCD при неудачной активации | ✅ Уже корректно: GCD устанавливается только при успешной активации |
-| Dash выход за границы мира | ✅ Исправлено: добавлен clamp `dashTargetX/Y` к границам карты |
-| Документировать applyMassDelta clamp | ✅ Добавлен JSDoc с описанием инварианта |
-| Джойстик dynamic режим | ✅ Закрыто: текущая реализация корректна |
+| PvP укус создаёт массу из ничего | ✅ Исправлено + invariant check |
+| Freeze при Results не полный | ✅ Исправлено: орбы и сундуки |
+| GCD при неудачной активации | ✅ Уже корректно |
+| Dash выход за границы мира | ✅ clampPointToWorld() |
+| Документировать applyMassDelta clamp | ✅ JSDoc |
+| Джойстик dynamic режим | ✅ Закрыто |
+
+**Codex review замечания (31 дек):**
+- activateDash теперь использует `clampPointToWorld()` для корректной обработки `worldShape` и `heightM`
+- freezeVisualState применяется к орбам и сундукам
+- Добавлена проверка инварианта `attackerGain + scatterMass <= actualLoss`
 
 **Изменённые файлы:**
-- `server/src/rooms/ArenaRoom.ts` — PvP mass fix, dash clamp, applyMassDelta JSDoc
-- `client/src/main.ts` — freezeVisualState для остановки интерполяции
+- `server/src/rooms/ArenaRoom.ts` — PvP invariant, dash clampPointToWorld, applyMassDelta JSDoc
+- `client/src/main.ts` — freezeVisualState для орбов и сундуков
 - `TECH_DEBT.md` — обновлены статусы задач
 
 ### В работе: исправления талантов и сундуков (ветка `review/gdd-talents-levels-chests`)
