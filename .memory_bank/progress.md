@@ -4,7 +4,7 @@
 ## Контроль изменений
 - **last_checked_commit**: main @ df8f6bb (31 декабря 2025)
 - **GDD версия**: v3.3 (модульный пакет документов)
-- **Резюме**: Tech Debt Batch 1 - 2 янв 2026.
+- **Резюме**: Пакет техдолга 1 - 2 янв 2026.
 
 ## Последние изменения (ветка `fix/tech-debt-batch-1`, 2 янв 2026)
 Исправлены задачи из TECH_DEBT.md + замечания Codex review:
@@ -12,8 +12,9 @@
 - **Freeze на Results**: `freezeVisualState` для орбов и сундуков
 - **Dash bounds**: `clampPointToWorld()` для корректной обработки `worldShape` и `heightM`
 - **applyMassDelta JSDoc**: задокументирован clamp-инвариант
-- **GCD**: проверено — уже корректно
+- **GCD**: проверено - уже корректно
 - **Dynamic joystick**: закрыто
+- **Документация**: обновлены `README.md` и `local/README.md`, уточнены строки в `TECH_DEBT.md`
 
 **Codex review (31 дек):**
 - activateDash использует clampPointToWorld вместо ручного clamp по widthM

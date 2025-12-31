@@ -72,7 +72,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 ```
 
 **Файлы:**
-- `server/src/rooms/ArenaRoom.ts` — `processCombat()`, строки 1692-1710
+- `server/src/rooms/ArenaRoom.ts` — `processCombat()`, строки 1698-1710
 
 **Статус:** ✅ Исправлено (31 дек 2025) — добавлена проверка инварианта
 
@@ -149,7 +149,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 - Добавлен JSDoc с описанием инварианта в `applyMassDelta()`
 
 **Файлы:**
-- `server/src/rooms/ArenaRoom.ts` — `applyMassDelta()`, строки 3337-3345
+- `server/src/rooms/ArenaRoom.ts` — `applyMassDelta()`, строки 3331-3340
 
 **Статус:** ✅ Исправлено (31 дек 2025)
 
@@ -186,7 +186,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
   - `worldShape: "circle"` с учётом `radiusM`
 
 **Файлы:**
-- `server/src/rooms/ArenaRoom.ts` — `activateDash()`, строки 636-644
+- `server/src/rooms/ArenaRoom.ts` — `activateDash()`, строки 641-644
 
 **Статус:** ✅ Исправлено (31 дек 2025) — обновлено с clampPointToWorld
 
