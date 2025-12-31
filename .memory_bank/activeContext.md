@@ -3,9 +3,34 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База: main (1 января 2026)**
+**База: main (2 января 2026)**
 
 **GDD обновлён до v3.3** - модульный пакет документов.
+
+### ✅ Пакет техдолга 1 (ветка `fix/tech-debt-batch-1`, 2 янв 2026)
+Исправлены задачи из TECH_DEBT.md + замечания Codex review:
+
+| Задача | Статус |
+|--------|--------|
+| PvP укус создаёт массу из ничего | ✅ Исправлено + invariant check |
+| Freeze при Results не полный | ✅ Исправлено: орбы и сундуки |
+| GCD при неудачной активации | ✅ Уже корректно |
+| Dash выход за границы мира | ✅ clampPointToWorld() |
+| Документировать applyMassDelta clamp | ✅ JSDoc |
+| Джойстик dynamic режим | ✅ Закрыто |
+
+**Codex review замечания (31 дек):**
+- activateDash теперь использует `clampPointToWorld()` для корректной обработки `worldShape` и `heightM`
+- freezeVisualState применяется к орбам и сундукам
+- Добавлена проверка инварианта `attackerGain + scatterMass <= actualLoss`
+
+**Изменённые файлы:**
+- `server/src/rooms/ArenaRoom.ts` - PvP invariant, dash clampPointToWorld, applyMassDelta JSDoc
+- `client/src/main.ts` - freezeVisualState для орбов и сундуков
+- `TECH_DEBT.md` - обновлены статусы задач
+- `README.md`, `local/README.md` - обновлены последние изменения
+
+**Замечания Copilot:** уточнены строки исправлений в `TECH_DEBT.md`.
 
 ### В работе: исправления талантов и сундуков (ветка `review/gdd-talents-levels-chests`)
 - **Классовые таланты**: корректное применение через `getTalentConfig()` + учёт в наградах сундуков.

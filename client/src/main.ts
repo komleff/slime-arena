@@ -1650,6 +1650,11 @@ const visualOrbs = new Map<string, VisualEntity>();
 const visualChests = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
+// Флаг для заморозки визуального состояния при Results
+// При true: smoothStep не применяется, орбы остаются на месте
+// (сундуки также замораживаются в getSmoothedRenderState)
+let freezeVisualState = false;
+
 // Smoothing config - читаем из balance.json
 // velocityWeight: 0 = только catch-up, 1 = только интеграция velocity
 // Оптимально 0.6-0.8 для Slime Arena: хороший баланс между точностью и плавностью
@@ -1979,7 +1984,8 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         const targetX = orb.x + orb.vx * lookAheadSec;
         const targetY = orb.y + orb.vy * lookAheadSec;
         
-        if (dtSec > 0) {
+        // При Results заморозить орбы на месте
+        if (dtSec > 0 && !freezeVisualState) {
             // Faster catch-up for orbs
             const cfg = getSmoothingConfig();
             const dx = targetX - visual.x;
@@ -2032,7 +2038,8 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
         const targetX = chest.x + chest.vx * lookAheadSec;
         const targetY = chest.y + chest.vy * lookAheadSec;
         
-        if (dtSec > 0) {
+        // При Results заморозить сундуки на месте (как орбы)
+        if (dtSec > 0 && !freezeVisualState) {
             const cfg = getSmoothingConfig();
             const dx = targetX - visual.x;
             const dy = targetY - visual.y;
@@ -3285,6 +3292,10 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Hunger Zone: красный фон вне Sweet Zones (только в Hunt/Final)
             const currentPhase = room.state.phase;
+            
+            // Устанавливаем флаг заморозки визуала при Results
+            freezeVisualState = currentPhase === "Results";
+            
             if ((currentPhase === "Hunt" || currentPhase === "Final") && hotZonesView.size > 0) {
                 // Рисуем красный фон на весь экран
                 canvasCtx.save();
