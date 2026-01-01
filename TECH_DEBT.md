@@ -7,7 +7,6 @@
 - **BoostSystem (GDD v3.3 8)**: временные усиления из зон, нет реализации.
 - **Сложные таланты**: `sense`, `regeneration`, `momentum`, `berserk`, `symbiosisBubbles`.
 - **Зоны и препятствия арены (GDD-Arena)**: эффекты зон и препятствия не реализованы.
-- **Orb bite: раздельные пороги**: нужны `orbBiteMinMass` и `orbBiteMaxMass`.
 - **Рефакторинг ArenaRoom.ts**: выделение систем в отдельные модули.
 - **Документация UI**: `hud.md` и `talent_modal.md` используют устаревшие поля (`hp`, `talentsAvailable`).
 - **Тесты**: нет юнит-тестов для новых модулей.
@@ -85,7 +84,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 **Файлы:**
 - `server/src/rooms/ArenaRoom.ts` — `processCombat()`, строки 1698-1710
 
-**Статус:** Закрыто (31 дек 2025) - добавлена проверка инварианта
+**Статус:** Закрыто (31 дек 2025) — добавлена проверка инварианта
 
 ---
 
@@ -104,7 +103,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 **Файлы:**
 - `client/src/main.ts` — переменная `freezeVisualState`, render loop
 
-**Статус:** Закрыто (31 дек 2025) - орбы и сундуки замораживаются
+**Статус:** Закрыто (31 дек 2025) — орбы и сундуки замораживаются
 
 ---
 
@@ -123,13 +122,13 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 **Файлы:**
 - `client/src/input/joystick.ts` — тип `mode: "fixed" | "adaptive"` (dynamic убран)
 
-**Статус:** Закрыто (31 дек 2025) - режим не нужен, код уже очищен
+**Статус:** Закрыто (31 дек 2025) — режим не нужен, код уже очищен
 
 ---
 
 ## Приоритет: Средний
 
-### Orb bite threshold vs max-bite - нужны раздельные параметры
+### Orb bite threshold vs max-bite — нужны раздельные параметры
 **Задача:** Разделить порог входа в bite-режим и максимальную массу для bite
 
 **Контекст:**
@@ -145,7 +144,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 - `config/balance.json`
 - `server/src/rooms/ArenaRoom.ts` — orb collision logic
 
-**Статус:** Ожидает дизайн-решения
+**Статус:** Закрыто (2 янв 2026) — параметры добавлены и используются
 
 ---
 
@@ -231,7 +230,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 **Файлы:**
 - `server/src/rooms/ArenaRoom.ts` — `activateDash()`, строки 641-644
 
-**Статус:** Закрыто (31 дек 2025) - обновлено с clampPointToWorld
+**Статус:** Закрыто (31 дек 2025) — обновлено с clampPointToWorld
 
 ---
 
