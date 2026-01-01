@@ -7,6 +7,21 @@
 
 **GDD обновлён до v3.3** - модульный пакет документов.
 
+### ✅ Аудит технического долга (сессия)
+Уточнён и актуализирован список техдолга:
+- **Оставлено в техдолге:** `BoostSystem`, сложные таланты (`sense`, `regeneration`, `momentum`, `berserk`, `symbiosisBubbles`), зоны и препятствия арены.
+- **Открытые пункты:** раздельные пороги для orb bite, рефакторинг `ArenaRoom.ts`, устаревшая документация UI, юнит-тесты.
+- **Закрытые пункты:** PvP mass инвариант, freeze Results, dash clamp, JSDoc для `applyMassDelta`, режим джойстика.
+
+### План ближайших работ
+1. **Документация UI:** обновить `.memory_bank/ui_extension/components/hud.md` и `.memory_bank/ui_extension/components/talent_modal.md` под текущие поля (`mass`, `pendingTalentCard`, `pendingTalentCount`).
+2. **Orb bite пороги:** добавить `orbBiteMinMass` и `orbBiteMaxMass` в `config/balance.json` и `shared/src/config.ts`, обновить логику укуса орбов в `server/src/rooms/ArenaRoom.ts`.
+3. **Рефакторинг ArenaRoom.ts (подготовка):** зафиксировать разбиение на модули и перечень систем без реализации (техническое проектирование).
+
+**Статус плана:** выполнены шаги 1-3 (UI-документация, пороги orb bite, план рефакторинга `ArenaRoom.ts`).
+
+**Opus замечания:** добавлено пояснение про GCD при раннем выходе из `tryEatOrb()` и комментарий к `orbBiteMaxMass`.
+
 ### ✅ Пакет техдолга 1 (ветка `fix/tech-debt-batch-1`, 2 янв 2026)
 Исправлены задачи из TECH_DEBT.md + замечания Codex review:
 
