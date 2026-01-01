@@ -34,7 +34,7 @@
    - Точки данных: `state.phase`, `timeRemaining`.
 
 ## Порядок вызовов (черновик)
-1. Input → AbilitySystem
+1. Input -> AbilitySystem
 2. PhysicsSystem
 3. CollisionSystem
 4. CombatSystem
@@ -48,6 +48,70 @@
 - Скрытые зависимости через общие поля `Player`.
 - Детерминизм при переносе логики.
 
-## Артефакты следующего шага
-- Карта функций `ArenaRoom.ts` → система.
-- Список общих утилит в `helpers/`.
+## Карта функций (черновик)
+### PhaseSystem
+- `handlePhaseChange()`
+- `phaseSystem()`
+- `resetMatch()`
+- `restartMatch()`
+
+### AbilitySystem
+- `activateAbility()`
+- `activateDash()`
+- `activateShield()`
+- `activateSlow()`
+- `activateMagnet()`
+- `activatePull()`
+- `activateProjectile()`
+- `activateSpit()`
+- `activateBomb()`
+- `activatePush()`
+- `activateMine()`
+- `projectileSystem()`
+- `mineSystem()`
+
+### PhysicsSystem
+- `physicsSystem()`
+- `applyWorldBounds()`
+- `applySpeedCap()`
+- `getSlimeInertiaForPlayer()`
+
+### CollisionSystem
+- `collisionSystem()`
+- `orbOrbCollisions()`
+- `slimeSlimeCollisions()`
+- `slimeChestCollisions()`
+
+### CombatSystem
+- `processCombat()`
+- `applyProjectileDamage()`
+- `applySelfDamage()`
+- `statusEffectSystem()`
+- `spawnPvPBiteOrbs()`
+
+### PickupSystem
+- `tryEatOrb()`
+- `updateOrbs()`
+
+### TalentSystem
+- `talentCardSystem()`
+- `applyTalentCardChoice()`
+- `addTalentToPlayer()`
+- `generateTalentCard()`
+- `tryGenerateNextTalentCard()`
+- `awardTalentToPlayer()`
+- `recalculateTalentModifiers()`
+
+### ChestSystem
+- `spawnChest()`
+- `chestSystem()`
+- `openChest()`
+
+## Общие утилиты (helpers)
+- `randomPointInMap()`
+- `clampPointToWorld()`
+- `secondsToTicks()`
+- `msToTicks()`
+- `getTalentConfig()`
+- `getTalentRarity()`
+- `getClassName()`
