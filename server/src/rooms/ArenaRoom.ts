@@ -321,7 +321,7 @@ export class ArenaRoom extends Room<GameState> {
         const validSizes = mapSizes.filter((size) => Number.isFinite(size) && size > 0);
         if (validSizes.length === 0) return;
 
-        const chosen = validSizes[this.rng.int(0, validSizes.length)];
+        const chosen = validSizes[Math.floor(this.rng.next() * validSizes.length)];
         if (!Number.isFinite(chosen) || chosen <= 0) return;
 
         this.balance.world.mapSize = chosen;
@@ -2305,28 +2305,35 @@ export class ArenaRoom extends Room<GameState> {
 
     private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
         const available = this.getAvailableTalentsByRarity(player);
-        if (
-            available.common.length === 0 &&
-            available.rare.length === 0 &&
-            available.epic.length === 0
-        ) {
+        const rarityPools = [available.common, available.rare, available.epic];
+        if (rarityPools[0].length === 0 && rarityPools[1].length === 0 && rarityPools[2].length === 0) {
             return false;
         }
 
         const weights = this.balance.chests.rewards.talentRarityWeights[chestTypeId];
-        const pickedRarity = this.pickTalentRarity(weights);
-        const rarityOrder = pickedRarity === 2 ? [2, 1, 0] : pickedRarity === 1 ? [1, 0] : [0];
-        const rarityPools = [available.common, available.rare, available.epic];
-
-        for (const rarity of rarityOrder) {
-            const pool = rarityPools[rarity];
-            if (pool.length === 0) continue;
-            const choice = pool[Math.floor(this.rng.next() * pool.length)];
-            this.addTalentToPlayer(player, choice);
-            return true;
+        const rarityWeights = [weights.common, weights.rare, weights.epic];
+        const availableRarities = [0, 1, 2].filter((rarity) => rarityPools[rarity].length > 0);
+        const totalWeight = availableRarities.reduce(
+            (sum, rarity) => sum + Math.max(0, rarityWeights[rarity] ?? 0),
+            0
+        );
+        let chosenRarity = availableRarities[0] ?? 0;
+        if (totalWeight > 0) {
+            let roll = this.rng.next() * totalWeight;
+            for (const rarity of availableRarities) {
+                roll -= Math.max(0, rarityWeights[rarity] ?? 0);
+                if (roll < 0) {
+                    chosenRarity = rarity;
+                    break;
+                }
+            }
+        } else if (availableRarities.length > 0) {
+            chosenRarity = availableRarities[Math.floor(this.rng.next() * availableRarities.length)];
         }
-
-        return false;
+        const pool = rarityPools[chosenRarity];
+        const choice = pool[Math.floor(this.rng.next() * pool.length)];
+        this.addTalentToPlayer(player, choice);
+        return true;
     }
 
     private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {

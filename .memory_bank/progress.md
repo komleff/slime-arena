@@ -10,7 +10,9 @@
 - Реализован BoostSystem из сундуков: `rage`, `haste`, `guard`, `greed`, таймеры и заряды.
 - Добавлена поддержка `world.mapSizes` и выбор размера карты при создании комнаты.
 - HUD показывает активное усиление (тип, время, заряды).
+- Уточнена логика наград сундуков: при пустом пуле выбранной редкости берётся доступная, усиление выдаётся только при отсутствии талантов всех редкостей.
 - Обновлены `config/balance.json`, `shared/src/config.ts`, `GameState.ts`, `TECH_DEBT.md`, `README.md`.
+- Обновлены `server/src/rooms/ArenaRoom.ts`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
 
 ## План ближайших работ
 1. Телеметрия матчевых событий.
