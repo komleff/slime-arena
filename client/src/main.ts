@@ -1533,6 +1533,9 @@ type SnapshotPlayer = {
     killCount: number;
     classId: number;
     talentsAvailable: number;
+    boostType: string;
+    boostEndTick: number;
+    boostCharges: number;
     flags: number;
 };
 
@@ -1812,6 +1815,9 @@ const captureSnapshot = (state: GameStateLike) => {
             killCount: Number(player.killCount ?? 0),
             classId: Number(player.classId ?? 0),
             talentsAvailable: Number(player.talentsAvailable ?? 0),
+            boostType: String(player.boostType ?? ""),
+            boostEndTick: Number(player.boostEndTick ?? 0),
+            boostCharges: Number(player.boostCharges ?? 0),
             flags: Number(player.flags ?? 0),
         });
     }
@@ -2692,6 +2698,13 @@ async function connectToServer(playerName: string, classId: number) {
             // Симметрия с другими коллекциями
         });
 
+        const boostLabels: Record<string, string> = {
+            rage: "Ярость",
+            haste: "Ускорение",
+            guard: "Защита",
+            greed: "Жадность",
+        };
+
         const updateHud = () => {
             // Update Top Center HUD (Timer & Kills)
             const timeRem = room.state.timeRemaining ?? 0;
@@ -2723,6 +2736,22 @@ async function connectToServer(playerName: string, classId: number) {
                 // Kill count moved to center
                 if (hudPlayer.talentsAvailable > 0) {
                     lines.push(`Таланты: ${hudPlayer.talentsAvailable}`);
+                }
+                const boostType = String((hudPlayer as any).boostType ?? "");
+                if (boostType) {
+                    const boostEndTick = Number((hudPlayer as any).boostEndTick ?? 0);
+                    const boostCharges = Number((hudPlayer as any).boostCharges ?? 0);
+                    const remainingTicks = boostEndTick - Number(room.state.serverTick ?? 0);
+                    const remainingSec = remainingTicks / (balanceConfig.server.tickRate || 1);
+                    const boostName = boostLabels[boostType] ?? boostType;
+                    let boostLine = `Усиление: ${boostName}`;
+                    if (boostType === "guard" || boostType === "greed") {
+                        boostLine += ` (${Math.max(0, boostCharges)})`;
+                    }
+                    if (Number.isFinite(remainingSec) && remainingSec > 0) {
+                        boostLine += ` ${remainingSec.toFixed(1)}с`;
+                    }
+                    lines.push(boostLine);
                 }
             }
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {

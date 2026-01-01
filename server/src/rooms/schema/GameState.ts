@@ -60,6 +60,9 @@ export class Player extends Schema {
     @type({ array: Talent }) talents = new ArraySchema<Talent>();
     @type(TalentCard) pendingTalentCard: TalentCard | null = null;
     @type("number") pendingTalentCount: number = 0;  // Кол-во талантов в очереди
+    @type("string") boostType: string = "";
+    @type("number") boostEndTick: number = 0;
+    @type("number") boostCharges: number = 0;
 
     // Server-only state (not synced)
     inputX: number = 0;

@@ -23,6 +23,7 @@ import {
     SlimeConfig,
     generateUniqueName,
     TalentConfig,
+    BoostType,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
@@ -80,6 +81,7 @@ export class ArenaRoom extends Room<GameState> {
         this.balance = loadBalanceConfig();
         this.maxClients = this.balance.server.maxPlayers;
         this.rng = new Rng(Number(options.seed ?? Date.now()));
+        this.applyMapSizeConfig();
 
         this.attackCooldownTicks = this.secondsToTicks(this.balance.combat.attackCooldownSec);
         this.invulnerableTicks = this.secondsToTicks(this.balance.combat.damageInvulnSec);
@@ -314,6 +316,23 @@ export class ArenaRoom extends Room<GameState> {
         console.log("room", this.roomId, "disposing...");
     }
 
+    private applyMapSizeConfig() {
+        const mapSizes = this.balance.world.mapSizes ?? [];
+        const validSizes = mapSizes.filter((size) => Number.isFinite(size) && size > 0);
+        if (validSizes.length === 0) return;
+
+        const chosen = validSizes[this.rng.int(0, validSizes.length)];
+        if (!Number.isFinite(chosen) || chosen <= 0) return;
+
+        this.balance.world.mapSize = chosen;
+        if (this.balance.worldPhysics.worldShape === "circle") {
+            this.balance.worldPhysics.radiusM = chosen / 2;
+        } else {
+            this.balance.worldPhysics.widthM = chosen;
+            this.balance.worldPhysics.heightM = chosen;
+        }
+    }
+
     private onTick() {
         const tickStartMs = Date.now();
         this.tick += 1;
@@ -332,6 +351,7 @@ export class ArenaRoom extends Room<GameState> {
         
         this.collectInputs();
         this.applyInputs();
+        this.boostSystem();
         this.abilitySystem();
         this.abilityCardSystem();  // GDD v3.3: обработка карточек выбора умений
         this.talentCardSystem();   // GDD-Talents: обработка карточек выбора талантов
@@ -392,6 +412,31 @@ export class ArenaRoom extends Room<GameState> {
             y = y * normalized * mag;
             player.inputX = x;
             player.inputY = y;
+        }
+    }
+
+    private boostSystem() {
+        for (const player of this.state.players.values()) {
+            if (!player.boostType) continue;
+            if (
+                player.boostType !== "rage" &&
+                player.boostType !== "haste" &&
+                player.boostType !== "guard" &&
+                player.boostType !== "greed"
+            ) {
+                this.clearBoost(player);
+                continue;
+            }
+            if (player.boostEndTick > 0 && this.tick >= player.boostEndTick) {
+                this.clearBoost(player);
+                continue;
+            }
+            if (
+                (player.boostType === "guard" || player.boostType === "greed") &&
+                player.boostCharges <= 0
+            ) {
+                this.clearBoost(player);
+            }
         }
     }
 
@@ -581,9 +626,109 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(0.1, baseCooldownSec * (1 - reduction));
     }
 
+    private isBoostActive(player: Player, boostType: BoostType): boolean {
+        if (player.boostType !== boostType) return false;
+        if (player.boostEndTick > 0 && this.tick < player.boostEndTick) return true;
+        this.clearBoost(player);
+        return false;
+    }
+
+    private clearBoost(player: Player) {
+        player.boostType = "";
+        player.boostEndTick = 0;
+        player.boostCharges = 0;
+    }
+
+    private getBoostMaxCharges(boostType: BoostType): number {
+        if (boostType === "guard") {
+            return Math.max(0, Math.floor(this.balance.boosts.guard.charges));
+        }
+        if (boostType === "greed") {
+            return Math.max(0, Math.floor(this.balance.boosts.greed.charges));
+        }
+        return 0;
+    }
+
+    private getRageDamageMultiplier(player: Player): number {
+        if (!this.isBoostActive(player, "rage")) return 1;
+        return Math.max(0, this.balance.boosts.rage.damageMul);
+    }
+
+    private getHasteSpeedMultiplier(player: Player): number {
+        if (!this.isBoostActive(player, "haste")) return 1;
+        return Math.max(0, this.balance.boosts.haste.speedMul);
+    }
+
+    private tryConsumeGuard(player: Player): boolean {
+        if (!this.isBoostActive(player, "guard")) return false;
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+            return false;
+        }
+        player.boostCharges = Math.max(0, player.boostCharges - 1);
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+        }
+        return true;
+    }
+
+    private applyGreedToOrbGain(player: Player, gain: number): number {
+        if (gain <= 0) return gain;
+        if (!this.isBoostActive(player, "greed")) return gain;
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+            return gain;
+        }
+        const multiplier = Math.max(0, this.balance.boosts.greed.bubbleMassMul);
+        const boostedGain = gain * multiplier;
+        player.boostCharges = Math.max(0, player.boostCharges - 1);
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+        }
+        return boostedGain;
+    }
+
+    private getBoostDurationSec(boostType: BoostType): number {
+        switch (boostType) {
+            case "rage":
+                return this.balance.boosts.rage.durationSec;
+            case "haste":
+                return this.balance.boosts.haste.durationSec;
+            case "guard":
+                return this.balance.boosts.guard.durationSec;
+            case "greed":
+                return this.balance.boosts.greed.durationSec;
+            default:
+                return 0;
+        }
+    }
+
+    private applyBoost(player: Player, boostType: BoostType) {
+        const durationSec = this.getBoostDurationSec(boostType);
+        if (durationSec <= 0) return;
+
+        const durationTicks = this.secondsToTicks(durationSec);
+        const maxStackTicks = this.secondsToTicks(this.balance.boosts.maxStackTimeSec);
+        const maxCharges = this.getBoostMaxCharges(boostType);
+
+        if (player.boostType === boostType && player.boostEndTick > this.tick) {
+            const stackedEnd = player.boostEndTick + durationTicks;
+            const maxEnd = maxStackTicks > 0 ? this.tick + maxStackTicks : stackedEnd;
+            player.boostEndTick = Math.min(stackedEnd, maxEnd);
+            if (maxCharges > 0) {
+                player.boostCharges = Math.max(player.boostCharges, maxCharges);
+            }
+            return;
+        }
+
+        player.boostType = boostType;
+        player.boostEndTick = this.tick + durationTicks;
+        player.boostCharges = maxCharges;
+    }
+
     private getDamageBonusMultiplier(attacker: Player, includeBiteBonus: boolean): number {
         const bonus = attacker.mod_damageBonus + (includeBiteBonus ? attacker.mod_biteDamageBonus : 0);
-        return Math.max(0, 1 + bonus);
+        return Math.max(0, (1 + bonus) * this.getRageDamageMultiplier(attacker));
     }
 
     private getDamageTakenMultiplier(defender: Player): number {
@@ -1048,9 +1193,11 @@ export class ArenaRoom extends Room<GameState> {
                 slimeConfig.massScaling.speedLimitLateralMps
             );
             const speedBonus = 1 + player.mod_speedLimitBonus + player.mod_lightningSpeedBonus;
-            speedLimitForward *= speedBonus;
-            speedLimitReverse *= speedBonus;
-            speedLimitLateral *= speedBonus;
+            const hasteMultiplier = this.getHasteSpeedMultiplier(player);
+            const totalSpeedMultiplier = speedBonus * hasteMultiplier;
+            speedLimitForward *= totalSpeedMultiplier;
+            speedLimitReverse *= totalSpeedMultiplier;
+            speedLimitLateral *= totalSpeedMultiplier;
             let angularLimit = scaleSlimeValue(
                 slimeConfig.limits.angularSpeedLimitRadps,
                 mass,
@@ -1535,13 +1682,15 @@ export class ArenaRoom extends Room<GameState> {
         const canSwallow = orb.mass <= swallowThreshold;
 
         if (canSwallow || orb.mass <= this.balance.orbs.minMass) {
-            const gain = orb.mass * (1 + player.mod_orbMassBonus);
+            const baseGain = orb.mass * (1 + player.mod_orbMassBonus);
+            const gain = this.applyGreedToOrbGain(player, baseGain);
             this.applyMassDelta(player, gain);
             this.state.orbs.delete(orbId);
         } else {
             const biteMass = swallowThreshold;
             orb.mass -= biteMass;
-            const gain = biteMass * (1 + player.mod_orbMassBonus);
+            const baseGain = biteMass * (1 + player.mod_orbMassBonus);
+            const gain = this.applyGreedToOrbGain(player, baseGain);
             this.applyMassDelta(player, gain);
         }
     }
@@ -1671,6 +1820,11 @@ export class ArenaRoom extends Room<GameState> {
         // GDD v3.3: GCD после укуса слайма
         attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
 
+        if (this.tryConsumeGuard(defender)) {
+            this.clearInvisibility(attacker);
+            return;
+        }
+
         // Проверка Last Breath: если масса упадёт ниже минимума
         const newDefenderMass = defender.mass - massLoss;
         const triggersLastBreath =
@@ -1723,9 +1877,9 @@ export class ArenaRoom extends Room<GameState> {
         // Талант "Шипы" (Warrior): отражение урона атакующему
         if (defender.mod_thornsDamage > 0 && actualLoss > 0) {
             const reflectedDamage = actualLoss * defender.mod_thornsDamage;
-            this.applyMassDelta(attacker, -reflectedDamage);
-            // Scatter orbs цвета атакующего от отражённого урона
-            if (reflectedDamage > 0) {
+            if (reflectedDamage > 0 && !this.tryConsumeGuard(attacker)) {
+                this.applyMassDelta(attacker, -reflectedDamage);
+                // Scatter orbs цвета атакующего от отражённого урона
                 const scatterReflected = reflectedDamage * this.balance.combat.pvpBiteScatterPct;
                 this.spawnPvPBiteOrbs(attacker.x, attacker.y, scatterReflected, attacker.classId + 10);
             }
@@ -2027,6 +2181,10 @@ export class ArenaRoom extends Room<GameState> {
             massLoss = Math.max(0, defender.mass - minSlimeMass);
         }
         
+        if (this.tryConsumeGuard(defender)) {
+            return;
+        }
+
         // Снаряд не даёт массу атакующему (только урон)
         this.applyMassDelta(defender, -massLoss);
         defender.lastDamagedById = attacker.id;
@@ -2127,7 +2285,10 @@ export class ArenaRoom extends Room<GameState> {
 
     private openChest(player: Player, chest: Chest) {
         const chestTypeId = this.getChestTypeId(chest.type);
-        this.awardChestTalent(player, chestTypeId);
+        const awardedTalent = this.awardChestTalent(player, chestTypeId);
+        if (!awardedTalent) {
+            this.awardChestBoost(player, chestTypeId);
+        }
         this.spawnChestRewardOrbs(chestTypeId, chest.x, chest.y);
         this.state.chests.delete(chest.id);
     }
@@ -2166,6 +2327,14 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         return false;
+    }
+
+    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+        const allowedBoosts = this.balance.boosts.allowedByChestType[chestTypeId] ?? [];
+        if (allowedBoosts.length === 0) return false;
+        const choice = allowedBoosts[Math.floor(this.rng.next() * allowedBoosts.length)];
+        this.applyBoost(player, choice);
+        return true;
     }
 
     private pickTalentRarity(weights: { common: number; rare: number; epic: number }): number {
@@ -2351,6 +2520,7 @@ export class ArenaRoom extends Room<GameState> {
         player.doubleAbilityWindowEndTick = 0;
         player.doubleAbilitySlot = null;
         player.doubleAbilitySecondUsed = false;
+        this.clearBoost(player);
 
         const killerId = player.lastDamagedById;
         if (killerId) {
@@ -2420,6 +2590,10 @@ export class ArenaRoom extends Room<GameState> {
             const dy = target.y - player.y;
             const distSq = dx * dx + dy * dy;
             if (distSq > radiusSq) continue;
+
+            if (this.tryConsumeGuard(target)) {
+                continue;
+            }
 
             const damageBonusMult = this.getDamageBonusMultiplier(player, false);
             const damageTakenMult = this.getDamageTakenMultiplier(target);
@@ -2536,6 +2710,7 @@ export class ArenaRoom extends Room<GameState> {
         player.poisonTickAccumulator = 0;
         player.invisibleEndTick = 0;
         player.slowPct = 0;
+        this.clearBoost(player);
         player.doubleAbilityWindowEndTick = 0;
         player.doubleAbilitySlot = null;
         player.doubleAbilitySecondUsed = false;
@@ -2755,7 +2930,7 @@ export class ArenaRoom extends Room<GameState> {
             if (totalDamagePctPerSec <= 0) continue;
             const damageTakenMult = this.getDamageTakenMultiplier(player);
             const massLoss = player.mass * totalDamagePctPerSec * dt * damageTakenMult;
-            if (massLoss > 0) {
+            if (massLoss > 0 && !this.tryConsumeGuard(player)) {
                 this.applyMassDelta(player, -massLoss);
             }
         }
@@ -2769,7 +2944,7 @@ export class ArenaRoom extends Room<GameState> {
             if (player.poisonEndTick > this.tick && player.poisonDamagePctPerSec > 0) {
                 const damageTakenMult = this.getDamageTakenMultiplier(player);
                 const massLoss = player.mass * player.poisonDamagePctPerSec * dt * damageTakenMult;
-                if (massLoss > 0) {
+                if (massLoss > 0 && !this.tryConsumeGuard(player)) {
                     this.applyMassDelta(player, -massLoss);
                 }
             } else if (player.poisonEndTick > 0) {
@@ -3048,6 +3223,7 @@ export class ArenaRoom extends Room<GameState> {
             player.talentChoicePressed = null;
             player.talents.splice(0, player.talents.length);
             this.recalculateTalentModifiers(player);
+            this.clearBoost(player);
             
             // Сброс состояний способностей
             player.dashEndTick = 0;

@@ -10,6 +10,8 @@ export type {
     ClientNetSmoothingConfig,
     MassCurveConfig,
     TalentConfig,
+    BoostConfig,
+    BoostType,
 } from "./config.js";
 export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
 export {
