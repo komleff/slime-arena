@@ -315,6 +315,8 @@
     "minMass": 3,
     "minRadius": 2.5,
     "pushForce": 100,
+    "orbBiteMinMass": 50,
+    "orbBiteMaxMass": 100000,
     "types": [
       { "id": "green",  "weight": 45, "density": 0.2, "massRange": [10, 50] },
       { "id": "blue",   "weight": 30, "density": 0.3, "massRange": [30, 150] },

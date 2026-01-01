@@ -185,6 +185,10 @@ export interface BalanceConfig {
         minMass: number;
         minRadius: number;
         pushForce: number;
+        // Минимальная масса игрока для укуса орбов.
+        orbBiteMinMass: number;
+        // Максимальная масса игрока, учитываемая при расчёте силы укуса орба.
+        orbBiteMaxMass: number;
         types: Array<{
             id: string;
             weight: number;
@@ -702,6 +706,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         minMass: 3,
         minRadius: 2.5,
         pushForce: 100,
+        // Орбы можно кусать только начиная с этой массы.
+        orbBiteMinMass: 50,
+        // Влияние массы на силу укуса орба ограничивается этим значением.
+        // Большое значение означает фактически без верхнего ограничения.
+        orbBiteMaxMass: 100000,
         types: [
             { id: "green", weight: 40, density: 0.8, massRange: [5, 15] },
             { id: "blue", weight: 30, density: 1.0, massRange: [20, 40] },
@@ -1633,6 +1642,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ),
             minMass: readNumber(orbs.minMass, DEFAULT_BALANCE_CONFIG.orbs.minMass, "orbs.minMass"),
             minRadius: readNumber(orbs.minRadius, DEFAULT_BALANCE_CONFIG.orbs.minRadius, "orbs.minRadius"),
+            orbBiteMinMass: readNumber(
+                orbs.orbBiteMinMass,
+                DEFAULT_BALANCE_CONFIG.orbs.orbBiteMinMass,
+                "orbs.orbBiteMinMass"
+            ),
+            orbBiteMaxMass: readNumber(
+                orbs.orbBiteMaxMass,
+                DEFAULT_BALANCE_CONFIG.orbs.orbBiteMaxMass,
+                "orbs.orbBiteMaxMass"
+            ),
             types: (() => {
                 if (!Array.isArray(orbs.types)) return DEFAULT_BALANCE_CONFIG.orbs.types;
                 return orbs.types.map((entry: unknown, index: number) => {

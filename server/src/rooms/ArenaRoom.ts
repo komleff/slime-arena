@@ -1522,11 +1522,16 @@ export class ArenaRoom extends Room<GameState> {
 
         const slimeConfig = this.getSlimeConfig(player);
         const classStats = this.getClassStats(player);
+        const orbBiteMinMass = this.balance.orbs.orbBiteMinMass;
+        const orbBiteMaxMass = this.balance.orbs.orbBiteMaxMass;
+        // GCD ставится при попытке укуса, даже если масса ниже порога.
+        if (player.mass < orbBiteMinMass) return;
         const bitePct = slimeConfig.combat.orbBitePctOfMass * classStats.eatingPowerMult;
 
         // Если orb.mass <= bitePct * player.mass - проглотить целиком
         // Иначе - откусить bitePct * player.mass
-        const swallowThreshold = player.mass * bitePct;
+        const effectiveMass = Math.min(player.mass, orbBiteMaxMass);
+        const swallowThreshold = effectiveMass * bitePct;
         const canSwallow = orb.mass <= swallowThreshold;
 
         if (canSwallow || orb.mass <= this.balance.orbs.minMass) {
