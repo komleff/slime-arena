@@ -14,6 +14,10 @@
 - `player.level`: Текущий уровень.
 - `player.killCount`: Количество убийств.
 - `player.pendingTalentCount`: Размер очереди карточек талантов.
+- `player.boostType`: Тип активного усиления (`rage`, `haste`, `guard`, `greed`).
+- `player.boostEndTick`: Тик окончания усиления.
+- `player.boostCharges`: Заряды усиления (`guard`, `greed`).
+- `state.serverTick`: Текущий тик сервера (для расчёта времени).
 
 ## Зависимости
 - DOM API.

@@ -1,6 +1,7 @@
 {
   "world": {
-    "mapSize": 1000
+    "mapSize": 1000,
+    "mapSizes": [800, 1200, 1600]
   },
   "server": {
     "maxPlayers": 20,
@@ -450,6 +451,18 @@
         "epic": { "common": 30, "rare": 60, "epic": 10 },
         "gold": { "common": 0, "rare": 40, "epic": 60 }
       }
+    }
+  },
+  "boosts": {
+    "maxStackTimeSec": 20,
+    "rage": { "durationSec": 10, "damageMul": 1.25 },
+    "haste": { "durationSec": 10, "speedMul": 1.30 },
+    "guard": { "durationSec": 15, "charges": 1 },
+    "greed": { "durationSec": 15, "bubbleMassMul": 2.0, "charges": 3 },
+    "allowedByChestType": {
+      "rare": ["haste", "guard"],
+      "epic": ["rage", "haste", "guard"],
+      "gold": ["greed", "rage", "guard"]
     }
   },
   "hotZones": {

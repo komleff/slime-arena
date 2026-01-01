@@ -22,6 +22,34 @@ export interface MassCurveConfig {
     maxValue?: number;
 }
 
+export type BoostType = "rage" | "haste" | "guard" | "greed";
+
+export interface BoostConfig {
+    maxStackTimeSec: number;
+    rage: {
+        durationSec: number;
+        damageMul: number;
+    };
+    haste: {
+        durationSec: number;
+        speedMul: number;
+    };
+    guard: {
+        durationSec: number;
+        charges: number;
+    };
+    greed: {
+        durationSec: number;
+        bubbleMassMul: number;
+        charges: number;
+    };
+    allowedByChestType: {
+        rare: BoostType[];
+        epic: BoostType[];
+        gold: BoostType[];
+    };
+}
+
 export interface SlimeConfig {
     id: string;
     name: string;
@@ -102,6 +130,7 @@ export interface ClientNetSmoothingConfig {
 export interface BalanceConfig {
     world: {
         mapSize: number;
+        mapSizes: number[];
     };
     server: {
         maxPlayers: number;
@@ -324,6 +353,7 @@ export interface BalanceConfig {
             Final?: { rare: number; epic: number; gold: number };
         };
     };
+    boosts: BoostConfig;
     hotZones: {
         chaosCount: number;
         finalCount: number;
@@ -388,6 +418,7 @@ export interface ResolvedBalanceConfig extends BalanceConfig {
 export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     world: {
         mapSize: 1000,
+        mapSizes: [],
     },
     server: {
         maxPlayers: 20,
@@ -836,6 +867,31 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             },
         },
     },
+    boosts: {
+        maxStackTimeSec: 20,
+        rage: {
+            durationSec: 10,
+            damageMul: 1.25,
+        },
+        haste: {
+            durationSec: 10,
+            speedMul: 1.3,
+        },
+        guard: {
+            durationSec: 15,
+            charges: 1,
+        },
+        greed: {
+            durationSec: 15,
+            bubbleMassMul: 2.0,
+            charges: 3,
+        },
+        allowedByChestType: {
+            rare: ["haste", "guard"],
+            epic: ["rage", "haste", "guard"],
+            gold: ["greed", "rage", "guard"],
+        },
+    },
     hotZones: {
         chaosCount: 2,
         finalCount: 1,
@@ -975,6 +1031,18 @@ function readStringArray(value: unknown, fallback: string[], path: string): stri
             throw new Error(`Invalid string at ${path}[${index}]`);
         }
         return item;
+    });
+}
+
+const BOOST_TYPES: BoostType[] = ["rage", "haste", "guard", "greed"];
+
+function readBoostTypeArray(value: unknown, fallback: BoostType[], path: string): BoostType[] {
+    const items = readStringArray(value, fallback, path);
+    return items.map((item, index) => {
+        if (!BOOST_TYPES.includes(item as BoostType)) {
+            throw new Error(`Invalid boost type at ${path}[${index}]`);
+        }
+        return item as BoostType;
     });
 }
 
@@ -1264,6 +1332,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const formulas = isRecord(data.formulas) ? data.formulas : {};
     const classes = isRecord(data.classes) ? data.classes : {};
     const chests = isRecord(data.chests) ? data.chests : {};
+    const boosts = isRecord(data.boosts) ? data.boosts : {};
     const hotZones = isRecord(data.hotZones) ? data.hotZones : {};
     const toxicPools = isRecord(data.toxicPools) ? data.toxicPools : {};
     const hunger = isRecord(data.hunger) ? data.hunger : {};
@@ -1284,11 +1353,22 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const chestRewardWeights = isRecord(chestRewards.talentRarityWeights)
         ? chestRewards.talentRarityWeights
         : {};
+    const boostAllowedByChestType = isRecord(boosts.allowedByChestType) ? boosts.allowedByChestType : {};
+    const boostRage = isRecord(boosts.rage) ? boosts.rage : {};
+    const boostHaste = isRecord(boosts.haste) ? boosts.haste : {};
+    const boostGuard = isRecord(boosts.guard) ? boosts.guard : {};
+    const boostGreed = isRecord(boosts.greed) ? boosts.greed : {};
     const worldMapSize = readNumber(world.mapSize, DEFAULT_BALANCE_CONFIG.world.mapSize, "world.mapSize");
+    const worldMapSizes = readNumberArray(
+        world.mapSizes,
+        DEFAULT_BALANCE_CONFIG.world.mapSizes,
+        "world.mapSizes"
+    ).filter((value) => Number.isFinite(value) && value > 0);
 
     const resolved: BalanceConfig = {
         world: {
             mapSize: worldMapSize,
+            mapSizes: worldMapSizes,
         },
         server: {
             maxPlayers: readNumber(server.maxPlayers, DEFAULT_BALANCE_CONFIG.server.maxPlayers, "server.maxPlayers"),
@@ -1917,6 +1997,83 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             // GDD v3.3: типы сундуков и фазовые веса
             types: isRecord(chests.types) ? chests.types as BalanceConfig["chests"]["types"] : undefined,
             phaseWeights: isRecord(chests.phaseWeights) ? chests.phaseWeights as BalanceConfig["chests"]["phaseWeights"] : undefined,
+        },
+        boosts: {
+            maxStackTimeSec: readNumber(
+                boosts.maxStackTimeSec,
+                DEFAULT_BALANCE_CONFIG.boosts.maxStackTimeSec,
+                "boosts.maxStackTimeSec"
+            ),
+            rage: {
+                durationSec: readNumber(
+                    boostRage.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.rage.durationSec,
+                    "boosts.rage.durationSec"
+                ),
+                damageMul: readNumber(
+                    boostRage.damageMul,
+                    DEFAULT_BALANCE_CONFIG.boosts.rage.damageMul,
+                    "boosts.rage.damageMul"
+                ),
+            },
+            haste: {
+                durationSec: readNumber(
+                    boostHaste.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.haste.durationSec,
+                    "boosts.haste.durationSec"
+                ),
+                speedMul: readNumber(
+                    boostHaste.speedMul,
+                    DEFAULT_BALANCE_CONFIG.boosts.haste.speedMul,
+                    "boosts.haste.speedMul"
+                ),
+            },
+            guard: {
+                durationSec: readNumber(
+                    boostGuard.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.guard.durationSec,
+                    "boosts.guard.durationSec"
+                ),
+                charges: readNumber(
+                    boostGuard.charges,
+                    DEFAULT_BALANCE_CONFIG.boosts.guard.charges,
+                    "boosts.guard.charges"
+                ),
+            },
+            greed: {
+                durationSec: readNumber(
+                    boostGreed.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.greed.durationSec,
+                    "boosts.greed.durationSec"
+                ),
+                bubbleMassMul: readNumber(
+                    boostGreed.bubbleMassMul,
+                    DEFAULT_BALANCE_CONFIG.boosts.greed.bubbleMassMul,
+                    "boosts.greed.bubbleMassMul"
+                ),
+                charges: readNumber(
+                    boostGreed.charges,
+                    DEFAULT_BALANCE_CONFIG.boosts.greed.charges,
+                    "boosts.greed.charges"
+                ),
+            },
+            allowedByChestType: {
+                rare: readBoostTypeArray(
+                    boostAllowedByChestType.rare,
+                    DEFAULT_BALANCE_CONFIG.boosts.allowedByChestType.rare,
+                    "boosts.allowedByChestType.rare"
+                ),
+                epic: readBoostTypeArray(
+                    boostAllowedByChestType.epic,
+                    DEFAULT_BALANCE_CONFIG.boosts.allowedByChestType.epic,
+                    "boosts.allowedByChestType.epic"
+                ),
+                gold: readBoostTypeArray(
+                    boostAllowedByChestType.gold,
+                    DEFAULT_BALANCE_CONFIG.boosts.allowedByChestType.gold,
+                    "boosts.allowedByChestType.gold"
+                ),
+            },
         },
         hotZones: {
             chaosCount: readNumber(

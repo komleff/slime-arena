@@ -4,11 +4,9 @@
 
 ## Итог аудита (янв 2026)
 Актуальные пункты технического долга:
-- **BoostSystem (GDD v3.3 8)**: временные усиления из зон, нет реализации.
 - **Сложные таланты**: `sense`, `regeneration`, `momentum`, `berserk`, `symbiosisBubbles`.
 - **Зоны и препятствия арены (GDD-Arena)**: эффекты зон и препятствия не реализованы.
 - **Рефакторинг ArenaRoom.ts**: выделение систем в отдельные модули.
-- **Документация UI**: `hud.md` и `talent_modal.md` используют устаревшие поля (`hp`, `talentsAvailable`).
 - **Тесты**: нет юнит-тестов для новых модулей.
 - **Дрифт механика**: низкий приоритет, не реализовано.
 
@@ -169,14 +167,16 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 **Задача:** Обновить описания `hud.md` и `talent_modal.md` под текущие поля.
 
 **Контекст:**
-- `hud.md` использует `player.hp` и `player.maxHp`.
-- `talent_modal.md` использует `talentsAvailable`, хотя в коде используется `pendingTalentCard` и `pendingTalentCount`.
+- Документация должна соответствовать текущим полям `GameState` и UI.
+
+**Решение:**
+- `hud.md` и `talent_modal.md` синхронизированы с актуальными полями.
 
 **Файлы:**
 - `.memory_bank/ui_extension/components/hud.md`
 - `.memory_bank/ui_extension/components/talent_modal.md`
 
-**Статус:** Отложено
+**Статус:** Закрыто
 
 ---
 
@@ -274,23 +274,27 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 ---
 
-### BoostSystem (GDD v3.3 §8)
+### BoostSystem (GDD v3.3 8)
 **Задача:** Реализовать систему усилений (Boosts)
 
 **Контекст:**
-- GDD v3.3 секция 8 описывает систему Boosts (временные усиления из горячих зон)
-- Отложено при аудите Codex для фокуса на талантах
+- GDD-Chests.md описывает усиления как запасную награду при отсутствии доступных талантов.
+- До реализации усилений сундуки могли выдавать только таланты.
 
 **Решение:**
-- Реализовать HotZone → Boost привязку
-- Добавить временные модификаторы с таймером
+- Добавлена конфигурация `boosts` и выбор усиления по `chestType`.
+- Реализованы `rage`, `haste`, `guard`, `greed` с таймером и стеками.
+- Эффекты: урон, скорость, поглощение урона, бонус массы орбов.
+- Усиления сбрасываются при смерти и перезапуске матча.
 
 **Файлы:**
-- `server/src/rooms/ArenaRoom.ts` — boostSystem(), applyBoost()
-- `config/balance.json` — boosts конфигурация
-- `shared/src/config.ts` — BoostConfig интерфейс
+- `server/src/rooms/ArenaRoom.ts` - `boostSystem()`, выдача и применение усилений
+- `server/src/rooms/schema/GameState.ts` - поля `boostType`, `boostEndTick`, `boostCharges`
+- `config/balance.json` - секция `boosts`
+- `shared/src/config.ts` - типы и парсинг `boosts`
+- `client/src/main.ts` - HUD-строка активного усиления
 
-**Статус:** Планируется после талантов
+**Статус:** Закрыто
 
 ---
 
