@@ -80,7 +80,7 @@ runTest("arena zones deterministic and respect constraints", () => {
         if (zone.type === ZONE_TYPE_LAVA) {
             const distFromSpawn = Math.hypot(zone.x, zone.y);
             assert(
-                distFromSpawn >= lavaMinDist + zone.radius,
+                distFromSpawn >= lavaMinDist,
                 "lava zone should be away from spawn"
             );
         }

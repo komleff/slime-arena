@@ -2392,6 +2392,7 @@ export class ArenaRoom extends Room<GameState> {
             zone.type = zoneSeed.type;
             this.state.zones.set(zone.id, zone);
         }
+        // Препятствия могут пересекаться с зонами, это допустимо по дизайну.
         const obstacles = generateObstacleSeeds(this.rng, world, mapSize, this.balance.obstacles);
         for (const obstacle of obstacles) {
             this.addObstacle(obstacle.type, obstacle.x, obstacle.y, obstacle.radius);
@@ -2411,7 +2412,7 @@ export class ArenaRoom extends Room<GameState> {
         return true;
     }
 
-    private isPointInsideZoneType(x: number, y: number, radius: number, zoneType: number): boolean {
+    private isPointNearZoneType(x: number, y: number, radius: number, zoneType: number): boolean {
         const safeRadius = Math.max(0, radius);
         for (const zone of this.state.zones.values()) {
             if (zone.type !== zoneType) continue;
@@ -2445,7 +2446,7 @@ export class ArenaRoom extends Room<GameState> {
         const isValid = (point: { x: number; y: number }) =>
             isInsideWorld(world, mapSize, point.x, point.y, safeRadius) &&
             this.isPointFreeOfObstacles(point.x, point.y, safeRadius, safePadding) &&
-            !this.isPointInsideZoneType(point.x, point.y, safeRadius, ZONE_TYPE_LAVA);
+            !this.isPointNearZoneType(point.x, point.y, safeRadius, ZONE_TYPE_LAVA);
 
         if (preferred && isValid(preferred)) {
             return preferred;

@@ -209,7 +209,6 @@ export function mineSystem(room: any) {
         }
 
         const owner = room.state.players.get(mine.ownerId);
-        const radiusSq = mine.radius * mine.radius;
 
         // Проверка коллизий со всеми игроками (включая владельца)
         for (const player of room.state.players.values()) {
