@@ -124,6 +124,7 @@ export function zoneEffectSystem(room: any) {
         const zone = room.getZoneForPlayer(player);
         if (!zone) continue;
 
+        // Лёд и турбо влияют на движение через множители в movementSystems.ts.
         if (zone.type === ZONE_TYPE_NECTAR) {
             if (player.isLastBreath) continue;
             const gainPct = Math.max(0, room.balance.zones.nectar.massGainPctPerSec);

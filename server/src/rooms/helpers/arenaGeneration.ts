@@ -259,6 +259,7 @@ export function generateZoneSeeds(
         return false;
     };
 
+    let failedCount = 0;
     for (let i = 0; i < count; i += 1) {
         let placed = false;
         for (let attempt = 0; attempt < retries; attempt += 1) {
@@ -286,8 +287,12 @@ export function generateZoneSeeds(
             break;
         }
         if (!placed) {
-            console.warn("Не удалось разместить зону");
+            failedCount += 1;
         }
+    }
+
+    if (failedCount > 0) {
+        console.warn(`Не удалось разместить зон: ${failedCount}`);
     }
 
     return zones;
