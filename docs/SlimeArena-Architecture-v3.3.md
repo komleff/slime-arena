@@ -66,7 +66,7 @@
 | Компонент | Технология |
 |-----------|------------|
 | База данных | PostgreSQL |
-| ORM | Prisma |
+| Библиотека | pg (node-postgres) |
 | Кеш | Redis (опционально) |
 
 ### 2.4. Инфраструктура
@@ -103,15 +103,15 @@
 | Модуль | Назначение |
 |--------|------------|
 | `MatchService` | Поиск/создание матчей |
-| `MatchRoom` | Игровая сессия: мир, игроки, таймеры |
+| `ArenaRoom` | Игровая сессия: мир, игроки, таймеры |
 | `systems/*` | Симуляция: движение, столкновения, боёвка, спавн |
-| `abilities/*` | Умения, кулдауны, GCD, очередь |
+| `abilities/*` | Умения, кулдауны, GCD, уровни (1–3) |
 | `talents/*` | Таланты, уровни, карточки |
 | `chests/*` | Сундуки, обручи, награды |
 | `boosts/*` | Усиления, длительность, стеки |
 | `arena/*` | Зоны эффектов, препятствия, безопасные зоны |
 | `meta/api/*` | HTTP API: профиль, валюта, магазин |
-| `meta/persistence/*` | Доступ к БД |
+| `meta/persistence/*` | Доступ к БД (pg) |
 | `telemetry/*` | Логи, метрики, события |
 
 ### 4.2. Клиент
@@ -142,22 +142,31 @@
 
 | Порядок | Система | Назначение |
 |---------|---------|------------|
-| 1 | `CollectInputs` | Сбор команд |
-| 2 | `ApplyInputs` | Валидация ввода |
-| 3 | `AbilitySystem` | Кулдауны, `gcdTicks=3` (100 мс при 30 Гц), очередь |
-| 4 | `FlightAssistSystem` | Силы/моменты по джойстику |
-| 5 | `PhysicsSystem` | Интеграция, сопротивление |
-| 6 | `CollisionSystem` | Круг-круг, круг-граница, импульсы |
-| 7 | `ZoneSystem` | Эффекты зон (Нектар, Лёд, Слизь, Лава, Турбо) |
-| 8 | `CombatSystem` | Урон, i-frames, эффекты контроля |
-| 9 | `PickupSystem` | Укус пузырей |
-| 10 | `ChestSystem` | Физика сундуков, обручи, награды |
-| 11 | `BoostSystem` | Усиления: длительность, стеки, эффекты |
-| 12 | `TalentSystem` | Карточки, очередь, автовыбор |
-| 13 | `DeathSystem` | Гибель, респаун, респаун-щит |
-| 14 | `SafeZoneSystem` | Безопасные зоны, урон вне зон (финал) |
-| 15 | `KingSystem` | Назначение Короля |
-| 16 | `SnapshotSystem` | Рассылка состояния |
+| 1 | `updateMatchPhase` | Переключение фаз (Growth, Hunt, Final, Results) |
+| 2 | `collectInputs` | Сбор команд от клиентов |
+| 3 | `applyInputs` | Валидация и применение векторов движения |
+| 4 | `boostSystem` | Усиления: длительность, стеки, эффекты |
+| 5 | `abilitySystem` | Умения, кулдауны, GCD, уровни (1–3) |
+| 6 | `abilityCardSystem` | Выбор умений (слоты 2 и 3) |
+| 7 | `talentCardSystem` | Выбор талантов, очередь, автовыбор |
+| 8 | `updateOrbs` | Спавн и движение пузырей |
+| 9 | `updateChests` | Спавн и движение сундуков |
+| 10 | `toxicPoolSystem` | Урон от посмертных луж |
+| 11 | `slowZoneSystem` | Зоны замедления (умение Собирателя) |
+| 12 | `flightAssistSystem` | Силы/моменты по джойстику, учёт замедления |
+| 13 | `physicsSystem` | Интеграция, сопротивление, лимиты скорости |
+| 14 | `collisionSystem` | Круг-круг, круг-граница, импульсы |
+| 15 | `projectileSystem` | Движение и столкновения снарядов |
+| 16 | `mineSystem` | Логика мин |
+| 17 | `chestSystem` | Физика сундуков, обручи, награды |
+| 18 | `statusEffectSystem` | Оглушение, невидимость, отравление |
+| 19 | `zoneEffectSystem` | Эффекты аренных зон (Нектар, Лёд, Лава, Турбо) |
+| 20 | `deathSystem` | Гибель, респаун, респаун-щит |
+| 21 | `hungerSystem` | Потеря массы со временем (фазы Hunt/Final) |
+| 22 | `safeZoneSystem` | Безопасные зоны, урон вне зон |
+| 23 | `rebelSystem` | Назначение Короля (Rebel) |
+| 24 | `updatePlayerFlags` | Обновление битовых масок состояния |
+| 25 | `SnapshotSystem` | Рассылка состояния (Colyseus) |
 
 ### 5.2. Детерминизм
 
@@ -173,22 +182,22 @@
 
 | Сущность | Описание |
 |----------|----------|
-| `SlimeEntity` | Игрок или бот |
-| `OrbEntity` | Пузырь (масса + цвет + плотность) |
-| `ProjectileEntity` | Снаряд умения |
-| `ChestEntity` | Сундук (тип, обручи, физика) |
-| `ZoneEntity` | Зона эффекта (Нектар, Лёд, Слизь, Лава, Турбо) |
-| `ObstacleEntity` | Препятствие (проход, столб, шипы) |
-| `SafeZoneEntity` | Безопасная зона (финал) |
-| `MineEntity` | Мина (умение) |
+| `Player` | Игрок или бот |
+| `Orb` | Пузырь (масса + цвет + плотность) |
+| `Projectile` | Снаряд умения |
+| `Chest` | Сундук (тип, обручи, физика) |
+| `Zone` | Зона эффекта (Нектар, Лёд, Слизь, Лава, Турбо) |
+| `Obstacle` | Препятствие (проход, столб, шипы) |
+| `SafeZone` | Безопасная зона (финал) |
+| `Mine` | Мина (умение) |
 
 ### 6.2. Ключевые параметры (из config)
 
 **SlimeConfig:**
-- Геометрия: `baseMassKg=100`, `baseRadiusM=10`, `slimeDensity=0.318`
+- Геометрия: `initialMass=100`, `minSlimeMass=50`, `slimeDensity=0.318`
 - Движение: `thrustForwardN`, `thrustReverseN`, `thrustLateralN`, `turnTorqueNm`
 - Лимиты: `speedLimitForwardMps=260`, `speedLimitReverseMps=180`, `speedLimitLateralMps=220`
-- Боевые: `biteMassPercent=0.10`, `invulnAfterDamageSec=0.2`
+- Боевые: `pvpBiteMassPercent=0.10`, `invulnerableTicks=6` (200 мс)
 
 **WorldPhysicsConfig:**
 - `linearDragK`, `angularDragK`
@@ -196,8 +205,8 @@
 - Размеры карт: 800×800, 1200×1200, 1600×1600
 
 **ChestConfig:**
-- `chestSpawnIntervalSec`: 18–26
-- `chestMaxAliveTotal`: 3
+- `spawnIntervalSec`: 18–26
+- `maxAliveTotal`: 3
 - `chestLifeTimeSec`: 35
 - Обручи: rare=0, epic=1, gold=2
 
