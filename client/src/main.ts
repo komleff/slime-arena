@@ -2875,21 +2875,29 @@ async function connectToServer(playerName: string, classId: number) {
 
             const statePlayer = room.state.players.get(room.sessionId);
             if (statePlayer) {
-                const hasPending =
-                    Boolean(statePlayer.pendingAbilityCard?.option0) ||
-                    Boolean(statePlayer.pendingTalentCard?.option0) ||
-                    ((statePlayer.pendingCardCount ?? 0) + (statePlayer.pendingTalentCount ?? 0) > 0);
-                const currentMass = Number(statePlayer.mass ?? 0);
-                const tookDamage = lastLocalMass > 0 && currentMass < lastLocalMass - 0.01;
-                if (tookDamage) {
-                    lastDamageTimeMs = performance.now();
-                }
-                if (hasPending && tookDamage) {
-                    cardsCollapsed = true;
-                }
-                lastLocalMass = currentMass;
-                if (!hasPending) {
+                const flags = Number(statePlayer.flags ?? 0);
+                const isDead = (flags & FLAG_IS_DEAD) !== 0;
+                const hasRespawnShield = (flags & FLAG_RESPAWN_SHIELD) !== 0;
+                if (isDead || hasRespawnShield) {
                     cardsCollapsed = false;
+                    lastLocalMass = 0;
+                } else {
+                    const hasPending =
+                        Boolean(statePlayer.pendingAbilityCard?.option0) ||
+                        Boolean(statePlayer.pendingTalentCard?.option0) ||
+                        ((statePlayer.pendingCardCount ?? 0) + (statePlayer.pendingTalentCount ?? 0) > 0);
+                    const currentMass = Number(statePlayer.mass ?? 0);
+                    const tookDamage = lastLocalMass > 0 && currentMass < lastLocalMass - 0.01;
+                    if (tookDamage) {
+                        lastDamageTimeMs = performance.now();
+                    }
+                    if (hasPending && tookDamage) {
+                        cardsCollapsed = true;
+                    }
+                    lastLocalMass = currentMass;
+                    if (!hasPending) {
+                        cardsCollapsed = false;
+                    }
                 }
             }
 

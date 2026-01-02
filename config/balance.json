@@ -588,6 +588,7 @@
   "talents": {
     "cardChoiceTimeoutSec": 12,
     "cardQueueMax": 3,
+    "abilityUpgradeChance": 0.5,
     "talentPool": {
       "common": ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
       "rare": ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],

@@ -672,9 +672,19 @@ export class ArenaRoom extends Room<GameState> {
 
     private setAbilityLevelForSlot(player: Player, slot: number, level: number) {
         const value = Math.max(1, Math.min(3, Math.floor(level)));
-        if (slot === 0) player.abilityLevel0 = value;
-        if (slot === 1) player.abilityLevel1 = value;
-        if (slot === 2) player.abilityLevel2 = value;
+        if (slot === 0) {
+            player.abilityLevel0 = value;
+            return;
+        }
+        if (slot === 1) {
+            player.abilityLevel1 = value;
+            return;
+        }
+        if (slot === 2) {
+            player.abilityLevel2 = value;
+            return;
+        }
+        console.warn(`[setAbilityLevelForSlot] invalid slot ${slot}`);
     }
 
     private getAbilityLevelForAbility(player: Player, abilityId: string): number {
@@ -1021,6 +1031,7 @@ export class ArenaRoom extends Room<GameState> {
         const basePierceDamagePct = Math.max(0, Number(config.piercingDamagePct ?? 0));
         const talentPierceHits = Math.max(0, Math.round(player.mod_projectilePiercingHits || 0));
         const talentPierceDamagePct = Math.max(0, Number(player.mod_projectilePiercingDamagePct || 0));
+        // Пробивание берётся как максимум между умением и талантом, без суммирования.
         const totalPierceHits = Math.max(basePierceHits, talentPierceHits);
         const totalPierceDamagePct = Math.max(basePierceDamagePct, talentPierceDamagePct);
         if (totalPierceHits > 1) {
@@ -2014,22 +2025,25 @@ export class ArenaRoom extends Room<GameState> {
             if (target.isLastBreath) continue;
             if (this.tick < target.invulnerableUntilTick) continue;
 
-            if ((target.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                continue;
-            }
-
             const dx = target.x - player.x;
             const dy = target.y - player.y;
             const distSq = dx * dx + dy * dy;
             if (distSq > radiusSq) continue;
 
+            const damageBonusMult = this.getDamageBonusMultiplier(player, false);
+            const damageTakenMult = this.getDamageTakenMultiplier(target);
+            const baseLoss = target.mass * damagePct * damageBonusMult * damageTakenMult;
+
+            if ((target.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                this.applyShieldReflection(target, player, baseLoss);
+                continue;
+            }
+
             if (this.tryConsumeGuard(target)) {
                 continue;
             }
 
-            const damageBonusMult = this.getDamageBonusMultiplier(player, false);
-            const damageTakenMult = this.getDamageTakenMultiplier(target);
-            let massLoss = target.mass * damagePct * damageBonusMult * damageTakenMult;
+            let massLoss = baseLoss;
 
             const newMass = target.mass - massLoss;
             const triggersLastBreath =
@@ -3459,7 +3473,11 @@ export class ArenaRoom extends Room<GameState> {
         if (slotIndex < 0) return false;
         const currentLevel = this.getAbilityLevelForSlot(player, slotIndex);
         const targetLevel = Math.max(1, Math.min(3, Math.floor(level)));
-        if (currentLevel <= 0 || targetLevel <= currentLevel) return false;
+        if (currentLevel <= 0) {
+            // Неконсистентное состояние: улучшение не должно предлагаться без умения.
+            return false;
+        }
+        if (targetLevel <= currentLevel) return false;
         this.setAbilityLevelForSlot(player, slotIndex, targetLevel);
         return true;
     }
@@ -3646,6 +3664,12 @@ export class ArenaRoom extends Room<GameState> {
             }
         }
 
+        const upgradeChance = this.clamp(
+            this.balance.talents.abilityUpgradeChance ?? 0.5,
+            0,
+            1
+        );
+
         while (selected.length < 3) {
             const canPickUpgrade = abilityUpgrades.length > 0;
             const canPickTalent = allAvailable.length > 0;
@@ -3656,7 +3680,7 @@ export class ArenaRoom extends Room<GameState> {
             if (needsTalent) {
                 pickUpgradeFirst = false;
             } else if (canPickUpgrade && canPickTalent) {
-                pickUpgradeFirst = this.rng.next() < 0.5;
+                pickUpgradeFirst = this.rng.next() < upgradeChance;
             } else {
                 pickUpgradeFirst = canPickUpgrade;
             }

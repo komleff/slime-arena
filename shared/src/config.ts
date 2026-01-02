@@ -535,6 +535,7 @@ export interface BalanceConfig {
     talents: {
         cardChoiceTimeoutSec: number;
         cardQueueMax: number;
+        abilityUpgradeChance: number;
         talentPool: {
             common: string[];
             rare: string[];
@@ -1208,6 +1209,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     talents: {
         cardChoiceTimeoutSec: 12,
         cardQueueMax: 3,
+        abilityUpgradeChance: 0.5,
         talentPool: {
             common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
             rare: ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
@@ -2940,6 +2942,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     talents.cardQueueMax,
                     DEFAULT_BALANCE_CONFIG.talents.cardQueueMax,
                     "talents.cardQueueMax"
+                ),
+                abilityUpgradeChance: readNumber(
+                    talents.abilityUpgradeChance,
+                    DEFAULT_BALANCE_CONFIG.talents.abilityUpgradeChance,
+                    "talents.abilityUpgradeChance"
                 ),
                 talentPool: {
                     common: readStringArray(talentPool.common, DEFAULT_BALANCE_CONFIG.talents.talentPool.common, "talents.talentPool.common"),
