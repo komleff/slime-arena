@@ -12,6 +12,7 @@ import {
     Talent,
     TalentCard,
     Obstacle,
+    Zone,
     SafeZone,
 } from "./schema/GameState";
 import {
@@ -33,6 +34,11 @@ import {
     FLAG_STUNNED,
     FLAG_INVISIBLE,
     FLAG_LEVIATHAN,
+    ZONE_TYPE_NECTAR,
+    ZONE_TYPE_ICE,
+    ZONE_TYPE_SLIME,
+    ZONE_TYPE_LAVA,
+    ZONE_TYPE_TURBO,
     OBSTACLE_TYPE_PILLAR,
     OBSTACLE_TYPE_SPIKES,
     ResolvedBalanceConfig,
@@ -45,8 +51,31 @@ import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
 import { TelemetryService } from "../telemetry/TelemetryService";
 import {
+    abilityCardSystem,
+    abilitySystem,
+    mineSystem,
+    projectileSystem,
+} from "./systems/abilitySystem";
+import { boostSystem } from "./systems/boostSystem";
+import { chestSystem, updateChests } from "./systems/chestSystem";
+import { collisionSystem } from "./systems/collisionSystem";
+import { deathSystem } from "./systems/deathSystem";
+import {
+    slowZoneSystem,
+    statusEffectSystem,
+    toxicPoolSystem,
+    zoneEffectSystem,
+} from "./systems/effectSystems";
+import { hungerSystem } from "./systems/hungerSystem";
+import { flightAssistSystem, physicsSystem } from "./systems/movementSystems";
+import { updateOrbs, updateOrbsVisual } from "./systems/orbSystem";
+import { rebelSystem } from "./systems/rebelSystem";
+import { safeZoneSystem } from "./systems/safeZoneSystem";
+import { talentCardSystem } from "./systems/talentCardSystem";
+import {
     generateObstacleSeeds,
     generateSafeZoneSeeds,
+    generateZoneSeeds,
     isInsideWorld,
     randomPointInMapWithMargin,
 } from "./helpers/arenaGeneration";
@@ -77,6 +106,7 @@ export class ArenaRoom extends Room<GameState> {
     private projectileIdCounter = 0;
     private mineIdCounter = 0;
     private obstacleIdCounter = 0;
+    private zoneIdCounter = 0;
     private lastOrbSpawnTick = 0;
     private lastChestSpawnTick = 0;
     private lastPhaseId: MatchPhaseId | null = null;
@@ -406,6 +436,7 @@ export class ArenaRoom extends Room<GameState> {
         this.mineSystem();
         this.chestSystem();
         this.statusEffectSystem();
+        this.zoneEffectSystem();
         this.deathSystem();
         this.hungerSystem();
         this.safeZoneSystem();
@@ -457,69 +488,11 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private boostSystem() {
-        for (const player of this.state.players.values()) {
-            if (!player.boostType) continue;
-            if (
-                player.boostType !== "rage" &&
-                player.boostType !== "haste" &&
-                player.boostType !== "guard" &&
-                player.boostType !== "greed"
-            ) {
-                this.clearBoost(player);
-                continue;
-            }
-            if (player.boostEndTick > 0 && this.tick >= player.boostEndTick) {
-                this.clearBoost(player);
-                continue;
-            }
-            if (
-                (player.boostType === "guard" || player.boostType === "greed") &&
-                player.boostCharges <= 0
-            ) {
-                this.clearBoost(player);
-            }
-        }
+        boostSystem(this);
     }
 
     private abilitySystem() {
-        const currentTick = this.tick;
-        for (const player of this.state.players.values()) {
-            if (player.isDead || player.isLastBreath) {
-                player.abilitySlotPressed = null;
-                player.talentChoicePressed = null;
-                continue;
-            }
-            if (player.stunEndTick > currentTick) {
-                player.abilitySlotPressed = null;
-                player.queuedAbilitySlot = null;
-                continue;
-            }
-
-            if (player.talentChoicePressed !== null) {
-                if (player.talentsAvailable > 0) {
-                    player.talentsAvailable = Math.max(0, player.talentsAvailable - 1);
-                    this.applyTalentChoice(player, player.talentChoicePressed);
-                }
-                player.talentChoicePressed = null;
-            }
-
-            const pressed = player.abilitySlotPressed;
-            const gcdReady = currentTick >= player.gcdReadyTick;
-
-            if (gcdReady && pressed !== null) {
-                this.activateAbility(player, pressed);
-            } else if (gcdReady && player.queuedAbilitySlot !== null) {
-                this.activateAbility(player, player.queuedAbilitySlot);
-                player.queuedAbilitySlot = null;
-            } else if (!gcdReady && pressed !== null && this.balance.server.abilityQueueSize > 0) {
-                if (player.queuedAbilitySlot === null) {
-                    player.queuedAbilitySlot = pressed;
-                    player.queuedAbilityTick = currentTick;
-                }
-            }
-
-            player.abilitySlotPressed = null;
-        }
+        abilitySystem(this);
     }
 
     private activateAbility(player: Player, slot: number) {
@@ -1189,586 +1162,15 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private flightAssistSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) {
-                player.assistFx = 0;
-                player.assistFy = 0;
-                player.assistTorque = 0;
-                continue;
-            }
-
-            const slimeConfig = this.getSlimeConfig(player);
-            const classStats = this.getClassStats(player);
-            const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
-            const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
-
-            // Масштабируем параметры тяги по массе
-            let thrustForward = scaleSlimeValue(
-                slimeConfig.propulsion.thrustForwardN,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.thrustForwardN
-            );
-            let thrustReverse = scaleSlimeValue(
-                slimeConfig.propulsion.thrustReverseN,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.thrustReverseN
-            );
-            let thrustLateral = scaleSlimeValue(
-                slimeConfig.propulsion.thrustLateralN,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.thrustLateralN
-            );
-            const turnTorque = scaleSlimeValue(
-                slimeConfig.propulsion.turnTorqueNm,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.turnTorqueNm
-            );
-
-            // Таланты: бонусы к тяге
-            thrustForward *= 1 + player.mod_thrustForwardBonus;
-            thrustReverse *= 1 + player.mod_thrustReverseBonus;
-            thrustLateral *= 1 + player.mod_thrustLateralBonus;
-
-            // Таланты: бонус к повороту
-            const turnTorqueAdjusted = turnTorque * (1 + player.mod_turnBonus);
-
-            // Масштабируем лимиты скорости по массе
-            let speedLimitForward = scaleSlimeValue(
-                slimeConfig.limits.speedLimitForwardMps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.speedLimitForwardMps
-            );
-            let speedLimitReverse = scaleSlimeValue(
-                slimeConfig.limits.speedLimitReverseMps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.speedLimitReverseMps
-            );
-            let speedLimitLateral = scaleSlimeValue(
-                slimeConfig.limits.speedLimitLateralMps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.speedLimitLateralMps
-            );
-            const speedBonus = 1 + player.mod_speedLimitBonus + player.mod_lightningSpeedBonus;
-            const hasteMultiplier = this.getHasteSpeedMultiplier(player);
-            const totalSpeedMultiplier = speedBonus * hasteMultiplier;
-            speedLimitForward *= totalSpeedMultiplier;
-            speedLimitReverse *= totalSpeedMultiplier;
-            speedLimitLateral *= totalSpeedMultiplier;
-            let angularLimit = scaleSlimeValue(
-                slimeConfig.limits.angularSpeedLimitRadps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.angularSpeedLimitRadps
-            );
-
-            // Штраф last-breath применяется ко всем лимитам
-            if (player.isLastBreath) {
-                const penalty = this.balance.combat.lastBreathSpeedPenalty;
-                thrustForward *= penalty;
-                thrustReverse *= penalty;
-                thrustLateral *= penalty;
-                speedLimitForward *= penalty;
-                speedLimitReverse *= penalty;
-                speedLimitLateral *= penalty;
-                angularLimit *= penalty;
-            }
-
-            // Замедление от эффектов (SlowZone/Frost/Toxic)
-            if (player.slowPct > 0) {
-                const slowMult = 1 - player.slowPct;
-                speedLimitForward *= slowMult;
-                speedLimitReverse *= slowMult;
-                speedLimitLateral *= slowMult;
-            }
-
-            // Максимальное угловое ускорение из ТТХ
-            const maxAngularAccel = turnTorqueAdjusted / inertia;
-
-            // Читаем ввод джойстика
-            const inputX = player.inputX;
-            const inputY = player.inputY;
-            const inputMag = Math.hypot(inputX, inputY);
-            const hasInput = inputMag > slimeConfig.assist.inputMagnitudeThreshold;
-
-            // Локальные оси слайма
-            const forwardX = Math.cos(player.angle);
-            const forwardY = Math.sin(player.angle);
-            const rightX = -forwardY;
-            const rightY = forwardX;
-
-            // === ПОВОРОТ (fly-by-wire с честной физикой) ===
-            let yawCmd = 0;
-            let predictiveBraking = false; // Флаг опережающего торможения
-            
-            if (hasInput) {
-                const targetAngle = Math.atan2(inputY, inputX);
-                const angleDelta = this.normalizeAngle(targetAngle - player.angle);
-
-                const angularDeadzone = slimeConfig.assist.angularDeadzoneRad;
-                if (Math.abs(angleDelta) > angularDeadzone) {
-                    const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
-                    if (yawFull > 1e-6) {
-                        // Опережающее торможение (U2 FA:ON стиль):
-                        // Учитываем пассивное демпфирование angularDragK при расчёте stoppingAngle
-                        // effectiveDecel = maxAngularAccel + angularDragK * |angVel| (примерно)
-                        const angularDragK = this.balance.worldPhysics.angularDragK;
-                        const effectiveDecel = maxAngularAccel + angularDragK * Math.abs(player.angVel);
-                        const stoppingAngle = (player.angVel * player.angVel) / (2 * effectiveDecel + 1e-6);
-                        const movingTowardsTarget = (player.angVel > 0 && angleDelta > 0) || (player.angVel < 0 && angleDelta < 0);
-                        
-                        if (movingTowardsTarget && stoppingAngle >= Math.abs(angleDelta)) {
-                            // Перелёт неизбежен → тормозим
-                            predictiveBraking = true;
-                            yawCmd = 0;
-                            // Очищаем историю осцилляций при торможении
-                            player.yawSignHistory.length = 0;
-                        } else {
-                            yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
-                            yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
-                            yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
-                        }
-                    }
-                } else {
-                    player.yawSignHistory.length = 0;
-                }
-            } else {
-                player.yawSignHistory.length = 0;
-            }
-
-            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps && !predictiveBraking;
-            let torque = 0;
-            if (hasYawInput) {
-                const desiredAngVel = yawCmd * angularLimit;
-                const angVelError = desiredAngVel - player.angVel;
-                // Минимум 1мс для избежания деления на слишком малое значение
-                const reactionTime = Math.max(slimeConfig.assist.reactionTimeS, 0.001);
-                const desiredAlpha = angVelError / reactionTime;
-                const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
-                torque = inertia * clampedAlpha;
-            } else if (Math.abs(player.angVel) > 1e-3) {
-                // Brake boost: торможение быстрее при отсутствии ввода (как в U2 FA:ON)
-                // При опережающем торможении используем максимальное ускорение
-                const boostFactor = predictiveBraking ? 1.0 : (slimeConfig.assist.angularBrakeBoostFactor || 1.0);
-                const brakeTime = predictiveBraking 
-                    ? dt  // Максимально быстрое торможение при опережающем
-                    : Math.max(slimeConfig.assist.angularStopTimeS / boostFactor, dt);
-                const desiredAlpha = -player.angVel / brakeTime;
-                const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
-                torque = inertia * clampedAlpha;
-            }
-
-            // === ДВИЖЕНИЕ (fly-by-wire с честной физикой) ===
-            // Проецируем желаемую скорость на локальные оси слайма
-            let desiredVx = 0;
-            let desiredVy = 0;
-            
-            if (hasInput) {
-                const inputDirX = inputX / inputMag;
-                const inputDirY = inputY / inputMag;
-                
-                // Проекция направления ввода на оси слайма
-                const inputForward = inputDirX * forwardX + inputDirY * forwardY;
-                const inputRight = inputDirX * rightX + inputDirY * rightY;
-                
-                // Желаемая скорость по каждой оси с учётом лимитов
-                const desiredForwardSpeed = inputForward >= 0 
-                    ? inputForward * inputMag * speedLimitForward 
-                    : inputForward * inputMag * speedLimitReverse;
-                const desiredLateralSpeed = inputRight * inputMag * speedLimitLateral;
-                
-                // Переводим обратно в мировые координаты
-                desiredVx = forwardX * desiredForwardSpeed + rightX * desiredLateralSpeed;
-                desiredVy = forwardY * desiredForwardSpeed + rightY * desiredLateralSpeed;
-            }
-
-            // Ошибка скорости в мировых координатах
-            const vErrorX = desiredVx - player.vx;
-            const vErrorY = desiredVy - player.vy;
-
-            // Проецируем ошибку на локальные оси
-            const errorForward = vErrorX * forwardX + vErrorY * forwardY;
-            const errorRight = vErrorX * rightX + vErrorY * rightY;
-
-            let forceForward = 0;
-            let forceRight = 0;
-
-            // Время разгона/торможения
-            const accelTime = hasInput ? slimeConfig.assist.accelTimeS : slimeConfig.assist.comfortableBrakingTimeS;
-
-            // Сила по оси forward (вперёд/назад)
-            if (Math.abs(errorForward) > slimeConfig.assist.velocityErrorThreshold) {
-                const desiredAccelForward = errorForward / Math.max(accelTime, dt);
-                // Выбираем лимит тяги в зависимости от направления
-                const thrustLimit = errorForward >= 0 ? thrustForward : thrustReverse;
-                const maxAccelForward = thrustLimit / mass;
-                const clampedAccelForward = this.clamp(desiredAccelForward, -maxAccelForward, maxAccelForward);
-                forceForward = mass * clampedAccelForward;
-            }
-
-            // Сила по оси right (боковое движение)
-            if (Math.abs(errorRight) > slimeConfig.assist.velocityErrorThreshold) {
-                const desiredAccelRight = errorRight / Math.max(accelTime, dt);
-                const maxAccelRight = thrustLateral / mass;
-                const clampedAccelRight = this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
-                forceRight = mass * clampedAccelRight;
-            }
-
-            const overspeedRate = slimeConfig.assist.overspeedDampingRate;
-            if (overspeedRate > 0) {
-                const vForward = player.vx * forwardX + player.vy * forwardY;
-                const forwardLimit = vForward >= 0 ? speedLimitForward : speedLimitReverse;
-                const forwardExcess = Math.abs(vForward) - forwardLimit;
-                if (forwardExcess > 0) {
-                    const dvTarget = -Math.sign(vForward) * forwardExcess * overspeedRate;
-                    const desiredAccelForward = dvTarget / dt;
-                    const thrustLimit = vForward >= 0 ? thrustReverse : thrustForward;
-                    const maxAccelForward = thrustLimit / mass;
-                    let brakeForce = mass * this.clamp(desiredAccelForward, -maxAccelForward, maxAccelForward);
-                    if (!hasInput) {
-                        brakeForce *= slimeConfig.assist.autoBrakeMaxThrustFraction;
-                    }
-                    forceForward += brakeForce;
-                }
-
-                const vRight = player.vx * rightX + player.vy * rightY;
-                const lateralExcess = Math.abs(vRight) - speedLimitLateral;
-                if (lateralExcess > 0) {
-                    const dvTarget = -Math.sign(vRight) * lateralExcess * overspeedRate;
-                    const desiredAccelRight = dvTarget / dt;
-                    const maxAccelRight = thrustLateral / mass;
-                    let brakeForce = mass * this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
-                    if (!hasInput) {
-                        brakeForce *= slimeConfig.assist.autoBrakeMaxThrustFraction;
-                    }
-                    forceRight += brakeForce;
-                }
-            }
-
-            forceForward = this.clamp(forceForward, -thrustReverse, thrustForward);
-            forceRight = this.clamp(forceRight, -thrustLateral, thrustLateral);
-
-            // Переводим силу в мировые координаты
-            const forceX = forwardX * forceForward + rightX * forceRight;
-            const forceY = forwardY * forceForward + rightY * forceRight;
-
-            player.assistFx = forceX;
-            player.assistFy = forceY;
-            player.assistTorque = torque;
-        }
+        flightAssistSystem(this);
     }
 
     private physicsSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        const world = this.balance.worldPhysics;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-
-            // Dash movement: линейная интерполяция к цели
-            if ((player.flags & FLAG_DASHING) !== 0 && player.dashEndTick > 0) {
-                const dashConfig = this.balance.abilities.dash;
-                const dashDurationTicks = Math.round(dashConfig.durationSec * this.balance.server.tickRate);
-                const ticksRemaining = player.dashEndTick - this.tick;
-                const progress = 1 - ticksRemaining / dashDurationTicks;
-                
-                // Линейное движение к цели
-                const startX = player.dashTargetX - Math.cos(player.angle) * dashConfig.distanceM;
-                const startY = player.dashTargetY - Math.sin(player.angle) * dashConfig.distanceM;
-                player.x = startX + (player.dashTargetX - startX) * progress;
-                player.y = startY + (player.dashTargetY - startY) * progress;
-                
-                // Обнуляем скорость во время рывка, потом восстановим в направлении
-                const dashSpeed = dashConfig.distanceM / dashConfig.durationSec;
-                player.vx = Math.cos(player.angle) * dashSpeed;
-                player.vy = Math.sin(player.angle) * dashSpeed;
-                continue;
-            }
-
-            const slimeConfig = this.getSlimeConfig(player);
-            const classStats = this.getClassStats(player);
-            const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
-            const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
-
-            const dragFx = -mass * world.linearDragK * player.vx;
-            const dragFy = -mass * world.linearDragK * player.vy;
-            const dragTorque = -inertia * world.angularDragK * player.angVel;
-
-            const totalFx = player.assistFx + dragFx;
-            const totalFy = player.assistFy + dragFy;
-            player.vx += (totalFx / mass) * dt;
-            player.vy += (totalFy / mass) * dt;
-            player.x += player.vx * dt;
-            player.y += player.vy * dt;
-
-            const totalTorque = player.assistTorque + dragTorque;
-            player.angVel += (totalTorque / Math.max(inertia, 1e-6)) * dt;
-            let angularLimit = scaleSlimeValue(
-                slimeConfig.limits.angularSpeedLimitRadps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.angularSpeedLimitRadps
-            );
-            // Штраф last-breath применяется и к угловому лимиту
-            if (player.isLastBreath) {
-                angularLimit *= this.balance.combat.lastBreathSpeedPenalty;
-            }
-            if (angularLimit > 0 && Math.abs(player.angVel) > angularLimit) {
-                player.angVel = Math.sign(player.angVel) * angularLimit;
-            }
-            player.angle = this.normalizeAngle(player.angle + player.angVel * dt);
-        }
+        physicsSystem(this);
     }
 
     private collisionSystem() {
-        const players = Array.from(this.state.players.values());
-        const orbs = Array.from(this.state.orbs.entries());
-        const chests = Array.from(this.state.chests.entries());
-        const obstacles = Array.from(this.state.obstacles.values());
-        const iterations = 4;
-        const slop = 0.001;
-        const percent = 0.8;
-        const restitution = this.balance.worldPhysics.restitution;
-        const maxCorrection = this.balance.worldPhysics.maxPositionCorrectionM;
-        const spikeDamageApplied = new Set<string>();
-
-        for (let iter = 0; iter < iterations; iter += 1) {
-            // Столкновения слайм-слайм
-            for (let i = 0; i < players.length; i += 1) {
-                const p1 = players[i];
-                if (p1.isDead) continue;
-                for (let j = i + 1; j < players.length; j += 1) {
-                    const p2 = players[j];
-                    if (p2.isDead) continue;
-
-                    const dx = p2.x - p1.x;
-                    const dy = p2.y - p1.y;
-                    const r1 = this.getPlayerRadius(p1);
-                    const r2 = this.getPlayerRadius(p2);
-                    const minDist = r1 + r2;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-                    const invMass1 = p1.mass > 0 ? 1 / p1.mass : 0;
-                    const invMass2 = p2.mass > 0 ? 1 / p2.mass : 0;
-                    const invMassSum = invMass1 + invMass2;
-
-                    if (invMassSum > 0) {
-                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
-                        const corrMag = Math.min(corrRaw, maxCorrection);
-                        const corrX = nx * corrMag;
-                        const corrY = ny * corrMag;
-                        p1.x -= corrX * invMass1;
-                        p1.y -= corrY * invMass1;
-                        p2.x += corrX * invMass2;
-                        p2.y += corrY * invMass2;
-
-                        const rvx = p2.vx - p1.vx;
-                        const rvy = p2.vy - p1.vy;
-                        const velAlongNormal = rvx * nx + rvy * ny;
-                        if (velAlongNormal <= 0) {
-                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
-                            const impulseX = nx * jImpulse;
-                            const impulseY = ny * jImpulse;
-                            p1.vx -= impulseX * invMass1;
-                            p1.vy -= impulseY * invMass1;
-                            p2.vx += impulseX * invMass2;
-                            p2.vy += impulseY * invMass2;
-                        }
-                    }
-
-                    this.processCombat(p1, p2, dx, dy);
-                    this.processCombat(p2, p1, -dx, -dy);
-                }
-            }
-
-            // Столкновения слайм-орб (физика + поедание ртом)
-            for (const player of players) {
-                if (player.isDead) continue;
-                const playerRadius = this.getPlayerRadius(player);
-                const playerAngleRad = player.angle;
-                const mouthHalf = this.getMouthHalfAngle(player);
-
-                for (const [orbId, orb] of orbs) {
-                    if (!this.state.orbs.has(orbId)) continue;
-
-                    const dx = orb.x - player.x;
-                    const dy = orb.y - player.y;
-                    const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-                    const orbRadius = getOrbRadius(orb.mass, type.density);
-                    const minDist = playerRadius + orbRadius;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-
-                    // Физическая масса орба = пищевая масса (без множителя density)
-                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
-                    const invMassOrb = orb.mass > 0 ? 1 / orb.mass : 0;
-                    const invMassSum = invMassPlayer + invMassOrb;
-
-                    if (invMassSum > 0) {
-                        // Позиционная коррекция
-                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
-                        const corrMag = Math.min(corrRaw, maxCorrection);
-                        const corrX = nx * corrMag;
-                        const corrY = ny * corrMag;
-                        player.x -= corrX * invMassPlayer;
-                        player.y -= corrY * invMassPlayer;
-                        orb.x += corrX * invMassOrb;
-                        orb.y += corrY * invMassOrb;
-
-                        // Импульсное отталкивание (закон сохранения импульса)
-                        const rvx = orb.vx - player.vx;
-                        const rvy = orb.vy - player.vy;
-                        const velAlongNormal = rvx * nx + rvy * ny;
-                        if (velAlongNormal <= 0) {
-                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
-                            const impulseX = nx * jImpulse;
-                            const impulseY = ny * jImpulse;
-                            player.vx -= impulseX * invMassPlayer;
-                            player.vy -= impulseY * invMassPlayer;
-                            orb.vx += impulseX * invMassOrb;
-                            orb.vy += impulseY * invMassOrb;
-                        }
-                    }
-
-                    // Проверка поедания ртом
-                    const angleToOrb = Math.atan2(dy, dx);
-                    let angleDiff = angleToOrb - playerAngleRad;
-                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                    const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
-
-                    // GDD v3.3: GCD между умениями и укусами
-                    const gcdReady = this.tick >= player.gcdReadyTick;
-                    if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
-                        this.tryEatOrb(player, orbId, orb);
-                    }
-                }
-            }
-
-            // Столкновения слайм-сундук (физика)
-            for (const player of players) {
-                if (player.isDead) continue;
-                const playerRadius = this.getPlayerRadius(player);
-
-                for (const [chestId, chest] of chests) {
-                    if (!this.state.chests.has(chestId)) continue;
-
-                    const dx = chest.x - player.x;
-                    const dy = chest.y - player.y;
-                    const minDist = playerRadius + this.balance.chests.radius;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-
-                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
-                    const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
-                    const chestMass = Math.max(
-                        this.balance.chests.types?.[chestTypeId]?.mass ?? this.balance.chests.mass,
-                        50
-                    );
-                    const invMassChest = chestMass > 0 ? 1 / chestMass : 0;
-                    const invMassSum = invMassPlayer + invMassChest;
-
-                    if (invMassSum > 0) {
-                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
-                        const corrMag = Math.min(corrRaw, maxCorrection);
-                        const corrX = nx * corrMag;
-                        const corrY = ny * corrMag;
-                        player.x -= corrX * invMassPlayer;
-                        player.y -= corrY * invMassPlayer;
-                        chest.x += corrX * invMassChest;
-                        chest.y += corrY * invMassChest;
-
-                        const rvx = chest.vx - player.vx;
-                        const rvy = chest.vy - player.vy;
-                        const velAlongNormal = rvx * nx + rvy * ny;
-                        if (velAlongNormal <= 0) {
-                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
-                            const impulseX = nx * jImpulse;
-                            const impulseY = ny * jImpulse;
-                            player.vx -= impulseX * invMassPlayer;
-                            player.vy -= impulseY * invMassPlayer;
-                            chest.vx += impulseX * invMassChest;
-                            chest.vy += impulseY * invMassChest;
-                        }
-                    }
-                }
-            }
-
-            // Столкновения слайм-препятствие
-            for (const player of players) {
-                if (player.isDead) continue;
-                const playerRadius = this.getPlayerRadius(player);
-                for (const obstacle of obstacles) {
-                    const dx = player.x - obstacle.x;
-                    const dy = player.y - obstacle.y;
-                    const minDist = playerRadius + obstacle.radius;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-                    const corrRaw = Math.max(penetration - slop, 0);
-                    const corrMag = Math.min(corrRaw, maxCorrection);
-                    const corrX = nx * corrMag;
-                    const corrY = ny * corrMag;
-                    player.x += corrX;
-                    player.y += corrY;
-
-                    const velAlongNormal = player.vx * nx + player.vy * ny;
-                    if (velAlongNormal < 0) {
-                        const impulse = (1 + restitution) * velAlongNormal;
-                        player.vx -= impulse * nx;
-                        player.vy -= impulse * ny;
-                    }
-
-                    if (obstacle.type === OBSTACLE_TYPE_SPIKES) {
-                        if (spikeDamageApplied.has(player.id)) continue;
-                        if (this.tick < player.invulnerableUntilTick) continue;
-                        if (player.isLastBreath) continue;
-                        const damagePct = Math.max(0, this.balance.obstacles.spikeDamagePct);
-                        if (damagePct <= 0) continue;
-                        const massLoss = player.mass * damagePct;
-                        if (massLoss > 0) {
-                            if (!this.tryConsumeGuard(player)) {
-                                this.applyMassDelta(player, -massLoss);
-                            }
-                            spikeDamageApplied.add(player.id);
-                        }
-                    }
-                }
-            }
-
-            for (const player of players) {
-                if (player.isDead) continue;
-                this.applyWorldBounds(player, this.getPlayerRadius(player));
-            }
-
-            // Столкновения орб-орб
-            this.orbOrbCollisions(restitution);
-        }
+        collisionSystem(this);
     }
 
     /**
@@ -2070,137 +1472,7 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     private projectileSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        const toRemove: string[] = [];
-        const mapSize = this.balance.world.mapSize;
-        const worldHalfW = mapSize / 2;
-        const worldHalfH = mapSize / 2;
-        const obstacles = Array.from(this.state.obstacles.values());
-        
-        for (const [projId, proj] of this.state.projectiles.entries()) {
-            // Движение
-            proj.x += proj.vx * dt;
-            proj.y += proj.vy * dt;
-            
-            // Проверка дистанции
-            const dx = proj.x - proj.startX;
-            const dy = proj.y - proj.startY;
-            const distSq = dx * dx + dy * dy;
-            const maxDistReached = distSq > proj.maxRangeM * proj.maxRangeM;
-            
-            // Проверка границ мира
-            const outX = Math.abs(proj.x) > worldHalfW;
-            const outY = Math.abs(proj.y) > worldHalfH;
-            const outOfBounds = outX || outY;
-            
-            if (
-                outOfBounds &&
-                proj.projectileType === 0 &&
-                proj.remainingRicochets > 0
-            ) {
-                if (outX) {
-                    proj.vx = -proj.vx;
-                    proj.x = Math.sign(proj.x) * worldHalfW;
-                }
-                if (outY) {
-                    proj.vy = -proj.vy;
-                    proj.y = Math.sign(proj.y) * worldHalfH;
-                }
-                proj.remainingRicochets -= 1;
-                proj.startX = proj.x;
-                proj.startY = proj.y;
-                continue;
-            }
-
-            // Bomb взрывается при достижении макс. дистанции
-            if (maxDistReached || outOfBounds) {
-                if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                    this.explodeBomb(proj);
-                }
-                toRemove.push(projId);
-                continue;
-            }
-
-            let hitObstacle = false;
-            for (const obstacle of obstacles) {
-                const odx = proj.x - obstacle.x;
-                const ody = proj.y - obstacle.y;
-                const touchDist = obstacle.radius + proj.radius;
-                if (odx * odx + ody * ody <= touchDist * touchDist) {
-                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                        this.explodeBomb(proj);
-                    }
-                    toRemove.push(projId);
-                    hitObstacle = true;
-                    break;
-                }
-            }
-            if (hitObstacle) continue;
-             
-            // Столкновение со слаймами (кроме владельца)
-            let hitPlayer = false;
-            for (const player of this.state.players.values()) {
-                if (player.isDead || player.id === proj.ownerId) continue;
-                if (player.isLastBreath) continue;
-                if (this.tick < player.invulnerableUntilTick) continue;
-                if (proj.lastHitId && proj.lastHitId === player.id) continue;
-                
-                // Щит блокирует снаряд
-                if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                    // Щит снимается при попадании
-                    player.shieldEndTick = 0;
-                    player.flags &= ~FLAG_ABILITY_SHIELD;
-                    // Bomb взрывается даже при попадании в щит
-                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                        this.explodeBomb(proj);
-                    }
-                    toRemove.push(projId);
-                    hitPlayer = true;
-                    break;
-                }
-                
-                const playerRadius = this.getPlayerRadius(player);
-                const pdx = proj.x - player.x;
-                const pdy = proj.y - player.y;
-                const pdistSq = pdx * pdx + pdy * pdy;
-                const touchDist = playerRadius + proj.radius;
-                
-                if (pdistSq <= touchDist * touchDist) {
-                    // Попадание! 
-                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                        // Bomb - AoE взрыв
-                        this.explodeBomb(proj);
-                    } else {
-                        // Обычный снаряд - прямой урон
-                        const owner = this.state.players.get(proj.ownerId);
-                        if (owner && (!owner.isDead || proj.allowDeadOwner)) {
-                            this.applyProjectileDamage(owner, player, proj.damagePct);
-                        }
-                    }
-                    proj.lastHitId = player.id;
-                    if (proj.remainingPierces > 0) {
-                        proj.remainingPierces -= 1;
-                        if (proj.remainingPierces === 1 && proj.piercingDamagePct > 0) {
-                            proj.damagePct *= proj.piercingDamagePct;
-                        }
-                        if (proj.remainingPierces > 0) {
-                            hitPlayer = true;
-                            continue;
-                        }
-                    }
-                    toRemove.push(projId);
-                    hitPlayer = true;
-                    break;
-                }
-            }
-            
-            if (hitPlayer) continue;
-        }
-        
-        // Удаляем снаряды
-        for (const id of toRemove) {
-            this.state.projectiles.delete(id);
-        }
+        projectileSystem(this);
     }
     
     /**
@@ -2238,53 +1510,7 @@ export class ArenaRoom extends Room<GameState> {
      * Система мин - детонация при контакте с врагами
      */
     private mineSystem() {
-        const toRemove: string[] = [];
-        
-        for (const [mineId, mine] of this.state.mines.entries()) {
-            // Проверка истечения срока
-            if (this.tick >= mine.endTick) {
-                toRemove.push(mineId);
-                continue;
-            }
-            
-            const owner = this.state.players.get(mine.ownerId);
-            const radiusSq = mine.radius * mine.radius;
-            
-            // Проверка коллизий со всеми игроками (включая владельца)
-            for (const player of this.state.players.values()) {
-                if (player.isDead) continue;
-                if (player.isLastBreath) continue;
-                if (this.tick < player.invulnerableUntilTick) continue;
-                if (player.id === mine.ownerId) continue;
-                
-                const playerRadius = this.getPlayerRadius(player);
-                const dx = player.x - mine.x;
-                const dy = player.y - mine.y;
-                const distSq = dx * dx + dy * dy;
-                const touchDist = playerRadius + mine.radius;
-                
-                if (distSq <= touchDist * touchDist) {
-                    // Детонация!
-                    
-                    // Щит блокирует мину
-                    if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                        player.shieldEndTick = 0;
-                        player.flags &= ~FLAG_ABILITY_SHIELD;
-                    } else if (owner && !owner.isDead) {
-                        // Урон врагу с передачей массы владельцу
-                        this.applyProjectileDamage(owner, player, mine.damagePct);
-                    }
-                    
-                    toRemove.push(mineId);
-                    break;
-                }
-            }
-        }
-        
-        // Удаляем сдетонировавшие/истекшие мины
-        for (const id of toRemove) {
-            this.state.mines.delete(id);
-        }
+        mineSystem(this);
     }
     
     private applyProjectileDamage(attacker: Player, defender: Player, damagePct: number) {
@@ -2372,44 +1598,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private chestSystem() {
-        const chestEntries = Array.from(this.state.chests.entries());
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const playerRadius = this.getPlayerRadius(player);
-            const playerAngleRad = player.angle;
-            const mouthHalf = this.getMouthHalfAngle(player);
-
-            for (const [chestId, chest] of chestEntries) {
-                if (!this.state.chests.has(chestId)) continue;
-                const dx = chest.x - player.x;
-                const dy = chest.y - player.y;
-                const distSq = dx * dx + dy * dy;
-                const touchDist = playerRadius + this.balance.chests.radius;
-                if (distSq > touchDist * touchDist) continue;
-
-                const angleToChest = Math.atan2(dy, dx);
-                let angleDiff = angleToChest - playerAngleRad;
-                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
-
-                // GDD v3.3: GCD между умениями и укусами
-                const gcdReady = this.tick >= player.gcdReadyTick;
-                if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
-                    // GDD v3.3: Система обручей (armorRings)
-                    if (chest.armorRings > 0) {
-                        // Снимаем один обруч
-                        chest.armorRings--;
-                    } else {
-                        // Обручей нет - открываем сундук
-                        this.openChest(player, chest);
-                    }
-                    player.lastBiteTick = this.tick;
-                    // GDD v3.3: GCD после укуса
-                    player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-                }
-            }
-        }
+        chestSystem(this);
     }
 
     private openChest(player: Player, chest: Chest) {
@@ -2626,21 +1815,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private deathSystem() {
-        const minSlimeMass = this.balance.physics.minSlimeMass;
-        for (const player of this.state.players.values()) {
-            if (player.isLastBreath && this.tick >= player.lastBreathEndTick) {
-                player.isLastBreath = false;
-            }
-
-            // Mass-as-HP: смерть при массе <= minSlimeMass
-            if (!player.isDead && player.mass <= minSlimeMass && !player.isLastBreath) {
-                this.handlePlayerDeath(player);
-            }
-
-            if (player.isDead && this.tick >= player.respawnAtTick) {
-                this.handlePlayerRespawn(player);
-            }
-        }
+        deathSystem(this);
     }
 
     private handlePlayerDeath(player: Player) {
@@ -2867,77 +2042,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private updateOrbs() {
-        const dt = 1 / this.balance.server.tickRate;
-        if (
-            this.tick - this.lastOrbSpawnTick >= this.orbSpawnIntervalTicks &&
-            this.state.orbs.size < this.balance.orbs.maxCount
-        ) {
-            const spawnMultiplier = this.getOrbSpawnMultiplier();
-            let spawnCount = Math.floor(spawnMultiplier);
-            if (this.rng.next() < spawnMultiplier - spawnCount) {
-                spawnCount += 1;
-            }
-            spawnCount = Math.max(1, spawnCount);
-            const remaining = this.balance.orbs.maxCount - this.state.orbs.size;
-            spawnCount = Math.min(spawnCount, remaining);
-
-            for (let i = 0; i < spawnCount; i += 1) {
-                const spawn = this.randomOrbSpawnPoint();
-                this.spawnOrb(spawn.x, spawn.y);
-            }
-            this.lastOrbSpawnTick = this.tick;
-        }
-
-        // Притяжение орбов (магнит умения + вакуум талант)
-        const magnetConfig = this.balance.abilities.magnet;
-        const magnetPlayers: { player: Player; radiusSq: number; speed: number }[] = [];
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const magnetActive = (player.flags & FLAG_MAGNETIZING) !== 0;
-            const magnetRadius = magnetActive ? magnetConfig.radiusM : 0;
-            const magnetSpeed = magnetActive ? magnetConfig.pullSpeedMps : 0;
-            const vacuumRadius = player.mod_vacuumRadius;
-            const vacuumSpeed = player.mod_vacuumSpeed;
-            // Талант "Магнит" (Collector): пассивное притяжение орбов
-            const talentMagnetRadius = player.mod_magnetRadius;
-            const talentMagnetSpeed = player.mod_magnetSpeed;
-            const radius = Math.max(magnetRadius, vacuumRadius, talentMagnetRadius);
-            const speed = Math.max(magnetSpeed, vacuumSpeed, talentMagnetSpeed);
-            if (radius <= 0 || speed <= 0) continue;
-            magnetPlayers.push({ player, radiusSq: radius * radius, speed });
-        }
-
-        for (const orb of this.state.orbs.values()) {
-            // Magnet/vacuum pull
-            for (const entry of magnetPlayers) {
-                const player = entry.player;
-                const dx = player.x - orb.x;
-                const dy = player.y - orb.y;
-                const distSq = dx * dx + dy * dy;
-                if (distSq < entry.radiusSq && distSq > 1) {
-                    const dist = Math.sqrt(distSq);
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    // Сила притяжения
-                    orb.vx += nx * entry.speed * dt * 2;
-                    orb.vy += ny * entry.speed * dt * 2;
-                }
-            }
-            
-            // Orbs keep the simplified damping model to avoid extra force calculations.
-            const damping = Math.max(
-                0,
-                1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
-            );
-            orb.vx *= damping;
-            orb.vy *= damping;
-            this.applySpeedCap(orb, this.balance.physics.maxOrbSpeed);
-            orb.x += orb.vx * dt;
-            orb.y += orb.vy * dt;
-            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density);
-            this.applyWorldBounds(orb, radius);
-        }
+        updateOrbs(this);
     }
 
     /**
@@ -2945,229 +2050,54 @@ export class ArenaRoom extends Room<GameState> {
      * Орбы только замедляются и останавливаются у границ.
      */
     private updateOrbsVisual(): void {
-        const dt = 1 / this.balance.server.tickRate;
-        const damping = Math.max(
-            0,
-            1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
-        );
-        for (const orb of this.state.orbs.values()) {
-            orb.vx *= damping;
-            orb.vy *= damping;
-            orb.x += orb.vx * dt;
-            orb.y += orb.vy * dt;
-            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density);
-            this.applyWorldBounds(orb, radius);
-        }
+        updateOrbsVisual(this);
     }
 
     private updateChests() {
-        const dt = 1 / this.balance.server.tickRate;
-        if (
-            this.tick - this.lastChestSpawnTick >= this.chestSpawnIntervalTicks &&
-            this.state.chests.size < this.balance.chests.maxCount
-        ) {
-            this.spawnChest();
-            this.lastChestSpawnTick = this.tick;
-        }
-
-        const damping = Math.max(
-            0,
-            1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
-        );
-        for (const chest of this.state.chests.values()) {
-            chest.vx *= damping;
-            chest.vy *= damping;
-            chest.x += chest.vx * dt;
-            chest.y += chest.vy * dt;
-            this.applyWorldBounds(chest, this.balance.chests.radius);
-        }
+        updateChests(this);
     }
 
     private slowZoneSystem() {
-        // Удаляем истекшие зоны
-        const expiredZones: string[] = [];
-        for (const zone of this.state.slowZones.values()) {
-            if (this.tick >= zone.endTick) {
-                expiredZones.push(zone.id);
-            }
-        }
-        for (const id of expiredZones) {
-            this.state.slowZones.delete(id);
-        }
-
-        // Применяем суммарное замедление к игрокам
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            
-            let totalSlowPct = 0;
-            
-            for (const zone of this.state.slowZones.values()) {
-                // Не замедляем владельца зоны
-                if (zone.ownerId === player.id) continue;
-                
-                const dx = player.x - zone.x;
-                const dy = player.y - zone.y;
-                const distSq = dx * dx + dy * dy;
-                const radiusSq = zone.radius * zone.radius;
-                
-                if (distSq < radiusSq) {
-                    totalSlowPct += zone.slowPct;
-                }
-            }
-
-            for (const pool of this.state.toxicPools.values()) {
-                const dx = player.x - pool.x;
-                const dy = player.y - pool.y;
-                const distSq = dx * dx + dy * dy;
-                const radiusSq = pool.radius * pool.radius;
-                if (distSq < radiusSq) {
-                    totalSlowPct += pool.slowPct;
-                }
-            }
-
-            if (this.tick < player.frostEndTick) {
-                totalSlowPct += player.frostSlowPct;
-            } else if (player.frostEndTick > 0) {
-                player.frostEndTick = 0;
-                player.frostSlowPct = 0;
-            }
-
-            totalSlowPct = Math.min(totalSlowPct, 0.8);
-            player.slowPct = totalSlowPct;
-            
-            // Устанавливаем/снимаем флаг замедления
-            if (totalSlowPct > 0) {
-                player.flags |= FLAG_SLOWED;
-            } else {
-                player.flags &= ~FLAG_SLOWED;
-            }
-        }
+        slowZoneSystem(this);
     }
 
     private toxicPoolSystem() {
-        // Удаляем истекшие лужи
-        const expiredPools: string[] = [];
-        for (const pool of this.state.toxicPools.values()) {
-            if (this.tick >= pool.endTick) {
-                expiredPools.push(pool.id);
-            }
-        }
-        for (const id of expiredPools) {
-            this.state.toxicPools.delete(id);
-        }
-
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            if (player.isLastBreath) continue;
-            if (this.tick < player.invulnerableUntilTick) continue;
-            let totalDamagePctPerSec = 0;
-            for (const pool of this.state.toxicPools.values()) {
-                const dx = player.x - pool.x;
-                const dy = player.y - pool.y;
-                const distSq = dx * dx + dy * dy;
-                const radiusSq = pool.radius * pool.radius;
-                if (distSq < radiusSq) {
-                    totalDamagePctPerSec += pool.damagePctPerSec;
-                }
-            }
-            if (totalDamagePctPerSec <= 0) continue;
-            const damageTakenMult = this.getDamageTakenMultiplier(player);
-            const massLoss = player.mass * totalDamagePctPerSec * dt * damageTakenMult;
-            if (massLoss > 0 && !this.tryConsumeGuard(player)) {
-                this.applyMassDelta(player, -massLoss);
-            }
-        }
+        toxicPoolSystem(this);
     }
 
     private statusEffectSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            if (this.tick < player.invulnerableUntilTick) continue;
-            if (player.poisonEndTick > this.tick && player.poisonDamagePctPerSec > 0) {
-                const damageTakenMult = this.getDamageTakenMultiplier(player);
-                const massLoss = player.mass * player.poisonDamagePctPerSec * dt * damageTakenMult;
-                if (massLoss > 0 && !this.tryConsumeGuard(player)) {
-                    this.applyMassDelta(player, -massLoss);
-                }
-            } else if (player.poisonEndTick > 0) {
-                player.poisonEndTick = 0;
-                player.poisonDamagePctPerSec = 0;
-                player.poisonTickAccumulator = 0;
-            }
+        statusEffectSystem(this);
+    }
+
+    private zoneEffectSystem() {
+        zoneEffectSystem(this);
+    }
+
+    private spawnLavaOrbs(player: Player, totalMass: number) {
+        const count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
+        if (count <= 0 || totalMass <= 0) return;
+        const perOrbMass = totalMass / count;
+        const angleStep = (Math.PI * 2) / count;
+        const speed = Math.max(0, this.balance.zones.lava.scatterSpeedMps);
+        const colorId = Math.max(0, player.classId) + 10;
+        for (let i = 0; i < count; i += 1) {
+            const angle = i * angleStep + this.rng.range(-0.3, 0.3);
+            const orb = this.forceSpawnOrb(player.x, player.y, perOrbMass, colorId);
+            orb.vx = Math.cos(angle) * speed;
+            orb.vy = Math.sin(angle) * speed;
         }
     }
 
     private hungerSystem() {
-        const phase = this.state.phase as MatchPhaseId;
-        // GDD v3.3: Hunger активен в Hunt и Final
-        if (phase !== "Hunt" && phase !== "Final") return;
-        if (this.isSafeZoneActive() && this.state.safeZones.length > 0) return;
-        if (this.state.hotZones.size === 0) return;
-
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const inHotZone = this.isInsideHotZone(player);
-            if (inHotZone) continue;
-
-            const drainPerSec = Math.min(
-                this.balance.hunger.maxDrainPerSec,
-                this.balance.hunger.baseDrainPerSec + this.balance.hunger.scalingPerMass * (player.mass / 100)
-            );
-            const drain = drainPerSec * dt;
-            const minMass = Math.max(this.balance.hunger.minMass, this.balance.physics.minSlimeMass);
-            const targetMass = Math.max(minMass, player.mass - drain);
-            this.applyMassDelta(player, targetMass - player.mass);
-        }
+        hungerSystem(this);
     }
 
     private safeZoneSystem() {
-        if (!this.isSafeZoneActive()) return;
-        if (this.state.safeZones.length === 0) return;
-        const damagePerSec = Math.max(0, this.balance.safeZones.damagePctPerSec);
-        if (damagePerSec <= 0) return;
-
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            if (player.isLastBreath) continue;
-            if (this.tick < player.invulnerableUntilTick) continue;
-            if (this.isInsideSafeZone(player)) continue;
-            const damageTakenMult = this.getDamageTakenMultiplier(player);
-            const massLoss = player.mass * damagePerSec * dt * damageTakenMult;
-            if (massLoss > 0 && !this.tryConsumeGuard(player)) {
-                this.applyMassDelta(player, -massLoss);
-            }
-        }
+        safeZoneSystem(this);
     }
 
     private rebelSystem() {
-        if (this.tick - this.lastRebelUpdateTick < this.rebelUpdateIntervalTicks) return;
-        this.lastRebelUpdateTick = this.tick;
-
-        const alivePlayers = Array.from(this.state.players.values()).filter((player) => !player.isDead);
-        if (alivePlayers.length === 0) {
-            this.state.rebelId = "";
-            this.updateLeaderboard();
-            return;
-        }
-
-        let totalMass = 0;
-        let leader = alivePlayers[0];
-        for (const player of alivePlayers) {
-            totalMass += player.mass;
-            if (player.mass > leader.mass) leader = player;
-        }
-        const avgMass = totalMass / alivePlayers.length;
-        if (leader.mass >= avgMass * this.balance.rebel.massThresholdMultiplier) {
-            this.state.rebelId = leader.id;
-        } else {
-            this.state.rebelId = "";
-        }
-        this.updateLeaderboard();
+        rebelSystem(this);
     }
 
     private updateLeaderboard() {
@@ -3439,20 +2369,32 @@ export class ArenaRoom extends Room<GameState> {
     private generateArena() {
         this.state.obstacles.clear();
         this.state.safeZones.splice(0, this.state.safeZones.length);
+        this.state.zones.clear();
         this.obstacleIdCounter = 0;
+        this.zoneIdCounter = 0;
         const mapSize = this.balance.world.mapSize;
         const world = this.balance.worldPhysics;
-        const obstacles = generateObstacleSeeds(this.rng, world, mapSize, this.balance.obstacles);
-        for (const obstacle of obstacles) {
-            this.addObstacle(obstacle.type, obstacle.x, obstacle.y, obstacle.radius);
-        }
-        const safeZones = generateSafeZoneSeeds(this.rng, world, mapSize, this.balance.safeZones);
-        for (const zoneSeed of safeZones) {
+        const safeZoneSeeds = generateSafeZoneSeeds(this.rng, world, mapSize, this.balance.safeZones);
+        for (const zoneSeed of safeZoneSeeds) {
             const zone = new SafeZone();
             zone.x = zoneSeed.x;
             zone.y = zoneSeed.y;
             zone.radius = zoneSeed.radius;
             this.state.safeZones.push(zone);
+        }
+        const zoneSeeds = generateZoneSeeds(this.rng, world, mapSize, this.balance.zones, safeZoneSeeds);
+        for (const zoneSeed of zoneSeeds) {
+            const zone = new Zone();
+            zone.id = `zone_${this.zoneIdCounter++}`;
+            zone.x = zoneSeed.x;
+            zone.y = zoneSeed.y;
+            zone.radius = zoneSeed.radius;
+            zone.type = zoneSeed.type;
+            this.state.zones.set(zone.id, zone);
+        }
+        const obstacles = generateObstacleSeeds(this.rng, world, mapSize, this.balance.obstacles);
+        for (const obstacle of obstacles) {
+            this.addObstacle(obstacle.type, obstacle.x, obstacle.y, obstacle.radius);
         }
     }
 
@@ -3467,6 +2409,20 @@ export class ArenaRoom extends Room<GameState> {
             }
         }
         return true;
+    }
+
+    private isPointInsideZoneType(x: number, y: number, radius: number, zoneType: number): boolean {
+        const safeRadius = Math.max(0, radius);
+        for (const zone of this.state.zones.values()) {
+            if (zone.type !== zoneType) continue;
+            const dx = x - zone.x;
+            const dy = y - zone.y;
+            const minDist = zone.radius + safeRadius;
+            if (dx * dx + dy * dy < minDist * minDist) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private randomPointAround(x: number, y: number, range: number) {
@@ -3488,7 +2444,8 @@ export class ArenaRoom extends Room<GameState> {
         const world = this.balance.worldPhysics;
         const isValid = (point: { x: number; y: number }) =>
             isInsideWorld(world, mapSize, point.x, point.y, safeRadius) &&
-            this.isPointFreeOfObstacles(point.x, point.y, safeRadius, safePadding);
+            this.isPointFreeOfObstacles(point.x, point.y, safeRadius, safePadding) &&
+            !this.isPointInsideZoneType(point.x, point.y, safeRadius, ZONE_TYPE_LAVA);
 
         if (preferred && isValid(preferred)) {
             return preferred;
@@ -3562,6 +2519,42 @@ export class ArenaRoom extends Room<GameState> {
         if (this.state.phase !== "Final") return false;
         const elapsedSec = this.tick / this.balance.server.tickRate;
         return elapsedSec >= this.balance.safeZones.finalStartSec;
+    }
+
+    private getZoneForPlayer(player: Player): Zone | null {
+        if (this.state.zones.size === 0) return null;
+        for (const zone of this.state.zones.values()) {
+            const dx = player.x - zone.x;
+            const dy = player.y - zone.y;
+            if (dx * dx + dy * dy <= zone.radius * zone.radius) {
+                return zone;
+            }
+        }
+        return null;
+    }
+
+    private getZoneSpeedMultiplier(player: Player): number {
+        const zone = this.getZoneForPlayer(player);
+        if (!zone) return 1;
+        if (zone.type === ZONE_TYPE_TURBO) {
+            return Math.max(0, this.balance.zones.turbo.speedMultiplier);
+        }
+        if (zone.type === ZONE_TYPE_SLIME) {
+            return Math.max(0, this.balance.zones.slime.speedMultiplier);
+        }
+        return 1;
+    }
+
+    private getZoneFrictionMultiplier(player: Player): number {
+        const zone = this.getZoneForPlayer(player);
+        if (!zone) return 1;
+        if (zone.type === ZONE_TYPE_ICE) {
+            return Math.max(0, this.balance.zones.ice.frictionMultiplier);
+        }
+        if (zone.type === ZONE_TYPE_SLIME) {
+            return Math.max(0, this.balance.zones.slime.frictionMultiplier);
+        }
+        return 1;
     }
 
     private getOrbSpawnMultiplier(): number {
@@ -3935,30 +2928,7 @@ export class ArenaRoom extends Room<GameState> {
      * Система обработки карточек умений
      */
     private abilityCardSystem() {
-        const currentTick = this.tick;
-        
-        for (const player of this.state.players.values()) {
-            // Очистка cardChoicePressed если нет активной карточки (Codex fix)
-            if (!player.pendingAbilityCard && player.cardChoicePressed !== null) {
-                player.cardChoicePressed = null;
-            }
-            
-            if (player.isDead || !player.pendingAbilityCard) continue;
-            
-            const card = player.pendingAbilityCard;
-            
-            // Обработка выбора игрока
-            if (player.cardChoicePressed !== null) {
-                this.applyAbilityCardChoice(player, player.cardChoicePressed);
-                player.cardChoicePressed = null;
-                continue;
-            }
-            
-            // Автовыбор по таймауту
-            if (currentTick >= card.expiresAtTick) {
-                this.applyAbilityCardChoice(player, 0);  // Автовыбор первого варианта
-            }
-        }
+        abilityCardSystem(this);
     }
     
     /**
@@ -3993,36 +2963,7 @@ export class ArenaRoom extends Room<GameState> {
      * Система обработки карточек талантов (GDD-Talents.md)
      */
     private talentCardSystem() {
-        const currentTick = this.tick;
-        
-        for (const player of this.state.players.values()) {
-            // Очистка talentChoicePressed если нет активной карточки
-            if (!player.pendingTalentCard && player.talentChoicePressed2 !== null) {
-                player.talentChoicePressed2 = null;
-            }
-            
-            if (!player.pendingTalentCard) continue;
-            
-            const card = player.pendingTalentCard;
-            
-            // GDD 7.4.2: При смерти таймер приостанавливается (сдвигаем deadline)
-            if (player.isDead) {
-                card.expiresAtTick += 1;
-                continue;
-            }
-            
-            // Обработка выбора игрока
-            if (player.talentChoicePressed2 !== null) {
-                this.applyTalentCardChoice(player, player.talentChoicePressed2);
-                player.talentChoicePressed2 = null;
-                continue;
-            }
-            
-            // GDD 7.4.1: Автовыбор по таймауту с приоритетами класса
-            if (currentTick >= card.expiresAtTick) {
-                this.forceAutoPickTalent(player);
-            }
-        }
+        talentCardSystem(this);
     }
     
     /**

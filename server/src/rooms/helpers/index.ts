@@ -13,9 +13,11 @@ export {
 export {
     type ObstacleSeed,
     type SafeZoneSeed,
+    type ZoneSeed,
     getMapSizeKey,
     randomPointInMapWithMargin,
     isInsideWorld,
     generateObstacleSeeds,
     generateSafeZoneSeeds,
+    generateZoneSeeds,
 } from "./arenaGeneration";

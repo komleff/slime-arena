@@ -13,8 +13,9 @@ export const FLAG_LEVIATHAN = 1 << 11;
 
 export const ZONE_TYPE_NECTAR = 1;
 export const ZONE_TYPE_ICE = 2;
-export const ZONE_TYPE_LAVA = 3;
-export const ZONE_TYPE_TURBO = 4;
+export const ZONE_TYPE_SLIME = 3;
+export const ZONE_TYPE_LAVA = 4;
+export const ZONE_TYPE_TURBO = 5;
 
 export const OBSTACLE_TYPE_PILLAR = 1;
 export const OBSTACLE_TYPE_SPIKES = 2;
