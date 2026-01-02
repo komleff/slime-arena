@@ -3495,8 +3495,9 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         for (let i = 0; i < attempts; i += 1) {
+            const spread = safeRadius + safePadding * 2;
             const point = preferred
-                ? this.randomPointAround(preferred.x, preferred.y, safeRadius + safePadding + 20)
+                ? this.randomPointAround(preferred.x, preferred.y, spread)
                 : randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
             if (isValid(point)) {
                 return point;

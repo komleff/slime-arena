@@ -127,7 +127,7 @@ export function generateObstacleSeeds(
             break;
         }
         if (!placed) {
-            console.warn("Passage placement failed");
+            console.warn("Не удалось разместить проход");
         }
     }
 
@@ -148,7 +148,7 @@ export function generateObstacleSeeds(
             break;
         }
         if (!placed) {
-            console.warn("Obstacle placement failed");
+            console.warn("Не удалось разместить препятствие");
         }
     }
 
@@ -189,7 +189,7 @@ export function generateSafeZoneSeeds(
             break;
         }
         if (!placed) {
-            console.warn("Safe zone placement failed");
+            console.warn("Не удалось разместить безопасную зону");
         }
     }
 

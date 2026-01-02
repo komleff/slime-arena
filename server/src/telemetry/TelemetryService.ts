@@ -63,9 +63,9 @@ export class TelemetryService {
         if (!this.enabled) return;
         if (this.queue.length === 0) return;
         const lines = this.queue.map((item) => JSON.stringify(item)).join("\n") + "\n";
-        this.queue = [];
         try {
             fs.appendFileSync(this.logPath, lines, "utf-8");
+            this.queue = [];
         } catch (error) {
             console.warn("Telemetry disabled: cannot write log", error);
             this.enabled = false;
