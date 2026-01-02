@@ -3341,6 +3341,7 @@ async function connectToServer(playerName: string, classId: number) {
             drawGrid(scale, camera.x, camera.y, cw, ch);
 
             // Hunger Zone: красный фон вне Sweet Zones (только в Hunt/Final)
+            const time = performance.now() * 0.001;
             const currentPhase = room.state.phase;
             const serverTickRate = balanceConfig.server.tickRate || 1;
             const elapsedSec = Number(room.state.serverTick ?? 0) / serverTickRate;
@@ -3477,8 +3478,6 @@ async function connectToServer(playerName: string, classId: number) {
                 drawCircle(p.x, p.y, r, orbColor(orb.colorId));
                 canvasCtx.restore();
             }
-
-            const time = performance.now() * 0.001;
 
             for (const [, chest] of chestsView.entries()) {
                 if (Math.abs(chest.x - camera.x) > halfWorldW + chestRadius || Math.abs(chest.y - camera.y) > halfWorldH + chestRadius) continue;

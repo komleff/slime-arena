@@ -89,6 +89,7 @@ export class ArenaRoom extends Room<GameState> {
     private telemetry: TelemetryService | null = null;
     private matchIndex = 0;
     private matchId = "";
+    private matchStartLogged = false;
 
     private attackCooldownTicks = 0;
     private invulnerableTicks = 0;
@@ -112,6 +113,7 @@ export class ArenaRoom extends Room<GameState> {
         this.rng = new Rng(this.seed);
         const telemetryEnabled = process.env.TELEMETRY_DISABLED !== "1";
         this.telemetry = new TelemetryService({ enabled: telemetryEnabled });
+        this.initMatchId();
         this.applyMapSizeConfig();
 
         this.attackCooldownTicks = this.secondsToTicks(this.balance.combat.attackCooldownSec);
@@ -1534,6 +1536,7 @@ export class ArenaRoom extends Room<GameState> {
         const percent = 0.8;
         const restitution = this.balance.worldPhysics.restitution;
         const maxCorrection = this.balance.worldPhysics.maxPositionCorrectionM;
+        const spikeDamageApplied = new Set<string>();
 
         for (let iter = 0; iter < iterations; iter += 1) {
             // Столкновения слайм-слайм
@@ -1742,12 +1745,17 @@ export class ArenaRoom extends Room<GameState> {
                     }
 
                     if (obstacle.type === OBSTACLE_TYPE_SPIKES) {
+                        if (spikeDamageApplied.has(player.id)) continue;
                         if (this.tick < player.invulnerableUntilTick) continue;
+                        if (player.isLastBreath) continue;
                         const damagePct = Math.max(0, this.balance.obstacles.spikeDamagePct);
                         if (damagePct <= 0) continue;
                         const massLoss = player.mass * damagePct;
-                        if (massLoss > 0 && !this.tryConsumeGuard(player)) {
-                            this.applyMassDelta(player, -massLoss);
+                        if (massLoss > 0) {
+                            if (!this.tryConsumeGuard(player)) {
+                                this.applyMassDelta(player, -massLoss);
+                            }
+                            spikeDamageApplied.add(player.id);
                         }
                     }
                 }
@@ -3096,7 +3104,7 @@ export class ArenaRoom extends Room<GameState> {
         const phase = this.state.phase as MatchPhaseId;
         // GDD v3.3: Hunger активен в Hunt и Final
         if (phase !== "Hunt" && phase !== "Final") return;
-        if (this.isSafeZoneActive()) return;
+        if (this.isSafeZoneActive() && this.state.safeZones.length > 0) return;
         if (this.state.hotZones.size === 0) return;
 
         const dt = 1 / this.balance.server.tickRate;
@@ -3128,7 +3136,8 @@ export class ArenaRoom extends Room<GameState> {
             if (player.isLastBreath) continue;
             if (this.tick < player.invulnerableUntilTick) continue;
             if (this.isInsideSafeZone(player)) continue;
-            const massLoss = player.mass * damagePerSec * dt;
+            const damageTakenMult = this.getDamageTakenMultiplier(player);
+            const massLoss = player.mass * damagePerSec * dt * damageTakenMult;
             if (massLoss > 0 && !this.tryConsumeGuard(player)) {
                 this.applyMassDelta(player, -massLoss);
             }
@@ -3282,7 +3291,7 @@ export class ArenaRoom extends Room<GameState> {
             console.log(`Phase: ${prevPhase ?? "none"} -> ${nextPhase}`);
             this.lastPhaseId = nextPhase;
             this.state.phase = nextPhase;
-            if (!this.matchId && nextPhase !== "Results") {
+            if (!this.matchStartLogged && nextPhase !== "Results") {
                 this.startMatchTelemetry();
             }
             this.logTelemetry("phase_change", { from: prevPhase ?? "none", to: nextPhase });
@@ -3321,6 +3330,8 @@ export class ArenaRoom extends Room<GameState> {
         this.tick = 0;
         this.lastPhaseId = null;
         this.matchId = "";
+        this.matchStartLogged = false;
+        this.initMatchId();
         this.lastOrbSpawnTick = 0;
         this.lastChestSpawnTick = 0;
         this.lastRebelUpdateTick = 0;
@@ -4675,13 +4686,21 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private startMatchTelemetry() {
-        this.matchIndex += 1;
-        this.matchId = `${this.roomId}-${this.matchIndex}`;
+        if (!this.matchId) {
+            this.initMatchId();
+        }
+        if (this.matchStartLogged) return;
+        this.matchStartLogged = true;
         this.logTelemetry("match_start", {
             mapSize: this.balance.world.mapSize,
             worldShape: this.balance.worldPhysics.worldShape,
             seed: this.seed,
         });
+    }
+
+    private initMatchId() {
+        this.matchIndex += 1;
+        this.matchId = `${this.roomId}-${this.matchIndex}`;
     }
 
     private logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
