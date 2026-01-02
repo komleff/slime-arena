@@ -1,4 +1,4 @@
-import { FLAG_SLOWED, ZONE_TYPE_LAVA, ZONE_TYPE_NECTAR } from "@slime-arena/shared";
+import { FLAG_ABILITY_SHIELD, FLAG_SLOWED, ZONE_TYPE_LAVA, ZONE_TYPE_NECTAR } from "@slime-arena/shared";
 
 export function slowZoneSystem(room: any) {
     // Удаляем истекшие зоны
@@ -78,6 +78,7 @@ export function toxicPoolSystem(room: any) {
         if (player.isDead) continue;
         if (player.isLastBreath) continue;
         if (room.tick < player.invulnerableUntilTick) continue;
+        if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) continue;
         let totalDamagePctPerSec = 0;
         for (const pool of room.state.toxicPools.values()) {
             const dx = player.x - pool.x;
@@ -102,6 +103,7 @@ export function statusEffectSystem(room: any) {
     for (const player of room.state.players.values()) {
         if (player.isDead) continue;
         if (room.tick < player.invulnerableUntilTick) continue;
+        if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) continue;
         if (player.poisonEndTick > room.tick && player.poisonDamagePctPerSec > 0) {
             const damageTakenMult = room.getDamageTakenMultiplier(player);
             const massLoss = player.mass * player.poisonDamagePctPerSec * dt * damageTakenMult;
@@ -139,6 +141,7 @@ export function zoneEffectSystem(room: any) {
         if (zone.type === ZONE_TYPE_LAVA) {
             if (player.isLastBreath) continue;
             if (room.tick < player.invulnerableUntilTick) continue;
+            if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) continue;
             const damagePct = Math.max(0, room.balance.zones.lava.damagePctPerSec);
             if (damagePct <= 0) continue;
             const damageTakenMult = room.getDamageTakenMultiplier(player);

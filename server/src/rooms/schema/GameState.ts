@@ -53,6 +53,9 @@ export class Player extends Schema {
     @type("string") abilitySlot0: string = "";  // Классовое умение
     @type("string") abilitySlot1: string = "";  // Слот 2 (level 3)
     @type("string") abilitySlot2: string = "";  // Слот 3 (level 5)
+    @type("number") abilityLevel0: number = 0;  // Уровень умения слота 1
+    @type("number") abilityLevel1: number = 0;  // Уровень умения слота 2
+    @type("number") abilityLevel2: number = 0;  // Уровень умения слота 3
     @type(AbilityCard) pendingAbilityCard: AbilityCard | null = null;
     @type("number") pendingCardCount: number = 0;  // Кол-во карточек в очереди (синхронизируется)
     

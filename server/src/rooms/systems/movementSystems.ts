@@ -288,7 +288,8 @@ export function physicsSystem(room: any) {
 
         // Dash movement: линейная интерполяция к цели
         if ((player.flags & FLAG_DASHING) !== 0 && player.dashEndTick > 0) {
-            const dashConfig = room.balance.abilities.dash;
+            const dashLevel = room.getAbilityLevelForAbility(player, "dash") || 1;
+            const dashConfig = room.getAbilityConfigById("dash", dashLevel);
             const dashDurationTicks = Math.round(dashConfig.durationSec * room.balance.server.tickRate);
             const ticksRemaining = player.dashEndTick - room.tick;
             const progress = 1 - ticksRemaining / dashDurationTicks;
