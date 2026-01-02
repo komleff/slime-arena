@@ -465,6 +465,27 @@
       "gold": ["greed", "rage", "guard"]
     }
   },
+  "obstacles": {
+    "countByMapSize": { "small": 4, "medium": 6, "large": 9 },
+    "passageCountByMapSize": { "small": 1, "medium": 2, "large": 2 },
+    "passageGapWidth": 25,
+    "passagePillarRadius": 18,
+    "pillarRadius": 20,
+    "spikeRadius": 16,
+    "spikeDamagePct": 0.05,
+    "spikeChance": 0.3,
+    "spacing": 8,
+    "placementRetries": 30
+  },
+  "safeZones": {
+    "finalStartSec": 120,
+    "warningSec": 10,
+    "damagePctPerSec": 0.015,
+    "minDistance": 200,
+    "placementRetries": 30,
+    "countByMapSize": { "small": 1, "medium": 2, "large": 3 },
+    "radiusByMapSize": { "small": 120, "medium": 150, "large": 180 }
+  },
   "hotZones": {
     "chaosCount": 2,
     "finalCount": 1,

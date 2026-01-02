@@ -1,5 +1,19 @@
 import { Room, Client } from "colyseus";
-import { GameState, Player, Orb, Chest, HotZone, SlowZone, ToxicPool, Projectile, Mine, Talent, TalentCard } from "./schema/GameState";
+import {
+    GameState,
+    Player,
+    Orb,
+    Chest,
+    HotZone,
+    SlowZone,
+    ToxicPool,
+    Projectile,
+    Mine,
+    Talent,
+    TalentCard,
+    Obstacle,
+    SafeZone,
+} from "./schema/GameState";
 import {
     InputCommand,
     MatchPhaseId,
@@ -19,6 +33,8 @@ import {
     FLAG_STUNNED,
     FLAG_INVISIBLE,
     FLAG_LEVIATHAN,
+    OBSTACLE_TYPE_PILLAR,
+    OBSTACLE_TYPE_SPIKES,
     ResolvedBalanceConfig,
     SlimeConfig,
     generateUniqueName,
@@ -27,6 +43,13 @@ import {
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
+import { TelemetryService } from "../telemetry/TelemetryService";
+import {
+    generateObstacleSeeds,
+    generateSafeZoneSeeds,
+    isInsideWorld,
+    randomPointInMapWithMargin,
+} from "./helpers/arenaGeneration";
 
 type ContactZone = "mouth" | "tail" | "side";
 
@@ -44,6 +67,7 @@ export class ArenaRoom extends Room<GameState> {
 
     private balance!: ResolvedBalanceConfig;
     private rng!: Rng;
+    private seed = 0;
     private tick = 0;
     private orbIdCounter = 0;
     private chestIdCounter = 0;
@@ -52,6 +76,7 @@ export class ArenaRoom extends Room<GameState> {
     private toxicPoolIdCounter = 0;
     private projectileIdCounter = 0;
     private mineIdCounter = 0;
+    private obstacleIdCounter = 0;
     private lastOrbSpawnTick = 0;
     private lastChestSpawnTick = 0;
     private lastPhaseId: MatchPhaseId | null = null;
@@ -61,6 +86,9 @@ export class ArenaRoom extends Room<GameState> {
     private metricsIntervalTicks = 0;
     private metricsMaxTickMs = 0;
     private maxTalentQueue = 3;
+    private telemetry: TelemetryService | null = null;
+    private matchIndex = 0;
+    private matchId = "";
 
     private attackCooldownTicks = 0;
     private invulnerableTicks = 0;
@@ -80,7 +108,10 @@ export class ArenaRoom extends Room<GameState> {
     onCreate(options: { seed?: number } = {}) {
         this.balance = loadBalanceConfig();
         this.maxClients = this.balance.server.maxPlayers;
-        this.rng = new Rng(Number(options.seed ?? Date.now()));
+        this.seed = Number(options.seed ?? Date.now());
+        this.rng = new Rng(this.seed);
+        const telemetryEnabled = process.env.TELEMETRY_DISABLED !== "1";
+        this.telemetry = new TelemetryService({ enabled: telemetryEnabled });
         this.applyMapSizeConfig();
 
         this.attackCooldownTicks = this.secondsToTicks(this.balance.combat.attackCooldownSec);
@@ -100,6 +131,7 @@ export class ArenaRoom extends Room<GameState> {
         this.setState(new GameState());
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
+        this.generateArena();
 
         this.onMessage("selectClass", (client, data: { classId?: unknown }) => {
             const player = this.state.players.get(client.sessionId);
@@ -257,7 +289,12 @@ export class ArenaRoom extends Room<GameState> {
             nameSeed = nameSeed % 2147483647;
             player.name = generateUniqueName(nameSeed, existingNames);
         }
-        const spawn = this.randomPointInMap();
+        const spawnRadius = getSlimeRadiusFromConfig(this.balance.slime.initialMass, this.balance.slimeConfigs.base);
+        const spawn = this.findSpawnPoint(
+            spawnRadius,
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries
+        );
         player.x = spawn.x;
         player.y = spawn.y;
         player.mass = this.balance.slime.initialMass;
@@ -314,6 +351,7 @@ export class ArenaRoom extends Room<GameState> {
 
     onDispose() {
         console.log("room", this.roomId, "disposing...");
+        this.telemetry?.close();
     }
 
     private applyMapSizeConfig() {
@@ -368,6 +406,7 @@ export class ArenaRoom extends Room<GameState> {
         this.statusEffectSystem();
         this.deathSystem();
         this.hungerSystem();
+        this.safeZoneSystem();
         this.rebelSystem();
         this.updatePlayerFlags();
         this.reportMetrics(tickStartMs);
@@ -548,6 +587,8 @@ export class ArenaRoom extends Room<GameState> {
 
         if (!activated) return;
 
+        this.logTelemetry("ability_used", { abilityId, slot });
+
         if (abilityId !== "dash") {
             this.clearInvisibility(player);
         }
@@ -711,19 +752,40 @@ export class ArenaRoom extends Room<GameState> {
         const maxStackTicks = this.secondsToTicks(this.balance.boosts.maxStackTimeSec);
         const maxCharges = this.getBoostMaxCharges(boostType);
 
-        if (player.boostType === boostType && player.boostEndTick > this.tick) {
+        const isStacked = player.boostType === boostType && player.boostEndTick > this.tick;
+        if (isStacked) {
             const stackedEnd = player.boostEndTick + durationTicks;
             const maxEnd = maxStackTicks > 0 ? this.tick + maxStackTicks : stackedEnd;
             player.boostEndTick = Math.min(stackedEnd, maxEnd);
             if (maxCharges > 0) {
                 player.boostCharges = Math.max(player.boostCharges, maxCharges);
             }
+            this.logTelemetry(
+                "boost_gained",
+                {
+                    boostType,
+                    boostEndTick: player.boostEndTick,
+                    boostCharges: player.boostCharges,
+                    stacked: true,
+                },
+                player
+            );
             return;
         }
 
         player.boostType = boostType;
         player.boostEndTick = this.tick + durationTicks;
         player.boostCharges = maxCharges;
+        this.logTelemetry(
+            "boost_gained",
+            {
+                boostType,
+                boostEndTick: player.boostEndTick,
+                boostCharges: player.boostCharges,
+                stacked: false,
+            },
+            player
+        );
     }
 
     private getDamageBonusMultiplier(attacker: Player, includeBiteBonus: boolean): number {
@@ -1466,6 +1528,7 @@ export class ArenaRoom extends Room<GameState> {
         const players = Array.from(this.state.players.values());
         const orbs = Array.from(this.state.orbs.entries());
         const chests = Array.from(this.state.chests.entries());
+        const obstacles = Array.from(this.state.obstacles.values());
         const iterations = 4;
         const slop = 0.001;
         const percent = 0.8;
@@ -1644,6 +1707,47 @@ export class ArenaRoom extends Room<GameState> {
                             player.vy -= impulseY * invMassPlayer;
                             chest.vx += impulseX * invMassChest;
                             chest.vy += impulseY * invMassChest;
+                        }
+                    }
+                }
+            }
+
+            // Столкновения слайм-препятствие
+            for (const player of players) {
+                if (player.isDead) continue;
+                const playerRadius = this.getPlayerRadius(player);
+                for (const obstacle of obstacles) {
+                    const dx = player.x - obstacle.x;
+                    const dy = player.y - obstacle.y;
+                    const minDist = playerRadius + obstacle.radius;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq >= minDist * minDist) continue;
+
+                    const dist = Math.sqrt(distSq);
+                    const nx = dist > 0 ? dx / dist : 1;
+                    const ny = dist > 0 ? dy / dist : 0;
+                    const penetration = minDist - (dist || 0);
+                    const corrRaw = Math.max(penetration - slop, 0);
+                    const corrMag = Math.min(corrRaw, maxCorrection);
+                    const corrX = nx * corrMag;
+                    const corrY = ny * corrMag;
+                    player.x += corrX;
+                    player.y += corrY;
+
+                    const velAlongNormal = player.vx * nx + player.vy * ny;
+                    if (velAlongNormal < 0) {
+                        const impulse = (1 + restitution) * velAlongNormal;
+                        player.vx -= impulse * nx;
+                        player.vy -= impulse * ny;
+                    }
+
+                    if (obstacle.type === OBSTACLE_TYPE_SPIKES) {
+                        if (this.tick < player.invulnerableUntilTick) continue;
+                        const damagePct = Math.max(0, this.balance.obstacles.spikeDamagePct);
+                        if (damagePct <= 0) continue;
+                        const massLoss = player.mass * damagePct;
+                        if (massLoss > 0 && !this.tryConsumeGuard(player)) {
+                            this.applyMassDelta(player, -massLoss);
                         }
                     }
                 }
@@ -1963,6 +2067,7 @@ export class ArenaRoom extends Room<GameState> {
         const mapSize = this.balance.world.mapSize;
         const worldHalfW = mapSize / 2;
         const worldHalfH = mapSize / 2;
+        const obstacles = Array.from(this.state.obstacles.values());
         
         for (const [projId, proj] of this.state.projectiles.entries()) {
             // Движение
@@ -2007,7 +2112,23 @@ export class ArenaRoom extends Room<GameState> {
                 toRemove.push(projId);
                 continue;
             }
-            
+
+            let hitObstacle = false;
+            for (const obstacle of obstacles) {
+                const odx = proj.x - obstacle.x;
+                const ody = proj.y - obstacle.y;
+                const touchDist = obstacle.radius + proj.radius;
+                if (odx * odx + ody * ody <= touchDist * touchDist) {
+                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
+                        this.explodeBomb(proj);
+                    }
+                    toRemove.push(projId);
+                    hitObstacle = true;
+                    break;
+                }
+            }
+            if (hitObstacle) continue;
+             
             // Столкновение со слаймами (кроме владельца)
             let hitPlayer = false;
             for (const player of this.state.players.values()) {
@@ -2537,6 +2658,11 @@ export class ArenaRoom extends Room<GameState> {
                 this.awardKillMass(killer);
             }
         }
+        this.logTelemetry("player_death", {
+            killerId: killerId || null,
+            mass: player.mass,
+            classId: player.classId,
+        }, player);
         player.lastDamagedById = "";
         player.lastDamagedAtTick = 0;
 
@@ -2703,7 +2829,11 @@ export class ArenaRoom extends Room<GameState> {
             player.mass * (1 - this.balance.death.massLostPercent)
         );
         player.mass = respawnMass;
-        const spawn = this.randomPointInMap();
+        const spawn = this.findSpawnPoint(
+            this.getPlayerRadius(player),
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries
+        );
         player.x = spawn.x;
         player.y = spawn.y;
         player.vx = 0;
@@ -2966,6 +3096,7 @@ export class ArenaRoom extends Room<GameState> {
         const phase = this.state.phase as MatchPhaseId;
         // GDD v3.3: Hunger активен в Hunt и Final
         if (phase !== "Hunt" && phase !== "Final") return;
+        if (this.isSafeZoneActive()) return;
         if (this.state.hotZones.size === 0) return;
 
         const dt = 1 / this.balance.server.tickRate;
@@ -2982,6 +3113,25 @@ export class ArenaRoom extends Room<GameState> {
             const minMass = Math.max(this.balance.hunger.minMass, this.balance.physics.minSlimeMass);
             const targetMass = Math.max(minMass, player.mass - drain);
             this.applyMassDelta(player, targetMass - player.mass);
+        }
+    }
+
+    private safeZoneSystem() {
+        if (!this.isSafeZoneActive()) return;
+        if (this.state.safeZones.length === 0) return;
+        const damagePerSec = Math.max(0, this.balance.safeZones.damagePctPerSec);
+        if (damagePerSec <= 0) return;
+
+        const dt = 1 / this.balance.server.tickRate;
+        for (const player of this.state.players.values()) {
+            if (player.isDead) continue;
+            if (player.isLastBreath) continue;
+            if (this.tick < player.invulnerableUntilTick) continue;
+            if (this.isInsideSafeZone(player)) continue;
+            const massLoss = player.mass * damagePerSec * dt;
+            if (massLoss > 0 && !this.tryConsumeGuard(player)) {
+                this.applyMassDelta(player, -massLoss);
+            }
         }
     }
 
@@ -3128,9 +3278,14 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         if (this.lastPhaseId !== nextPhase) {
-            console.log(`Phase: ${this.lastPhaseId ?? "none"} -> ${nextPhase}`);
+            const prevPhase = this.lastPhaseId;
+            console.log(`Phase: ${prevPhase ?? "none"} -> ${nextPhase}`);
             this.lastPhaseId = nextPhase;
             this.state.phase = nextPhase;
+            if (!this.matchId && nextPhase !== "Results") {
+                this.startMatchTelemetry();
+            }
+            this.logTelemetry("phase_change", { from: prevPhase ?? "none", to: nextPhase });
             this.handlePhaseChange(nextPhase);
         } else {
             this.state.phase = nextPhase;
@@ -3144,6 +3299,10 @@ export class ArenaRoom extends Room<GameState> {
         this.lastPhaseId = "Results";
         this.updateLeaderboard();
         console.log("Match ended! Phase: Results");
+        this.logTelemetry("match_end", {
+            leaderboard: Array.from(this.state.leaderboard),
+            playersAlive: Array.from(this.state.players.values()).filter((player) => !player.isDead).length,
+        });
         
         // Останавливаем всех игроков
         for (const player of this.state.players.values()) {
@@ -3161,6 +3320,7 @@ export class ArenaRoom extends Room<GameState> {
         this.resultsStartTick = 0;
         this.tick = 0;
         this.lastPhaseId = null;
+        this.matchId = "";
         this.lastOrbSpawnTick = 0;
         this.lastChestSpawnTick = 0;
         this.lastRebelUpdateTick = 0;
@@ -3178,6 +3338,7 @@ export class ArenaRoom extends Room<GameState> {
         this.state.hotZones.clear();
         this.state.slowZones.clear();
         this.state.zones.clear();
+        this.state.obstacles.clear();
         this.state.safeZones.splice(0, this.state.safeZones.length);
         this.state.toxicPools.clear();
         this.state.projectiles.clear();
@@ -3186,6 +3347,7 @@ export class ArenaRoom extends Room<GameState> {
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
         this.state.serverTick = 0;
+        this.generateArena();
 
         // Респавн всех игроков
         for (const player of this.state.players.values()) {
@@ -3263,6 +3425,86 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
+    private generateArena() {
+        this.state.obstacles.clear();
+        this.state.safeZones.splice(0, this.state.safeZones.length);
+        this.obstacleIdCounter = 0;
+        const mapSize = this.balance.world.mapSize;
+        const world = this.balance.worldPhysics;
+        const obstacles = generateObstacleSeeds(this.rng, world, mapSize, this.balance.obstacles);
+        for (const obstacle of obstacles) {
+            this.addObstacle(obstacle.type, obstacle.x, obstacle.y, obstacle.radius);
+        }
+        const safeZones = generateSafeZoneSeeds(this.rng, world, mapSize, this.balance.safeZones);
+        for (const zoneSeed of safeZones) {
+            const zone = new SafeZone();
+            zone.x = zoneSeed.x;
+            zone.y = zoneSeed.y;
+            zone.radius = zoneSeed.radius;
+            this.state.safeZones.push(zone);
+        }
+    }
+
+    private isPointFreeOfObstacles(x: number, y: number, radius: number, padding: number): boolean {
+        const safePadding = Math.max(0, padding);
+        for (const obstacle of this.state.obstacles.values()) {
+            const dx = x - obstacle.x;
+            const dy = y - obstacle.y;
+            const minDist = radius + obstacle.radius + safePadding;
+            if (dx * dx + dy * dy < minDist * minDist) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private randomPointAround(x: number, y: number, range: number) {
+        const angle = this.rng.range(0, Math.PI * 2);
+        const r = Math.sqrt(this.rng.next()) * range;
+        return { x: x + Math.cos(angle) * r, y: y + Math.sin(angle) * r };
+    }
+
+    private findSpawnPoint(
+        radius: number,
+        padding: number,
+        retries: number,
+        preferred?: { x: number; y: number }
+    ) {
+        const safeRadius = Math.max(0, radius);
+        const safePadding = Math.max(0, padding);
+        const attempts = Math.max(1, retries);
+        const mapSize = this.balance.world.mapSize;
+        const world = this.balance.worldPhysics;
+        const isValid = (point: { x: number; y: number }) =>
+            isInsideWorld(world, mapSize, point.x, point.y, safeRadius) &&
+            this.isPointFreeOfObstacles(point.x, point.y, safeRadius, safePadding);
+
+        if (preferred && isValid(preferred)) {
+            return preferred;
+        }
+
+        for (let i = 0; i < attempts; i += 1) {
+            const point = preferred
+                ? this.randomPointAround(preferred.x, preferred.y, safeRadius + safePadding + 20)
+                : randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
+            if (isValid(point)) {
+                return point;
+            }
+        }
+
+        return preferred ?? randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
+    }
+
+    private addObstacle(type: number, x: number, y: number, radius: number) {
+        const obstacle = new Obstacle();
+        obstacle.id = `obs_${this.obstacleIdCounter++}`;
+        obstacle.x = x;
+        obstacle.y = y;
+        obstacle.radius = radius;
+        obstacle.type = type;
+        this.state.obstacles.set(obstacle.id, obstacle);
+    }
+
     private spawnHotZones(count: number, spawnMultiplier: number, centerFirst = false) {
         const radius = this.balance.hotZones.radius;
         for (let i = 0; i < count; i += 1) {
@@ -3293,6 +3535,23 @@ export class ArenaRoom extends Room<GameState> {
         return false;
     }
 
+    private isInsideSafeZone(player: Player): boolean {
+        for (const zone of this.state.safeZones) {
+            const dx = player.x - zone.x;
+            const dy = player.y - zone.y;
+            if (dx * dx + dy * dy <= zone.radius * zone.radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private isSafeZoneActive(): boolean {
+        if (this.state.phase !== "Final") return false;
+        const elapsedSec = this.tick / this.balance.server.tickRate;
+        return elapsedSec >= this.balance.safeZones.finalStartSec;
+    }
+
     private getOrbSpawnMultiplier(): number {
         let multiplier = 1;
         for (const zone of this.state.hotZones.values()) {
@@ -3317,8 +3576,7 @@ export class ArenaRoom extends Room<GameState> {
     private spawnInitialOrbs() {
         const count = Math.min(this.balance.orbs.initialCount, this.balance.orbs.maxCount);
         for (let i = 0; i < count; i += 1) {
-            const spawn = this.randomPointInMap();
-            this.spawnOrb(spawn.x, spawn.y);
+            this.spawnOrb();
         }
     }
 
@@ -3331,15 +3589,23 @@ export class ArenaRoom extends Room<GameState> {
      * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
      */
     private forceSpawnOrb(x?: number, y?: number, massOverride?: number, colorId?: number): Orb {
-        const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
-        const orb = new Orb();
-        orb.id = `orb_${this.orbIdCounter++}`;
-        orb.x = x ?? spawn.x;
-        orb.y = y ?? spawn.y;
-        orb.mass =
+        const mass =
             massOverride ??
             this.rng.range(typePick.type.massRange[0], typePick.type.massRange[1]);
+        const orbRadius = getOrbRadius(mass, typePick.type.density);
+        const basePoint = x !== undefined && y !== undefined ? { x, y } : this.randomOrbSpawnPoint();
+        const spawn = this.findSpawnPoint(
+            orbRadius,
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries,
+            basePoint
+        );
+        const orb = new Orb();
+        orb.id = `orb_${this.orbIdCounter++}`;
+        orb.x = spawn.x;
+        orb.y = spawn.y;
+        orb.mass = mass;
         orb.colorId = colorId ?? typePick.index;
         orb.vx = 0;
         orb.vy = 0;
@@ -3366,7 +3632,11 @@ export class ArenaRoom extends Room<GameState> {
         if (this.state.chests.size >= this.balance.chests.maxCount) return;
         const chest = new Chest();
         chest.id = `chest_${this.chestIdCounter++}`;
-        const spawn = this.randomPointInMap();
+        const spawn = this.findSpawnPoint(
+            this.balance.chests.radius,
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries
+        );
         chest.x = spawn.x;
         chest.y = spawn.y;
         chest.vx = 0;
@@ -3783,6 +4053,7 @@ export class ArenaRoom extends Room<GameState> {
         // Получаем конфиг таланта
         const talentConfig = this.getTalentConfig(talentId);
         if (!talentConfig) return;
+        const beforeLevel = existingTalent?.level ?? 0;
         
         if (existingTalent) {
             // Повышаем уровень если возможно
@@ -3795,6 +4066,11 @@ export class ArenaRoom extends Room<GameState> {
             newTalent.id = talentId;
             newTalent.level = 1;
             player.talents.push(newTalent);
+        }
+
+        const afterLevel = existingTalent?.level ?? 1;
+        if (afterLevel > beforeLevel) {
+            this.logTelemetry("talent_chosen", { talentId, level: afterLevel }, player);
         }
         
         // Пересчитываем модификаторы
@@ -4396,6 +4672,30 @@ export class ArenaRoom extends Room<GameState> {
         const scale = dampedSpeed / speed;
         entity.vx *= scale;
         entity.vy *= scale;
+    }
+
+    private startMatchTelemetry() {
+        this.matchIndex += 1;
+        this.matchId = `${this.roomId}-${this.matchIndex}`;
+        this.logTelemetry("match_start", {
+            mapSize: this.balance.world.mapSize,
+            worldShape: this.balance.worldPhysics.worldShape,
+            seed: this.seed,
+        });
+    }
+
+    private logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
+        if (!this.telemetry) return;
+        this.telemetry.log({
+            event,
+            ts: Date.now(),
+            tick: this.tick,
+            matchId: this.matchId,
+            roomId: this.roomId,
+            phase: this.state.phase,
+            playerId: player?.id,
+            data,
+        });
     }
 
     private reportMetrics(startMs: number) {

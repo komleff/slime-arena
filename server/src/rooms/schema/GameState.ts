@@ -262,6 +262,14 @@ export class Zone extends Schema {
     @type("number") type: number = 0; // ZONE_TYPE_*
 }
 
+export class Obstacle extends Schema {
+    @type("string") id: string = "";
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") radius: number = 0;
+    @type("number") type: number = 0; // OBSTACLE_TYPE_*
+}
+
 export class SafeZone extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
@@ -282,6 +290,7 @@ export class GameState extends Schema {
     @type({ map: Projectile }) projectiles = new MapSchema<Projectile>();
     @type({ map: Mine }) mines = new MapSchema<Mine>();
     @type({ map: Zone }) zones = new MapSchema<Zone>();
+    @type({ map: Obstacle }) obstacles = new MapSchema<Obstacle>();
     @type({ array: SafeZone }) safeZones = new ArraySchema<SafeZone>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
 }

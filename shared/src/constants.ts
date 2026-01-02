@@ -15,3 +15,6 @@ export const ZONE_TYPE_NECTAR = 1;
 export const ZONE_TYPE_ICE = 2;
 export const ZONE_TYPE_LAVA = 3;
 export const ZONE_TYPE_TURBO = 4;
+
+export const OBSTACLE_TYPE_PILLAR = 1;
+export const OBSTACLE_TYPE_SPIKES = 2;

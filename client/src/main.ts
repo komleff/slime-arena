@@ -18,6 +18,8 @@ import {
     ZONE_TYPE_ICE,
     ZONE_TYPE_LAVA,
     ZONE_TYPE_TURBO,
+    OBSTACLE_TYPE_PILLAR,
+    OBSTACLE_TYPE_SPIKES,
     clamp,
     lerp,
     wrapAngle,
@@ -3129,6 +3131,7 @@ async function connectToServer(playerName: string, classId: number) {
             slowZones: Map<string, any>,
             toxicPools: Map<string, any>,
             zones: Map<string, any>,
+            obstacles: Map<string, any>,
             safeZones: any[],
             rebelId: string
         ) => {
@@ -3210,6 +3213,24 @@ async function connectToServer(playerName: string, classId: number) {
                 ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Obstacles
+            for (const [, obstacle] of obstacles.entries()) {
+                const p = worldToMap(obstacle.x, obstacle.y);
+                const r = (obstacle.radius / worldWidth) * mapW;
+                const isSpikes = obstacle.type === OBSTACLE_TYPE_SPIKES;
+                const isPillar = obstacle.type === OBSTACLE_TYPE_PILLAR;
+                if (isSpikes) {
+                    ctx.fillStyle = "rgba(255, 80, 80, 0.7)";
+                } else if (isPillar) {
+                    ctx.fillStyle = "rgba(160, 160, 160, 0.8)";
+                } else {
+                    ctx.fillStyle = "rgba(120, 120, 120, 0.7)";
+                }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, Math.max(1, r), 0, Math.PI * 2);
                 ctx.fill();
             }
 
@@ -3321,6 +3342,10 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Hunger Zone: красный фон вне Sweet Zones (только в Hunt/Final)
             const currentPhase = room.state.phase;
+            const serverTickRate = balanceConfig.server.tickRate || 1;
+            const elapsedSec = Number(room.state.serverTick ?? 0) / serverTickRate;
+            const safeZonesConfig = balanceConfig.safeZones ?? DEFAULT_BALANCE_CONFIG.safeZones;
+            const safeZonesActive = currentPhase === "Final" && elapsedSec >= safeZonesConfig.finalStartSec;
             
             // Устанавливаем флаг заморозки визуала при Results
             freezeVisualState = currentPhase === "Results";
@@ -3400,6 +3425,43 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.lineWidth = 2;
                 canvasCtx.stroke();
                 canvasCtx.restore();
+            }
+
+            // Безопасные зоны (финал)
+            const safeZonesView = room.state.safeZones;
+            if (safeZonesView) {
+                const pulse = safeZonesActive ? 0.2 * Math.sin(time * 2) : 0;
+                const fillAlpha = safeZonesActive ? 0.12 + pulse : 0.06;
+                const strokeAlpha = safeZonesActive ? 0.7 : 0.4;
+                for (const zone of safeZonesView) {
+                    if (Math.abs(zone.x - camera.x) > halfWorldW + zone.radius || Math.abs(zone.y - camera.y) > halfWorldH + zone.radius) continue;
+                    const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                    canvasCtx.save();
+                    canvasCtx.globalAlpha = 1;
+                    drawCircle(p.x, p.y, zone.radius * scale, `rgba(80, 220, 120, ${fillAlpha})`, `rgba(60, 200, 100, ${strokeAlpha})`);
+                    canvasCtx.restore();
+                }
+            }
+
+            // Препятствия
+            const obstaclesView = room.state.obstacles;
+            for (const [, obstacle] of obstaclesView.entries()) {
+                if (Math.abs(obstacle.x - camera.x) > halfWorldW + obstacle.radius || Math.abs(obstacle.y - camera.y) > halfWorldH + obstacle.radius) continue;
+                const p = worldToScreen(obstacle.x, obstacle.y, scale, camera.x, camera.y, cw, ch);
+                const r = Math.max(6, obstacle.radius * scale);
+                const isSpikes = obstacle.type === OBSTACLE_TYPE_SPIKES;
+                const isPillar = obstacle.type === OBSTACLE_TYPE_PILLAR;
+                const fill = isSpikes
+                    ? "rgba(255, 80, 80, 0.85)"
+                    : isPillar
+                      ? "rgba(140, 140, 140, 0.85)"
+                      : "rgba(110, 110, 110, 0.7)";
+                const stroke = isSpikes
+                    ? "rgba(255, 40, 40, 0.9)"
+                    : isPillar
+                      ? "rgba(80, 80, 80, 0.9)"
+                      : "rgba(60, 60, 60, 0.7)";
+                drawCircle(p.x, p.y, r, fill, stroke);
             }
 
             for (const [, orb] of orbsView.entries()) {
@@ -3834,6 +3896,7 @@ async function connectToServer(playerName: string, classId: number) {
                 slowZonesView,
                 toxicPoolsView,
                 room.state.zones,
+                room.state.obstacles,
                 room.state.safeZones,
                 room.state.rebelId
             );
