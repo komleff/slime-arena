@@ -12,6 +12,9 @@ export type {
     TalentConfig,
     BoostConfig,
     BoostType,
+    MapSizeConfig,
+    ObstacleConfig,
+    SafeZoneConfig,
 } from "./config.js";
 export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
 export {
@@ -41,6 +44,8 @@ export {
     ZONE_TYPE_ICE,
     ZONE_TYPE_LAVA,
     ZONE_TYPE_TURBO,
+    OBSTACLE_TYPE_PILLAR,
+    OBSTACLE_TYPE_SPIKES,
 } from "./constants.js";
 export type { SlimeSprite } from "./sprites.js";
 export {

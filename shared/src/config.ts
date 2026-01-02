@@ -50,6 +50,35 @@ export interface BoostConfig {
     };
 }
 
+export interface MapSizeConfig {
+    small: number;
+    medium: number;
+    large: number;
+}
+
+export interface ObstacleConfig {
+    countByMapSize: MapSizeConfig;
+    passageCountByMapSize: MapSizeConfig;
+    passageGapWidth: number;
+    passagePillarRadius: number;
+    pillarRadius: number;
+    spikeRadius: number;
+    spikeDamagePct: number;
+    spikeChance: number;
+    spacing: number;
+    placementRetries: number;
+}
+
+export interface SafeZoneConfig {
+    finalStartSec: number;
+    warningSec: number;
+    damagePctPerSec: number;
+    minDistance: number;
+    placementRetries: number;
+    countByMapSize: MapSizeConfig;
+    radiusByMapSize: MapSizeConfig;
+}
+
 export interface SlimeConfig {
     id: string;
     name: string;
@@ -354,6 +383,8 @@ export interface BalanceConfig {
         };
     };
     boosts: BoostConfig;
+    obstacles: ObstacleConfig;
+    safeZones: SafeZoneConfig;
     hotZones: {
         chaosCount: number;
         finalCount: number;
@@ -892,6 +923,43 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             gold: ["greed", "rage", "guard"],
         },
     },
+    obstacles: {
+        countByMapSize: {
+            small: 4,
+            medium: 6,
+            large: 9,
+        },
+        passageCountByMapSize: {
+            small: 1,
+            medium: 2,
+            large: 2,
+        },
+        passageGapWidth: 25,
+        passagePillarRadius: 18,
+        pillarRadius: 20,
+        spikeRadius: 16,
+        spikeDamagePct: 0.05,
+        spikeChance: 0.3,
+        spacing: 8,
+        placementRetries: 30,
+    },
+    safeZones: {
+        finalStartSec: 120,
+        warningSec: 10,
+        damagePctPerSec: 0.015,
+        minDistance: 200,
+        placementRetries: 30,
+        countByMapSize: {
+            small: 1,
+            medium: 2,
+            large: 3,
+        },
+        radiusByMapSize: {
+            small: 120,
+            medium: 150,
+            large: 180,
+        },
+    },
     hotZones: {
         chaosCount: 2,
         finalCount: 1,
@@ -1019,6 +1087,15 @@ function readNumberArray(value: unknown, fallback: number[], path: string): numb
         throw new Error(`Invalid array at ${path}`);
     }
     return value.map((item, index) => readNumber(item, fallback[index] ?? 0, `${path}[${index}]`));
+}
+
+function readMapSizeConfig(value: unknown, fallback: MapSizeConfig, path: string): MapSizeConfig {
+    if (!isRecord(value)) return fallback;
+    return {
+        small: readNumber(value.small, fallback.small, `${path}.small`),
+        medium: readNumber(value.medium, fallback.medium, `${path}.medium`),
+        large: readNumber(value.large, fallback.large, `${path}.large`),
+    };
 }
 
 function readStringArray(value: unknown, fallback: string[], path: string): string[] {
@@ -1333,6 +1410,8 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const classes = isRecord(data.classes) ? data.classes : {};
     const chests = isRecord(data.chests) ? data.chests : {};
     const boosts = isRecord(data.boosts) ? data.boosts : {};
+    const obstacles = isRecord(data.obstacles) ? data.obstacles : {};
+    const safeZones = isRecord(data.safeZones) ? data.safeZones : {};
     const hotZones = isRecord(data.hotZones) ? data.hotZones : {};
     const toxicPools = isRecord(data.toxicPools) ? data.toxicPools : {};
     const hunger = isRecord(data.hunger) ? data.hunger : {};
@@ -2074,6 +2153,95 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     "boosts.allowedByChestType.gold"
                 ),
             },
+        },
+        obstacles: {
+            countByMapSize: readMapSizeConfig(
+                obstacles.countByMapSize,
+                DEFAULT_BALANCE_CONFIG.obstacles.countByMapSize,
+                "obstacles.countByMapSize"
+            ),
+            passageCountByMapSize: readMapSizeConfig(
+                obstacles.passageCountByMapSize,
+                DEFAULT_BALANCE_CONFIG.obstacles.passageCountByMapSize,
+                "obstacles.passageCountByMapSize"
+            ),
+            passageGapWidth: readNumber(
+                obstacles.passageGapWidth,
+                DEFAULT_BALANCE_CONFIG.obstacles.passageGapWidth,
+                "obstacles.passageGapWidth"
+            ),
+            passagePillarRadius: readNumber(
+                obstacles.passagePillarRadius,
+                DEFAULT_BALANCE_CONFIG.obstacles.passagePillarRadius,
+                "obstacles.passagePillarRadius"
+            ),
+            pillarRadius: readNumber(
+                obstacles.pillarRadius,
+                DEFAULT_BALANCE_CONFIG.obstacles.pillarRadius,
+                "obstacles.pillarRadius"
+            ),
+            spikeRadius: readNumber(
+                obstacles.spikeRadius,
+                DEFAULT_BALANCE_CONFIG.obstacles.spikeRadius,
+                "obstacles.spikeRadius"
+            ),
+            spikeDamagePct: readNumber(
+                obstacles.spikeDamagePct,
+                DEFAULT_BALANCE_CONFIG.obstacles.spikeDamagePct,
+                "obstacles.spikeDamagePct"
+            ),
+            spikeChance: readNumber(
+                obstacles.spikeChance,
+                DEFAULT_BALANCE_CONFIG.obstacles.spikeChance,
+                "obstacles.spikeChance"
+            ),
+            spacing: readNumber(
+                obstacles.spacing,
+                DEFAULT_BALANCE_CONFIG.obstacles.spacing,
+                "obstacles.spacing"
+            ),
+            placementRetries: readNumber(
+                obstacles.placementRetries,
+                DEFAULT_BALANCE_CONFIG.obstacles.placementRetries,
+                "obstacles.placementRetries"
+            ),
+        },
+        safeZones: {
+            finalStartSec: readNumber(
+                safeZones.finalStartSec,
+                DEFAULT_BALANCE_CONFIG.safeZones.finalStartSec,
+                "safeZones.finalStartSec"
+            ),
+            warningSec: readNumber(
+                safeZones.warningSec,
+                DEFAULT_BALANCE_CONFIG.safeZones.warningSec,
+                "safeZones.warningSec"
+            ),
+            damagePctPerSec: readNumber(
+                safeZones.damagePctPerSec,
+                DEFAULT_BALANCE_CONFIG.safeZones.damagePctPerSec,
+                "safeZones.damagePctPerSec"
+            ),
+            minDistance: readNumber(
+                safeZones.minDistance,
+                DEFAULT_BALANCE_CONFIG.safeZones.minDistance,
+                "safeZones.minDistance"
+            ),
+            placementRetries: readNumber(
+                safeZones.placementRetries,
+                DEFAULT_BALANCE_CONFIG.safeZones.placementRetries,
+                "safeZones.placementRetries"
+            ),
+            countByMapSize: readMapSizeConfig(
+                safeZones.countByMapSize,
+                DEFAULT_BALANCE_CONFIG.safeZones.countByMapSize,
+                "safeZones.countByMapSize"
+            ),
+            radiusByMapSize: readMapSizeConfig(
+                safeZones.radiusByMapSize,
+                DEFAULT_BALANCE_CONFIG.safeZones.radiusByMapSize,
+                "safeZones.radiusByMapSize"
+            ),
         },
         hotZones: {
             chaosCount: readNumber(
