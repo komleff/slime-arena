@@ -7,7 +7,7 @@
 - **Язык**: TypeScript
 - **Сервер**: Node.js, Colyseus (WebSocket)
 - **Клиент**: Vite, Canvas 2D (планируется переход на PixiJS)
-- **Данные**: PostgreSQL, Prisma
+- **Данные**: PostgreSQL, pg (node-postgres, планируется для софт-лонча)
 - **Инфраструктура**: Docker, Docker Compose
 
 ## Структура проекта
@@ -26,12 +26,12 @@
 
 ### Установка и запуск
 
-#### 1️⃣ Установка зависимостей
+#### 1. Установка зависимостей
 ```bash
 npm install
 ```
 
-#### 2️⃣ Запуск серверов
+#### 2. Запуск серверов
 
 **Windows (PowerShell)** — в отдельных окнах:
 ```powershell
@@ -55,18 +55,18 @@ npm run start:servers
 
 **Запуск отдельно** (рекомендуется для разработки):
 - Сервер: `npm run dev:server` → `ws://localhost:2567`
-- Клиент: `npm run dev:client` → `http://localhost:5173`
+- Клиент: `npm run dev:client` → `http://localhost:5174`
 
 ### Доступ с мобильных устройств (локальная сеть)
 
 1. Убедитесь, что сервер запущен: `npm run dev:server`.
 2. Узнайте локальный IP компьютера (например, `192.168.0.10`).
-3. Откройте клиент на этом IP: `http://192.168.0.10:5173`.
+3. Откройте клиент на этом IP: `http://192.168.0.10:5174`.
 4. Если нужно явно указать адрес сервера, задайте переменную:
    - Windows (PowerShell): `setx VITE_WS_URL "ws://192.168.0.10:2567"`
    - macOS/Linux: `VITE_WS_URL=ws://192.168.0.10:2567 npm run dev:client`
 
-#### 3️⃣ Остановка серверов
+#### 3. Остановка серверов
 
 **Windows (PowerShell):**
 ```powershell
@@ -82,7 +82,7 @@ scripts\stop-servers.bat
 
 ### Docker (полный стек)
 ```bash
-docker-compose -f docker/docker-compose.yml up
+docker compose -f docker/docker-compose.yml up --build
 ```
 
 ### Рекомендуемый рабочий процесс
@@ -90,7 +90,7 @@ docker-compose -f docker/docker-compose.yml up
 1. Откройте **два терминала** в VS Code
 2. **Терминал 1:** `npm run dev:server`
 3. **Терминал 2:** `npm run dev:client`
-4. Откройте браузер: `http://localhost:5173`
+4. Откройте браузер: `http://localhost:5174`
 
 ### Полезные команды
 
@@ -99,7 +99,7 @@ docker-compose -f docker/docker-compose.yml up
 | `npm run build` | Собрать все пакеты |
 | `npm run test` | Запустить тесты |
 | `npm run dev:server` | Запустить сервер (порт 2567) |
-| `npm run dev:client` | Запустить клиент (порт 5173) |
+| `npm run dev:client` | Запустить клиент (порт 5174) |
 | `npm run start:servers` | Запустить оба одной командой (может зависнуть на Win) |
 | `npm run stop:servers` | Остановить все серверы |
 
@@ -133,6 +133,7 @@ docker-compose -f docker/docker-compose.yml up
 - Исправления ревью: сообщения размещения переведены на русский, очередь телеметрии очищается после записи, убрано магическое число при выборе точки появления.
 - Реализованы усиления из сундуков (`rage`, `haste`, `guard`, `greed`) и уточнена логика наград: усиление выдаётся только при отсутствии доступных талантов всех редкостей.
 - Добавлены варианты размеров карты через `world.mapSizes` (800/1200/1600).
+- Добавлены Dockerfile для контейнеров: `docker/server.Dockerfile` и `docker/client.Dockerfile`.
 - **Пакет техдолга 1** (2 янв 2026):
   - PvP укус: награды считаются от фактической потери массы, добавлена проверка инварианта.
   - Экран результатов: сглаживание орбов и сундуков отключается при `phase === "Results"`.
