@@ -1,10 +1,16 @@
 import {
     OBSTACLE_TYPE_PILLAR,
     OBSTACLE_TYPE_SPIKES,
+    ZONE_TYPE_NECTAR,
+    ZONE_TYPE_ICE,
+    ZONE_TYPE_SLIME,
+    ZONE_TYPE_LAVA,
+    ZONE_TYPE_TURBO,
     type MapSizeConfig,
     type ObstacleConfig,
     type SafeZoneConfig,
     type WorldPhysicsConfig,
+    type ZonesConfig,
 } from "@slime-arena/shared";
 
 type RngLike = {
@@ -22,6 +28,13 @@ export interface ObstacleSeed {
 }
 
 export interface SafeZoneSeed {
+    x: number;
+    y: number;
+    radius: number;
+}
+
+export interface ZoneSeed {
+    type: number;
     x: number;
     y: number;
     radius: number;
@@ -191,6 +204,95 @@ export function generateSafeZoneSeeds(
         if (!placed) {
             console.warn("Не удалось разместить безопасную зону");
         }
+    }
+
+    return zones;
+}
+
+export function generateZoneSeeds(
+    rng: RngLike,
+    world: WorldPhysicsConfig,
+    mapSize: number,
+    config: ZonesConfig,
+    safeZones: SafeZoneSeed[]
+): ZoneSeed[] {
+    const zones: ZoneSeed[] = [];
+    const sizeKey = getMapSizeKey(mapSize);
+    const count = Math.max(0, Math.floor(config.countByMapSize[sizeKey]));
+    const radius = Math.max(0, config.radiusByMapSize[sizeKey]);
+    const minDistance = Math.max(0, config.minDistance);
+    const retries = Math.max(1, Math.floor(config.placementRetries));
+    const lavaSpawnMin = Math.max(0, config.lavaMinDistanceFromSpawn);
+    const weights = config.typeWeights;
+    const totalWeight =
+        Math.max(0, weights.nectar) +
+        Math.max(0, weights.ice) +
+        Math.max(0, weights.slime) +
+        Math.max(0, weights.lava) +
+        Math.max(0, weights.turbo);
+    const margin = radius + 10;
+
+    const pickZoneType = () => {
+        if (totalWeight <= 0) return ZONE_TYPE_NECTAR;
+        let roll = rng.range(0, totalWeight);
+        const entries: Array<[number, number]> = [
+            [ZONE_TYPE_NECTAR, Math.max(0, weights.nectar)],
+            [ZONE_TYPE_ICE, Math.max(0, weights.ice)],
+            [ZONE_TYPE_SLIME, Math.max(0, weights.slime)],
+            [ZONE_TYPE_LAVA, Math.max(0, weights.lava)],
+            [ZONE_TYPE_TURBO, Math.max(0, weights.turbo)],
+        ];
+        for (const [zoneType, weight] of entries) {
+            if (roll < weight) return zoneType;
+            roll -= weight;
+        }
+        return ZONE_TYPE_NECTAR;
+    };
+
+    const isTooCloseToSafeZone = (x: number, y: number) => {
+        for (const zone of safeZones) {
+            const dx = x - zone.x;
+            const dy = y - zone.y;
+            const minDist = zone.radius + radius + minDistance;
+            if (dx * dx + dy * dy < minDist * minDist) return true;
+        }
+        return false;
+    };
+
+    let failedCount = 0;
+    for (let i = 0; i < count; i += 1) {
+        let placed = false;
+        for (let attempt = 0; attempt < retries; attempt += 1) {
+            const type = pickZoneType();
+            const point = randomPointInMapWithMargin(rng, world, mapSize, margin);
+            if (!isInsideWorld(world, mapSize, point.x, point.y, radius)) continue;
+            if (isTooCloseToSafeZone(point.x, point.y)) continue;
+            if (type === ZONE_TYPE_LAVA) {
+                const distanceFromSpawn = Math.hypot(point.x, point.y);
+                if (distanceFromSpawn < lavaSpawnMin + radius) continue;
+            }
+            let ok = true;
+            for (const zone of zones) {
+                const dx = point.x - zone.x;
+                const dy = point.y - zone.y;
+                const minDist = radius + zone.radius + minDistance;
+                if (dx * dx + dy * dy < minDist * minDist) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (!ok) continue;
+            zones.push({ type, x: point.x, y: point.y, radius });
+            placed = true;
+            break;
+        }
+        if (!placed) {
+            failedCount += 1;
+        }
+    }
+
+    if (failedCount > 0) {
+        console.warn(`Не удалось разместить зон: ${failedCount}`);
     }
 
     return zones;

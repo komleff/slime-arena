@@ -79,6 +79,42 @@ export interface SafeZoneConfig {
     radiusByMapSize: MapSizeConfig;
 }
 
+export interface ZoneTypeWeights {
+    nectar: number;
+    ice: number;
+    slime: number;
+    lava: number;
+    turbo: number;
+}
+
+export interface ZonesConfig {
+    countByMapSize: MapSizeConfig;
+    radiusByMapSize: MapSizeConfig;
+    minDistance: number;
+    placementRetries: number;
+    typeWeights: ZoneTypeWeights;
+    lavaMinDistanceFromSpawn: number;
+    nectar: {
+        massGainPctPerSec: number;
+    };
+    ice: {
+        frictionMultiplier: number;
+    };
+    slime: {
+        speedMultiplier: number;
+        frictionMultiplier: number;
+    };
+    lava: {
+        damagePctPerSec: number;
+        scatterPct: number;
+        scatterOrbCount: number;
+        scatterSpeedMps: number;
+    };
+    turbo: {
+        speedMultiplier: number;
+    };
+}
+
 export interface SlimeConfig {
     id: string;
     name: string;
@@ -385,6 +421,7 @@ export interface BalanceConfig {
     boosts: BoostConfig;
     obstacles: ObstacleConfig;
     safeZones: SafeZoneConfig;
+    zones: ZonesConfig;
     hotZones: {
         chaosCount: number;
         finalCount: number;
@@ -960,6 +997,47 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             large: 180,
         },
     },
+    zones: {
+        countByMapSize: {
+            small: 3,
+            medium: 4,
+            large: 5,
+        },
+        radiusByMapSize: {
+            small: 90,
+            medium: 110,
+            large: 130,
+        },
+        minDistance: 180,
+        placementRetries: 40,
+        typeWeights: {
+            nectar: 1,
+            ice: 1,
+            slime: 1,
+            lava: 1,
+            turbo: 1,
+        },
+        lavaMinDistanceFromSpawn: 100,
+        nectar: {
+            massGainPctPerSec: 0.01,
+        },
+        ice: {
+            frictionMultiplier: 0.3,
+        },
+        slime: {
+            speedMultiplier: 0.5,
+            frictionMultiplier: 2.0,
+        },
+        lava: {
+            damagePctPerSec: 0.02,
+            scatterPct: 0.5,
+            scatterOrbCount: 6,
+            scatterSpeedMps: 60,
+        },
+        turbo: {
+            speedMultiplier: 1.4,
+        },
+    },
     hotZones: {
         chaosCount: 2,
         finalCount: 1,
@@ -1412,6 +1490,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const boosts = isRecord(data.boosts) ? data.boosts : {};
     const obstacles = isRecord(data.obstacles) ? data.obstacles : {};
     const safeZones = isRecord(data.safeZones) ? data.safeZones : {};
+    const zones = isRecord(data.zones) ? data.zones : {};
     const hotZones = isRecord(data.hotZones) ? data.hotZones : {};
     const toxicPools = isRecord(data.toxicPools) ? data.toxicPools : {};
     const hunger = isRecord(data.hunger) ? data.hunger : {};
@@ -1437,6 +1516,12 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const boostHaste = isRecord(boosts.haste) ? boosts.haste : {};
     const boostGuard = isRecord(boosts.guard) ? boosts.guard : {};
     const boostGreed = isRecord(boosts.greed) ? boosts.greed : {};
+    const zoneTypeWeights = isRecord(zones.typeWeights) ? zones.typeWeights : {};
+    const zoneNectar = isRecord(zones.nectar) ? zones.nectar : {};
+    const zoneIce = isRecord(zones.ice) ? zones.ice : {};
+    const zoneSlime = isRecord(zones.slime) ? zones.slime : {};
+    const zoneLava = isRecord(zones.lava) ? zones.lava : {};
+    const zoneTurbo = isRecord(zones.turbo) ? zones.turbo : {};
     const worldMapSize = readNumber(world.mapSize, DEFAULT_BALANCE_CONFIG.world.mapSize, "world.mapSize");
     const worldMapSizes = readNumberArray(
         world.mapSizes,
@@ -2242,6 +2327,115 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.safeZones.radiusByMapSize,
                 "safeZones.radiusByMapSize"
             ),
+        },
+        zones: {
+            countByMapSize: readMapSizeConfig(
+                zones.countByMapSize,
+                DEFAULT_BALANCE_CONFIG.zones.countByMapSize,
+                "zones.countByMapSize"
+            ),
+            radiusByMapSize: readMapSizeConfig(
+                zones.radiusByMapSize,
+                DEFAULT_BALANCE_CONFIG.zones.radiusByMapSize,
+                "zones.radiusByMapSize"
+            ),
+            minDistance: readNumber(
+                zones.minDistance,
+                DEFAULT_BALANCE_CONFIG.zones.minDistance,
+                "zones.minDistance"
+            ),
+            placementRetries: readNumber(
+                zones.placementRetries,
+                DEFAULT_BALANCE_CONFIG.zones.placementRetries,
+                "zones.placementRetries"
+            ),
+            typeWeights: {
+                nectar: readNumber(
+                    zoneTypeWeights.nectar,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.nectar,
+                    "zones.typeWeights.nectar"
+                ),
+                ice: readNumber(
+                    zoneTypeWeights.ice,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.ice,
+                    "zones.typeWeights.ice"
+                ),
+                slime: readNumber(
+                    zoneTypeWeights.slime,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.slime,
+                    "zones.typeWeights.slime"
+                ),
+                lava: readNumber(
+                    zoneTypeWeights.lava,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.lava,
+                    "zones.typeWeights.lava"
+                ),
+                turbo: readNumber(
+                    zoneTypeWeights.turbo,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.turbo,
+                    "zones.typeWeights.turbo"
+                ),
+            },
+            lavaMinDistanceFromSpawn: readNumber(
+                zones.lavaMinDistanceFromSpawn,
+                DEFAULT_BALANCE_CONFIG.zones.lavaMinDistanceFromSpawn,
+                "zones.lavaMinDistanceFromSpawn"
+            ),
+            nectar: {
+                massGainPctPerSec: readNumber(
+                    zoneNectar.massGainPctPerSec,
+                    DEFAULT_BALANCE_CONFIG.zones.nectar.massGainPctPerSec,
+                    "zones.nectar.massGainPctPerSec"
+                ),
+            },
+            ice: {
+                frictionMultiplier: readNumber(
+                    zoneIce.frictionMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.ice.frictionMultiplier,
+                    "zones.ice.frictionMultiplier"
+                ),
+            },
+            slime: {
+                speedMultiplier: readNumber(
+                    zoneSlime.speedMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.slime.speedMultiplier,
+                    "zones.slime.speedMultiplier"
+                ),
+                frictionMultiplier: readNumber(
+                    zoneSlime.frictionMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.slime.frictionMultiplier,
+                    "zones.slime.frictionMultiplier"
+                ),
+            },
+            lava: {
+                damagePctPerSec: readNumber(
+                    zoneLava.damagePctPerSec,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.damagePctPerSec,
+                    "zones.lava.damagePctPerSec"
+                ),
+                scatterPct: readNumber(
+                    zoneLava.scatterPct,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.scatterPct,
+                    "zones.lava.scatterPct"
+                ),
+                scatterOrbCount: readNumber(
+                    zoneLava.scatterOrbCount,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.scatterOrbCount,
+                    "zones.lava.scatterOrbCount"
+                ),
+                scatterSpeedMps: readNumber(
+                    zoneLava.scatterSpeedMps,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.scatterSpeedMps,
+                    "zones.lava.scatterSpeedMps"
+                ),
+            },
+            turbo: {
+                speedMultiplier: readNumber(
+                    zoneTurbo.speedMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.turbo.speedMultiplier,
+                    "zones.turbo.speedMultiplier"
+                ),
+            },
         },
         hotZones: {
             chaosCount: readNumber(

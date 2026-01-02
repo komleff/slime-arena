@@ -486,6 +486,25 @@
     "countByMapSize": { "small": 1, "medium": 2, "large": 3 },
     "radiusByMapSize": { "small": 120, "medium": 150, "large": 180 }
   },
+  "zones": {
+    "countByMapSize": { "small": 3, "medium": 4, "large": 5 },
+    "radiusByMapSize": { "small": 90, "medium": 110, "large": 130 },
+    "minDistance": 180,
+    "placementRetries": 40,
+    "typeWeights": {
+      "nectar": 1,
+      "ice": 1,
+      "slime": 1,
+      "lava": 1,
+      "turbo": 1
+    },
+    "lavaMinDistanceFromSpawn": 100,
+    "nectar": { "massGainPctPerSec": 0.01 },
+    "ice": { "frictionMultiplier": 0.3 },
+    "slime": { "speedMultiplier": 0.5, "frictionMultiplier": 2.0 },
+    "lava": { "damagePctPerSec": 0.02, "scatterPct": 0.5, "scatterOrbCount": 6, "scatterSpeedMps": 60 },
+    "turbo": { "speedMultiplier": 1.4 }
+  },
   "hotZones": {
     "chaosCount": 2,
     "finalCount": 1,

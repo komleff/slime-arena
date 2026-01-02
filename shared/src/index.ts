@@ -15,6 +15,7 @@ export type {
     MapSizeConfig,
     ObstacleConfig,
     SafeZoneConfig,
+    ZonesConfig,
 } from "./config.js";
 export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
 export {
@@ -42,6 +43,7 @@ export {
     FLAG_LEVIATHAN,
     ZONE_TYPE_NECTAR,
     ZONE_TYPE_ICE,
+    ZONE_TYPE_SLIME,
     ZONE_TYPE_LAVA,
     ZONE_TYPE_TURBO,
     OBSTACLE_TYPE_PILLAR,

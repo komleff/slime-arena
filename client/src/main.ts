@@ -16,6 +16,7 @@ import {
     FLAG_RESPAWN_SHIELD,
     ZONE_TYPE_NECTAR,
     ZONE_TYPE_ICE,
+    ZONE_TYPE_SLIME,
     ZONE_TYPE_LAVA,
     ZONE_TYPE_TURBO,
     OBSTACLE_TYPE_PILLAR,
@@ -3172,10 +3173,11 @@ async function connectToServer(playerName: string, classId: number) {
                 const r = (zone.radius / worldWidth) * mapW;
                 
                 let color = "rgba(200, 200, 200, 0.3)";
-                if (zone.type === ZONE_TYPE_NECTAR) color = "rgba(255, 215, 0, 0.3)";
-                else if (zone.type === ZONE_TYPE_ICE) color = "rgba(0, 255, 255, 0.3)";
-                else if (zone.type === ZONE_TYPE_LAVA) color = "rgba(255, 69, 0, 0.3)";
-                else if (zone.type === ZONE_TYPE_TURBO) color = "rgba(0, 255, 0, 0.3)";
+                if (zone.type === ZONE_TYPE_NECTAR) color = "rgba(200, 255, 140, 0.3)";
+                else if (zone.type === ZONE_TYPE_ICE) color = "rgba(120, 220, 255, 0.3)";
+                else if (zone.type === ZONE_TYPE_SLIME) color = "rgba(180, 80, 220, 0.3)";
+                else if (zone.type === ZONE_TYPE_LAVA) color = "rgba(255, 120, 50, 0.3)";
+                else if (zone.type === ZONE_TYPE_TURBO) color = "rgba(80, 160, 255, 0.3)";
                 
                 ctx.fillStyle = color;
                 ctx.beginPath();
@@ -3426,6 +3428,35 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.lineWidth = 2;
                 canvasCtx.stroke();
                 canvasCtx.restore();
+            }
+
+            // Зоны эффектов
+            const zonesView = room.state.zones;
+            if (zonesView && zonesView.size > 0) {
+                for (const [, zone] of zonesView.entries()) {
+                    if (Math.abs(zone.x - camera.x) > halfWorldW + zone.radius || Math.abs(zone.y - camera.y) > halfWorldH + zone.radius) continue;
+                    const p = worldToScreen(zone.x, zone.y, scale, camera.x, camera.y, cw, ch);
+                    let fill = "rgba(200, 200, 200, 0.12)";
+                    let stroke = "rgba(120, 120, 120, 0.5)";
+                    if (zone.type === ZONE_TYPE_NECTAR) {
+                        fill = "rgba(200, 255, 140, 0.16)";
+                        stroke = "rgba(140, 220, 80, 0.55)";
+                    } else if (zone.type === ZONE_TYPE_ICE) {
+                        fill = "rgba(120, 220, 255, 0.16)";
+                        stroke = "rgba(80, 180, 255, 0.55)";
+                    } else if (zone.type === ZONE_TYPE_SLIME) {
+                        fill = "rgba(180, 80, 220, 0.16)";
+                        stroke = "rgba(130, 50, 200, 0.6)";
+                    } else if (zone.type === ZONE_TYPE_LAVA) {
+                        const pulse = 0.2 + 0.2 * Math.sin(time * 4);
+                        fill = `rgba(255, 120, 50, ${0.18 + pulse * 0.2})`;
+                        stroke = `rgba(255, 60, 20, ${0.6 + pulse * 0.4})`;
+                    } else if (zone.type === ZONE_TYPE_TURBO) {
+                        fill = "rgba(80, 160, 255, 0.16)";
+                        stroke = "rgba(40, 120, 255, 0.55)";
+                    }
+                    drawCircle(p.x, p.y, zone.radius * scale, fill, stroke);
+                }
             }
 
             // Безопасные зоны (финал)
