@@ -183,6 +183,9 @@ export class ArenaRoom extends Room<GameState> {
             player.abilitySlot0 = classAbilities[player.classId] || "dash";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
+            player.abilityLevel0 = player.abilitySlot0 ? 1 : 0;
+            player.abilityLevel1 = 0;
+            player.abilityLevel2 = 0;
             player.pendingAbilityCard = null;
             player.cardChoicePressed = null;
             player.pendingCardSlots = [];
@@ -345,6 +348,9 @@ export class ArenaRoom extends Room<GameState> {
         player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
         player.abilitySlot1 = "";  // Разблокируется на level 3
         player.abilitySlot2 = "";  // Разблокируется на level 5
+        player.abilityLevel0 = player.abilitySlot0 ? 1 : 0;
+        player.abilityLevel1 = 0;
+        player.abilityLevel2 = 0;
         player.pendingAbilityCard = null;
         
         player.talentsAvailable = 0;
@@ -510,7 +516,7 @@ export class ArenaRoom extends Room<GameState> {
         const cooldownEndTick = this.getAbilityCooldownEndTick(player, slot);
         if (!canDoubleActivate && this.tick < cooldownEndTick) return;
 
-        const abilities = this.balance.abilities;
+        const abilityLevel = this.getAbilityLevelForSlot(player, slot) || 1;
         const tickRate = this.balance.server.tickRate;
         let activated = false;
         let cooldownSec = 0;
@@ -521,40 +527,67 @@ export class ArenaRoom extends Room<GameState> {
         // Активация по ID умения
         switch (abilityId) {
             case "dash":
-                activated = this.activateDash(player, abilities.dash, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.dash.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("dash", abilityLevel);
+                    activated = this.activateDash(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "shield":
-                activated = this.activateShield(player, abilities.shield, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.shield.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("shield", abilityLevel);
+                    activated = this.activateShield(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "slow":
-                activated = this.activateSlow(player, abilities.slow, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.slow.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("slow", abilityLevel);
+                    activated = this.activateSlow(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "projectile":
-                activated = this.activateProjectile(player, abilities.projectile, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.projectile.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("projectile", abilityLevel);
+                    activated = this.activateProjectile(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "pull":
-                activated = this.activateMagnet(player, abilities.magnet, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.magnet.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("pull", abilityLevel);
+                    activated = this.activateMagnet(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "spit":
-                activated = this.activateSpit(player, abilities.spit, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.spit.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("spit", abilityLevel);
+                    activated = this.activateSpit(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "bomb":
-                activated = this.activateBomb(player, abilities.bomb, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.bomb.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("bomb", abilityLevel);
+                    activated = this.activateBomb(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "push":
-                activated = this.activatePush(player, abilities.push, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.push.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("push", abilityLevel);
+                    activated = this.activatePush(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "mine":
-                activated = this.activateMine(player, abilities.mine, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.mine.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("mine", abilityLevel);
+                    activated = this.activateMine(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             default:
                 return;  // Неизвестное умение
@@ -562,7 +595,7 @@ export class ArenaRoom extends Room<GameState> {
 
         if (!activated) return;
 
-        this.logTelemetry("ability_used", { abilityId, slot });
+        this.logTelemetry("ability_used", { abilityId, slot, level: abilityLevel });
 
         if (abilityId !== "dash") {
             this.clearInvisibility(player);
@@ -628,6 +661,70 @@ export class ArenaRoom extends Room<GameState> {
 
     private updateLegacyAbilityCooldownTick(player: Player) {
         player.abilityCooldownTick = player.abilityCooldownEndTick0;
+    }
+
+    private getAbilityLevelForSlot(player: Player, slot: number): number {
+        if (slot === 0) return Math.max(0, Math.floor(player.abilityLevel0));
+        if (slot === 1) return Math.max(0, Math.floor(player.abilityLevel1));
+        if (slot === 2) return Math.max(0, Math.floor(player.abilityLevel2));
+        return 0;
+    }
+
+    private setAbilityLevelForSlot(player: Player, slot: number, level: number) {
+        const value = Math.max(1, Math.min(3, Math.floor(level)));
+        if (slot === 0) {
+            player.abilityLevel0 = value;
+            return;
+        }
+        if (slot === 1) {
+            player.abilityLevel1 = value;
+            return;
+        }
+        if (slot === 2) {
+            player.abilityLevel2 = value;
+            return;
+        }
+        console.warn(`[setAbilityLevelForSlot] invalid slot ${slot}`);
+    }
+
+    private getAbilityLevelForAbility(player: Player, abilityId: string): number {
+        if (player.abilitySlot0 === abilityId) return this.getAbilityLevelForSlot(player, 0);
+        if (player.abilitySlot1 === abilityId) return this.getAbilityLevelForSlot(player, 1);
+        if (player.abilitySlot2 === abilityId) return this.getAbilityLevelForSlot(player, 2);
+        return 0;
+    }
+
+    private getAbilityConfigById(abilityId: string, level: number) {
+        const abilities = this.balance.abilities as any;
+        const safeLevel = Math.max(1, Math.min(3, Math.floor(level)));
+        const resolveLevel = (config: any) => {
+            if (!config?.levels || config.levels.length === 0) return config;
+            const index = Math.max(0, Math.min(config.levels.length - 1, safeLevel - 1));
+            return config.levels[index] ?? config;
+        };
+        switch (abilityId) {
+            case "pull":
+            case "magnet":
+                return resolveLevel(abilities.magnet);
+            case "dash":
+                return resolveLevel(abilities.dash);
+            case "shield":
+                return resolveLevel(abilities.shield);
+            case "slow":
+                return resolveLevel(abilities.slow);
+            case "projectile":
+                return resolveLevel(abilities.projectile);
+            case "spit":
+                return resolveLevel(abilities.spit);
+            case "bomb":
+                return resolveLevel(abilities.bomb);
+            case "push":
+                return resolveLevel(abilities.push);
+            case "mine":
+                return resolveLevel(abilities.mine);
+            default:
+                return resolveLevel(abilities.dash);
+        }
     }
 
     private getAbilityCostPct(player: Player, basePct: number, extraMultiplier = 1): number {
@@ -930,9 +1027,16 @@ export class ArenaRoom extends Room<GameState> {
         if (player.mod_projectileRicochet > 0) {
             proj.remainingRicochets = Math.round(player.mod_projectileRicochet);
         }
-        if (player.mod_projectilePiercingHits > 1) {
-            proj.remainingPierces = Math.round(player.mod_projectilePiercingHits);
-            proj.piercingDamagePct = player.mod_projectilePiercingDamagePct;
+        const basePierceHits = Math.max(0, Math.round(config.piercingHits ?? 0));
+        const basePierceDamagePct = Math.max(0, Number(config.piercingDamagePct ?? 0));
+        const talentPierceHits = Math.max(0, Math.round(player.mod_projectilePiercingHits || 0));
+        const talentPierceDamagePct = Math.max(0, Number(player.mod_projectilePiercingDamagePct || 0));
+        // Пробивание берётся как максимум между умением и талантом, без суммирования.
+        const totalPierceHits = Math.max(basePierceHits, talentPierceHits);
+        const totalPierceDamagePct = Math.max(basePierceDamagePct, talentPierceDamagePct);
+        if (totalPierceHits > 1) {
+            proj.remainingPierces = totalPierceHits;
+            proj.piercingDamagePct = totalPierceDamagePct;
         }
         
         this.state.projectiles.set(proj.id, proj);
@@ -1012,6 +1116,64 @@ export class ArenaRoom extends Room<GameState> {
         return true;
     }
 
+    private applyPushWave(
+        sourceX: number,
+        sourceY: number,
+        radiusM: number,
+        impulseNs: number,
+        minSpeedMps: number,
+        maxSpeedMps: number,
+        excludeId?: string
+    ) {
+        if (radiusM <= 0 || impulseNs <= 0) return;
+        const radiusSq = radiusM * radiusM;
+
+        for (const other of this.state.players.values()) {
+            if (excludeId && other.id === excludeId) continue;
+            if (other.isDead) continue;
+            const dx = other.x - sourceX;
+            const dy = other.y - sourceY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const otherMass = Math.max(other.mass, this.balance.physics.minSlimeMass);
+            const speed = this.clamp(impulseNs / otherMass, minSpeedMps, maxSpeedMps);
+            other.vx += nx * speed;
+            other.vy += ny * speed;
+        }
+
+        for (const orb of this.state.orbs.values()) {
+            const dx = orb.x - sourceX;
+            const dy = orb.y - sourceY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const orbMass = Math.max(orb.mass, 1);
+            const speed = this.clamp(impulseNs / orbMass, 50, 200);
+            orb.vx += nx * speed;
+            orb.vy += ny * speed;
+        }
+
+        for (const chest of this.state.chests.values()) {
+            const dx = chest.x - sourceX;
+            const dy = chest.y - sourceY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
+            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
+            const speed = this.clamp(impulseNs / chestMass, 20, 80);
+            chest.vx += nx * speed;
+            chest.vy += ny * speed;
+        }
+    }
+
     private activatePush(
         player: Player,
         config: typeof this.balance.abilities.push,
@@ -1025,71 +1187,15 @@ export class ArenaRoom extends Room<GameState> {
         this.applyMassDelta(player, -massCost);
         
         player.pushEndTick = this.tick + Math.max(1, Math.round(0.25 * tickRate));
-        
-        const radiusSq = config.radiusM * config.radiusM;
-        
-        // Отталкиваем игроков в радиусе
-        for (const other of this.state.players.values()) {
-            if (other.id === player.id || other.isDead) continue;
-            
-            const dx = other.x - player.x;
-            const dy = other.y - player.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // Скорость = impulse / mass, но с ограничением
-            const otherMass = Math.max(other.mass, this.balance.physics.minSlimeMass);
-            const speed = this.clamp(config.impulseNs / otherMass, 30, 120);
-            
-            other.vx += nx * speed;
-            other.vy += ny * speed;
-        }
-        
-        // Отталкиваем орбы в радиусе
-        for (const orb of this.state.orbs.values()) {
-            const dx = orb.x - player.x;
-            const dy = orb.y - player.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // Орбы легче - отталкиваются сильнее
-            const orbMass = Math.max(orb.mass, 1);
-            const speed = this.clamp(config.impulseNs / orbMass, 50, 200);
-            
-            orb.vx += nx * speed;
-            orb.vy += ny * speed;
-        }
-        
-        // Отталкиваем сундуки в радиусе (та же формула, но они тяжелее)
-        for (const chest of this.state.chests.values()) {
-            const dx = chest.x - player.x;
-            const dy = chest.y - player.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // GDD v3.3: Масса сундука зависит от типа
-            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
-            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
-            const speed = this.clamp(config.impulseNs / chestMass, 20, 80);
-            
-            chest.vx += nx * speed;
-            chest.vy += ny * speed;
-        }
+        this.applyPushWave(
+            player.x,
+            player.y,
+            config.radiusM,
+            config.impulseNs,
+            config.minSpeedMps,
+            config.maxSpeedMps,
+            player.id
+        );
         return true;
     }
 
@@ -1285,16 +1391,6 @@ export class ArenaRoom extends Room<GameState> {
             return;
         }
         
-        // Щит блокирует урон полностью - GCD применяется
-        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
-            // Щит снимается при атаке (согласно GDD)
-            defender.shieldEndTick = 0;
-            defender.flags &= ~FLAG_ABILITY_SHIELD; // Очищаем флаг сразу
-            attacker.lastAttackTick = this.tick; // Атака уходит на кулдаун
-            attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-            return;
-        }
-
         const attackerZone = this.getContactZone(attacker, dx, dy);
         if (attackerZone !== "mouth") return;
 
@@ -1333,6 +1429,12 @@ export class ArenaRoom extends Room<GameState> {
         attacker.lastAttackTick = this.tick;
         // GDD v3.3: GCD после укуса слайма
         attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
+
+        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
+            this.applyShieldReflection(defender, attacker, massLoss);
+            this.clearInvisibility(attacker);
+            return;
+        }
 
         if (this.tryConsumeGuard(defender)) {
             this.clearInvisibility(attacker);
@@ -1395,7 +1497,7 @@ export class ArenaRoom extends Room<GameState> {
                 this.applyMassDelta(attacker, -reflectedDamage);
                 // Scatter orbs цвета атакующего от отражённого урона
                 const scatterReflected = reflectedDamage * this.balance.combat.pvpBiteScatterPct;
-                this.spawnPvPBiteOrbs(attacker.x, attacker.y, scatterReflected, attacker.classId + 10);
+                this.spawnPvPBiteOrbs(attacker.x, attacker.y, scatterReflected, this.getDamageOrbColorId(attacker));
             }
         }
         
@@ -1407,7 +1509,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Scatter orbs: разлёт пузырей цвета жертвы
         if (scatterMass > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, defender.classId + 10);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, this.getDamageOrbColorId(defender));
         }
 
         if (attacker.mod_poisonDamagePctPerSec > 0 && attacker.mod_poisonDurationSec > 0) {
@@ -1449,10 +1551,31 @@ export class ArenaRoom extends Room<GameState> {
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
     }
 
+    private applyShieldReflection(defender: Player, attacker: Player, incomingLoss: number) {
+        if (incomingLoss <= 0) return;
+        if (attacker.isDead || attacker.isLastBreath) return;
+        if (this.tick < attacker.invulnerableUntilTick) return;
+
+        const shieldLevel = this.getAbilityLevelForAbility(defender, "shield") || 1;
+        const shieldConfig = this.getAbilityConfigById("shield", shieldLevel);
+        const reflectPct = Math.max(0, Number(shieldConfig.reflectDamagePct ?? 0));
+        if (reflectPct <= 0) return;
+
+        const reflectedDamage = incomingLoss * reflectPct;
+        if (reflectedDamage <= 0) return;
+
+        if (this.tryConsumeGuard(attacker)) return;
+
+        this.applyMassDelta(attacker, -reflectedDamage);
+        attacker.lastDamagedById = defender.id;
+        attacker.lastDamagedAtTick = this.tick;
+        this.spawnPvPBiteOrbs(attacker.x, attacker.y, reflectedDamage * 0.5, this.getDamageOrbColorId(attacker));
+    }
+
     /**
      * Создаёт орбы, разлетающиеся от точки укуса PvP.
      * Эти орбы игнорируют maxCount - боевая механика важнее лимита.
-     * @param colorId - colorId орбов (classId + 10 для цвета жертвы)
+     * @param colorId - colorId орбов (classId + 10 или золотой для Короля)
      */
     private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
@@ -1488,13 +1611,6 @@ export class ArenaRoom extends Room<GameState> {
             if (player.isDead || player.id === proj.ownerId) continue;
             if (player.isLastBreath) continue;
             if (this.tick < player.invulnerableUntilTick) continue;
-            
-            // Щит блокирует взрыв
-            if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                player.shieldEndTick = 0;
-                player.flags &= ~FLAG_ABILITY_SHIELD;
-                continue;
-            }
             
             const dx = player.x - proj.x;
             const dy = player.y - proj.y;
@@ -1535,7 +1651,12 @@ export class ArenaRoom extends Room<GameState> {
         if (triggersLastBreath) {
             massLoss = Math.max(0, defender.mass - minSlimeMass);
         }
-        
+
+        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
+            this.applyShieldReflection(defender, attacker, massLoss);
+            return;
+        }
+
         if (this.tryConsumeGuard(defender)) {
             return;
         }
@@ -1547,7 +1668,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Scatter orbs цвета жертвы от урона снаряда
         if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, defender.classId + 10);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, this.getDamageOrbColorId(defender));
         }
         
         if (triggersLastBreath) {
@@ -1584,7 +1705,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Scatter orbs от самоурона
         if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, player.classId + 10);
+            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, this.getDamageOrbColorId(player));
         }
         
         if (triggersLastBreath) {
@@ -1808,6 +1929,13 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(0, types.length - 1);
     }
 
+    private getDamageOrbColorId(player: Player): number {
+        if (this.state.rebelId && player.id === this.state.rebelId) {
+            return this.getOrbTypeIndexById("gold");
+        }
+        return Math.max(0, player.classId) + 10;
+    }
+
     private grantTalent(player: Player): boolean {
         // Выдаём карточку таланта через новую систему
         this.awardTalentToPlayer(player);
@@ -1860,13 +1988,14 @@ export class ArenaRoom extends Room<GameState> {
             this.balance.orbs.maxCount - this.state.orbs.size
         );
         if (count <= 0) return;
+        const deathOrbColorId = this.getDamageOrbColorId(player);
 
         for (let i = 0; i < count; i += 1) {
             const angle = (i / count) * Math.PI * 2;
             const spread = 30;
             const orbX = player.x + Math.cos(angle) * spread;
             const orbY = player.y + Math.sin(angle) * spread;
-            const orb = this.spawnOrb(orbX, orbY, perOrbMass);
+            const orb = this.forceSpawnOrb(orbX, orbY, perOrbMass, deathOrbColorId);
             if (orb) {
                 const spreadSpeed = 150;
                 orb.vx = Math.cos(angle) * spreadSpeed;
@@ -1896,24 +2025,25 @@ export class ArenaRoom extends Room<GameState> {
             if (target.isLastBreath) continue;
             if (this.tick < target.invulnerableUntilTick) continue;
 
-            if ((target.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                target.shieldEndTick = 0;
-                target.flags &= ~FLAG_ABILITY_SHIELD;
-                continue;
-            }
-
             const dx = target.x - player.x;
             const dy = target.y - player.y;
             const distSq = dx * dx + dy * dy;
             if (distSq > radiusSq) continue;
 
+            const damageBonusMult = this.getDamageBonusMultiplier(player, false);
+            const damageTakenMult = this.getDamageTakenMultiplier(target);
+            const baseLoss = target.mass * damagePct * damageBonusMult * damageTakenMult;
+
+            if ((target.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                this.applyShieldReflection(target, player, baseLoss);
+                continue;
+            }
+
             if (this.tryConsumeGuard(target)) {
                 continue;
             }
 
-            const damageBonusMult = this.getDamageBonusMultiplier(player, false);
-            const damageTakenMult = this.getDamageTakenMultiplier(target);
-            let massLoss = target.mass * damagePct * damageBonusMult * damageTakenMult;
+            let massLoss = baseLoss;
 
             const newMass = target.mass - massLoss;
             const triggersLastBreath =
@@ -1930,7 +2060,7 @@ export class ArenaRoom extends Room<GameState> {
                 this.applyMassDelta(target, -massLoss);
                 target.lastDamagedById = player.id;
                 target.lastDamagedAtTick = this.tick;
-                this.spawnPvPBiteOrbs(target.x, target.y, massLoss * 0.5, target.classId + 10);
+                this.spawnPvPBiteOrbs(target.x, target.y, massLoss * 0.5, this.getDamageOrbColorId(target));
             }
 
             if (triggersLastBreath) {
@@ -2079,7 +2209,7 @@ export class ArenaRoom extends Room<GameState> {
         const perOrbMass = totalMass / count;
         const angleStep = (Math.PI * 2) / count;
         const speed = Math.max(0, this.balance.zones.lava.scatterSpeedMps);
-        const colorId = Math.max(0, player.classId) + 10;
+        const colorId = this.getDamageOrbColorId(player);
         for (let i = 0; i < count; i += 1) {
             const angle = i * angleStep + this.rng.range(-0.3, 0.3);
             const orb = this.forceSpawnOrb(player.x, player.y, perOrbMass, colorId);
@@ -2138,6 +2268,21 @@ export class ArenaRoom extends Room<GameState> {
             if (this.tick < player.shieldEndTick) {
                 flags |= FLAG_ABILITY_SHIELD;
             } else if (player.shieldEndTick > 0) {
+                const shieldLevel = this.getAbilityLevelForAbility(player, "shield") || 1;
+                const shieldConfig = this.getAbilityConfigById("shield", shieldLevel);
+                const burstRadius = Math.max(0, Number(shieldConfig.burstRadiusM ?? 0));
+                if (burstRadius > 0) {
+                    const pushConfig = this.getAbilityConfigById("push", 1);
+                    this.applyPushWave(
+                        player.x,
+                        player.y,
+                        burstRadius,
+                        pushConfig.impulseNs,
+                        pushConfig.minSpeedMps,
+                        pushConfig.maxSpeedMps,
+                        player.id
+                    );
+                }
                 // Shield ended
                 player.shieldEndTick = 0;
             }
@@ -2345,6 +2490,9 @@ export class ArenaRoom extends Room<GameState> {
             player.abilitySlot0 = "";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
+            player.abilityLevel0 = 0;
+            player.abilityLevel1 = 0;
+            player.abilityLevel2 = 0;
             player.pendingAbilityCard = null;
             player.cardChoicePressed = null;
             player.pendingCardSlots = [];
@@ -2950,8 +3098,10 @@ export class ArenaRoom extends Room<GameState> {
         // Присваиваем умение в соответствующий слот
         if (card.slotIndex === 1) {
             player.abilitySlot1 = chosen;
+            player.abilityLevel1 = chosen ? 1 : 0;
         } else if (card.slotIndex === 2) {
             player.abilitySlot2 = chosen;
+            player.abilityLevel2 = chosen ? 1 : 0;
         }
         
         player.pendingAbilityCard = null;
@@ -2981,9 +3131,14 @@ export class ArenaRoom extends Room<GameState> {
             player.pendingTalentCard = null;
             return;
         }
-        
-        // Добавляем или повышаем уровень таланта
-        this.addTalentToPlayer(player, chosen);
+
+        const upgrade = this.parseAbilityUpgradeId(chosen);
+        if (upgrade) {
+            this.applyAbilityUpgrade(player, upgrade.abilityId, upgrade.level);
+        } else {
+            // Добавляем или повышаем уровень таланта
+            this.addTalentToPlayer(player, chosen);
+        }
         
         player.pendingTalentCard = null;
         
@@ -3291,6 +3446,41 @@ export class ArenaRoom extends Room<GameState> {
         if (classId === 2) return "collector";
         return "hunter";
     }
+
+    private buildAbilityUpgradeId(abilityId: string, level: number): string {
+        return `ability:${abilityId}:${level}`;
+    }
+
+    private parseAbilityUpgradeId(value: string): { abilityId: string; level: number } | null {
+        if (!value || !value.startsWith("ability:")) return null;
+        const parts = value.split(":");
+        if (parts.length < 3) return null;
+        const abilityId = parts[1] || "";
+        const level = Number(parts[2]);
+        if (!abilityId || !Number.isInteger(level)) return null;
+        return { abilityId, level };
+    }
+
+    private getAbilitySlotIndex(player: Player, abilityId: string): number {
+        if (player.abilitySlot0 === abilityId) return 0;
+        if (player.abilitySlot1 === abilityId) return 1;
+        if (player.abilitySlot2 === abilityId) return 2;
+        return -1;
+    }
+
+    private applyAbilityUpgrade(player: Player, abilityId: string, level: number): boolean {
+        const slotIndex = this.getAbilitySlotIndex(player, abilityId);
+        if (slotIndex < 0) return false;
+        const currentLevel = this.getAbilityLevelForSlot(player, slotIndex);
+        const targetLevel = Math.max(1, Math.min(3, Math.floor(level)));
+        if (currentLevel <= 0) {
+            // Неконсистентное состояние: улучшение не должно предлагаться без умения.
+            return false;
+        }
+        if (targetLevel <= currentLevel) return false;
+        this.setAbilityLevelForSlot(player, slotIndex, targetLevel);
+        return true;
+    }
     
     /**
      * Генерирует карточку выбора таланта для игрока (GDD v3.3 7.2-7.3)
@@ -3299,20 +3489,21 @@ export class ArenaRoom extends Room<GameState> {
         const talents = this.balance.talents;
         const timeoutTicks = this.secondsToTicks(talents.cardChoiceTimeoutSec);
         const className = this.getClassName(player.classId);
+        const hasAllSlots = !!(player.abilitySlot0 && player.abilitySlot1 && player.abilitySlot2);
         
         // Получаем веса редкостей по уровню игрока (GDD 7.2.1)
         const levelKey = player.level >= 7 ? "7" : String(player.level);
         const rarityWeights = talents.talentRarityByLevel[levelKey] || talents.talentRarityByLevel["2"];
         
         // Собираем доступные таланты по редкостям
-        const availableByRarity: { common: { id: string; rarity: number; category?: string }[]; rare: { id: string; rarity: number; category?: string }[]; epic: { id: string; rarity: number; category?: string }[] } = {
+        const availableByRarity: { common: { id: string; rarity: number; category?: string; kind: "talent" }[]; rare: { id: string; rarity: number; category?: string; kind: "talent" }[]; epic: { id: string; rarity: number; category?: string; kind: "talent" }[] } = {
             common: [],
             rare: [],
             epic: [],
         };
         
         // Собираем классовые таланты
-        const classTalentsAvailable: { id: string; rarity: number; category?: string }[] = [];
+        const classTalentsAvailable: { id: string; rarity: number; category?: string; kind: "talent" }[] = [];
         
         const checkTalentAvailable = (id: string, config: TalentConfig, rarity: number): boolean => {
             // Проверяем требование
@@ -3340,21 +3531,21 @@ export class ArenaRoom extends Room<GameState> {
         for (const id of talents.talentPool.common) {
             const config = talents.common[id];
             if (config && checkTalentAvailable(id, config, 0)) {
-                availableByRarity.common.push({ id, rarity: 0, category: config.category });
+                availableByRarity.common.push({ id, rarity: 0, category: config.category, kind: "talent" });
             }
         }
         
         for (const id of talents.talentPool.rare) {
             const config = talents.rare[id];
             if (config && checkTalentAvailable(id, config, 1)) {
-                availableByRarity.rare.push({ id, rarity: 1, category: config.category });
+                availableByRarity.rare.push({ id, rarity: 1, category: config.category, kind: "talent" });
             }
         }
         
         for (const id of talents.talentPool.epic) {
             const config = talents.epic[id];
             if (config && checkTalentAvailable(id, config, 2)) {
-                availableByRarity.epic.push({ id, rarity: 2, category: config.category });
+                availableByRarity.epic.push({ id, rarity: 2, category: config.category, kind: "talent" });
             }
         }
         
@@ -3364,35 +3555,48 @@ export class ArenaRoom extends Room<GameState> {
             for (const [id, config] of Object.entries(classTalentConfigs)) {
                 const rarity = config.rarity === "epic" ? 2 : 1;
                 if (checkTalentAvailable(id, config, rarity)) {
-                    classTalentsAvailable.push({ id, rarity, category: config.category });
+                    classTalentsAvailable.push({ id, rarity, category: config.category, kind: "talent" });
                     // Также добавляем в общий пул по редкости
                     if (rarity === 1) {
-                        availableByRarity.rare.push({ id, rarity, category: config.category });
+                        availableByRarity.rare.push({ id, rarity, category: config.category, kind: "talent" });
                     } else {
-                        availableByRarity.epic.push({ id, rarity, category: config.category });
+                        availableByRarity.epic.push({ id, rarity, category: config.category, kind: "talent" });
                     }
                 }
             }
         }
-        
-        const allAvailable = [...availableByRarity.common, ...availableByRarity.rare, ...availableByRarity.epic];
-        if (allAvailable.length === 0) return;
-        
-        // Выбираем 3 таланта по правилам GDD 7.3
-        const selected: { id: string; rarity: number; category?: string }[] = [];
-        const usedEffects = new Set<string>();
-        
-        // GDD 7.3.5: Гарантия хотя бы 1 классового таланта (если доступен)
-        if (classTalentsAvailable.length > 0) {
-            const idx = Math.floor(this.rng.next() * classTalentsAvailable.length);
-            const classTalent = classTalentsAvailable[idx];
-            selected.push(classTalent);
-            if (classTalent.category) usedEffects.add(classTalent.category);
+
+        const abilityUpgrades: { id: string; rarity: number; kind: "upgrade"; abilityId: string; level: number }[] = [];
+        if (hasAllSlots) {
+            const slots = [
+                { abilityId: player.abilitySlot0, level: this.getAbilityLevelForSlot(player, 0) },
+                { abilityId: player.abilitySlot1, level: this.getAbilityLevelForSlot(player, 1) },
+                { abilityId: player.abilitySlot2, level: this.getAbilityLevelForSlot(player, 2) },
+            ];
+            for (const slot of slots) {
+                if (!slot.abilityId || slot.level <= 0) continue;
+                if (slot.level >= 3) continue;
+                const nextLevel = slot.level + 1;
+                abilityUpgrades.push({
+                    id: this.buildAbilityUpgradeId(slot.abilityId, nextLevel),
+                    rarity: 0,
+                    kind: "upgrade",
+                    abilityId: slot.abilityId,
+                    level: nextLevel,
+                });
+            }
         }
         
-        // Заполняем остальные слоты
-        while (selected.length < 3 && allAvailable.length > 0) {
-            // Бросаем кубик редкости по уровню (GDD 7.2.1)
+        const allAvailable = [...availableByRarity.common, ...availableByRarity.rare, ...availableByRarity.epic];
+        if (allAvailable.length === 0 && abilityUpgrades.length === 0) return;
+        
+        // Выбираем 3 карточки: минимум 1 талант, остальные 2 - талант или улучшение
+        const selected: { id: string; rarity: number; category?: string; kind: "talent" | "upgrade" }[] = [];
+        const usedEffects = new Set<string>();
+        const hasTalents = allAvailable.length > 0;
+
+        const pickTalent = (): boolean => {
+            if (allAvailable.length === 0) return false;
             const roll = this.rng.next() * 100;
             let targetRarity: number;
             if (roll < rarityWeights.common) {
@@ -3402,9 +3606,8 @@ export class ArenaRoom extends Room<GameState> {
             } else {
                 targetRarity = 2;
             }
-            
-            // Выбираем пул по редкости (с fallback на более низкую)
-            let pool: { id: string; rarity: number; category?: string }[];
+
+            let pool: { id: string; rarity: number; category?: string; kind: "talent" }[];
             if (targetRarity === 2 && availableByRarity.epic.length > 0) {
                 pool = availableByRarity.epic;
             } else if (targetRarity >= 1 && availableByRarity.rare.length > 0) {
@@ -3412,32 +3615,80 @@ export class ArenaRoom extends Room<GameState> {
             } else if (availableByRarity.common.length > 0) {
                 pool = availableByRarity.common;
             } else {
-                // Берём из любого доступного пула
                 pool = allAvailable;
             }
-            
-            // Фильтруем уже выбранные и проверяем правило "не 3 одинаковых эффекта"
+
             const candidates = pool.filter(t => {
                 if (selected.some(s => s.id === t.id)) return false;
-                // GDD 7.3.3: Запрет на 3 карточки одного типа эффекта
                 if (t.category && usedEffects.has(t.category)) {
                     const sameCategory = selected.filter(s => s.category === t.category).length;
                     if (sameCategory >= 2) return false;
                 }
                 return true;
             });
-            
+
+            let chosen: { id: string; rarity: number; category?: string; kind: "talent" } | null = null;
             if (candidates.length === 0) {
-                // Если не можем найти кандидата - берём любой не выбранный
                 const remaining = allAvailable.filter(t => !selected.some(s => s.id === t.id));
-                if (remaining.length === 0) break;
+                if (remaining.length === 0) return false;
                 const idx = Math.floor(this.rng.next() * remaining.length);
-                selected.push(remaining[idx]);
+                chosen = remaining[idx];
             } else {
                 const idx = Math.floor(this.rng.next() * candidates.length);
-                const chosen = candidates[idx];
-                selected.push(chosen);
-                if (chosen.category) usedEffects.add(chosen.category);
+                chosen = candidates[idx];
+            }
+
+            if (!chosen) return false;
+            selected.push(chosen);
+            if (chosen.category) usedEffects.add(chosen.category);
+            return true;
+        };
+
+        const pickUpgrade = (): boolean => {
+            if (abilityUpgrades.length === 0) return false;
+            const idx = Math.floor(this.rng.next() * abilityUpgrades.length);
+            const chosen = abilityUpgrades.splice(idx, 1)[0];
+            if (!chosen || selected.some(s => s.id === chosen.id)) return false;
+            selected.push(chosen);
+            return true;
+        };
+        
+        if (hasTalents) {
+            if (classTalentsAvailable.length > 0) {
+                const idx = Math.floor(this.rng.next() * classTalentsAvailable.length);
+                const classTalent = classTalentsAvailable[idx];
+                selected.push(classTalent);
+                if (classTalent.category) usedEffects.add(classTalent.category);
+            } else {
+                pickTalent();
+            }
+        }
+
+        const upgradeChance = this.clamp(
+            this.balance.talents.abilityUpgradeChance ?? 0.5,
+            0,
+            1
+        );
+
+        while (selected.length < 3) {
+            const canPickUpgrade = abilityUpgrades.length > 0;
+            const canPickTalent = allAvailable.length > 0;
+            if (!canPickUpgrade && !canPickTalent) break;
+
+            const needsTalent = hasTalents && !selected.some(s => s.kind === "talent");
+            let pickUpgradeFirst = false;
+            if (needsTalent) {
+                pickUpgradeFirst = false;
+            } else if (canPickUpgrade && canPickTalent) {
+                pickUpgradeFirst = this.rng.next() < upgradeChance;
+            } else {
+                pickUpgradeFirst = canPickUpgrade;
+            }
+
+            if (pickUpgradeFirst) {
+                if (!pickUpgrade() && !pickTalent()) break;
+            } else {
+                if (!pickTalent() && !pickUpgrade()) break;
             }
         }
         
@@ -3481,22 +3732,35 @@ export class ArenaRoom extends Room<GameState> {
         const options = [card.option0, card.option1, card.option2];
         let bestIndex = 0;
         let bestScore = -1;
+        let hasTalentOption = false;
         
         // Ищем талант с наивысшим приоритетом по категории (больше число = выше приоритет)
         for (let i = 0; i < options.length; i++) {
             const talentId = options[i];
             if (!talentId) continue;
+
+            if (this.parseAbilityUpgradeId(talentId)) {
+                continue;
+            }
             
             // Получаем категорию таланта
             const talentConfig = this.getTalentConfig(talentId);
             if (!talentConfig) continue;
             
+            hasTalentOption = true;
             const category = talentConfig.category || "other";
             const score = priorities[category] || 0;
             
             if (score > bestScore) {
                 bestScore = score;
                 bestIndex = i;
+            }
+        }
+
+        if (!hasTalentOption) {
+            const fallbackIndex = options.findIndex((value) => !!value);
+            if (fallbackIndex >= 0) {
+                bestIndex = fallbackIndex;
             }
         }
         

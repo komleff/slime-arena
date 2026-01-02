@@ -192,6 +192,15 @@ export interface ClientNetSmoothingConfig {
     angleCatchUpSpeed: number;
 }
 
+export interface CameraConfig {
+    zoomMin: number;
+    zoomMax: number;
+    zoomSpeed: number;
+    zoomDamageHoldSec: number;
+    zoomMassMin: number;
+    zoomMassMax: number;
+}
+
 export interface BalanceConfig {
     world: {
         mapSize: number;
@@ -239,6 +248,7 @@ export interface BalanceConfig {
     };
     worldPhysics: WorldPhysicsConfig;
     clientNetSmoothing: ClientNetSmoothingConfig;
+    camera: CameraConfig;
     slime: {
         initialMass: number;
         initialLevel: number;
@@ -323,11 +333,27 @@ export interface BalanceConfig {
             distanceM: number;
             durationSec: number;
             collisionDamageMult: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                distanceM: number;
+                durationSec: number;
+                collisionDamageMult: number;
+            }>;
         };
         shield: {
             massCostPct: number;
             cooldownSec: number;
             durationSec: number;
+            reflectDamagePct: number;
+            burstRadiusM: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                durationSec: number;
+                reflectDamagePct: number;
+                burstRadiusM: number;
+            }>;
         };
         magnet: {
             massCostPct: number;
@@ -335,6 +361,13 @@ export interface BalanceConfig {
             durationSec: number;
             radiusM: number;
             pullSpeedMps: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                durationSec: number;
+                radiusM: number;
+                pullSpeedMps: number;
+            }>;
         };
         slow: {
             massCostPct: number;
@@ -342,6 +375,13 @@ export interface BalanceConfig {
             durationSec: number;
             radiusM: number;
             slowPct: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                durationSec: number;
+                radiusM: number;
+                slowPct: number;
+            }>;
         };
         projectile: {
             massCostPct: number;
@@ -350,6 +390,18 @@ export interface BalanceConfig {
             rangeM: number;
             damagePct: number;
             radiusM: number;
+            piercingHits: number;
+            piercingDamagePct: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                speedMps: number;
+                rangeM: number;
+                damagePct: number;
+                radiusM: number;
+                piercingHits: number;
+                piercingDamagePct: number;
+            }>;
         };
         spit: {
             massCostPct: number;
@@ -360,6 +412,16 @@ export interface BalanceConfig {
             radiusM: number;
             projectileCount: number;
             spreadAngleDeg: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                speedMps: number;
+                rangeM: number;
+                damagePct: number;
+                radiusM: number;
+                projectileCount: number;
+                spreadAngleDeg: number;
+            }>;
         };
         bomb: {
             massCostPct: number;
@@ -369,6 +431,15 @@ export interface BalanceConfig {
             damagePct: number;
             radiusM: number;
             explosionRadiusM: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                speedMps: number;
+                rangeM: number;
+                damagePct: number;
+                radiusM: number;
+                explosionRadiusM: number;
+            }>;
         };
         push: {
             massCostPct: number;
@@ -377,6 +448,14 @@ export interface BalanceConfig {
             impulseNs: number;
             minSpeedMps: number;
             maxSpeedMps: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                radiusM: number;
+                impulseNs: number;
+                minSpeedMps: number;
+                maxSpeedMps: number;
+            }>;
         };
         mine: {
             massCostPct: number;
@@ -385,6 +464,14 @@ export interface BalanceConfig {
             radiusM: number;
             durationSec: number;
             maxMines: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                damagePct: number;
+                radiusM: number;
+                durationSec: number;
+                maxMines: number;
+            }>;
         };
     };
     chests: {
@@ -448,6 +535,7 @@ export interface BalanceConfig {
     talents: {
         cardChoiceTimeoutSec: number;
         cardQueueMax: number;
+        abilityUpgradeChance: number;
         talentPool: {
             common: string[];
             rare: string[];
@@ -765,6 +853,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         teleportThreshold: 100,
         angleCatchUpSpeed: 12.0,
     },
+    camera: {
+        zoomMin: 1.0,
+        zoomMax: 2.5,
+        zoomSpeed: 0.5,
+        zoomDamageHoldSec: 3,
+        zoomMassMin: 100,
+        zoomMassMax: 2000,
+    },
     slime: {
         initialMass: 100,
         initialLevel: 1,
@@ -847,14 +943,26 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         dash: {
             massCostPct: 0.03,
             cooldownSec: 5,
-            distanceM: 150,
-            durationSec: 0.2,
+            distanceM: 80,
+            durationSec: 0.3,
             collisionDamageMult: 1.5,
+            levels: [
+                { massCostPct: 0.03, cooldownSec: 5, distanceM: 80, durationSec: 0.3, collisionDamageMult: 1.5 },
+                { massCostPct: 0.03, cooldownSec: 4, distanceM: 80, durationSec: 0.3, collisionDamageMult: 1.5 },
+                { massCostPct: 0.03, cooldownSec: 4, distanceM: 104, durationSec: 0.3, collisionDamageMult: 1.5 },
+            ],
         },
         shield: {
             massCostPct: 0.04,
             cooldownSec: 8,
-            durationSec: 2.0,
+            durationSec: 2.5,
+            reflectDamagePct: 0,
+            burstRadiusM: 0,
+            levels: [
+                { massCostPct: 0.04, cooldownSec: 8, durationSec: 2.5, reflectDamagePct: 0, burstRadiusM: 0 },
+                { massCostPct: 0.04, cooldownSec: 8, durationSec: 2.5, reflectDamagePct: 0.30, burstRadiusM: 0 },
+                { massCostPct: 0.04, cooldownSec: 8, durationSec: 2.5, reflectDamagePct: 0.30, burstRadiusM: 40 },
+            ],
         },
         magnet: {
             massCostPct: 0.02,
@@ -862,6 +970,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             durationSec: 1.5,
             radiusM: 120,
             pullSpeedMps: 50,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 1.5, radiusM: 120, pullSpeedMps: 50 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 1.5, radiusM: 150, pullSpeedMps: 50 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 1.5, radiusM: 150, pullSpeedMps: 70 },
+            ],
         },
         slow: {
             massCostPct: 0.02,
@@ -869,14 +982,26 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             durationSec: 2,
             radiusM: 80,
             slowPct: 0.30,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 2, radiusM: 80, slowPct: 0.30 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 2, radiusM: 100, slowPct: 0.30 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 2, radiusM: 100, slowPct: 0.40 },
+            ],
         },
         projectile: {
             massCostPct: 0.02,
             cooldownSec: 3,
             speedMps: 400,
             rangeM: 300,
-            damagePct: 0.10,
+            damagePct: 0.15,
             radiusM: 8,
+            piercingHits: 0,
+            piercingDamagePct: 0,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 3, speedMps: 400, rangeM: 300, damagePct: 0.15, radiusM: 8, piercingHits: 0, piercingDamagePct: 0 },
+                { massCostPct: 0.02, cooldownSec: 3, speedMps: 400, rangeM: 300, damagePct: 0.18, radiusM: 8, piercingHits: 0, piercingDamagePct: 0 },
+                { massCostPct: 0.02, cooldownSec: 3, speedMps: 400, rangeM: 300, damagePct: 0.18, radiusM: 8, piercingHits: 2, piercingDamagePct: 0.6 },
+            ],
         },
         spit: {
             massCostPct: 0.03,
@@ -887,6 +1012,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             radiusM: 6,
             projectileCount: 3,
             spreadAngleDeg: 30,
+            levels: [
+                { massCostPct: 0.03, cooldownSec: 4, speedMps: 350, rangeM: 200, damagePct: 0.08, radiusM: 6, projectileCount: 3, spreadAngleDeg: 30 },
+                { massCostPct: 0.03, cooldownSec: 4, speedMps: 350, rangeM: 200, damagePct: 0.08, radiusM: 6, projectileCount: 4, spreadAngleDeg: 30 },
+                { massCostPct: 0.03, cooldownSec: 4, speedMps: 350, rangeM: 200, damagePct: 0.092, radiusM: 6, projectileCount: 4, spreadAngleDeg: 30 },
+            ],
         },
         bomb: {
             massCostPct: 0.04,
@@ -896,6 +1026,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             damagePct: 0.12,
             radiusM: 10,
             explosionRadiusM: 50,
+            levels: [
+                { massCostPct: 0.04, cooldownSec: 6, speedMps: 200, rangeM: 250, damagePct: 0.12, radiusM: 10, explosionRadiusM: 50 },
+                { massCostPct: 0.04, cooldownSec: 6, speedMps: 200, rangeM: 250, damagePct: 0.12, radiusM: 10, explosionRadiusM: 70 },
+                { massCostPct: 0.04, cooldownSec: 5, speedMps: 200, rangeM: 250, damagePct: 0.12, radiusM: 10, explosionRadiusM: 70 },
+            ],
         },
         push: {
             massCostPct: 0.03,
@@ -904,6 +1039,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             impulseNs: 50000,
             minSpeedMps: 30,
             maxSpeedMps: 120,
+            levels: [
+                { massCostPct: 0.03, cooldownSec: 6, radiusM: 80, impulseNs: 50000, minSpeedMps: 30, maxSpeedMps: 120 },
+                { massCostPct: 0.03, cooldownSec: 6, radiusM: 100, impulseNs: 50000, minSpeedMps: 30, maxSpeedMps: 120 },
+                { massCostPct: 0.03, cooldownSec: 6, radiusM: 100, impulseNs: 65000, minSpeedMps: 30, maxSpeedMps: 150 },
+            ],
         },
         mine: {
             massCostPct: 0.02,
@@ -912,6 +1052,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             radiusM: 15,
             durationSec: 20,
             maxMines: 1,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 10, damagePct: 0.15, radiusM: 15, durationSec: 20, maxMines: 1 },
+                { massCostPct: 0.02, cooldownSec: 10, damagePct: 0.15, radiusM: 15, durationSec: 20, maxMines: 2 },
+                { massCostPct: 0.02, cooldownSec: 10, damagePct: 0.20, radiusM: 15, durationSec: 20, maxMines: 2 },
+            ],
         },
     },
     chests: {
@@ -1064,6 +1209,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     talents: {
         cardChoiceTimeoutSec: 12,
         cardQueueMax: 3,
+        abilityUpgradeChance: 0.5,
         talentPool: {
             common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
             rare: ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
@@ -1480,6 +1626,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const slimeConfigs = isRecord(data.slimeConfigs) ? data.slimeConfigs : {};
     const worldPhysics = isRecord(data.worldPhysics) ? data.worldPhysics : {};
     const clientNetSmoothing = isRecord(data.clientNetSmoothing) ? data.clientNetSmoothing : {};
+    const camera = isRecord(data.camera) ? data.camera : {};
     const slime = isRecord(data.slime) ? data.slime : {};
     const combat = isRecord(data.combat) ? data.combat : {};
     const death = isRecord(data.death) ? data.death : {};
@@ -1735,6 +1882,18 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.clientNetSmoothing.angleCatchUpSpeed,
                 "clientNetSmoothing.angleCatchUpSpeed"
             )),
+        },
+        camera: {
+            zoomMin: readNumber(camera.zoomMin, DEFAULT_BALANCE_CONFIG.camera.zoomMin, "camera.zoomMin"),
+            zoomMax: readNumber(camera.zoomMax, DEFAULT_BALANCE_CONFIG.camera.zoomMax, "camera.zoomMax"),
+            zoomSpeed: readNumber(camera.zoomSpeed, DEFAULT_BALANCE_CONFIG.camera.zoomSpeed, "camera.zoomSpeed"),
+            zoomDamageHoldSec: readNumber(
+                camera.zoomDamageHoldSec,
+                DEFAULT_BALANCE_CONFIG.camera.zoomDamageHoldSec,
+                "camera.zoomDamageHoldSec"
+            ),
+            zoomMassMin: readNumber(camera.zoomMassMin, DEFAULT_BALANCE_CONFIG.camera.zoomMassMin, "camera.zoomMassMin"),
+            zoomMassMax: readNumber(camera.zoomMassMax, DEFAULT_BALANCE_CONFIG.camera.zoomMassMax, "camera.zoomMassMax"),
         },
         slime: {
             initialMass: readNumber(
@@ -2006,6 +2165,161 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             const bomb = isRecord(abilities.bomb) ? abilities.bomb : {};
             const push = isRecord(abilities.push) ? abilities.push : {};
             const mine = isRecord(abilities.mine) ? abilities.mine : {};
+            const dashLevelsRaw = Array.isArray(dash.levels) ? dash.levels : null;
+            const shieldLevelsRaw = Array.isArray(shield.levels) ? shield.levels : null;
+            const magnetLevelsRaw = Array.isArray(magnet.levels) ? magnet.levels : null;
+            const slowLevelsRaw = Array.isArray(slow.levels) ? slow.levels : null;
+            const projectileLevelsRaw = Array.isArray(projectile.levels) ? projectile.levels : null;
+            const spitLevelsRaw = Array.isArray(spit.levels) ? spit.levels : null;
+            const bombLevelsRaw = Array.isArray(bomb.levels) ? bomb.levels : null;
+            const pushLevelsRaw = Array.isArray(push.levels) ? push.levels : null;
+            const mineLevelsRaw = Array.isArray(mine.levels) ? mine.levels : null;
+
+            const dashLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.dash.levels ?? [];
+            const shieldLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.shield.levels ?? [];
+            const magnetLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.magnet.levels ?? [];
+            const slowLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.slow.levels ?? [];
+            const projectileLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.projectile.levels ?? [];
+            const spitLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.spit.levels ?? [];
+            const bombLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.bomb.levels ?? [];
+            const pushLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.push.levels ?? [];
+            const mineLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.mine.levels ?? [];
+
+            const dashLevels = dashLevelsRaw && dashLevelsRaw.length > 0
+                ? dashLevelsRaw.map((level, index) => {
+                    const fallback = dashLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.dash;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.dash.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.dash.levels.${index}.cooldownSec`),
+                        distanceM: readNumber(dataLevel.distanceM, fallback.distanceM, `abilities.dash.levels.${index}.distanceM`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.dash.levels.${index}.durationSec`),
+                        collisionDamageMult: readNumber(dataLevel.collisionDamageMult, fallback.collisionDamageMult, `abilities.dash.levels.${index}.collisionDamageMult`),
+                    };
+                })
+                : dashLevelsFallback;
+
+            const shieldLevels = shieldLevelsRaw && shieldLevelsRaw.length > 0
+                ? shieldLevelsRaw.map((level, index) => {
+                    const fallback = shieldLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.shield;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.shield.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.shield.levels.${index}.cooldownSec`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.shield.levels.${index}.durationSec`),
+                        reflectDamagePct: readNumber(dataLevel.reflectDamagePct, fallback.reflectDamagePct, `abilities.shield.levels.${index}.reflectDamagePct`),
+                        burstRadiusM: readNumber(dataLevel.burstRadiusM, fallback.burstRadiusM, `abilities.shield.levels.${index}.burstRadiusM`),
+                    };
+                })
+                : shieldLevelsFallback;
+
+            const magnetLevels = magnetLevelsRaw && magnetLevelsRaw.length > 0
+                ? magnetLevelsRaw.map((level, index) => {
+                    const fallback = magnetLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.magnet;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.magnet.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.magnet.levels.${index}.cooldownSec`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.magnet.levels.${index}.durationSec`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.magnet.levels.${index}.radiusM`),
+                        pullSpeedMps: readNumber(dataLevel.pullSpeedMps, fallback.pullSpeedMps, `abilities.magnet.levels.${index}.pullSpeedMps`),
+                    };
+                })
+                : magnetLevelsFallback;
+
+            const slowLevels = slowLevelsRaw && slowLevelsRaw.length > 0
+                ? slowLevelsRaw.map((level, index) => {
+                    const fallback = slowLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.slow;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.slow.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.slow.levels.${index}.cooldownSec`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.slow.levels.${index}.durationSec`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.slow.levels.${index}.radiusM`),
+                        slowPct: readNumber(dataLevel.slowPct, fallback.slowPct, `abilities.slow.levels.${index}.slowPct`),
+                    };
+                })
+                : slowLevelsFallback;
+
+            const projectileLevels = projectileLevelsRaw && projectileLevelsRaw.length > 0
+                ? projectileLevelsRaw.map((level, index) => {
+                    const fallback = projectileLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.projectile;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.projectile.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.projectile.levels.${index}.cooldownSec`),
+                        speedMps: readNumber(dataLevel.speedMps, fallback.speedMps, `abilities.projectile.levels.${index}.speedMps`),
+                        rangeM: readNumber(dataLevel.rangeM, fallback.rangeM, `abilities.projectile.levels.${index}.rangeM`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.projectile.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.projectile.levels.${index}.radiusM`),
+                        piercingHits: readNumber(dataLevel.piercingHits, fallback.piercingHits, `abilities.projectile.levels.${index}.piercingHits`),
+                        piercingDamagePct: readNumber(dataLevel.piercingDamagePct, fallback.piercingDamagePct, `abilities.projectile.levels.${index}.piercingDamagePct`),
+                    };
+                })
+                : projectileLevelsFallback;
+
+            const spitLevels = spitLevelsRaw && spitLevelsRaw.length > 0
+                ? spitLevelsRaw.map((level, index) => {
+                    const fallback = spitLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.spit;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.spit.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.spit.levels.${index}.cooldownSec`),
+                        speedMps: readNumber(dataLevel.speedMps, fallback.speedMps, `abilities.spit.levels.${index}.speedMps`),
+                        rangeM: readNumber(dataLevel.rangeM, fallback.rangeM, `abilities.spit.levels.${index}.rangeM`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.spit.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.spit.levels.${index}.radiusM`),
+                        projectileCount: readNumber(dataLevel.projectileCount, fallback.projectileCount, `abilities.spit.levels.${index}.projectileCount`),
+                        spreadAngleDeg: readNumber(dataLevel.spreadAngleDeg, fallback.spreadAngleDeg, `abilities.spit.levels.${index}.spreadAngleDeg`),
+                    };
+                })
+                : spitLevelsFallback;
+
+            const bombLevels = bombLevelsRaw && bombLevelsRaw.length > 0
+                ? bombLevelsRaw.map((level, index) => {
+                    const fallback = bombLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.bomb;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.bomb.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.bomb.levels.${index}.cooldownSec`),
+                        speedMps: readNumber(dataLevel.speedMps, fallback.speedMps, `abilities.bomb.levels.${index}.speedMps`),
+                        rangeM: readNumber(dataLevel.rangeM, fallback.rangeM, `abilities.bomb.levels.${index}.rangeM`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.bomb.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.bomb.levels.${index}.radiusM`),
+                        explosionRadiusM: readNumber(dataLevel.explosionRadiusM, fallback.explosionRadiusM, `abilities.bomb.levels.${index}.explosionRadiusM`),
+                    };
+                })
+                : bombLevelsFallback;
+
+            const pushLevels = pushLevelsRaw && pushLevelsRaw.length > 0
+                ? pushLevelsRaw.map((level, index) => {
+                    const fallback = pushLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.push;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.push.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.push.levels.${index}.cooldownSec`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.push.levels.${index}.radiusM`),
+                        impulseNs: readNumber(dataLevel.impulseNs, fallback.impulseNs, `abilities.push.levels.${index}.impulseNs`),
+                        minSpeedMps: readNumber(dataLevel.minSpeedMps, fallback.minSpeedMps, `abilities.push.levels.${index}.minSpeedMps`),
+                        maxSpeedMps: readNumber(dataLevel.maxSpeedMps, fallback.maxSpeedMps, `abilities.push.levels.${index}.maxSpeedMps`),
+                    };
+                })
+                : pushLevelsFallback;
+
+            const mineLevels = mineLevelsRaw && mineLevelsRaw.length > 0
+                ? mineLevelsRaw.map((level, index) => {
+                    const fallback = mineLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.mine;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.mine.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.mine.levels.${index}.cooldownSec`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.mine.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.mine.levels.${index}.radiusM`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.mine.levels.${index}.durationSec`),
+                        maxMines: readNumber(dataLevel.maxMines, fallback.maxMines, `abilities.mine.levels.${index}.maxMines`),
+                    };
+                })
+                : mineLevelsFallback;
             return {
                 dash: {
                     massCostPct: readNumber(dash.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.dash.massCostPct, "abilities.dash.massCostPct"),
@@ -2013,11 +2327,15 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     distanceM: readNumber(dash.distanceM, DEFAULT_BALANCE_CONFIG.abilities.dash.distanceM, "abilities.dash.distanceM"),
                     durationSec: readNumber(dash.durationSec, DEFAULT_BALANCE_CONFIG.abilities.dash.durationSec, "abilities.dash.durationSec"),
                     collisionDamageMult: readNumber(dash.collisionDamageMult, DEFAULT_BALANCE_CONFIG.abilities.dash.collisionDamageMult, "abilities.dash.collisionDamageMult"),
+                    levels: dashLevels,
                 },
                 shield: {
                     massCostPct: readNumber(shield.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.shield.massCostPct, "abilities.shield.massCostPct"),
                     cooldownSec: readNumber(shield.cooldownSec, DEFAULT_BALANCE_CONFIG.abilities.shield.cooldownSec, "abilities.shield.cooldownSec"),
                     durationSec: readNumber(shield.durationSec, DEFAULT_BALANCE_CONFIG.abilities.shield.durationSec, "abilities.shield.durationSec"),
+                    reflectDamagePct: readNumber(shield.reflectDamagePct, DEFAULT_BALANCE_CONFIG.abilities.shield.reflectDamagePct, "abilities.shield.reflectDamagePct"),
+                    burstRadiusM: readNumber(shield.burstRadiusM, DEFAULT_BALANCE_CONFIG.abilities.shield.burstRadiusM, "abilities.shield.burstRadiusM"),
+                    levels: shieldLevels,
                 },
                 magnet: {
                     massCostPct: readNumber(magnet.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.magnet.massCostPct, "abilities.magnet.massCostPct"),
@@ -2025,6 +2343,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     durationSec: readNumber(magnet.durationSec, DEFAULT_BALANCE_CONFIG.abilities.magnet.durationSec, "abilities.magnet.durationSec"),
                     radiusM: readNumber(magnet.radiusM, DEFAULT_BALANCE_CONFIG.abilities.magnet.radiusM, "abilities.magnet.radiusM"),
                     pullSpeedMps: readNumber(magnet.pullSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.magnet.pullSpeedMps, "abilities.magnet.pullSpeedMps"),
+                    levels: magnetLevels,
                 },
                 slow: {
                     massCostPct: readNumber(slow.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.slow.massCostPct, "abilities.slow.massCostPct"),
@@ -2032,6 +2351,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     durationSec: readNumber(slow.durationSec, DEFAULT_BALANCE_CONFIG.abilities.slow.durationSec, "abilities.slow.durationSec"),
                     radiusM: readNumber(slow.radiusM, DEFAULT_BALANCE_CONFIG.abilities.slow.radiusM, "abilities.slow.radiusM"),
                     slowPct: readNumber(slow.slowPct, DEFAULT_BALANCE_CONFIG.abilities.slow.slowPct, "abilities.slow.slowPct"),
+                    levels: slowLevels,
                 },
                 projectile: {
                     massCostPct: readNumber(projectile.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.projectile.massCostPct, "abilities.projectile.massCostPct"),
@@ -2040,6 +2360,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     rangeM: readNumber(projectile.rangeM, DEFAULT_BALANCE_CONFIG.abilities.projectile.rangeM, "abilities.projectile.rangeM"),
                     damagePct: readNumber(projectile.damagePct, DEFAULT_BALANCE_CONFIG.abilities.projectile.damagePct, "abilities.projectile.damagePct"),
                     radiusM: readNumber(projectile.radiusM, DEFAULT_BALANCE_CONFIG.abilities.projectile.radiusM, "abilities.projectile.radiusM"),
+                    piercingHits: readNumber(projectile.piercingHits, DEFAULT_BALANCE_CONFIG.abilities.projectile.piercingHits, "abilities.projectile.piercingHits"),
+                    piercingDamagePct: readNumber(projectile.piercingDamagePct, DEFAULT_BALANCE_CONFIG.abilities.projectile.piercingDamagePct, "abilities.projectile.piercingDamagePct"),
+                    levels: projectileLevels,
                 },
                 spit: {
                     massCostPct: readNumber(spit.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.spit.massCostPct, "abilities.spit.massCostPct"),
@@ -2050,6 +2373,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     radiusM: readNumber(spit.radiusM, DEFAULT_BALANCE_CONFIG.abilities.spit.radiusM, "abilities.spit.radiusM"),
                     projectileCount: readNumber(spit.projectileCount, DEFAULT_BALANCE_CONFIG.abilities.spit.projectileCount, "abilities.spit.projectileCount"),
                     spreadAngleDeg: readNumber(spit.spreadAngleDeg, DEFAULT_BALANCE_CONFIG.abilities.spit.spreadAngleDeg, "abilities.spit.spreadAngleDeg"),
+                    levels: spitLevels,
                 },
                 bomb: {
                     massCostPct: readNumber(bomb.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.bomb.massCostPct, "abilities.bomb.massCostPct"),
@@ -2059,6 +2383,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     damagePct: readNumber(bomb.damagePct, DEFAULT_BALANCE_CONFIG.abilities.bomb.damagePct, "abilities.bomb.damagePct"),
                     radiusM: readNumber(bomb.radiusM, DEFAULT_BALANCE_CONFIG.abilities.bomb.radiusM, "abilities.bomb.radiusM"),
                     explosionRadiusM: readNumber(bomb.explosionRadiusM, DEFAULT_BALANCE_CONFIG.abilities.bomb.explosionRadiusM, "abilities.bomb.explosionRadiusM"),
+                    levels: bombLevels,
                 },
                 push: {
                     massCostPct: readNumber(push.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.push.massCostPct, "abilities.push.massCostPct"),
@@ -2067,6 +2392,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     impulseNs: readNumber(push.impulseNs, DEFAULT_BALANCE_CONFIG.abilities.push.impulseNs, "abilities.push.impulseNs"),
                     minSpeedMps: readNumber(push.minSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.push.minSpeedMps, "abilities.push.minSpeedMps"),
                     maxSpeedMps: readNumber(push.maxSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.push.maxSpeedMps, "abilities.push.maxSpeedMps"),
+                    levels: pushLevels,
                 },
                 mine: {
                     massCostPct: readNumber(mine.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.mine.massCostPct, "abilities.mine.massCostPct"),
@@ -2075,6 +2401,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     radiusM: readNumber(mine.radiusM, DEFAULT_BALANCE_CONFIG.abilities.mine.radiusM, "abilities.mine.radiusM"),
                     durationSec: readNumber(mine.durationSec, DEFAULT_BALANCE_CONFIG.abilities.mine.durationSec, "abilities.mine.durationSec"),
                     maxMines: readNumber(mine.maxMines, DEFAULT_BALANCE_CONFIG.abilities.mine.maxMines, "abilities.mine.maxMines"),
+                    levels: mineLevels,
                 },
             };
         })(),
@@ -2615,6 +2942,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     talents.cardQueueMax,
                     DEFAULT_BALANCE_CONFIG.talents.cardQueueMax,
                     "talents.cardQueueMax"
+                ),
+                abilityUpgradeChance: readNumber(
+                    talents.abilityUpgradeChance,
+                    DEFAULT_BALANCE_CONFIG.talents.abilityUpgradeChance,
+                    "talents.abilityUpgradeChance"
                 ),
                 talentPool: {
                     common: readStringArray(talentPool.common, DEFAULT_BALANCE_CONFIG.talents.talentPool.common, "talents.talentPool.common"),

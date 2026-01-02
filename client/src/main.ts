@@ -56,6 +56,40 @@ hud.style.minWidth = "220px";
 hud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
 root.appendChild(hud);
 
+const boostPanel = document.createElement("div");
+boostPanel.style.position = "fixed";
+boostPanel.style.top = "12px";
+boostPanel.style.left = "260px";
+boostPanel.style.display = "none";
+boostPanel.style.alignItems = "center";
+boostPanel.style.gap = "8px";
+boostPanel.style.padding = "6px 10px";
+boostPanel.style.background = "rgba(0, 0, 0, 0.55)";
+boostPanel.style.border = "1px solid rgba(255, 255, 255, 0.1)";
+boostPanel.style.borderRadius = "12px";
+boostPanel.style.fontSize = "12px";
+boostPanel.style.color = "#e6f3ff";
+boostPanel.style.pointerEvents = "none";
+boostPanel.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
+root.appendChild(boostPanel);
+
+const boostIcon = document.createElement("div");
+boostIcon.style.width = "26px";
+boostIcon.style.height = "26px";
+boostIcon.style.borderRadius = "50%";
+boostIcon.style.display = "flex";
+boostIcon.style.alignItems = "center";
+boostIcon.style.justifyContent = "center";
+boostIcon.style.fontWeight = "700";
+boostIcon.style.color = "#0b0f14";
+boostPanel.appendChild(boostIcon);
+
+const boostText = document.createElement("div");
+boostText.style.display = "flex";
+boostText.style.flexDirection = "column";
+boostText.style.gap = "2px";
+boostPanel.appendChild(boostText);
+
 const topCenterHud = document.createElement("div");
 topCenterHud.style.position = "fixed";
 topCenterHud.style.top = "12px";
@@ -755,6 +789,67 @@ const abilityNames: Record<string, { name: string; icon: string; desc: string }>
     mine: { name: "Мина", icon: "💀", desc: "Ловушка 15% урона" },
 };
 
+const abilityUpgradePrefix = "ability:";
+
+const parseAbilityUpgradeId = (value: string): { abilityId: string; level: number } | null => {
+    if (!value || !value.startsWith(abilityUpgradePrefix)) return null;
+    const parts = value.split(":");
+    if (parts.length < 3) return null;
+    const abilityId = parts[1] || "";
+    const level = Number(parts[2]);
+    if (!abilityId || !Number.isInteger(level)) return null;
+    return { abilityId, level };
+};
+
+const abilityUpgradeDescriptions: Record<string, Record<number, string>> = {
+    dash: {
+        2: "Уровень 2 — перезарядка 4 сек",
+        3: "Уровень 3 — дистанция 104 м",
+    },
+    shield: {
+        2: "Уровень 2 — отражение 30% урона",
+        3: "Уровень 3 — волна отталкивания 40 м",
+    },
+    slow: {
+        2: "Уровень 2 — радиус 100 м",
+        3: "Уровень 3 — замедление 40%",
+    },
+    pull: {
+        2: "Уровень 2 — радиус 150 м",
+        3: "Уровень 3 — скорость 70 м/с",
+    },
+    projectile: {
+        2: "Уровень 2 — урон 18%",
+        3: "Уровень 3 — пробивание (60% урона второй цели)",
+    },
+    spit: {
+        2: "Уровень 2 — 4 снаряда",
+        3: "Уровень 3 — урон 9.2%",
+    },
+    bomb: {
+        2: "Уровень 2 — радиус взрыва 70 м",
+        3: "Уровень 3 — перезарядка 5 сек",
+    },
+    push: {
+        2: "Уровень 2 — радиус 100 м",
+        3: "Уровень 3 — усиленный импульс",
+    },
+    mine: {
+        2: "Уровень 2 — 2 мины",
+        3: "Уровень 3 — урон 20%",
+    },
+};
+
+const getAbilityUpgradeInfo = (abilityId: string, level: number) => {
+    const base = abilityNames[abilityId] ?? { name: abilityId, icon: "?", desc: "" };
+    const desc = abilityUpgradeDescriptions[abilityId]?.[level] ?? "Улучшение умения";
+    return {
+        name: `Улучшение: ${base.name}`,
+        icon: base.icon,
+        desc,
+    };
+};
+
 function createAbilityCardButton(index: number): HTMLButtonElement {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -1294,6 +1389,10 @@ const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
 const desiredView = { width: 400, height: 400 };
 let hasFocus = true;
+let cameraZoom = 1;
+let cameraZoomTarget = 1;
+let lastZoomUpdateMs = 0;
+let lastDamageTimeMs = 0;
 
 // Кэш matchMedia для определения типа устройства
 let isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
@@ -1387,6 +1486,12 @@ const applyBalanceConfig = (config: BalanceConfig) => {
     collectorRadiusMult = config.classes.collector.radiusMult;
     camera.x = Math.min(Math.max(camera.x, -worldWidth / 2), worldWidth / 2);
     camera.y = Math.min(Math.max(camera.y, -worldHeight / 2), worldHeight / 2);
+    const cameraConfig = balanceConfig.camera ?? DEFAULT_BALANCE_CONFIG.camera;
+    const zoomMin = Math.min(cameraConfig.zoomMin, cameraConfig.zoomMax);
+    const zoomMax = Math.max(cameraConfig.zoomMin, cameraConfig.zoomMax);
+    cameraZoom = clamp(cameraZoom, zoomMin, zoomMax);
+    cameraZoomTarget = cameraZoom;
+    lastZoomUpdateMs = 0;
     updateJoystickConfig();
 };
 
@@ -2401,6 +2506,12 @@ async function connectToServer(playerName: string, classId: number) {
         let smoothedPlayerX = 0;
         let smoothedPlayerY = 0;
         let talentSelectionInFlight = false;
+        let cardsCollapsed = false;
+        let lastLocalMass = 0;
+
+        queueIndicator.onclick = () => {
+            cardsCollapsed = false;
+        };
         let classSelectMode = false;
 
         // Логирование для отладки
@@ -2499,6 +2610,11 @@ async function connectToServer(playerName: string, classId: number) {
                 talentModal.style.display = "none";
                 return;
             }
+
+            if (cardsCollapsed) {
+                talentModal.style.display = "none";
+                return;
+            }
             
             talentModal.style.display = "flex";
             
@@ -2535,9 +2651,17 @@ async function connectToServer(playerName: string, classId: number) {
                 btn.style.gap = "12px";
                 btn.style.alignItems = "center";
                 
-                const info = talentInfo[opt.talentId] ?? { name: opt.talentId, icon: "❓", desc: "" };
+                const upgrade = parseAbilityUpgradeId(opt.talentId);
                 const rarity = opt.rarity ?? 0;
-                const rarityColor = rarityColors[rarity] ?? "#6b7280";
+                let rarityColor = rarityColors[rarity] ?? "#6b7280";
+                let rarityLabelText = rarityNames[rarity] ?? "Обычный";
+                let info = talentInfo[opt.talentId] ?? { name: opt.talentId, icon: "❓", desc: "" };
+
+                if (upgrade) {
+                    info = getAbilityUpgradeInfo(upgrade.abilityId, upgrade.level);
+                    rarityColor = "#6fd6ff";
+                    rarityLabelText = "Улучшение";
+                }
                 
                 // Цвет рамки по редкости
                 btn.style.borderColor = rarityColor;
@@ -2581,7 +2705,7 @@ async function connectToServer(playerName: string, classId: number) {
                 rightPart.appendChild(name);
                 
                 const rarityLabel = document.createElement("span");
-                rarityLabel.textContent = rarityNames[rarity] ?? "Обычный";
+                rarityLabel.textContent = rarityLabelText;
                 rarityLabel.style.fontSize = "11px";
                 rarityLabel.style.color = rarityColor;
                 rarityLabel.style.fontWeight = "600";
@@ -2592,12 +2716,26 @@ async function connectToServer(playerName: string, classId: number) {
                 desc.style.fontSize = "12px";
                 desc.style.color = "#9fb5cc";
                 rightPart.appendChild(desc);
-                
-                // Показываем уровень таланта, если он уже есть
-                const existingTalent = localPlayer.talents?.find((t: any) => t.id === opt.talentId);
-                if (existingTalent) {
+                if (!upgrade) {
+                    const existingTalent = localPlayer.talents?.find((t: any) => t.id === opt.talentId);
+                    if (existingTalent) {
+                        const levelLabel = document.createElement("span");
+                        levelLabel.textContent = `Уровень ${existingTalent.level} -> ${existingTalent.level + 1}`;
+                        levelLabel.style.fontSize = "11px";
+                        levelLabel.style.color = "#fbbf24";
+                        levelLabel.style.fontWeight = "600";
+                        rightPart.appendChild(levelLabel);
+                    }
+                } else {
+                    const getAbilityLevel = (abilityId: string) => {
+                        if (localPlayer.abilitySlot0 === abilityId) return Number(localPlayer.abilityLevel0 ?? 1);
+                        if (localPlayer.abilitySlot1 === abilityId) return Number(localPlayer.abilityLevel1 ?? 1);
+                        if (localPlayer.abilitySlot2 === abilityId) return Number(localPlayer.abilityLevel2 ?? 1);
+                        return Math.max(1, upgrade.level - 1);
+                    };
+                    const currentLevel = getAbilityLevel(upgrade.abilityId);
                     const levelLabel = document.createElement("span");
-                    levelLabel.textContent = `Уровень ${existingTalent.level} → ${existingTalent.level + 1}`;
+                    levelLabel.textContent = `Уровень ${currentLevel} -> ${upgrade.level}`;
                     levelLabel.style.fontSize = "11px";
                     levelLabel.style.color = "#fbbf24";
                     levelLabel.style.fontWeight = "600";
@@ -2707,6 +2845,18 @@ async function connectToServer(playerName: string, classId: number) {
             guard: "Защита",
             greed: "Жадность",
         };
+        const boostIcons: Record<string, string> = {
+            rage: "Я",
+            haste: "У",
+            guard: "З",
+            greed: "Ж",
+        };
+        const boostColors: Record<string, string> = {
+            rage: "#f97316",
+            haste: "#38bdf8",
+            guard: "#facc15",
+            greed: "#34d399",
+        };
 
         const updateHud = () => {
             // Update Top Center HUD (Timer & Kills)
@@ -2721,6 +2871,34 @@ async function connectToServer(playerName: string, classId: number) {
                 killCounter.textContent = `☠ ${hudPlayer.killCount}`;
             } else {
                 killCounter.style.display = "none";
+            }
+
+            const statePlayer = room.state.players.get(room.sessionId);
+            if (statePlayer) {
+                const flags = Number(statePlayer.flags ?? 0);
+                const isDead = (flags & FLAG_IS_DEAD) !== 0;
+                const hasRespawnShield = (flags & FLAG_RESPAWN_SHIELD) !== 0;
+                if (isDead || hasRespawnShield) {
+                    cardsCollapsed = false;
+                    lastLocalMass = 0;
+                } else {
+                    const hasPending =
+                        Boolean(statePlayer.pendingAbilityCard?.option0) ||
+                        Boolean(statePlayer.pendingTalentCard?.option0) ||
+                        ((statePlayer.pendingCardCount ?? 0) + (statePlayer.pendingTalentCount ?? 0) > 0);
+                    const currentMass = Number(statePlayer.mass ?? 0);
+                    const tookDamage = lastLocalMass > 0 && currentMass < lastLocalMass - 0.01;
+                    if (tookDamage) {
+                        lastDamageTimeMs = performance.now();
+                    }
+                    if (hasPending && tookDamage) {
+                        cardsCollapsed = true;
+                    }
+                    lastLocalMass = currentMass;
+                    if (!hasPending) {
+                        cardsCollapsed = false;
+                    }
+                }
             }
 
             // Update Left HUD (Debug info + Mass)
@@ -2747,15 +2925,34 @@ async function connectToServer(playerName: string, classId: number) {
                     const remainingTicks = boostEndTick - Number(room.state.serverTick ?? 0);
                     const remainingSec = remainingTicks / (balanceConfig.server.tickRate || 1);
                     const boostName = boostLabels[boostType] ?? boostType;
-                    let boostLine = `Усиление: ${boostName}`;
+                    const iconText = boostIcons[boostType] ?? "!";
+                    const iconColor = boostColors[boostType] ?? "#94a3b8";
+
+                    boostIcon.textContent = iconText;
+                    boostIcon.style.background = iconColor;
+
+                    boostText.innerHTML = "";
+                    const nameLine = document.createElement("div");
+                    nameLine.textContent = boostName;
+                    boostText.appendChild(nameLine);
+
+                    const detailLine = document.createElement("div");
                     if (boostType === "guard" || boostType === "greed") {
-                        boostLine += ` (${Math.max(0, boostCharges)})`;
+                        detailLine.textContent = `Заряды: ${Math.max(0, boostCharges)}`;
+                    } else if (Number.isFinite(remainingSec) && remainingSec > 0) {
+                        detailLine.textContent = `Осталось: ${remainingSec.toFixed(1)}с`;
+                    } else {
+                        detailLine.textContent = "Осталось: 0.0с";
                     }
-                    if (Number.isFinite(remainingSec) && remainingSec > 0) {
-                        boostLine += ` ${remainingSec.toFixed(1)}с`;
-                    }
-                    lines.push(boostLine);
+                    detailLine.style.color = "#9fb5cc";
+                    boostText.appendChild(detailLine);
+
+                    boostPanel.style.display = "flex";
+                } else {
+                    boostPanel.style.display = "none";
                 }
+            } else {
+                boostPanel.style.display = "none";
             }
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {
                 lines.push("Лидеры:");
@@ -2828,6 +3025,11 @@ async function connectToServer(playerName: string, classId: number) {
             const card = player?.pendingAbilityCard;
             
             if (!card || !card.option0) {
+                abilityCardModal.style.display = "none";
+                return;
+            }
+
+            if (cardsCollapsed) {
                 abilityCardModal.style.display = "none";
                 return;
             }
@@ -3044,7 +3246,8 @@ async function connectToServer(playerName: string, classId: number) {
             
             const cw = canvas.width;
             const ch = canvas.height;
-            const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
+            const baseScale = Math.min(cw / desiredView.width, ch / desiredView.height);
+            const scale = baseScale * cameraZoom;
             
             // Позиция слайма на экране (используем сглаженные координаты, как и камера)
             const playerScreen = worldToScreen(smoothedPlayerX, smoothedPlayerY, scale, camera.x, camera.y, cw, ch);
@@ -3307,11 +3510,7 @@ async function connectToServer(playerName: string, classId: number) {
             const now = performance.now();
             const cw = canvas.width;
             const ch = canvas.height;
-            const scale = Math.min(cw / desiredView.width, ch / desiredView.height);
-            const halfWorldW = cw / scale / 2;
-            const halfWorldH = ch / scale / 2;
-            const worldHalfW = worldWidth / 2;
-            const worldHalfH = worldHeight / 2;
+            const baseScale = Math.min(cw / desiredView.width, ch / desiredView.height);
 
             // Use U2-style predictive smoothing
             const renderState = getSmoothedRenderState(now);
@@ -3331,6 +3530,40 @@ async function connectToServer(playerName: string, classId: number) {
             // Сохраняем сглаженную позицию для управления мышью
             smoothedPlayerX = targetX;
             smoothedPlayerY = targetY;
+            const cameraConfig = balanceConfig.camera ?? DEFAULT_BALANCE_CONFIG.camera;
+            const zoomMin = Math.min(cameraConfig.zoomMin, cameraConfig.zoomMax);
+            const zoomMax = Math.max(cameraConfig.zoomMin, cameraConfig.zoomMax);
+            const zoomMassMin = Math.max(1, cameraConfig.zoomMassMin);
+            const zoomMassMax = Math.max(zoomMassMin + 1, cameraConfig.zoomMassMax);
+            const rawMass = Number(smoothedPlayer?.mass ?? localPlayer?.mass ?? balanceConfig.slime.initialMass ?? 100);
+            const mass = Number.isFinite(rawMass) ? rawMass : (balanceConfig.slime.initialMass ?? 100);
+            const massT = clamp((mass - zoomMassMin) / (zoomMassMax - zoomMassMin), 0, 1);
+            const targetZoom = zoomMax - (zoomMax - zoomMin) * massT;
+            const holdMs = Math.max(0, cameraConfig.zoomDamageHoldSec) * 1000;
+            const previousTarget = Number.isFinite(cameraZoomTarget) && cameraZoomTarget > 0 ? cameraZoomTarget : targetZoom;
+            let nextZoomTarget = targetZoom;
+            if (holdMs > 0 && now - lastDamageTimeMs < holdMs) {
+                nextZoomTarget = Math.min(previousTarget, targetZoom);
+            }
+            const clampedTarget = clamp(nextZoomTarget, zoomMin, zoomMax);
+            if (!Number.isFinite(cameraZoom) || lastZoomUpdateMs <= 0) {
+                cameraZoomTarget = clampedTarget;
+                cameraZoom = clampedTarget;
+                lastZoomUpdateMs = now;
+            } else {
+                cameraZoomTarget = clampedTarget;
+                const dtSec = Math.max(0, (now - lastZoomUpdateMs) / 1000);
+                lastZoomUpdateMs = now;
+                const speed = Math.max(0, cameraConfig.zoomSpeed);
+                const lerpFactor = clamp(speed * dtSec, 0, 1);
+                cameraZoom += (cameraZoomTarget - cameraZoom) * lerpFactor;
+                cameraZoom = clamp(cameraZoom, zoomMin, zoomMax);
+            }
+            const scale = baseScale * cameraZoom;
+            const halfWorldW = cw / scale / 2;
+            const halfWorldH = ch / scale / 2;
+            const worldHalfW = worldWidth / 2;
+            const worldHalfH = worldHeight / 2;
             const maxCamX = Math.max(0, worldHalfW - halfWorldW);
             const maxCamY = Math.max(0, worldHalfH - halfWorldH);
             const clampX = clamp(targetX, -maxCamX, maxCamX);

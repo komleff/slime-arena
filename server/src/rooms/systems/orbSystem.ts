@@ -23,11 +23,12 @@ export function updateOrbs(room: any) {
     }
 
     // Притяжение орбов (магнит умения + вакуум талант)
-    const magnetConfig = room.balance.abilities.magnet;
     const magnetPlayers: { player: any; radiusSq: number; speed: number }[] = [];
     for (const player of room.state.players.values()) {
         if (player.isDead) continue;
         const magnetActive = (player.flags & FLAG_MAGNETIZING) !== 0;
+        const abilityLevel = room.getAbilityLevelForAbility(player, "pull");
+        const magnetConfig = room.getAbilityConfigById("pull", abilityLevel || 1);
         const magnetRadius = magnetActive ? magnetConfig.radiusM : 0;
         const magnetSpeed = magnetActive ? magnetConfig.pullSpeedMps : 0;
         const vacuumRadius = player.mod_vacuumRadius;

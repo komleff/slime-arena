@@ -1,5 +1,3 @@
-import { FLAG_ABILITY_SHIELD } from "@slime-arena/shared";
-
 export function abilitySystem(room: any) {
     const currentTick = room.tick;
     for (const player of room.state.players.values()) {
@@ -50,9 +48,13 @@ export function abilityCardSystem(room: any) {
             player.cardChoicePressed = null;
         }
 
-        if (player.isDead || !player.pendingAbilityCard) continue;
+        if (!player.pendingAbilityCard) continue;
 
         const card = player.pendingAbilityCard;
+        if (player.isDead) {
+            card.expiresAtTick += 1;
+            continue;
+        }
 
         // Обработка выбора игрока
         if (player.cardChoicePressed !== null) {
@@ -140,20 +142,6 @@ export function projectileSystem(room: any) {
             if (room.tick < player.invulnerableUntilTick) continue;
             if (proj.lastHitId && proj.lastHitId === player.id) continue;
 
-            // Щит блокирует снаряд
-            if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                // Щит снимается при попадании
-                player.shieldEndTick = 0;
-                player.flags &= ~FLAG_ABILITY_SHIELD;
-                // Bomb взрывается даже при попадании в щит
-                if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                    room.explodeBomb(proj);
-                }
-                toRemove.push(projId);
-                hitPlayer = true;
-                break;
-            }
-
             const playerRadius = room.getPlayerRadius(player);
             const pdx = proj.x - player.x;
             const pdy = proj.y - player.y;
@@ -226,11 +214,7 @@ export function mineSystem(room: any) {
             if (distSq <= touchDist * touchDist) {
                 // Детонация!
 
-                // Щит блокирует мину
-                if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                    player.shieldEndTick = 0;
-                    player.flags &= ~FLAG_ABILITY_SHIELD;
-                } else if (owner && !owner.isDead) {
+                if (owner && !owner.isDead) {
                     // Урон врагу с передачей массы владельцу
                     room.applyProjectileDamage(owner, player, mine.damagePct);
                 }

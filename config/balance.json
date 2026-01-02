@@ -276,6 +276,14 @@
     "teleportThreshold": 100,
     "angleCatchUpSpeed": 12.0
   },
+  "camera": {
+    "zoomMin": 1.0,
+    "zoomMax": 2.5,
+    "zoomSpeed": 0.5,
+    "zoomDamageHoldSec": 3,
+    "zoomMassMin": 100,
+    "zoomMassMax": 2000
+  },
   "slime": {
     "initialMass": 100,
     "initialLevel": 1,
@@ -357,26 +365,48 @@
       "cooldownSec": 5,
       "distanceM": 80,
       "durationSec": 0.3,
-      "collisionDamageMult": 1.5
+      "collisionDamageMult": 1.5,
+      "levels": [
+        { "massCostPct": 0.03, "cooldownSec": 5, "distanceM": 80, "durationSec": 0.3, "collisionDamageMult": 1.5 },
+        { "massCostPct": 0.03, "cooldownSec": 4, "distanceM": 80, "durationSec": 0.3, "collisionDamageMult": 1.5 },
+        { "massCostPct": 0.03, "cooldownSec": 4, "distanceM": 104, "durationSec": 0.3, "collisionDamageMult": 1.5 }
+      ]
     },
     "shield": {
       "massCostPct": 0.04,
       "cooldownSec": 8,
-      "durationSec": 2.5
+      "durationSec": 2.5,
+      "reflectDamagePct": 0,
+      "burstRadiusM": 0,
+      "levels": [
+        { "massCostPct": 0.04, "cooldownSec": 8, "durationSec": 2.5, "reflectDamagePct": 0, "burstRadiusM": 0 },
+        { "massCostPct": 0.04, "cooldownSec": 8, "durationSec": 2.5, "reflectDamagePct": 0.30, "burstRadiusM": 0 },
+        { "massCostPct": 0.04, "cooldownSec": 8, "durationSec": 2.5, "reflectDamagePct": 0.30, "burstRadiusM": 40 }
+      ]
     },
     "magnet": {
       "massCostPct": 0.02,
       "cooldownSec": 7,
       "durationSec": 1.5,
       "radiusM": 120,
-      "pullSpeedMps": 50
+      "pullSpeedMps": 50,
+      "levels": [
+        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 1.5, "radiusM": 120, "pullSpeedMps": 50 },
+        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 1.5, "radiusM": 150, "pullSpeedMps": 50 },
+        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 1.5, "radiusM": 150, "pullSpeedMps": 70 }
+      ]
     },
     "slow": {
       "massCostPct": 0.02,
       "cooldownSec": 7,
       "durationSec": 2,
       "radiusM": 80,
-      "slowPct": 0.30
+      "slowPct": 0.30,
+      "levels": [
+        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 2, "radiusM": 80, "slowPct": 0.30 },
+        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 2, "radiusM": 100, "slowPct": 0.30 },
+        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 2, "radiusM": 100, "slowPct": 0.40 }
+      ]
     },
     "projectile": {
       "massCostPct": 0.02,
@@ -384,7 +414,14 @@
       "speedMps": 400,
       "rangeM": 300,
       "damagePct": 0.15,
-      "radiusM": 8
+      "radiusM": 8,
+      "piercingHits": 0,
+      "piercingDamagePct": 0,
+      "levels": [
+        { "massCostPct": 0.02, "cooldownSec": 3, "speedMps": 400, "rangeM": 300, "damagePct": 0.15, "radiusM": 8, "piercingHits": 0, "piercingDamagePct": 0 },
+        { "massCostPct": 0.02, "cooldownSec": 3, "speedMps": 400, "rangeM": 300, "damagePct": 0.18, "radiusM": 8, "piercingHits": 0, "piercingDamagePct": 0 },
+        { "massCostPct": 0.02, "cooldownSec": 3, "speedMps": 400, "rangeM": 300, "damagePct": 0.18, "radiusM": 8, "piercingHits": 2, "piercingDamagePct": 0.6 }
+      ]
     },
     "spit": {
       "massCostPct": 0.03,
@@ -394,7 +431,12 @@
       "damagePct": 0.08,
       "radiusM": 6,
       "projectileCount": 3,
-      "spreadAngleDeg": 30
+      "spreadAngleDeg": 30,
+      "levels": [
+        { "massCostPct": 0.03, "cooldownSec": 4, "speedMps": 350, "rangeM": 200, "damagePct": 0.08, "radiusM": 6, "projectileCount": 3, "spreadAngleDeg": 30 },
+        { "massCostPct": 0.03, "cooldownSec": 4, "speedMps": 350, "rangeM": 200, "damagePct": 0.08, "radiusM": 6, "projectileCount": 4, "spreadAngleDeg": 30 },
+        { "massCostPct": 0.03, "cooldownSec": 4, "speedMps": 350, "rangeM": 200, "damagePct": 0.092, "radiusM": 6, "projectileCount": 4, "spreadAngleDeg": 30 }
+      ]
     },
     "bomb": {
       "massCostPct": 0.04,
@@ -403,7 +445,12 @@
       "rangeM": 250,
       "damagePct": 0.12,
       "radiusM": 10,
-      "explosionRadiusM": 50
+      "explosionRadiusM": 50,
+      "levels": [
+        { "massCostPct": 0.04, "cooldownSec": 6, "speedMps": 200, "rangeM": 250, "damagePct": 0.12, "radiusM": 10, "explosionRadiusM": 50 },
+        { "massCostPct": 0.04, "cooldownSec": 6, "speedMps": 200, "rangeM": 250, "damagePct": 0.12, "radiusM": 10, "explosionRadiusM": 70 },
+        { "massCostPct": 0.04, "cooldownSec": 5, "speedMps": 200, "rangeM": 250, "damagePct": 0.12, "radiusM": 10, "explosionRadiusM": 70 }
+      ]
     },
     "push": {
       "massCostPct": 0.03,
@@ -411,7 +458,12 @@
       "radiusM": 80,
       "impulseNs": 50000,
       "minSpeedMps": 30,
-      "maxSpeedMps": 120
+      "maxSpeedMps": 120,
+      "levels": [
+        { "massCostPct": 0.03, "cooldownSec": 6, "radiusM": 80, "impulseNs": 50000, "minSpeedMps": 30, "maxSpeedMps": 120 },
+        { "massCostPct": 0.03, "cooldownSec": 6, "radiusM": 100, "impulseNs": 50000, "minSpeedMps": 30, "maxSpeedMps": 120 },
+        { "massCostPct": 0.03, "cooldownSec": 6, "radiusM": 100, "impulseNs": 65000, "minSpeedMps": 30, "maxSpeedMps": 150 }
+      ]
     },
     "mine": {
       "massCostPct": 0.02,
@@ -419,7 +471,12 @@
       "damagePct": 0.15,
       "radiusM": 15,
       "durationSec": 20,
-      "maxMines": 1
+      "maxMines": 1,
+      "levels": [
+        { "massCostPct": 0.02, "cooldownSec": 10, "damagePct": 0.15, "radiusM": 15, "durationSec": 20, "maxMines": 1 },
+        { "massCostPct": 0.02, "cooldownSec": 10, "damagePct": 0.15, "radiusM": 15, "durationSec": 20, "maxMines": 2 },
+        { "massCostPct": 0.02, "cooldownSec": 10, "damagePct": 0.20, "radiusM": 15, "durationSec": 20, "maxMines": 2 }
+      ]
     }
   },
   "chests": {
@@ -531,6 +588,7 @@
   "talents": {
     "cardChoiceTimeoutSec": 12,
     "cardQueueMax": 3,
+    "abilityUpgradeChance": 0.5,
     "talentPool": {
       "common": ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
       "rare": ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
