@@ -51,9 +51,9 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
-        "thrustReverseN": 6750,
-        "thrustLateralN": 8500,
+        "thrustForwardN": 18000,
+        "thrustReverseN": 13500,
+        "thrustLateralN": 17000,
         "turnTorqueNm": 35000
       },
       "limits": {
@@ -105,9 +105,9 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
-        "thrustReverseN": 6750,
-        "thrustLateralN": 8500,
+        "thrustForwardN": 18000,
+        "thrustReverseN": 13500,
+        "thrustLateralN": 17000,
         "turnTorqueNm": 35000
       },
       "limits": {
@@ -159,9 +159,9 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
-        "thrustReverseN": 6750,
-        "thrustLateralN": 8500,
+        "thrustForwardN": 18000,
+        "thrustReverseN": 13500,
+        "thrustLateralN": 17000,
         "turnTorqueNm": 35000
       },
       "limits": {
@@ -213,9 +213,9 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
-        "thrustReverseN": 6750,
-        "thrustLateralN": 8500,
+        "thrustForwardN": 18000,
+        "thrustReverseN": 13500,
+        "thrustLateralN": 17000,
         "turnTorqueNm": 35000
       },
       "limits": {
