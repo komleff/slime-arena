@@ -4313,7 +4313,7 @@ async function connectToServer(playerName: string, classId: number) {
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
             
-            // Мышь не активирует джойстик — для мыши используется WASD + курсор для направления
+            // Мышь не активирует джойстик — управление мышью: курсор задаёт направление
             if (isMousePointer) return;
             
             if (!isTouchPointer && !isCoarse) return;
