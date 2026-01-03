@@ -222,7 +222,28 @@ export class ArenaRoom extends Room<GameState> {
             if (!player || !data) return;
 
             const seq = Number(data.seq);
-            if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) return;
+            const rawTalentChoice = data.talentChoice;
+            const rawCardChoice = ("cardChoice" in data) ? data.cardChoice : undefined;
+            const isValidTalentChoice =
+                typeof rawTalentChoice === "number" &&
+                Number.isInteger(rawTalentChoice) &&
+                rawTalentChoice >= 0 &&
+                rawTalentChoice <= 2;
+            const isValidCardChoice =
+                typeof rawCardChoice === "number" &&
+                Number.isInteger(rawCardChoice) &&
+                rawCardChoice >= 0 &&
+                rawCardChoice <= 2;
+            if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) {
+                if (isValidTalentChoice) {
+                    player.talentChoicePressed = rawTalentChoice;
+                    player.talentChoicePressed2 = rawTalentChoice;
+                }
+                if (isValidCardChoice) {
+                    player.cardChoicePressed = rawCardChoice;
+                }
+                return;
+            }
             player.lastProcessedSeq = seq;
 
             let moveX = Number(data.moveX);
@@ -260,42 +281,20 @@ export class ArenaRoom extends Room<GameState> {
                 }
             }
 
-            const talentChoice = data.talentChoice;
-            if (
-                typeof talentChoice === "number" &&
-                Number.isInteger(talentChoice) &&
-                talentChoice >= 0 &&
-                talentChoice <= 2
-            ) {
-                player.talentChoicePressed = talentChoice;
+            if (isValidTalentChoice) {
+                player.talentChoicePressed = rawTalentChoice;
             } else {
                 player.talentChoicePressed = null;
             }
             
             // Выбор из карточки умений (GDD v3.3 1.3)
-            if ("cardChoice" in data) {
-                const cardChoice = data.cardChoice;
-                if (
-                    typeof cardChoice === "number" &&
-                    Number.isInteger(cardChoice) &&
-                    cardChoice >= 0 &&
-                    cardChoice <= 2
-                ) {
-                    player.cardChoicePressed = cardChoice;
-                }
+            if ("cardChoice" in data && isValidCardChoice) {
+                player.cardChoicePressed = rawCardChoice;
             }
             
             // Выбор из карточки талантов (GDD-Talents.md)
-            if ("talentChoice" in data) {
-                const talentChoice = data.talentChoice;
-                if (
-                    typeof talentChoice === "number" &&
-                    Number.isInteger(talentChoice) &&
-                    talentChoice >= 0 &&
-                    talentChoice <= 2
-                ) {
-                    player.talentChoicePressed2 = talentChoice;
-                }
+            if ("talentChoice" in data && isValidTalentChoice) {
+                player.talentChoicePressed2 = rawTalentChoice;
             }
         });
 
@@ -2032,9 +2031,18 @@ export class ArenaRoom extends Room<GameState> {
         this.spawnToxicPool(player);
 
         const massForOrbs = player.mass * this.balance.death.massToOrbsPercent;
-        const perOrbMass = massForOrbs / Math.max(1, this.balance.death.orbsCount);
+        let orbsCount = this.balance.death.orbsCount;
+        
+        // Минимальная масса орба (issue 11.4)
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        let perOrbMass = massForOrbs / Math.max(1, orbsCount);
+        if (perOrbMass < minOrbMass) {
+            orbsCount = Math.max(1, Math.floor(massForOrbs / minOrbMass));
+            perOrbMass = massForOrbs / Math.max(1, orbsCount);
+        }
+
         const count = Math.min(
-            this.balance.death.orbsCount,
+            orbsCount,
             this.balance.orbs.maxCount - this.state.orbs.size
         );
         if (count <= 0) return;
@@ -2254,9 +2262,17 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private spawnLavaOrbs(player: Player, totalMass: number) {
-        const count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
+        let count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
         if (count <= 0 || totalMass <= 0) return;
-        const perOrbMass = totalMass / count;
+
+        // Минимальная масса орба (issue 11.4)
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        let perOrbMass = totalMass / count;
+        if (perOrbMass < minOrbMass) {
+            count = Math.max(1, Math.floor(totalMass / minOrbMass));
+            perOrbMass = totalMass / count;
+        }
+
         const angleStep = (Math.PI * 2) / count;
         const speed = Math.max(0, this.balance.zones.lava.scatterSpeedMps);
         const colorId = this.getDamageOrbColorId(player);

@@ -116,6 +116,7 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
+- **Клик по карточке таланта (ПК)**: обработка выбора не теряется при высокой частоте input-пакетов.
 - **Награды сундуков (детали)**: при открытии показывается конкретное название награды/таланта для игрока, открывшего сундук.
 - **Изменённые файлы**: `server/src/rooms/ArenaRoom.ts`, `client/src/main.ts`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
 
