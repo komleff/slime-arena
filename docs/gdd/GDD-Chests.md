@@ -1,7 +1,7 @@
 # Slime Arena — Chests
 
-**Версия:** 3.3  
-**Дата:** 28.12.2025  
+**Версия:** 3.3.2  
+**Дата:** 03.01.2026  
 **Зависимости:** GDD-Core.md (GCD), GDD-Talents.md (редкости)  
 **Глоссарий:** [GDD-Glossary.md](GDD-Glossary.md)  
 
