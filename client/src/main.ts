@@ -3801,17 +3801,17 @@ async function connectToServer(playerName: string, classId: number) {
                 const isPillar = obstacle.type === OBSTACLE_TYPE_PILLAR;
                 
                 if (isSpikes) {
-                    // Шипастое препятствие: серая основа + красные шипы
+                    // Шипастое препятствие: тёмная основа + серые шипы (не путать с красными пузырями)
                     const spikeCount = 12;
                     const innerR = r * 0.7;
                     const outerR = r * 1.15;
                     
-                    // Серая основа
-                    drawCircle(p.x, p.y, innerR, "rgba(80, 80, 80, 0.9)", "rgba(50, 50, 50, 1)");
+                    // Тёмная основа
+                    drawCircle(p.x, p.y, innerR, "rgba(50, 50, 50, 0.95)", "rgba(30, 30, 30, 1)");
                     
-                    // Красные шипы (треугольники)
-                    canvasCtx.fillStyle = "rgba(220, 50, 50, 0.95)";
-                    canvasCtx.strokeStyle = "rgba(150, 30, 30, 1)";
+                    // Серые металлические шипы (треугольники)
+                    canvasCtx.fillStyle = "rgba(120, 120, 120, 0.95)";
+                    canvasCtx.strokeStyle = "rgba(180, 180, 180, 1)";
                     canvasCtx.lineWidth = 1;
                     for (let i = 0; i < spikeCount; i++) {
                         const angle = (i / spikeCount) * Math.PI * 2;
