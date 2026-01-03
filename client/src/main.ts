@@ -3938,9 +3938,10 @@ async function connectToServer(playerName: string, classId: number) {
                 if ((player.flags & FLAG_MAGNETIZING) !== 0) {
                     const magnetRadius = (balanceConfig.abilities?.magnet?.radiusM ?? 150) * scale;
                     // Точка «пасти» — смещена от центра на 90% радиуса в направлении взгляда
+                    // Y инвертирован (экранные координаты: Y вниз, world: Y вверх)
                     const mouthOffset = r * 0.9;
                     const mouthX = p.x + Math.cos(angleRad) * mouthOffset;
-                    const mouthY = p.y + Math.sin(angleRad) * mouthOffset;
+                    const mouthY = p.y - Math.sin(angleRad) * mouthOffset;
                     // Внешний круг (вокруг пасти)
                     canvasCtx.beginPath();
                     canvasCtx.arc(mouthX, mouthY, magnetRadius, 0, Math.PI * 2);
