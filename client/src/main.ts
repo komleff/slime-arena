@@ -1788,6 +1788,14 @@ type FlashEffect = {
     durationMs: number;
     radius: number;
 };
+type ChestRewardPayload = {
+    chestId: string;
+    x: number;
+    y: number;
+    type: number;
+    rewardKind: "talent" | "boost" | "none";
+    rewardId: string;
+};
 const floatingTexts: FloatingText[] = [];
 const flashEffects: FlashEffect[] = [];
 
@@ -1801,6 +1809,7 @@ function addFlashEffect(x: number, y: number, color: string, radius: number, dur
 
 // Кэш последних позиций сундуков для эффектов при удалении
 const lastChestPositions = new Map<string, { x: number; y: number; type: number }>();
+const pendingChestRewards = new Map<string, { text: string; color: string; x: number; y: number }>();
 
 // Флаг для заморозки визуального состояния при Results
 // При true: smoothStep не применяется, орбы остаются на месте
@@ -1828,6 +1837,7 @@ const resetSnapshotBuffer = () => {
     floatingTexts.length = 0;
     flashEffects.length = 0;
     lastChestPositions.clear();
+    pendingChestRewards.clear();
 };
 
 // Smoothly move visual state towards target with velocity integration
@@ -2894,9 +2904,15 @@ async function connectToServer(playerName: string, classId: number) {
                 const style = chestStyles[pos.type] ?? chestStyles[0];
                 // Вспышка
                 addFlashEffect(pos.x, pos.y, style.glow, chestRadius * 4, 500);
-                // Всплывающий текст с иконкой
-                const rewardText = pos.type === 2 ? "💰 Сокровище!" : pos.type === 1 ? "💎 Награда!" : "🎁 +Талант";
-                addFloatingText(pos.x, pos.y, rewardText, style.fill, 18, 1500);
+                const reward = pendingChestRewards.get(key);
+                if (reward) {
+                    addFloatingText(reward.x, reward.y, reward.text, reward.color, 18, 1500);
+                    pendingChestRewards.delete(key);
+                } else {
+                    // Всплывающий текст по умолчанию
+                    const rewardText = pos.type === 2 ? "💰 Сокровище!" : pos.type === 1 ? "💎 Награда!" : "🎁 +Талант";
+                    addFloatingText(pos.x, pos.y, rewardText, style.fill, 18, 1500);
+                }
                 lastChestPositions.delete(key);
             }
         });
@@ -2940,6 +2956,32 @@ async function connectToServer(playerName: string, classId: number) {
             guard: "#facc15",
             greed: "#34d399",
         };
+
+        const formatChestRewardText = (payload: ChestRewardPayload) => {
+            if (payload.rewardKind === "talent") {
+                const talentName = talentInfo[payload.rewardId]?.name ?? payload.rewardId;
+                return `🎁 ${talentName}`;
+            }
+            if (payload.rewardKind === "boost") {
+                const boostName = boostLabels[payload.rewardId] ?? payload.rewardId;
+                const icon = boostIcons[payload.rewardId] ?? "✨";
+                return `${icon} ${boostName}`;
+            }
+            return "";
+        };
+
+        room.onMessage("chestReward", (payload: ChestRewardPayload) => {
+            if (!payload || !payload.chestId) return;
+            const rewardText = formatChestRewardText(payload);
+            if (!rewardText) return;
+            const style = chestStyles[payload.type] ?? chestStyles[0];
+            const entry = { text: rewardText, color: style.fill, x: payload.x, y: payload.y };
+            if (lastChestPositions.has(payload.chestId)) {
+                pendingChestRewards.set(payload.chestId, entry);
+                return;
+            }
+            addFloatingText(entry.x, entry.y, entry.text, entry.color, 18, 1500);
+        });
 
         const updateHud = () => {
             // Update Top Center HUD (Timer & Kills)

@@ -1744,12 +1744,42 @@ export class ArenaRoom extends Room<GameState> {
 
     private openChest(player: Player, chest: Chest) {
         const chestTypeId = this.getChestTypeId(chest.type);
-        const awardedTalent = this.awardChestTalent(player, chestTypeId);
-        if (!awardedTalent) {
-            this.awardChestBoost(player, chestTypeId);
+        let rewardKind: "talent" | "boost" | "none" = "none";
+        let rewardId = "";
+        const awardedTalentId = this.awardChestTalent(player, chestTypeId);
+        if (awardedTalentId) {
+            rewardKind = "talent";
+            rewardId = awardedTalentId;
+        } else {
+            const awardedBoostId = this.awardChestBoost(player, chestTypeId);
+            if (awardedBoostId) {
+                rewardKind = "boost";
+                rewardId = awardedBoostId;
+            }
+        }
+        if (rewardKind !== "none") {
+            this.sendChestReward(player, chest, rewardKind, rewardId);
         }
         this.spawnChestRewardOrbs(chestTypeId, chest.x, chest.y);
         this.state.chests.delete(chest.id);
+    }
+
+    private sendChestReward(
+        player: Player,
+        chest: Chest,
+        rewardKind: "talent" | "boost",
+        rewardId: string
+    ) {
+        const client = this.clients.find((entry) => entry.sessionId === player.id);
+        if (!client) return;
+        client.send("chestReward", {
+            chestId: chest.id,
+            x: chest.x,
+            y: chest.y,
+            type: chest.type ?? 0,
+            rewardKind,
+            rewardId,
+        });
     }
 
     private getChestTypeId(type: number): "rare" | "epic" | "gold" {
@@ -1762,11 +1792,11 @@ export class ArenaRoom extends Room<GameState> {
         return typeId === "epic" ? 1 : typeId === "gold" ? 2 : 0;
     }
 
-    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
         const available = this.getAvailableTalentsByRarity(player);
         const rarityPools = [available.common, available.rare, available.epic];
         if (rarityPools[0].length === 0 && rarityPools[1].length === 0 && rarityPools[2].length === 0) {
-            return false;
+            return null;
         }
 
         const weights = this.balance.chests.rewards.talentRarityWeights[chestTypeId];
@@ -1792,15 +1822,15 @@ export class ArenaRoom extends Room<GameState> {
         const pool = rarityPools[chosenRarity];
         const choice = pool[Math.floor(this.rng.next() * pool.length)];
         this.addTalentToPlayer(player, choice);
-        return true;
+        return choice;
     }
 
-    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
         const allowedBoosts = this.balance.boosts.allowedByChestType[chestTypeId] ?? [];
-        if (allowedBoosts.length === 0) return false;
+        if (allowedBoosts.length === 0) return null;
         const choice = allowedBoosts[Math.floor(this.rng.next() * allowedBoosts.length)];
         this.applyBoost(player, choice);
-        return true;
+        return choice;
     }
 
     private pickTalentRarity(weights: { common: number; rare: number; epic: number }): number {
