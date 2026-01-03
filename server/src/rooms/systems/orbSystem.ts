@@ -23,7 +23,7 @@ export function updateOrbs(room: any) {
     }
 
     // Притяжение орбов (магнит умения + вакуум талант)
-    const magnetPlayers: { player: any; radiusSq: number; speed: number }[] = [];
+    const magnetPlayers: { player: any; radiusSq: number; speed: number; mouthX: number; mouthY: number }[] = [];
     for (const player of room.state.players.values()) {
         if (player.isDead) continue;
         const magnetActive = (player.flags & FLAG_MAGNETIZING) !== 0;
@@ -39,15 +39,15 @@ export function updateOrbs(room: any) {
         const radius = Math.max(magnetRadius, vacuumRadius, talentMagnetRadius);
         const speed = Math.max(magnetSpeed, vacuumSpeed, talentMagnetSpeed);
         if (radius <= 0 || speed <= 0) continue;
-        magnetPlayers.push({ player, radiusSq: radius * radius, speed });
+        const mouth = room.getMouthPoint(player);
+        magnetPlayers.push({ player, radiusSq: radius * radius, speed, mouthX: mouth.x, mouthY: mouth.y });
     }
 
     for (const orb of room.state.orbs.values()) {
         // Magnet/vacuum pull
         for (const entry of magnetPlayers) {
-            const player = entry.player;
-            const dx = player.x - orb.x;
-            const dy = player.y - orb.y;
+            const dx = entry.mouthX - orb.x;
+            const dy = entry.mouthY - orb.y;
             const distSq = dx * dx + dy * dy;
             if (distSq < entry.radiusSq && distSq > 1) {
                 const dist = Math.sqrt(distSq);

@@ -179,7 +179,7 @@ export class ArenaRoom extends Room<GameState> {
 
             player.classId = rawClassId;
 
-            const classAbilities = ["dash", "shield", "slow"];
+            const classAbilities = ["dash", "shield", "pull"];
             player.abilitySlot0 = classAbilities[player.classId] || "dash";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
@@ -222,7 +222,9 @@ export class ArenaRoom extends Room<GameState> {
             if (!player || !data) return;
 
             const seq = Number(data.seq);
-            if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) return;
+            if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) {
+                return;
+            }
             player.lastProcessedSeq = seq;
 
             let moveX = Number(data.moveX);
@@ -260,43 +262,22 @@ export class ArenaRoom extends Room<GameState> {
                 }
             }
 
-            const talentChoice = data.talentChoice;
-            if (
-                typeof talentChoice === "number" &&
-                Number.isInteger(talentChoice) &&
-                talentChoice >= 0 &&
-                talentChoice <= 2
-            ) {
-                player.talentChoicePressed = talentChoice;
-            } else {
-                player.talentChoicePressed = null;
-            }
-            
-            // Выбор из карточки умений (GDD v3.3 1.3)
-            if ("cardChoice" in data) {
-                const cardChoice = data.cardChoice;
-                if (
-                    typeof cardChoice === "number" &&
-                    Number.isInteger(cardChoice) &&
-                    cardChoice >= 0 &&
-                    cardChoice <= 2
-                ) {
-                    player.cardChoicePressed = cardChoice;
-                }
-            }
-            
-            // Выбор из карточки талантов (GDD-Talents.md)
-            if ("talentChoice" in data) {
-                const talentChoice = data.talentChoice;
-                if (
-                    typeof talentChoice === "number" &&
-                    Number.isInteger(talentChoice) &&
-                    talentChoice >= 0 &&
-                    talentChoice <= 2
-                ) {
-                    player.talentChoicePressed2 = talentChoice;
-                }
-            }
+        });
+
+        this.onMessage("talentChoice", (client, data: { choice?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || !player.pendingTalentCard) return;
+            const choice = Number(data?.choice);
+            if (!Number.isInteger(choice) || choice < 0 || choice > 2) return;
+            player.talentChoicePressed2 = choice;
+        });
+
+        this.onMessage("cardChoice", (client, data: { choice?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || !player.pendingAbilityCard) return;
+            const choice = Number(data?.choice);
+            if (!Number.isInteger(choice) || choice < 0 || choice > 2) return;
+            player.cardChoicePressed = choice;
         });
 
         this.setSimulationInterval(() => this.onTick(), this.balance.server.simulationIntervalMs);
@@ -344,7 +325,7 @@ export class ArenaRoom extends Room<GameState> {
         player.classId = rawClassId;
         
         // Классовое умение в слот 0 (GDD v3.3 1.3)
-        const classAbilities = ["dash", "shield", "slow"];
+        const classAbilities = ["dash", "shield", "pull"];
         player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
         player.abilitySlot1 = "";  // Разблокируется на level 3
         player.abilitySlot2 = "";  // Разблокируется на level 5
@@ -1579,9 +1560,30 @@ export class ArenaRoom extends Room<GameState> {
      */
     private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
         if (count <= 0 || totalMass <= 0) return;
+        if (totalMass < minOrbMass) return;
         
+        // Если общая масса слишком мала - не создаём мелкие орбы
         const perOrbMass = totalMass / count;
+        if (perOrbMass < minOrbMass) {
+            // Объединяем в меньшее количество орбов с минимальной массой
+            const actualCount = Math.floor(totalMass / minOrbMass);
+            if (actualCount <= 0) return; // Масса слишком мала даже для 1 орба
+            
+            const actualPerOrb = totalMass / actualCount;
+            const angleStep = (Math.PI * 2) / actualCount;
+            const speed = this.balance.combat.pvpBiteScatterSpeed;
+            
+            for (let i = 0; i < actualCount; i++) {
+                const angle = i * angleStep + this.rng.range(-0.3, 0.3);
+                const orb = this.forceSpawnOrb(x, y, actualPerOrb, colorId);
+                orb.vx = Math.cos(angle) * speed;
+                orb.vy = Math.sin(angle) * speed;
+            }
+            return;
+        }
+        
         const angleStep = (Math.PI * 2) / count;
         const speed = this.balance.combat.pvpBiteScatterSpeed;
         
@@ -1724,12 +1726,42 @@ export class ArenaRoom extends Room<GameState> {
 
     private openChest(player: Player, chest: Chest) {
         const chestTypeId = this.getChestTypeId(chest.type);
-        const awardedTalent = this.awardChestTalent(player, chestTypeId);
-        if (!awardedTalent) {
-            this.awardChestBoost(player, chestTypeId);
+        let rewardKind: "talent" | "boost" | "none" = "none";
+        let rewardId = "";
+        const awardedTalentId = this.awardChestTalent(player, chestTypeId);
+        if (awardedTalentId) {
+            rewardKind = "talent";
+            rewardId = awardedTalentId;
+        } else {
+            const awardedBoostId = this.awardChestBoost(player, chestTypeId);
+            if (awardedBoostId) {
+                rewardKind = "boost";
+                rewardId = awardedBoostId;
+            }
+        }
+        if (rewardKind !== "none") {
+            this.sendChestReward(player, chest, rewardKind, rewardId);
         }
         this.spawnChestRewardOrbs(chestTypeId, chest.x, chest.y);
         this.state.chests.delete(chest.id);
+    }
+
+    private sendChestReward(
+        player: Player,
+        chest: Chest,
+        rewardKind: "talent" | "boost",
+        rewardId: string
+    ) {
+        const client = this.clients.find((entry) => entry.sessionId === player.id);
+        if (!client) return;
+        client.send("chestReward", {
+            chestId: chest.id,
+            x: chest.x,
+            y: chest.y,
+            type: chest.type ?? 0,
+            rewardKind,
+            rewardId,
+        });
     }
 
     private getChestTypeId(type: number): "rare" | "epic" | "gold" {
@@ -1742,11 +1774,11 @@ export class ArenaRoom extends Room<GameState> {
         return typeId === "epic" ? 1 : typeId === "gold" ? 2 : 0;
     }
 
-    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
         const available = this.getAvailableTalentsByRarity(player);
         const rarityPools = [available.common, available.rare, available.epic];
         if (rarityPools[0].length === 0 && rarityPools[1].length === 0 && rarityPools[2].length === 0) {
-            return false;
+            return null;
         }
 
         const weights = this.balance.chests.rewards.talentRarityWeights[chestTypeId];
@@ -1772,15 +1804,15 @@ export class ArenaRoom extends Room<GameState> {
         const pool = rarityPools[chosenRarity];
         const choice = pool[Math.floor(this.rng.next() * pool.length)];
         this.addTalentToPlayer(player, choice);
-        return true;
+        return choice;
     }
 
-    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
         const allowedBoosts = this.balance.boosts.allowedByChestType[chestTypeId] ?? [];
-        if (allowedBoosts.length === 0) return false;
+        if (allowedBoosts.length === 0) return null;
         const choice = allowedBoosts[Math.floor(this.rng.next() * allowedBoosts.length)];
         this.applyBoost(player, choice);
-        return true;
+        return choice;
     }
 
     private pickTalentRarity(weights: { common: number; rare: number; epic: number }): number {
@@ -1982,9 +2014,20 @@ export class ArenaRoom extends Room<GameState> {
         this.spawnToxicPool(player);
 
         const massForOrbs = player.mass * this.balance.death.massToOrbsPercent;
-        const perOrbMass = massForOrbs / Math.max(1, this.balance.death.orbsCount);
+        let orbsCount = this.balance.death.orbsCount;
+        
+        // Минимальная масса орба (issue 11.4)
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        if (massForOrbs < minOrbMass) return;
+        let perOrbMass = massForOrbs / Math.max(1, orbsCount);
+        if (perOrbMass < minOrbMass) {
+            orbsCount = Math.floor(massForOrbs / minOrbMass);
+            if (orbsCount <= 0) return;
+            perOrbMass = massForOrbs / orbsCount;
+        }
+
         const count = Math.min(
-            this.balance.death.orbsCount,
+            orbsCount,
             this.balance.orbs.maxCount - this.state.orbs.size
         );
         if (count <= 0) return;
@@ -2166,6 +2209,7 @@ export class ArenaRoom extends Room<GameState> {
         player.doubleAbilitySecondUsed = false;
         player.lastDamagedById = "";
         player.lastDamagedAtTick = 0;
+        player.pendingLavaScatterMass = 0;
         player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
         player.gcdReadyTick = this.tick;
         player.queuedAbilitySlot = null;
@@ -2203,10 +2247,27 @@ export class ArenaRoom extends Room<GameState> {
         zoneEffectSystem(this);
     }
 
-    private spawnLavaOrbs(player: Player, totalMass: number) {
-        const count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
-        if (count <= 0 || totalMass <= 0) return;
-        const perOrbMass = totalMass / count;
+    private spawnLavaOrbs(player: Player, addedMass: number) {
+        if (addedMass <= 0) return;
+        
+        // Накапливаем массу до минимального порога
+        player.pendingLavaScatterMass += addedMass;
+        
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        if (player.pendingLavaScatterMass < minOrbMass) return;
+        
+        const totalMass = player.pendingLavaScatterMass;
+        player.pendingLavaScatterMass = 0;
+        
+        let count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
+        if (count <= 0) return;
+
+        let perOrbMass = totalMass / count;
+        if (perOrbMass < minOrbMass) {
+            count = Math.max(1, Math.floor(totalMass / minOrbMass));
+            perOrbMass = totalMass / count;
+        }
+
         const angleStep = (Math.PI * 2) / count;
         const speed = Math.max(0, this.balance.zones.lava.scatterSpeedMps);
         const colorId = this.getDamageOrbColorId(player);
@@ -2830,6 +2891,16 @@ export class ArenaRoom extends Room<GameState> {
         const classStats = this.getClassStats(player);
         const leviathanMul = player.mod_leviathanRadiusMul > 0 ? player.mod_leviathanRadiusMul : 1;
         return getSlimeRadiusFromConfig(player.mass, slimeConfig) * classStats.radiusMult * leviathanMul;
+    }
+
+    /** Точка притяжения орбов смещена на 1.9 радиуса от центра слайма по углу поворота */
+    public getMouthPoint(player: Player): { x: number; y: number } {
+        const radius = this.getPlayerRadius(player);
+        const offset = radius * 1.9;
+        return {
+            x: player.x + Math.cos(player.angle) * offset,
+            y: player.y + Math.sin(player.angle) * offset,
+        };
     }
 
     private getClassStats(player: Player): ClassStats {

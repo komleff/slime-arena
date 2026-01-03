@@ -257,7 +257,7 @@ export interface BalanceConfig {
         slotUnlockLevels: number[];      // [1, 3, 5]
         talentGrantLevels: number[];     // [2, 4, 6] - уровни, дающие карточки талантов
         cardChoiceTimeoutSec: number;    // 12
-        abilityPool: string[];           // ["pull", "projectile", "spit", ...]
+        abilityPool: string[];           // ["slow", "projectile", "spit", ...]
     };
     combat: {
         mouthArcDeg: number;
@@ -274,6 +274,7 @@ export interface BalanceConfig {
         pvpBiteScatterPct: number;
         pvpBiteScatterOrbCount: number;
         pvpBiteScatterSpeed: number;
+        scatterOrbMinMass: number;
     };
     death: {
         respawnDelaySec: number;
@@ -627,7 +628,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -682,7 +683,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -737,7 +738,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -792,7 +793,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -869,7 +870,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         slotUnlockLevels: [1, 3, 5],
         talentGrantLevels: [2, 4, 6],
         cardChoiceTimeoutSec: 12,
-        abilityPool: ["pull", "projectile", "spit", "bomb", "push", "mine"],
+        abilityPool: ["slow", "projectile", "spit", "bomb", "push", "mine"],
     },
     combat: {
         mouthArcDeg: 120,
@@ -886,6 +887,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         pvpBiteScatterPct: 0.10,
         pvpBiteScatterOrbCount: 3,
         pvpBiteScatterSpeed: 200,
+        scatterOrbMinMass: 5,
     },
     death: {
         respawnDelaySec: 2,
@@ -927,14 +929,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         },
         warrior: {
             speedMult: 0.9,
-            biteResistPct: 0.15,
+            biteResistPct: 0,
             damageVsSlimeMult: 1.1,
             swallowLimit: 45,
             biteFraction: 0.35,
         },
         collector: {
-            radiusMult: 1.25,
-            eatingPowerMult: 1.15,
+            radiusMult: 1,
+            eatingPowerMult: 1.25,
             swallowLimit: 70,
             biteFraction: 0.5,
         },
@@ -1211,7 +1213,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         cardQueueMax: 3,
         abilityUpgradeChance: 0.5,
         talentPool: {
-            common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
+            common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind"],
             rare: ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
             epic: ["lightning", "doubleActivation", "explosion", "leviathan", "invisible"],
         },
@@ -1268,18 +1270,15 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         classTalents: {
             hunter: {
                 ambush: { name: "Засада", maxLevel: 1, values: [0.30], effect: "ambushDamage", rarity: "rare", category: "damage" },
-                momentum: { name: "Разгон", maxLevel: 1, values: [[0.05, 0.20]], effect: "movementSpeedBonus", rarity: "rare", category: "speed" },
                 hunterInvisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash", rarity: "epic", category: "speed" },
             },
             warrior: {
                 indestructible: { name: "Несокрушимый", maxLevel: 1, values: [0.15], effect: "allDamageReduction", rarity: "rare", category: "defense" },
                 thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" },
-                berserk: { name: "Берсерк", maxLevel: 1, values: [[0.03, 0.30]], effect: "berserkDamage", rarity: "epic", category: "damage" },
             },
             collector: {
                 parasite: { name: "Паразит", maxLevel: 1, values: [0.05], effect: "parasiteMass", rarity: "rare", category: "gather" },
                 magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" },
-                symbiosis: { name: "Симбиоз", maxLevel: 1, values: [0.50], effect: "symbiosisBubbles", rarity: "epic", category: "gather" },
             },
         },
     },
@@ -2002,6 +2001,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 combat.pvpBiteScatterSpeed,
                 DEFAULT_BALANCE_CONFIG.combat.pvpBiteScatterSpeed,
                 "combat.pvpBiteScatterSpeed"
+            ),
+            scatterOrbMinMass: readNumber(
+                combat.scatterOrbMinMass,
+                DEFAULT_BALANCE_CONFIG.combat.scatterOrbMinMass,
+                "combat.scatterOrbMinMass"
             ),
         },
         death: {
