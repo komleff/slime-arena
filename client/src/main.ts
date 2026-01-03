@@ -233,10 +233,19 @@ for (let i = 0; i < 3; i++) {
     talentButtonsList.push(button);
 }
 
+// Подсказка для карточки талантов
+const talentHint = document.createElement("div");
+talentHint.textContent = "Клик или клавиши 7 / 8 / 9";
+talentHint.style.fontSize = "11px";
+talentHint.style.color = "#6a8099";
+talentHint.style.textAlign = "center";
+talentHint.style.marginTop = "4px";
+
 talentCard.appendChild(talentTitle);
 talentCard.appendChild(talentTimer);
 talentCard.appendChild(talentCount);
 talentCard.appendChild(talentButtons);
+talentCard.appendChild(talentHint);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
 
@@ -889,7 +898,7 @@ for (let i = 0; i < 3; i++) {
 }
 
 const abilityCardHint = document.createElement("div");
-abilityCardHint.textContent = "Клавиши 7 / 8 / 9";
+abilityCardHint.textContent = "Клик или клавиши 7 / 8 / 9";
 abilityCardHint.style.fontSize = "11px";
 abilityCardHint.style.color = "#6a8099";
 abilityCardHint.style.textAlign = "center";
