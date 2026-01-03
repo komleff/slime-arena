@@ -628,7 +628,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -683,7 +683,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -738,7 +738,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -793,7 +793,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -1213,7 +1213,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         cardQueueMax: 3,
         abilityUpgradeChance: 0.5,
         talentPool: {
-            common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
+            common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind"],
             rare: ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
             epic: ["lightning", "doubleActivation", "explosion", "leviathan", "invisible"],
         },
@@ -1270,18 +1270,15 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         classTalents: {
             hunter: {
                 ambush: { name: "Засада", maxLevel: 1, values: [0.30], effect: "ambushDamage", rarity: "rare", category: "damage" },
-                momentum: { name: "Разгон", maxLevel: 1, values: [[0.05, 0.20]], effect: "movementSpeedBonus", rarity: "rare", category: "speed" },
                 hunterInvisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash", rarity: "epic", category: "speed" },
             },
             warrior: {
                 indestructible: { name: "Несокрушимый", maxLevel: 1, values: [0.15], effect: "allDamageReduction", rarity: "rare", category: "defense" },
-                thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" },
-                berserk: { name: "Берсерк", maxLevel: 1, values: [[0.03, 0.30]], effect: "berserkDamage", rarity: "epic", category: "damage" },
+                thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" }
             },
             collector: {
                 parasite: { name: "Паразит", maxLevel: 1, values: [0.05], effect: "parasiteMass", rarity: "rare", category: "gather" },
-                magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" },
-                symbiosis: { name: "Симбиоз", maxLevel: 1, values: [0.50], effect: "symbiosisBubbles", rarity: "epic", category: "gather" },
+                magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" }
             },
         },
     },
