@@ -2942,7 +2942,7 @@ async function connectToServer(playerName: string, classId: number) {
                 addRewardPopup(`Талант: ${info.name}${levelText}`, player.x, player.y);
             } else if (data.kind === "boost") {
                 const boostType = String(data.boostType ?? "");
-                const boostName = boostLabels[boostType] ?? boostType || "Усиление";
+                const boostName = boostLabels[boostType] ?? (boostType || "Усиление");
                 addRewardPopup(`Усиление: ${boostName}`, player.x, player.y);
                 boostFlashUntilMs = performance.now() + 650;
             }
