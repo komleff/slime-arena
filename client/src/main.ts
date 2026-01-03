@@ -252,6 +252,39 @@ talentCard.appendChild(talentHint);
 talentModal.appendChild(talentCard);
 document.body.appendChild(talentModal);
 
+const talentRewardPanel = document.createElement("div");
+talentRewardPanel.style.position = "fixed";
+talentRewardPanel.style.left = "20px";
+talentRewardPanel.style.top = "90px";
+talentRewardPanel.style.display = "none";
+talentRewardPanel.style.flexDirection = "column";
+talentRewardPanel.style.gap = "8px";
+talentRewardPanel.style.zIndex = "115";
+talentRewardPanel.style.pointerEvents = "none";
+talentRewardPanel.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
+
+const talentRewardTitle = document.createElement("div");
+talentRewardTitle.textContent = "Получен талант";
+talentRewardTitle.style.fontSize = "12px";
+talentRewardTitle.style.color = "#a7c6ff";
+talentRewardTitle.style.fontWeight = "600";
+talentRewardPanel.appendChild(talentRewardTitle);
+
+const talentRewardCard = document.createElement("div");
+talentRewardCard.style.width = "min(320px, 40vw)";
+talentRewardCard.style.background = "#111b2a";
+talentRewardCard.style.border = "2px solid #2d4a6d";
+talentRewardCard.style.borderRadius = "12px";
+talentRewardCard.style.padding = "14px 16px";
+talentRewardCard.style.color = "#e6f3ff";
+talentRewardCard.style.display = "grid";
+talentRewardCard.style.gridTemplateColumns = "auto 1fr";
+talentRewardCard.style.gap = "10px";
+talentRewardCard.style.alignItems = "center";
+talentRewardPanel.appendChild(talentRewardCard);
+
+document.body.appendChild(talentRewardPanel);
+
 // Маппинг талантов: название, иконка, описание (будет загружаться из balance.json)
 const talentInfo: Record<string, { name: string; icon: string; desc: string }> = {
     // Common talents
@@ -2965,6 +2998,89 @@ async function connectToServer(playerName: string, classId: number) {
             greed: "#34d399",
         };
 
+        const getTalentRarity = (talentId: string) => {
+            const talents = balanceConfig.talents;
+            if (talents?.talentPool?.common?.includes(talentId)) return 0;
+            if (talents?.talentPool?.rare?.includes(talentId)) return 1;
+            if (talents?.talentPool?.epic?.includes(talentId)) return 2;
+            const classTalents = talents?.classTalents ?? {};
+            for (const group of Object.values(classTalents)) {
+                if (!group) continue;
+                const entry = (group as Record<string, { rarity?: string }>)[talentId];
+                if (!entry) continue;
+                if (entry.rarity === "epic") return 2;
+                if (entry.rarity === "rare") return 1;
+                if (entry.rarity === "common") return 0;
+            }
+            return 0;
+        };
+
+        let talentRewardTimer: number | null = null;
+        const showTalentRewardCard = (talentId: string) => {
+            const info = talentInfo[talentId] ?? { name: talentId, icon: "?", desc: "" };
+            const rarity = getTalentRarity(talentId);
+            const rarityColor = rarityColors[rarity] ?? "#6b7280";
+            const rarityLabelText = rarityNames[rarity] ?? "Обычный";
+
+            talentRewardCard.innerHTML = "";
+            talentRewardCard.style.borderColor = rarityColor;
+
+            const leftPart = document.createElement("div");
+            leftPart.style.display = "flex";
+            leftPart.style.flexDirection = "column";
+            leftPart.style.alignItems = "center";
+            leftPart.style.gap = "4px";
+
+            const icon = document.createElement("div");
+            icon.textContent = info.icon;
+            icon.style.fontSize = "28px";
+            icon.style.width = "36px";
+            icon.style.height = "36px";
+            icon.style.borderRadius = "10px";
+            icon.style.display = "flex";
+            icon.style.alignItems = "center";
+            icon.style.justifyContent = "center";
+            icon.style.background = "rgba(255, 255, 255, 0.08)";
+            leftPart.appendChild(icon);
+
+            talentRewardCard.appendChild(leftPart);
+
+            const rightPart = document.createElement("div");
+            rightPart.style.display = "flex";
+            rightPart.style.flexDirection = "column";
+            rightPart.style.gap = "4px";
+
+            const name = document.createElement("div");
+            name.textContent = info.name;
+            name.style.fontSize = "15px";
+            name.style.fontWeight = "600";
+            rightPart.appendChild(name);
+
+            const rarityLabel = document.createElement("span");
+            rarityLabel.textContent = rarityLabelText;
+            rarityLabel.style.fontSize = "11px";
+            rarityLabel.style.color = rarityColor;
+            rarityLabel.style.fontWeight = "600";
+            rightPart.appendChild(rarityLabel);
+
+            const desc = document.createElement("span");
+            desc.textContent = info.desc;
+            desc.style.fontSize = "12px";
+            desc.style.color = "#9fb5cc";
+            rightPart.appendChild(desc);
+
+            talentRewardCard.appendChild(rightPart);
+
+            talentRewardPanel.style.display = "flex";
+            if (talentRewardTimer) {
+                window.clearTimeout(talentRewardTimer);
+            }
+            talentRewardTimer = window.setTimeout(() => {
+                talentRewardPanel.style.display = "none";
+                talentRewardTimer = null;
+            }, 2400);
+        };
+
         const formatChestRewardText = (payload: ChestRewardPayload) => {
             if (payload.rewardKind === "talent") {
                 const talentName = talentInfo[payload.rewardId]?.name ?? payload.rewardId;
@@ -2984,6 +3100,9 @@ async function connectToServer(playerName: string, classId: number) {
             if (!rewardText) return;
             const style = chestStyles[payload.type] ?? chestStyles[0];
             const entry = { text: rewardText, color: style.fill, x: payload.x, y: payload.y };
+            if (payload.rewardKind === "talent" && payload.rewardId) {
+                showTalentRewardCard(payload.rewardId);
+            }
             if (lastChestPositions.has(payload.chestId)) {
                 pendingChestRewards.set(payload.chestId, entry);
                 return;
