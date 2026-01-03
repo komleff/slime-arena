@@ -54,7 +54,7 @@
         "thrustForwardN": 18000,
         "thrustReverseN": 13500,
         "thrustLateralN": 17000,
-        "turnTorqueNm": 35000
+        "turnTorqueNm": 70000
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -162,7 +162,7 @@
         "thrustForwardN": 18000,
         "thrustReverseN": 13500,
         "thrustLateralN": 17000,
-        "turnTorqueNm": 35000
+        "turnTorqueNm": 70000
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -216,7 +216,7 @@
         "thrustForwardN": 18000,
         "thrustReverseN": 13500,
         "thrustLateralN": 17000,
-        "turnTorqueNm": 35000
+        "turnTorqueNm": 70000
       },
       "limits": {
         "speedLimitForwardMps": 260,
