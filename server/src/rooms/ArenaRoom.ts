@@ -222,26 +222,7 @@ export class ArenaRoom extends Room<GameState> {
             if (!player || !data) return;
 
             const seq = Number(data.seq);
-            const rawTalentChoice = data.talentChoice;
-            const rawCardChoice = ("cardChoice" in data) ? data.cardChoice : undefined;
-            const isValidTalentChoice =
-                typeof rawTalentChoice === "number" &&
-                Number.isInteger(rawTalentChoice) &&
-                rawTalentChoice >= 0 &&
-                rawTalentChoice <= 2;
-            const isValidCardChoice =
-                typeof rawCardChoice === "number" &&
-                Number.isInteger(rawCardChoice) &&
-                rawCardChoice >= 0 &&
-                rawCardChoice <= 2;
             if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) {
-                if (isValidTalentChoice) {
-                    player.talentChoicePressed = rawTalentChoice;
-                    player.talentChoicePressed2 = rawTalentChoice;
-                }
-                if (isValidCardChoice) {
-                    player.cardChoicePressed = rawCardChoice;
-                }
                 return;
             }
             player.lastProcessedSeq = seq;
@@ -281,21 +262,6 @@ export class ArenaRoom extends Room<GameState> {
                 }
             }
 
-            if (isValidTalentChoice) {
-                player.talentChoicePressed = rawTalentChoice;
-            } else {
-                player.talentChoicePressed = null;
-            }
-            
-            // Выбор из карточки умений (GDD v3.3 1.3)
-            if ("cardChoice" in data && isValidCardChoice) {
-                player.cardChoicePressed = rawCardChoice;
-            }
-            
-            // Выбор из карточки талантов (GDD-Talents.md)
-            if ("talentChoice" in data && isValidTalentChoice) {
-                player.talentChoicePressed2 = rawTalentChoice;
-            }
         });
 
         this.onMessage("talentChoice", (client, data: { choice?: unknown }) => {
@@ -2243,6 +2209,7 @@ export class ArenaRoom extends Room<GameState> {
         player.doubleAbilitySecondUsed = false;
         player.lastDamagedById = "";
         player.lastDamagedAtTick = 0;
+        player.pendingLavaScatterMass = 0;
         player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
         player.gcdReadyTick = this.tick;
         player.queuedAbilitySlot = null;

@@ -116,7 +116,9 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
-- **Замечания ревью**: исправлены расчёты точки притяжения, минимальная масса scatter-орбов и описание тяги.
+- **Замечания проверки**: выбор карточек убран из `input`, добавлен сброс `pendingLavaScatterMass`, очищаются `pendingChestRewards`.
+- **Изменённые файлы**: `server/src/rooms/ArenaRoom.ts`, `client/src/main.ts`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
+- **Замечания проверки**: исправлены расчёты точки притяжения, минимальная масса scatter-орбов и описание тяги.
 - **Изменённые файлы**: `server/src/rooms/ArenaRoom.ts`, `client/src/main.ts`, `server/src/rooms/schema/GameState.ts`, `config/balance.json`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
 - **Карточки выбора**: сворачиваются только при крупной потере массы, мелкие потери их не скрывают.
 - **Изменённые файлы**: `client/src/main.ts`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.

@@ -1845,7 +1845,7 @@ function addFlashEffect(x: number, y: number, color: string, radius: number, dur
 
 // Кэш последних позиций сундуков для эффектов при удалении
 const lastChestPositions = new Map<string, { x: number; y: number; type: number }>();
-const pendingChestRewards = new Map<string, { text: string; color: string; x: number; y: number }>();
+const pendingChestRewards = new Map<string, { text: string; color: string; x: number; y: number; createdAt: number }>();
 
 // Флаг для заморозки визуального состояния при Results
 // При true: smoothStep не применяется, орбы остаются на месте
@@ -3099,7 +3099,7 @@ async function connectToServer(playerName: string, classId: number) {
             const rewardText = formatChestRewardText(payload);
             if (!rewardText) return;
             const style = chestStyles[payload.type] ?? chestStyles[0];
-            const entry = { text: rewardText, color: style.fill, x: payload.x, y: payload.y };
+            const entry = { text: rewardText, color: style.fill, x: payload.x, y: payload.y, createdAt: performance.now() };
             if (payload.rewardKind === "talent" && payload.rewardId) {
                 showTalentRewardCard(payload.rewardId);
             }
@@ -3107,10 +3107,21 @@ async function connectToServer(playerName: string, classId: number) {
                 pendingChestRewards.set(payload.chestId, entry);
                 return;
             }
+            pendingChestRewards.delete(payload.chestId);
             addFloatingText(entry.x, entry.y, entry.text, entry.color, 18, 1500);
         });
 
+        const cleanupPendingChestRewards = () => {
+            const nowMs = performance.now();
+            for (const [key, reward] of pendingChestRewards) {
+                if (nowMs - reward.createdAt > 4000) {
+                    pendingChestRewards.delete(key);
+                }
+            }
+        };
+
         const updateHud = () => {
+            cleanupPendingChestRewards();
             // Update Top Center HUD (Timer & Kills)
             const timeRem = room.state.timeRemaining ?? 0;
             const minutes = Math.floor(timeRem / 60);
