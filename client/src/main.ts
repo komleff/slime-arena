@@ -1770,6 +1770,38 @@ const visualOrbs = new Map<string, VisualEntity>();
 const visualChests = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
+// Система всплывающих текстов и эффектов
+type FloatingText = {
+    x: number;
+    y: number;
+    text: string;
+    color: string;
+    startMs: number;
+    durationMs: number;
+    fontSize: number;
+};
+type FlashEffect = {
+    x: number;
+    y: number;
+    color: string;
+    startMs: number;
+    durationMs: number;
+    radius: number;
+};
+const floatingTexts: FloatingText[] = [];
+const flashEffects: FlashEffect[] = [];
+
+function addFloatingText(x: number, y: number, text: string, color: string, fontSize = 20, durationMs = 1200) {
+    floatingTexts.push({ x, y, text, color, startMs: performance.now(), durationMs, fontSize });
+}
+
+function addFlashEffect(x: number, y: number, color: string, radius: number, durationMs = 400) {
+    flashEffects.push({ x, y, color, startMs: performance.now(), durationMs, radius });
+}
+
+// Кэш последних позиций сундуков для эффектов при удалении
+const lastChestPositions = new Map<string, { x: number; y: number; type: number }>();
+
 // Флаг для заморозки визуального состояния при Results
 // При true: smoothStep не применяется, орбы остаются на месте
 // (сундуки также замораживаются в getSmoothedRenderState)
@@ -1793,6 +1825,9 @@ const resetSnapshotBuffer = () => {
     visualOrbs.clear();
     visualChests.clear();
     lastRenderMs = 0;
+    floatingTexts.length = 0;
+    flashEffects.length = 0;
+    lastChestPositions.clear();
 };
 
 // Smoothly move visual state towards target with velocity integration
@@ -2819,12 +2854,28 @@ async function connectToServer(playerName: string, classId: number) {
         room.state.chests.onAdd((chest: any) => {
             chestsCount++;
             console.log(`Chest added, total: ${chestsCount}`);
-            chest.onChange(() => {});
+            // Сохраняем позицию для эффекта при удалении
+            lastChestPositions.set(chest.id, { x: chest.x, y: chest.y, type: chest.type ?? 0 });
+            chest.onChange(() => {
+                // Обновляем позицию при движении
+                lastChestPositions.set(chest.id, { x: chest.x, y: chest.y, type: chest.type ?? 0 });
+            });
         });
 
-        room.state.chests.onRemove(() => {
+        room.state.chests.onRemove((_chest: any, key: string) => {
             chestsCount--;
             console.log(`Chest removed, total: ${chestsCount}`);
+            // Эффект вспышки и текста при открытии сундука
+            const pos = lastChestPositions.get(key);
+            if (pos) {
+                const style = chestStyles[pos.type] ?? chestStyles[0];
+                // Вспышка
+                addFlashEffect(pos.x, pos.y, style.glow, chestRadius * 4, 500);
+                // Всплывающий текст с иконкой
+                const rewardText = pos.type === 2 ? "💰 Сокровище!" : pos.type === 1 ? "💎 Награда!" : "🎁 +Талант";
+                addFloatingText(pos.x, pos.y, rewardText, style.fill, 18, 1500);
+                lastChestPositions.delete(key);
+            }
         });
 
         // Подписка на hot zones
@@ -4158,6 +4209,61 @@ async function connectToServer(playerName: string, classId: number) {
                 serverTick,
                 tickRate,
             });
+
+            // Отрисовка эффектов вспышки (в мировых координатах)
+            const nowMs = performance.now();
+            for (let i = flashEffects.length - 1; i >= 0; i--) {
+                const fx = flashEffects[i];
+                const elapsed = nowMs - fx.startMs;
+                if (elapsed > fx.durationMs) {
+                    flashEffects.splice(i, 1);
+                    continue;
+                }
+                const progress = elapsed / fx.durationMs;
+                const alpha = 1 - progress;
+                const currentRadius = fx.radius * (1 + progress * 0.5);
+                const screenPos = worldToScreen(fx.x, fx.y, scale, camera.x, camera.y, cw, ch);
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha * 0.8;
+                const gradient = canvasCtx.createRadialGradient(
+                    screenPos.x, screenPos.y, 0,
+                    screenPos.x, screenPos.y, currentRadius * scale
+                );
+                gradient.addColorStop(0, fx.color);
+                gradient.addColorStop(1, "transparent");
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.beginPath();
+                canvasCtx.arc(screenPos.x, screenPos.y, currentRadius * scale, 0, Math.PI * 2);
+                canvasCtx.fill();
+                canvasCtx.restore();
+            }
+
+            // Отрисовка всплывающих текстов
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                const elapsed = nowMs - ft.startMs;
+                if (elapsed > ft.durationMs) {
+                    floatingTexts.splice(i, 1);
+                    continue;
+                }
+                const progress = elapsed / ft.durationMs;
+                const alpha = 1 - progress;
+                const yOffset = -30 * progress; // Поднимается вверх
+                const screenPos = worldToScreen(ft.x, ft.y + yOffset, scale, camera.x, camera.y, cw, ch);
+                canvasCtx.save();
+                canvasCtx.globalAlpha = alpha;
+                canvasCtx.font = `bold ${ft.fontSize}px Arial, sans-serif`;
+                canvasCtx.textAlign = "center";
+                canvasCtx.textBaseline = "middle";
+                // Тень для читаемости
+                canvasCtx.shadowColor = "rgba(0,0,0,0.8)";
+                canvasCtx.shadowBlur = 4;
+                canvasCtx.shadowOffsetX = 1;
+                canvasCtx.shadowOffsetY = 1;
+                canvasCtx.fillStyle = ft.color;
+                canvasCtx.fillText(ft.text, screenPos.x, screenPos.y);
+                canvasCtx.restore();
+            }
 
             // Minimap
             drawMinimap(
