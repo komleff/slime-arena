@@ -22,6 +22,7 @@
 - **Параметры классов приведены к GDD:** `classes.collector.eatingPowerMult` = 1.25, `classes.collector.radiusMult` = 1, `classes.warrior.biteResistPct` = 0.
 - **Замечания ревью учтены:** согласована минимальная масса scatter-орбов, уточнена визуализация пасти и описание тяги.
 - **Замечания проверки учтены:** выбор карточек убран из `input`, сброс `pendingLavaScatterMass` при респауне, очищаются `pendingChestRewards`.
+- **Исправления интерфейса:** ограничение размера `pendingChestRewards`, вынесены константы визуализации шипов и цветов, общая функция редкости талантов, `chests.onRemove` использует позицию из `chest`, `.claude/` добавлена в `.gitignore`.
 - **Отключены неработающие таланты:** `sense`, `regeneration`, `momentum`, `berserk`, `symbiosis`; `turnTorqueNm` = 24000 для всех `slimeConfigs`.
 - **Known Issues 11.1-11.4 исправлены:** Сетка ярче + major-линии, поле обзора x2, шипастые препятствия визуально отличаются, мелкие scatter-орбы объединяются (min 5 кг).
 - **Все UX улучшения завершены!**

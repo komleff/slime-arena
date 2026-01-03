@@ -116,6 +116,9 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
+- **Исправления интерфейса**: у `pendingChestRewards` добавлено ограничение размера и быстрая очистка, параметры визуализации шипов и цвета вынесены в константы, редкость таланта считается через общую функцию, при `chests.onRemove` используется позиция из `chest`. `.claude/` добавлена в `.gitignore`.
+- **Изменённые файлы**: `client/src/main.ts`, `.gitignore`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
+
 - **Таланты**: отключены неработающие `sense`, `regeneration`, `momentum`, `berserk`, `symbiosis` из набора. `turnTorqueNm` = 24000 для всех `slimeConfigs`.
 - **Изменённые файлы**: `config/balance.json`, `shared/src/config.ts`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
 

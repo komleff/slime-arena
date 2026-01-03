@@ -1429,6 +1429,24 @@ const chestStyles = [
     { fill: "#b186ff", stroke: "#d8c1ff", glow: "rgba(190,150,255,0.65)", icon: "💎", scale: 1.08 },
     { fill: "#ffc857", stroke: "#ffe8a3", glow: "rgba(255,220,120,0.6)", icon: "📦", scale: 1.16 },
 ];
+const obstacleColors = {
+    spikeBaseFill: "rgba(50, 50, 50, 0.95)",
+    spikeBaseStroke: "rgba(30, 30, 30, 1)",
+    spikeFill: "rgba(120, 120, 120, 0.95)",
+    spikeStroke: "rgba(180, 180, 180, 1)",
+    spikeCenter: "rgba(255, 200, 50, 0.9)",
+    pillarFill: "rgba(140, 140, 140, 0.85)",
+    pillarStroke: "rgba(80, 80, 80, 0.9)",
+    obstacleFill: "rgba(110, 110, 110, 0.7)",
+    obstacleStroke: "rgba(60, 60, 60, 0.7)",
+};
+const spikeRenderConfig = {
+    count: 12,
+    innerRadiusRatio: 0.7,
+    outerRadiusRatio: 1.15,
+    centerFontScale: 0.5,
+    centerSymbol: "⚠",
+};
 
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
@@ -1846,6 +1864,7 @@ function addFlashEffect(x: number, y: number, color: string, radius: number, dur
 // Кэш последних позиций сундуков для эффектов при удалении
 const lastChestPositions = new Map<string, { x: number; y: number; type: number }>();
 const pendingChestRewards = new Map<string, { text: string; color: string; x: number; y: number; createdAt: number }>();
+const pendingChestRewardsMax = 64;
 
 // Флаг для заморозки визуального состояния при Results
 // При true: smoothStep не применяется, орбы остаются на месте
@@ -2407,6 +2426,23 @@ function getLeviathanRadiusMul() {
     return 1;
 }
 
+function getTalentRarityFromConfig(talents: BalanceConfig["talents"] | undefined, talentId: string): number {
+    if (!talents || !talentId) return 0;
+    if (talents.talentPool?.common?.includes(talentId)) return 0;
+    if (talents.talentPool?.rare?.includes(talentId)) return 1;
+    if (talents.talentPool?.epic?.includes(talentId)) return 2;
+    const classTalents = talents.classTalents ?? {};
+    for (const group of Object.values(classTalents)) {
+        if (!group) continue;
+        const entry = (group as Record<string, { rarity?: string }>)[talentId];
+        if (!entry) continue;
+        if (entry.rarity === "epic") return 2;
+        if (entry.rarity === "rare") return 1;
+        if (entry.rarity === "common") return 0;
+    }
+    return 0;
+}
+
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -2765,7 +2801,9 @@ async function connectToServer(playerName: string, classId: number) {
                 btn.style.alignItems = "center";
                 
                 const upgrade = parseAbilityUpgradeId(opt.talentId);
-                const rarity = opt.rarity ?? 0;
+                const rarity = typeof opt.rarity === "number"
+                    ? opt.rarity
+                    : getTalentRarityFromConfig(balanceConfig.talents, opt.talentId);
                 let rarityColor = rarityColors[rarity] ?? "#6b7280";
                 let rarityLabelText = rarityNames[rarity] ?? "Обычный";
                 let info = talentInfo[opt.talentId] ?? { name: opt.talentId, icon: "❓", desc: "" };
@@ -2936,11 +2974,11 @@ async function connectToServer(playerName: string, classId: number) {
             });
         });
 
-        room.state.chests.onRemove((_chest: any, key: string) => {
+        room.state.chests.onRemove((chest: any, key: string) => {
             chestsCount--;
             console.log(`Chest removed, total: ${chestsCount}`);
             // Эффект вспышки и текста при открытии сундука
-            const pos = lastChestPositions.get(key);
+            const pos = lastChestPositions.get(key) ?? (chest ? { x: chest.x, y: chest.y, type: chest.type ?? 0 } : null);
             if (pos) {
                 const style = chestStyles[pos.type] ?? chestStyles[0];
                 // Вспышка
@@ -2998,27 +3036,10 @@ async function connectToServer(playerName: string, classId: number) {
             greed: "#34d399",
         };
 
-        const getTalentRarity = (talentId: string) => {
-            const talents = balanceConfig.talents;
-            if (talents?.talentPool?.common?.includes(talentId)) return 0;
-            if (talents?.talentPool?.rare?.includes(talentId)) return 1;
-            if (talents?.talentPool?.epic?.includes(talentId)) return 2;
-            const classTalents = talents?.classTalents ?? {};
-            for (const group of Object.values(classTalents)) {
-                if (!group) continue;
-                const entry = (group as Record<string, { rarity?: string }>)[talentId];
-                if (!entry) continue;
-                if (entry.rarity === "epic") return 2;
-                if (entry.rarity === "rare") return 1;
-                if (entry.rarity === "common") return 0;
-            }
-            return 0;
-        };
-
         let talentRewardTimer: number | null = null;
         const showTalentRewardCard = (talentId: string) => {
             const info = talentInfo[talentId] ?? { name: talentId, icon: "?", desc: "" };
-            const rarity = getTalentRarity(talentId);
+            const rarity = getTalentRarityFromConfig(balanceConfig.talents, talentId);
             const rarityColor = rarityColors[rarity] ?? "#6b7280";
             const rarityLabelText = rarityNames[rarity] ?? "Обычный";
 
@@ -3103,13 +3124,23 @@ async function connectToServer(playerName: string, classId: number) {
             if (payload.rewardKind === "talent" && payload.rewardId) {
                 showTalentRewardCard(payload.rewardId);
             }
+            cleanupPendingChestRewards();
             if (lastChestPositions.has(payload.chestId)) {
                 pendingChestRewards.set(payload.chestId, entry);
+                trimPendingChestRewards();
                 return;
             }
             pendingChestRewards.delete(payload.chestId);
             addFloatingText(entry.x, entry.y, entry.text, entry.color, 18, 1500);
         });
+
+        const trimPendingChestRewards = () => {
+            while (pendingChestRewards.size > pendingChestRewardsMax) {
+                const oldestKey = pendingChestRewards.keys().next().value as string | undefined;
+                if (!oldestKey) break;
+                pendingChestRewards.delete(oldestKey);
+            }
+        };
 
         const cleanupPendingChestRewards = () => {
             const nowMs = performance.now();
@@ -3118,6 +3149,7 @@ async function connectToServer(playerName: string, classId: number) {
                     pendingChestRewards.delete(key);
                 }
             }
+            trimPendingChestRewards();
         };
 
         const updateHud = () => {
@@ -3985,16 +4017,16 @@ async function connectToServer(playerName: string, classId: number) {
                 
                 if (isSpikes) {
                     // Шипастое препятствие: тёмная основа + серые шипы (не путать с красными пузырями)
-                    const spikeCount = 12;
-                    const innerR = r * 0.7;
-                    const outerR = r * 1.15;
+                    const spikeCount = spikeRenderConfig.count;
+                    const innerR = r * spikeRenderConfig.innerRadiusRatio;
+                    const outerR = r * spikeRenderConfig.outerRadiusRatio;
                     
                     // Тёмная основа
-                    drawCircle(p.x, p.y, innerR, "rgba(50, 50, 50, 0.95)", "rgba(30, 30, 30, 1)");
+                    drawCircle(p.x, p.y, innerR, obstacleColors.spikeBaseFill, obstacleColors.spikeBaseStroke);
                     
                     // Серые металлические шипы (треугольники)
-                    canvasCtx.fillStyle = "rgba(120, 120, 120, 0.95)";
-                    canvasCtx.strokeStyle = "rgba(180, 180, 180, 1)";
+                    canvasCtx.fillStyle = obstacleColors.spikeFill;
+                    canvasCtx.strokeStyle = obstacleColors.spikeStroke;
                     canvasCtx.lineWidth = 1;
                     for (let i = 0; i < spikeCount; i++) {
                         const angle = (i / spikeCount) * Math.PI * 2;
@@ -4020,19 +4052,19 @@ async function connectToServer(playerName: string, classId: number) {
                     }
                     
                     // Предупреждающий символ в центре
-                    canvasCtx.fillStyle = "rgba(255, 200, 50, 0.9)";
-                    canvasCtx.font = `bold ${Math.max(10, r * 0.5)}px Arial`;
+                    canvasCtx.fillStyle = obstacleColors.spikeCenter;
+                    canvasCtx.font = `bold ${Math.max(10, r * spikeRenderConfig.centerFontScale)}px Arial`;
                     canvasCtx.textAlign = "center";
                     canvasCtx.textBaseline = "middle";
-                    canvasCtx.fillText("⚠", p.x, p.y);
+                    canvasCtx.fillText(spikeRenderConfig.centerSymbol, p.x, p.y);
                 } else {
                     // Обычный столб или pillar
                     const fill = isPillar
-                        ? "rgba(140, 140, 140, 0.85)"
-                        : "rgba(110, 110, 110, 0.7)";
+                        ? obstacleColors.pillarFill
+                        : obstacleColors.obstacleFill;
                     const stroke = isPillar
-                        ? "rgba(80, 80, 80, 0.9)"
-                        : "rgba(60, 60, 60, 0.7)";
+                        ? obstacleColors.pillarStroke
+                        : obstacleColors.obstacleStroke;
                     drawCircle(p.x, p.y, r, fill, stroke);
                 }
             }

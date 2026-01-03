@@ -13,3 +13,4 @@ shared/dist/
 _ext/u2/
 legacy/
 logs/
+.claude/
