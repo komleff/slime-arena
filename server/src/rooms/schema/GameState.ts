@@ -66,6 +66,7 @@ export class Player extends Schema {
     @type("string") boostType: string = "";
     @type("number") boostEndTick: number = 0;
     @type("number") boostCharges: number = 0;
+    @type("number") pendingLavaScatterMass: number = 0;
 
     // Server-only state (not synced)
     inputX: number = 0;
@@ -159,8 +160,6 @@ export class Player extends Schema {
     mod_invisibleDurationSec: number = 0;
     mod_deathNeedlesCount: number = 0;
     
-    // Lava scatter accumulator (server-only)
-    pendingLavaScatterMass: number = 0;
     mod_deathNeedlesDamagePct: number = 0;
     mod_toxicPoolBonus: number = 1;
     

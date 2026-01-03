@@ -108,7 +108,7 @@
         "thrustForwardN": 27000,
         "thrustReverseN": 9000,
         "thrustLateralN": 11300,
-        "turnTorqueNm": 23300
+        "turnTorqueNm": 46700
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -309,7 +309,7 @@
     "pvpBiteScatterPct": 0.10,
     "pvpBiteScatterOrbCount": 3,
     "pvpBiteScatterSpeed": 60,
-    "scatterOrbMinMass": 1
+    "scatterOrbMinMass": 5
   },
   "death": {
     "respawnDelaySec": 2,

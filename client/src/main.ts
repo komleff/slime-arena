@@ -4234,11 +4234,13 @@ async function connectToServer(playerName: string, classId: number) {
                 // Визуализация магнитного поля собирателя
                 if ((player.flags & FLAG_MAGNETIZING) !== 0) {
                     const magnetRadius = (balanceConfig.abilities?.magnet?.radiusM ?? 150) * scale;
-                    // Точка притяжения — впереди рта (0.9 до рта + 1.0 перед ртом = 1.9 радиуса)
-                    // Y инвертирован (экранные координаты: Y вниз, world: Y вверх)
-                    const mouthOffset = r * 1.9;
-                    const mouthX = p.x + Math.cos(angleRad) * mouthOffset;
-                    const mouthY = p.y - Math.sin(angleRad) * mouthOffset;
+                    // Точка притяжения смещена на 1.9 радиуса от центра по углу поворота
+                    const mouthOffsetWorld = (r / scale) * 1.9;
+                    const mouthWorldX = player.x + Math.cos(angleRad) * mouthOffsetWorld;
+                    const mouthWorldY = player.y + Math.sin(angleRad) * mouthOffsetWorld;
+                    const mouthScreen = worldToScreen(mouthWorldX, mouthWorldY, scale, camera.x, camera.y, cw, ch);
+                    const mouthX = mouthScreen.x;
+                    const mouthY = mouthScreen.y;
                     // Внешний круг (вокруг пасти)
                     canvasCtx.beginPath();
                     canvasCtx.arc(mouthX, mouthY, magnetRadius, 0, Math.PI * 2);

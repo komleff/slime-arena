@@ -1596,13 +1596,14 @@ export class ArenaRoom extends Room<GameState> {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
         const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
         if (count <= 0 || totalMass <= 0) return;
+        if (totalMass < minOrbMass) return;
         
-        // Если общая масса слишком мала — не создаём мелкие орбы
+        // Если общая масса слишком мала - не создаём мелкие орбы
         const perOrbMass = totalMass / count;
         if (perOrbMass < minOrbMass) {
             // Объединяем в меньшее количество орбов с минимальной массой
-            const actualCount = Math.max(1, Math.floor(totalMass / minOrbMass));
-            if (actualCount === 0) return; // Масса слишком мала даже для 1 орба
+            const actualCount = Math.floor(totalMass / minOrbMass);
+            if (actualCount <= 0) return; // Масса слишком мала даже для 1 орба
             
             const actualPerOrb = totalMass / actualCount;
             const angleStep = (Math.PI * 2) / actualCount;
@@ -2051,10 +2052,12 @@ export class ArenaRoom extends Room<GameState> {
         
         // Минимальная масса орба (issue 11.4)
         const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        if (massForOrbs < minOrbMass) return;
         let perOrbMass = massForOrbs / Math.max(1, orbsCount);
         if (perOrbMass < minOrbMass) {
-            orbsCount = Math.max(1, Math.floor(massForOrbs / minOrbMass));
-            perOrbMass = massForOrbs / Math.max(1, orbsCount);
+            orbsCount = Math.floor(massForOrbs / minOrbMass);
+            if (orbsCount <= 0) return;
+            perOrbMass = massForOrbs / orbsCount;
         }
 
         const count = Math.min(
@@ -2283,7 +2286,7 @@ export class ArenaRoom extends Room<GameState> {
         // Накапливаем массу до минимального порога
         player.pendingLavaScatterMass += addedMass;
         
-        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 1;
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
         if (player.pendingLavaScatterMass < minOrbMass) return;
         
         const totalMass = player.pendingLavaScatterMass;
@@ -2923,7 +2926,7 @@ export class ArenaRoom extends Room<GameState> {
         return getSlimeRadiusFromConfig(player.mass, slimeConfig) * classStats.radiusMult * leviathanMul;
     }
 
-    /** Точка притяжения орбов — впереди рта слайма (0.9 до рта + 1.0 перед ртом = 1.9 радиуса) */
+    /** Точка притяжения орбов смещена на 1.9 радиуса от центра слайма по углу поворота */
     public getMouthPoint(player: Player): { x: number; y: number } {
         const radius = this.getPlayerRadius(player);
         const offset = radius * 1.9;
