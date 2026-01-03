@@ -156,17 +156,20 @@ canvas.addEventListener(
 
 const talentModal = document.createElement("div");
 talentModal.style.position = "fixed";
-talentModal.style.inset = "0";
+talentModal.style.left = "20px";
+talentModal.style.top = "50%";
+talentModal.style.transform = "translateY(-50%)";
 talentModal.style.display = "none";
-talentModal.style.alignItems = "center";
-talentModal.style.justifyContent = "center";
-talentModal.style.padding = "24px";
-talentModal.style.background = "radial-gradient(circle at top, rgba(24, 40, 60, 0.75), rgba(5, 7, 12, 0.9))";
-talentModal.style.backdropFilter = "blur(2px)";
-talentModal.style.zIndex = "10";
+talentModal.style.flexDirection = "column";
+talentModal.style.gap = "10px";
+talentModal.style.pointerEvents = "auto";
+talentModal.style.zIndex = "120";
 
 const talentCard = document.createElement("div");
-talentCard.style.width = "min(520px, 92vw)";
+talentCard.style.width = "min(420px, 44vw)";
+talentCard.style.maxHeight = "70vh";
+talentCard.style.overflowY = "auto";
+talentCard.style.pointerEvents = "auto";
 talentCard.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
 talentCard.style.border = "1px solid #2a3c55";
 talentCard.style.borderRadius = "16px";
@@ -2826,8 +2829,7 @@ async function connectToServer(playerName: string, classId: number) {
         const sendTalentChoice = (choice: number) => {
             if (talentSelectionInFlight) return;
             talentSelectionInFlight = true;
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, talentChoice: choice });
+            room.send("talentChoice", { choice });
             setTimeout(() => {
                 talentSelectionInFlight = false;
                 refreshTalentModal();
@@ -2835,10 +2837,16 @@ async function connectToServer(playerName: string, classId: number) {
             refreshTalentModal();
         };
 
+        const sendAbilityCardChoice = (choiceIndex: number) => {
+            room.send("cardChoice", { choice: choiceIndex });
+        };
+
         // Клик по кнопкам выбора таланта
         for (let i = 0; i < talentButtonElements.length; i++) {
             const button = talentButtonElements[i];
-            button.addEventListener("click", () => {
+            button.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
                 sendTalentChoice(i);
             });
         }
@@ -4447,8 +4455,7 @@ async function connectToServer(playerName: string, classId: number) {
                     sendTalentChoice(choiceIndex);
                 } else if (hasAbilityCard) {
                     // Отправляем выбор умения
-                    inputSeq += 1;
-                    room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, cardChoice: choiceIndex });
+                    sendAbilityCardChoice(choiceIndex);
                 }
                 
                 event.preventDefault();
@@ -4666,12 +4673,15 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчики кнопок карточки умений
         const onAbilityCardChoice = (choiceIndex: number) => {
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, cardChoice: choiceIndex });
+            sendAbilityCardChoice(choiceIndex);
         };
         for (let i = 0; i < abilityCardBtns.length; i++) {
             const btn = abilityCardBtns[i];
-            btn.addEventListener("click", () => onAbilityCardChoice(i));
+            btn.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onAbilityCardChoice(i);
+            });
         }
 
         window.addEventListener("keydown", onKeyDown);

@@ -158,6 +158,9 @@ export class Player extends Schema {
     mod_leviathanMouthMul: number = 1;
     mod_invisibleDurationSec: number = 0;
     mod_deathNeedlesCount: number = 0;
+    
+    // Lava scatter accumulator (server-only)
+    pendingLavaScatterMass: number = 0;
     mod_deathNeedlesDamagePct: number = 0;
     mod_toxicPoolBonus: number = 1;
     

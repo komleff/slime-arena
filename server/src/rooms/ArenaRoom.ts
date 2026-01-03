@@ -298,6 +298,22 @@ export class ArenaRoom extends Room<GameState> {
             }
         });
 
+        this.onMessage("talentChoice", (client, data: { choice?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || !player.pendingTalentCard) return;
+            const choice = Number(data?.choice);
+            if (!Number.isInteger(choice) || choice < 0 || choice > 2) return;
+            player.talentChoicePressed2 = choice;
+        });
+
+        this.onMessage("cardChoice", (client, data: { choice?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || !player.pendingAbilityCard) return;
+            const choice = Number(data?.choice);
+            if (!Number.isInteger(choice) || choice < 0 || choice > 2) return;
+            player.cardChoicePressed = choice;
+        });
+
         this.setSimulationInterval(() => this.onTick(), this.balance.server.simulationIntervalMs);
 
         this.spawnInitialOrbs();
@@ -2261,12 +2277,21 @@ export class ArenaRoom extends Room<GameState> {
         zoneEffectSystem(this);
     }
 
-    private spawnLavaOrbs(player: Player, totalMass: number) {
+    private spawnLavaOrbs(player: Player, addedMass: number) {
+        if (addedMass <= 0) return;
+        
+        // Накапливаем массу до минимального порога
+        player.pendingLavaScatterMass += addedMass;
+        
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 1;
+        if (player.pendingLavaScatterMass < minOrbMass) return;
+        
+        const totalMass = player.pendingLavaScatterMass;
+        player.pendingLavaScatterMass = 0;
+        
         let count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
-        if (count <= 0 || totalMass <= 0) return;
+        if (count <= 0) return;
 
-        // Минимальная масса орба (issue 11.4)
-        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
         let perOrbMass = totalMass / count;
         if (perOrbMass < minOrbMass) {
             count = Math.max(1, Math.floor(totalMass / minOrbMass));

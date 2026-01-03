@@ -309,7 +309,7 @@
     "pvpBiteScatterPct": 0.10,
     "pvpBiteScatterOrbCount": 3,
     "pvpBiteScatterSpeed": 60,
-    "scatterOrbMinMass": 5
+    "scatterOrbMinMass": 1
   },
   "death": {
     "respawnDelaySec": 2,
