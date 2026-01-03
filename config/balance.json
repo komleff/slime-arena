@@ -348,14 +348,14 @@
     },
     "warrior": {
       "speedMult": 0.9,
-      "biteResistPct": 0.15,
+      "biteResistPct": 0,
       "damageVsSlimeMult": 1.1,
       "swallowLimit": 45,
       "biteFraction": 0.35
     },
     "collector": {
-      "radiusMult": 1.25,
-      "eatingPowerMult": 1.15,
+      "radiusMult": 1,
+      "eatingPowerMult": 1.25,
       "swallowLimit": 70,
       "biteFraction": 0.5
     }
