@@ -116,7 +116,7 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
-- **Таланты**: отключены неработающие `sense`, `regeneration`, `momentum`, `berserk`, `symbiosis` из пула. `turnTorqueNm` = 24000 для всех `slimeConfigs`.
+- **Таланты**: отключены неработающие `sense`, `regeneration`, `momentum`, `berserk`, `symbiosis` из набора. `turnTorqueNm` = 24000 для всех `slimeConfigs`.
 - **Изменённые файлы**: `config/balance.json`, `shared/src/config.ts`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
 
 - **Замечания проверки**: выбор карточек убран из `input`, добавлен сброс `pendingLavaScatterMass`, очищаются `pendingChestRewards`.
