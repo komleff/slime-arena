@@ -157,13 +157,14 @@ canvas.addEventListener(
 const talentModal = document.createElement("div");
 talentModal.style.position = "fixed";
 talentModal.style.inset = "0";
-talentModal.style.display = "none";
-talentModal.style.alignItems = "center";
-talentModal.style.justifyContent = "center";
-talentModal.style.padding = "24px";
-talentModal.style.background = "radial-gradient(circle at top, rgba(24, 40, 60, 0.75), rgba(5, 7, 12, 0.9))";
-talentModal.style.backdropFilter = "blur(2px)";
-talentModal.style.zIndex = "10";
+    talentModal.style.display = "none";
+    talentModal.style.alignItems = "center";
+    talentModal.style.justifyContent = "center";
+    talentModal.style.padding = "24px";
+    talentModal.style.background = "radial-gradient(circle at top, rgba(24, 40, 60, 0.75), rgba(5, 7, 12, 0.9))";
+    talentModal.style.backdropFilter = "blur(2px)";
+    talentModal.style.zIndex = "10";
+    talentModal.style.pointerEvents = "auto";
 
 const talentCard = document.createElement("div");
 talentCard.style.width = "min(520px, 92vw)";
@@ -748,12 +749,13 @@ abilityCardModal.style.gap = "10px";
 abilityCardModal.style.padding = "16px";
 abilityCardModal.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
 abilityCardModal.style.border = "2px solid #4a90c2";
-abilityCardModal.style.borderRadius = "16px";
-abilityCardModal.style.zIndex = "100";
-abilityCardModal.style.fontFamily = "\"IBM Plex Mono\", monospace";
-abilityCardModal.style.color = "#e6f3ff";
-abilityCardModal.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.6)";
-abilityCardModal.style.minWidth = "200px";
+    abilityCardModal.style.borderRadius = "16px";
+    abilityCardModal.style.zIndex = "100";
+    abilityCardModal.style.fontFamily = "\"IBM Plex Mono\", monospace";
+    abilityCardModal.style.color = "#e6f3ff";
+    abilityCardModal.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.6)";
+    abilityCardModal.style.minWidth = "200px";
+    abilityCardModal.style.pointerEvents = "auto";
 
 const abilityCardTitle = document.createElement("div");
 abilityCardTitle.textContent = "Выбери умение";
@@ -971,7 +973,7 @@ document.head.appendChild(styleSheet);
 const abilityIcons: Record<number, string> = {
     0: "⚡", // Hunter - Dash
     1: "🛡️", // Warrior - Shield
-    2: "❄️", // Collector - Slow
+    2: "🧲", // Collector - Pull
 };
 
 // Иконки классов для отображения у имени
@@ -1174,7 +1176,7 @@ const classesData = [
         name: "Собиратель", 
         emoji: "🧲",
         desc: "+25% радиус сбора", 
-        ability: "Замедление",
+        ability: "Притяжение",
         color: "#60a5fa"
     },
 ];
@@ -1522,19 +1524,29 @@ const setJoystickVisible = (visible: boolean) => {
     joystickKnob.style.opacity = opacity;
 };
 
-const updateJoystickVisual = () => {
-    joystickBase.style.left = `${joystickState.baseX}px`;
-    joystickBase.style.top = `${joystickState.baseY}px`;
-    joystickKnob.style.left = `${joystickState.knobX}px`;
-    joystickKnob.style.top = `${joystickState.knobY}px`;
-};
+    const updateJoystickVisual = () => {
+        joystickBase.style.left = `${joystickState.baseX}px`;
+        joystickBase.style.top = `${joystickState.baseY}px`;
+        joystickKnob.style.left = `${joystickState.knobX}px`;
+        joystickKnob.style.top = `${joystickState.knobY}px`;
+    };
 
-const resetJoystick = () => {
-    joystickState.active = false;
-    joystickState.pointerId = null;
-    joystickState.pointerType = null;
-    joystickState.moveX = 0;
-    joystickState.moveY = 0;
+    const releaseJoystickPointerCapture = () => {
+        if (joystickState.pointerId === null) return;
+        try {
+            canvas.releasePointerCapture(joystickState.pointerId);
+        } catch {
+            // Ошибка сброса захвата указателя игнорируется.
+        }
+    };
+
+    const resetJoystick = () => {
+        releaseJoystickPointerCapture();
+        joystickState.active = false;
+        joystickState.pointerId = null;
+        joystickState.pointerType = null;
+        joystickState.moveX = 0;
+        joystickState.moveY = 0;
     joystickState.knobX = joystickState.baseX;
     joystickState.knobY = joystickState.baseY;
     setJoystickVisible(false);
@@ -3937,21 +3949,24 @@ async function connectToServer(playerName: string, classId: number) {
                 // Визуализация магнитного поля собирателя
                 if ((player.flags & FLAG_MAGNETIZING) !== 0) {
                     const magnetRadius = (balanceConfig.abilities?.magnet?.radiusM ?? 150) * scale;
+                    const mouthOffset = r * 0.9;
+                    const mouthX = p.x + Math.cos(player.angle) * mouthOffset;
+                    const mouthY = p.y + Math.sin(player.angle) * mouthOffset;
                     // Внешний круг
                     canvasCtx.beginPath();
-                    canvasCtx.arc(p.x, p.y, magnetRadius, 0, Math.PI * 2);
+                    canvasCtx.arc(mouthX, mouthY, magnetRadius, 0, Math.PI * 2);
                     canvasCtx.strokeStyle = "rgba(138, 43, 226, 0.6)";
                     canvasCtx.lineWidth = 3;
                     canvasCtx.setLineDash([10, 5]);
                     canvasCtx.stroke();
                     canvasCtx.setLineDash([]);
                     // Внутреннее свечение
-                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, magnetRadius);
+                    const gradient = canvasCtx.createRadialGradient(mouthX, mouthY, 0, mouthX, mouthY, magnetRadius);
                     gradient.addColorStop(0, "rgba(138, 43, 226, 0.2)");
                     gradient.addColorStop(0.7, "rgba(138, 43, 226, 0.1)");
                     gradient.addColorStop(1, "rgba(138, 43, 226, 0)");
                     canvasCtx.beginPath();
-                    canvasCtx.arc(p.x, p.y, magnetRadius, 0, Math.PI * 2);
+                    canvasCtx.arc(mouthX, mouthY, magnetRadius, 0, Math.PI * 2);
                     canvasCtx.fillStyle = gradient;
                     canvasCtx.fill();
                     // Магнитные линии
@@ -3961,8 +3976,11 @@ async function connectToServer(playerName: string, classId: number) {
                         const angle = (i / 8) * Math.PI * 2;
                         const innerR = r * 1.5;
                         canvasCtx.beginPath();
-                        canvasCtx.moveTo(p.x + Math.cos(angle) * innerR, p.y + Math.sin(angle) * innerR);
-                        canvasCtx.lineTo(p.x + Math.cos(angle) * magnetRadius * 0.9, p.y + Math.sin(angle) * magnetRadius * 0.9);
+                        canvasCtx.moveTo(mouthX + Math.cos(angle) * innerR, mouthY + Math.sin(angle) * innerR);
+                        canvasCtx.lineTo(
+                            mouthX + Math.cos(angle) * magnetRadius * 0.9,
+                            mouthY + Math.sin(angle) * magnetRadius * 0.9
+                        );
                         canvasCtx.stroke();
                     }
                 }
@@ -4298,8 +4316,8 @@ async function connectToServer(playerName: string, classId: number) {
             const isCoarse = isCoarsePointer;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
-            const isPrimaryMouseButton = isMousePointer && event.button === 0;
-            if (!isTouchPointer && !isPrimaryMouseButton && !isCoarse) return;
+            if (isMousePointer) return;
+            if (!isTouchPointer && !isCoarse) return;
             if (joystickState.active) return;
             if (!isPrimaryMouseButton) {
                 const gate = getJoystickActivationGate();

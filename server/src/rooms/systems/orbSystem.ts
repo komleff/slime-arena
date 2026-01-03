@@ -46,8 +46,11 @@ export function updateOrbs(room: any) {
         // Magnet/vacuum pull
         for (const entry of magnetPlayers) {
             const player = entry.player;
-            const dx = player.x - orb.x;
-            const dy = player.y - orb.y;
+            const mouth = typeof room.getMouthPoint === "function"
+                ? room.getMouthPoint(player)
+                : { x: player.x, y: player.y };
+            const dx = mouth.x - orb.x;
+            const dy = mouth.y - orb.y;
             const distSq = dx * dx + dy * dy;
             if (distSq < entry.radiusSq && distSq > 1) {
                 const dist = Math.sqrt(distSq);

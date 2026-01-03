@@ -179,7 +179,7 @@ export class ArenaRoom extends Room<GameState> {
 
             player.classId = rawClassId;
 
-            const classAbilities = ["dash", "shield", "slow"];
+            const classAbilities = ["dash", "shield", "pull"];
             player.abilitySlot0 = classAbilities[player.classId] || "dash";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
@@ -344,7 +344,7 @@ export class ArenaRoom extends Room<GameState> {
         player.classId = rawClassId;
         
         // Классовое умение в слот 0 (GDD v3.3 1.3)
-        const classAbilities = ["dash", "shield", "slow"];
+        const classAbilities = ["dash", "shield", "pull"];
         player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
         player.abilitySlot1 = "";  // Разблокируется на level 3
         player.abilitySlot2 = "";  // Разблокируется на level 5
@@ -2823,6 +2823,15 @@ export class ArenaRoom extends Room<GameState> {
         chest.armorRings = typeConfig?.armorRings ?? 0;
         
         this.state.chests.set(chest.id, chest);
+    }
+
+    public getMouthPoint(player: Player): { x: number; y: number } {
+        const radius = this.getPlayerRadius(player);
+        const offset = Math.max(0, radius * 0.9);
+        return {
+            x: player.x + Math.cos(player.angle) * offset,
+            y: player.y + Math.sin(player.angle) * offset,
+        };
     }
 
     private getPlayerRadius(player: Player): number {

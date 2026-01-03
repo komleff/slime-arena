@@ -1,7 +1,11 @@
 {
   "world": {
     "mapSize": 1000,
-    "mapSizes": [800, 1200, 1600]
+    "mapSizes": [
+      800,
+      1200,
+      1600
+    ]
   },
   "server": {
     "maxPlayers": 20,
@@ -15,9 +19,21 @@
     "resultsDurationSec": 12,
     "restartDelaySec": 3,
     "phases": [
-      { "id": "Growth", "startSec": 0, "endSec": 60 },
-      { "id": "Hunt", "startSec": 60, "endSec": 120 },
-      { "id": "Final", "startSec": 120, "endSec": 180 }
+      {
+        "id": "Growth",
+        "startSec": 0,
+        "endSec": 60
+      },
+      {
+        "id": "Hunt",
+        "startSec": 60,
+        "endSec": 120
+      },
+      {
+        "id": "Final",
+        "startSec": 120,
+        "endSec": 180
+      }
     ]
   },
   "physics": {
@@ -51,15 +67,15 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
+        "thrustForwardN": 10000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
         "turnTorqueNm": 35000
       },
       "limits": {
-        "speedLimitForwardMps": 260,
-        "speedLimitReverseMps": 180,
-        "speedLimitLateralMps": 220,
+        "speedLimitForwardMps": 275,
+        "speedLimitReverseMps": 190,
+        "speedLimitLateralMps": 235,
         "angularSpeedLimitDegps": 180
       },
       "assist": {
@@ -82,18 +98,42 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.10
+        "orbBitePctOfMass": 0.1
       },
       "massScaling": {
         "minMassFactor": 0.1,
-        "thrustForwardN": { "type": "power", "exp": 0.5 },
-        "thrustReverseN": { "type": "power", "exp": 0.5 },
-        "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.7 },
-        "speedLimitForwardMps": { "type": "power", "exp": 0 },
-        "speedLimitReverseMps": { "type": "power", "exp": 0 },
-        "speedLimitLateralMps": { "type": "power", "exp": 0 },
-        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+        "thrustForwardN": {
+          "type": "power",
+          "exp": 0.6
+        },
+        "thrustReverseN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "thrustLateralN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "turnTorqueNm": {
+          "type": "power",
+          "exp": 1.7
+        },
+        "speedLimitForwardMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitReverseMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitLateralMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "angularSpeedLimitRadps": {
+          "type": "power",
+          "exp": 0
+        }
       }
     },
     "hunter": {
@@ -105,15 +145,15 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
+        "thrustForwardN": 10000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
         "turnTorqueNm": 35000
       },
       "limits": {
-        "speedLimitForwardMps": 260,
-        "speedLimitReverseMps": 180,
-        "speedLimitLateralMps": 220,
+        "speedLimitForwardMps": 275,
+        "speedLimitReverseMps": 190,
+        "speedLimitLateralMps": 235,
         "angularSpeedLimitDegps": 180
       },
       "assist": {
@@ -136,18 +176,42 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.10
+        "orbBitePctOfMass": 0.1
       },
       "massScaling": {
         "minMassFactor": 0.1,
-        "thrustForwardN": { "type": "power", "exp": 0.5 },
-        "thrustReverseN": { "type": "power", "exp": 0.5 },
-        "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.7 },
-        "speedLimitForwardMps": { "type": "power", "exp": 0 },
-        "speedLimitReverseMps": { "type": "power", "exp": 0 },
-        "speedLimitLateralMps": { "type": "power", "exp": 0 },
-        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+        "thrustForwardN": {
+          "type": "power",
+          "exp": 0.6
+        },
+        "thrustReverseN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "thrustLateralN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "turnTorqueNm": {
+          "type": "power",
+          "exp": 1.7
+        },
+        "speedLimitForwardMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitReverseMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitLateralMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "angularSpeedLimitRadps": {
+          "type": "power",
+          "exp": 0
+        }
       }
     },
     "warrior": {
@@ -159,15 +223,15 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
+        "thrustForwardN": 10000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
         "turnTorqueNm": 35000
       },
       "limits": {
-        "speedLimitForwardMps": 260,
-        "speedLimitReverseMps": 180,
-        "speedLimitLateralMps": 220,
+        "speedLimitForwardMps": 275,
+        "speedLimitReverseMps": 190,
+        "speedLimitLateralMps": 235,
         "angularSpeedLimitDegps": 180
       },
       "assist": {
@@ -190,18 +254,42 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.10
+        "orbBitePctOfMass": 0.1
       },
       "massScaling": {
         "minMassFactor": 0.1,
-        "thrustForwardN": { "type": "power", "exp": 0.5 },
-        "thrustReverseN": { "type": "power", "exp": 0.5 },
-        "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.7 },
-        "speedLimitForwardMps": { "type": "power", "exp": 0 },
-        "speedLimitReverseMps": { "type": "power", "exp": 0 },
-        "speedLimitLateralMps": { "type": "power", "exp": 0 },
-        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+        "thrustForwardN": {
+          "type": "power",
+          "exp": 0.6
+        },
+        "thrustReverseN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "thrustLateralN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "turnTorqueNm": {
+          "type": "power",
+          "exp": 1.7
+        },
+        "speedLimitForwardMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitReverseMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitLateralMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "angularSpeedLimitRadps": {
+          "type": "power",
+          "exp": 0
+        }
       }
     },
     "collector": {
@@ -213,15 +301,15 @@
         "inertiaFactor": 0.5
       },
       "propulsion": {
-        "thrustForwardN": 9000,
+        "thrustForwardN": 10000,
         "thrustReverseN": 6750,
         "thrustLateralN": 8500,
         "turnTorqueNm": 35000
       },
       "limits": {
-        "speedLimitForwardMps": 260,
-        "speedLimitReverseMps": 180,
-        "speedLimitLateralMps": 220,
+        "speedLimitForwardMps": 275,
+        "speedLimitReverseMps": 190,
+        "speedLimitLateralMps": 235,
         "angularSpeedLimitDegps": 180
       },
       "assist": {
@@ -244,18 +332,42 @@
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
-        "orbBitePctOfMass": 0.10
+        "orbBitePctOfMass": 0.1
       },
       "massScaling": {
         "minMassFactor": 0.1,
-        "thrustForwardN": { "type": "power", "exp": 0.5 },
-        "thrustReverseN": { "type": "power", "exp": 0.5 },
-        "thrustLateralN": { "type": "power", "exp": 0.5 },
-        "turnTorqueNm": { "type": "power", "exp": 1.7 },
-        "speedLimitForwardMps": { "type": "power", "exp": 0 },
-        "speedLimitReverseMps": { "type": "power", "exp": 0 },
-        "speedLimitLateralMps": { "type": "power", "exp": 0 },
-        "angularSpeedLimitRadps": { "type": "power", "exp": 0 }
+        "thrustForwardN": {
+          "type": "power",
+          "exp": 0.6
+        },
+        "thrustReverseN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "thrustLateralN": {
+          "type": "power",
+          "exp": 0.5
+        },
+        "turnTorqueNm": {
+          "type": "power",
+          "exp": 1.7
+        },
+        "speedLimitForwardMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitReverseMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "speedLimitLateralMps": {
+          "type": "power",
+          "exp": 0
+        },
+        "angularSpeedLimitRadps": {
+          "type": "power",
+          "exp": 0
+        }
       }
     }
   },
@@ -288,11 +400,33 @@
     "initialMass": 100,
     "initialLevel": 1,
     "initialClassId": 0,
-    "levelThresholds": [100, 180, 300, 500, 800, 1200],
-    "slotUnlockLevels": [1, 3, 5],
-    "talentGrantLevels": [2, 4, 6],
+    "levelThresholds": [
+      100,
+      180,
+      300,
+      500,
+      800,
+      1200
+    ],
+    "slotUnlockLevels": [
+      1,
+      3,
+      5
+    ],
+    "talentGrantLevels": [
+      2,
+      4,
+      6
+    ],
     "cardChoiceTimeoutSec": 12,
-    "abilityPool": ["pull", "projectile", "spit", "bomb", "push", "mine"]
+    "abilityPool": [
+      "pull",
+      "projectile",
+      "spit",
+      "bomb",
+      "push",
+      "mine"
+    ]
   },
   "combat": {
     "mouthArcDeg": 120,
@@ -304,9 +438,9 @@
     "respawnShieldSec": 5.0,
     "lastBreathDurationSec": 0.5,
     "lastBreathSpeedPenalty": 0.8,
-    "pvpBiteVictimLossPct": 0.20,
-    "pvpBiteAttackerGainPct": 0.10,
-    "pvpBiteScatterPct": 0.10,
+    "pvpBiteVictimLossPct": 0.2,
+    "pvpBiteAttackerGainPct": 0.1,
+    "pvpBiteScatterPct": 0.1,
     "pvpBiteScatterOrbCount": 3,
     "pvpBiteScatterSpeed": 60
   },
@@ -327,16 +461,58 @@
     "orbBiteMinMass": 50,
     "orbBiteMaxMass": 100000,
     "types": [
-      { "id": "green",  "weight": 45, "density": 0.2, "massRange": [10, 50] },
-      { "id": "blue",   "weight": 30, "density": 0.3, "massRange": [30, 150] },
-      { "id": "red",    "weight": 20, "density": 0.4, "massRange": [80, 400] },
-      { "id": "gold",   "weight": 5, "density": 0.5, "massRange": [200, 1000] }
+      {
+        "id": "green",
+        "weight": 45,
+        "density": 0.2,
+        "massRange": [
+          10,
+          50
+        ]
+      },
+      {
+        "id": "blue",
+        "weight": 30,
+        "density": 0.3,
+        "massRange": [
+          30,
+          150
+        ]
+      },
+      {
+        "id": "red",
+        "weight": 20,
+        "density": 0.4,
+        "massRange": [
+          80,
+          400
+        ]
+      },
+      {
+        "id": "gold",
+        "weight": 5,
+        "density": 0.5,
+        "massRange": [
+          200,
+          1000
+        ]
+      }
     ]
   },
   "formulas": {
-    "damage": { "base": 10, "scale": 10, "divisor": 100 },
-    "speed": { "base": 1.0, "divisor": 500 },
-    "radius": { "base": 10, "divisor": 50 }
+    "damage": {
+      "base": 10,
+      "scale": 10,
+      "divisor": 100
+    },
+    "speed": {
+      "base": 1.0,
+      "divisor": 500
+    },
+    "radius": {
+      "base": 10,
+      "divisor": 50
+    }
   },
   "classes": {
     "hunter": {
@@ -367,9 +543,27 @@
       "durationSec": 0.3,
       "collisionDamageMult": 1.5,
       "levels": [
-        { "massCostPct": 0.03, "cooldownSec": 5, "distanceM": 80, "durationSec": 0.3, "collisionDamageMult": 1.5 },
-        { "massCostPct": 0.03, "cooldownSec": 4, "distanceM": 80, "durationSec": 0.3, "collisionDamageMult": 1.5 },
-        { "massCostPct": 0.03, "cooldownSec": 4, "distanceM": 104, "durationSec": 0.3, "collisionDamageMult": 1.5 }
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 5,
+          "distanceM": 80,
+          "durationSec": 0.3,
+          "collisionDamageMult": 1.5
+        },
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 4,
+          "distanceM": 80,
+          "durationSec": 0.3,
+          "collisionDamageMult": 1.5
+        },
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 4,
+          "distanceM": 104,
+          "durationSec": 0.3,
+          "collisionDamageMult": 1.5
+        }
       ]
     },
     "shield": {
@@ -379,9 +573,27 @@
       "reflectDamagePct": 0,
       "burstRadiusM": 0,
       "levels": [
-        { "massCostPct": 0.04, "cooldownSec": 8, "durationSec": 2.5, "reflectDamagePct": 0, "burstRadiusM": 0 },
-        { "massCostPct": 0.04, "cooldownSec": 8, "durationSec": 2.5, "reflectDamagePct": 0.30, "burstRadiusM": 0 },
-        { "massCostPct": 0.04, "cooldownSec": 8, "durationSec": 2.5, "reflectDamagePct": 0.30, "burstRadiusM": 40 }
+        {
+          "massCostPct": 0.04,
+          "cooldownSec": 8,
+          "durationSec": 2.5,
+          "reflectDamagePct": 0,
+          "burstRadiusM": 0
+        },
+        {
+          "massCostPct": 0.04,
+          "cooldownSec": 8,
+          "durationSec": 2.5,
+          "reflectDamagePct": 0.3,
+          "burstRadiusM": 0
+        },
+        {
+          "massCostPct": 0.04,
+          "cooldownSec": 8,
+          "durationSec": 2.5,
+          "reflectDamagePct": 0.3,
+          "burstRadiusM": 40
+        }
       ]
     },
     "magnet": {
@@ -391,9 +603,27 @@
       "radiusM": 120,
       "pullSpeedMps": 50,
       "levels": [
-        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 1.5, "radiusM": 120, "pullSpeedMps": 50 },
-        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 1.5, "radiusM": 150, "pullSpeedMps": 50 },
-        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 1.5, "radiusM": 150, "pullSpeedMps": 70 }
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 7,
+          "durationSec": 1.5,
+          "radiusM": 120,
+          "pullSpeedMps": 50
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 7,
+          "durationSec": 1.5,
+          "radiusM": 150,
+          "pullSpeedMps": 50
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 7,
+          "durationSec": 1.5,
+          "radiusM": 150,
+          "pullSpeedMps": 70
+        }
       ]
     },
     "slow": {
@@ -401,11 +631,29 @@
       "cooldownSec": 7,
       "durationSec": 2,
       "radiusM": 80,
-      "slowPct": 0.30,
+      "slowPct": 0.3,
       "levels": [
-        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 2, "radiusM": 80, "slowPct": 0.30 },
-        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 2, "radiusM": 100, "slowPct": 0.30 },
-        { "massCostPct": 0.02, "cooldownSec": 7, "durationSec": 2, "radiusM": 100, "slowPct": 0.40 }
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 7,
+          "durationSec": 2,
+          "radiusM": 80,
+          "slowPct": 0.3
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 7,
+          "durationSec": 2,
+          "radiusM": 100,
+          "slowPct": 0.3
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 7,
+          "durationSec": 2,
+          "radiusM": 100,
+          "slowPct": 0.4
+        }
       ]
     },
     "projectile": {
@@ -418,9 +666,36 @@
       "piercingHits": 0,
       "piercingDamagePct": 0,
       "levels": [
-        { "massCostPct": 0.02, "cooldownSec": 3, "speedMps": 400, "rangeM": 300, "damagePct": 0.15, "radiusM": 8, "piercingHits": 0, "piercingDamagePct": 0 },
-        { "massCostPct": 0.02, "cooldownSec": 3, "speedMps": 400, "rangeM": 300, "damagePct": 0.18, "radiusM": 8, "piercingHits": 0, "piercingDamagePct": 0 },
-        { "massCostPct": 0.02, "cooldownSec": 3, "speedMps": 400, "rangeM": 300, "damagePct": 0.18, "radiusM": 8, "piercingHits": 2, "piercingDamagePct": 0.6 }
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 3,
+          "speedMps": 400,
+          "rangeM": 300,
+          "damagePct": 0.15,
+          "radiusM": 8,
+          "piercingHits": 0,
+          "piercingDamagePct": 0
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 3,
+          "speedMps": 400,
+          "rangeM": 300,
+          "damagePct": 0.18,
+          "radiusM": 8,
+          "piercingHits": 0,
+          "piercingDamagePct": 0
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 3,
+          "speedMps": 400,
+          "rangeM": 300,
+          "damagePct": 0.18,
+          "radiusM": 8,
+          "piercingHits": 2,
+          "piercingDamagePct": 0.6
+        }
       ]
     },
     "spit": {
@@ -433,9 +708,36 @@
       "projectileCount": 3,
       "spreadAngleDeg": 30,
       "levels": [
-        { "massCostPct": 0.03, "cooldownSec": 4, "speedMps": 350, "rangeM": 200, "damagePct": 0.08, "radiusM": 6, "projectileCount": 3, "spreadAngleDeg": 30 },
-        { "massCostPct": 0.03, "cooldownSec": 4, "speedMps": 350, "rangeM": 200, "damagePct": 0.08, "radiusM": 6, "projectileCount": 4, "spreadAngleDeg": 30 },
-        { "massCostPct": 0.03, "cooldownSec": 4, "speedMps": 350, "rangeM": 200, "damagePct": 0.092, "radiusM": 6, "projectileCount": 4, "spreadAngleDeg": 30 }
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 4,
+          "speedMps": 350,
+          "rangeM": 200,
+          "damagePct": 0.08,
+          "radiusM": 6,
+          "projectileCount": 3,
+          "spreadAngleDeg": 30
+        },
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 4,
+          "speedMps": 350,
+          "rangeM": 200,
+          "damagePct": 0.08,
+          "radiusM": 6,
+          "projectileCount": 4,
+          "spreadAngleDeg": 30
+        },
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 4,
+          "speedMps": 350,
+          "rangeM": 200,
+          "damagePct": 0.092,
+          "radiusM": 6,
+          "projectileCount": 4,
+          "spreadAngleDeg": 30
+        }
       ]
     },
     "bomb": {
@@ -447,9 +749,33 @@
       "radiusM": 10,
       "explosionRadiusM": 50,
       "levels": [
-        { "massCostPct": 0.04, "cooldownSec": 6, "speedMps": 200, "rangeM": 250, "damagePct": 0.12, "radiusM": 10, "explosionRadiusM": 50 },
-        { "massCostPct": 0.04, "cooldownSec": 6, "speedMps": 200, "rangeM": 250, "damagePct": 0.12, "radiusM": 10, "explosionRadiusM": 70 },
-        { "massCostPct": 0.04, "cooldownSec": 5, "speedMps": 200, "rangeM": 250, "damagePct": 0.12, "radiusM": 10, "explosionRadiusM": 70 }
+        {
+          "massCostPct": 0.04,
+          "cooldownSec": 6,
+          "speedMps": 200,
+          "rangeM": 250,
+          "damagePct": 0.12,
+          "radiusM": 10,
+          "explosionRadiusM": 50
+        },
+        {
+          "massCostPct": 0.04,
+          "cooldownSec": 6,
+          "speedMps": 200,
+          "rangeM": 250,
+          "damagePct": 0.12,
+          "radiusM": 10,
+          "explosionRadiusM": 70
+        },
+        {
+          "massCostPct": 0.04,
+          "cooldownSec": 5,
+          "speedMps": 200,
+          "rangeM": 250,
+          "damagePct": 0.12,
+          "radiusM": 10,
+          "explosionRadiusM": 70
+        }
       ]
     },
     "push": {
@@ -460,9 +786,30 @@
       "minSpeedMps": 30,
       "maxSpeedMps": 120,
       "levels": [
-        { "massCostPct": 0.03, "cooldownSec": 6, "radiusM": 80, "impulseNs": 50000, "minSpeedMps": 30, "maxSpeedMps": 120 },
-        { "massCostPct": 0.03, "cooldownSec": 6, "radiusM": 100, "impulseNs": 50000, "minSpeedMps": 30, "maxSpeedMps": 120 },
-        { "massCostPct": 0.03, "cooldownSec": 6, "radiusM": 100, "impulseNs": 65000, "minSpeedMps": 30, "maxSpeedMps": 150 }
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 6,
+          "radiusM": 80,
+          "impulseNs": 50000,
+          "minSpeedMps": 30,
+          "maxSpeedMps": 120
+        },
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 6,
+          "radiusM": 100,
+          "impulseNs": 50000,
+          "minSpeedMps": 30,
+          "maxSpeedMps": 120
+        },
+        {
+          "massCostPct": 0.03,
+          "cooldownSec": 6,
+          "radiusM": 100,
+          "impulseNs": 65000,
+          "minSpeedMps": 30,
+          "maxSpeedMps": 150
+        }
       ]
     },
     "mine": {
@@ -473,9 +820,30 @@
       "durationSec": 20,
       "maxMines": 1,
       "levels": [
-        { "massCostPct": 0.02, "cooldownSec": 10, "damagePct": 0.15, "radiusM": 15, "durationSec": 20, "maxMines": 1 },
-        { "massCostPct": 0.02, "cooldownSec": 10, "damagePct": 0.15, "radiusM": 15, "durationSec": 20, "maxMines": 2 },
-        { "massCostPct": 0.02, "cooldownSec": 10, "damagePct": 0.20, "radiusM": 15, "durationSec": 20, "maxMines": 2 }
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 10,
+          "damagePct": 0.15,
+          "radiusM": 15,
+          "durationSec": 20,
+          "maxMines": 1
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 10,
+          "damagePct": 0.15,
+          "radiusM": 15,
+          "durationSec": 20,
+          "maxMines": 2
+        },
+        {
+          "massCostPct": 0.02,
+          "cooldownSec": 10,
+          "damagePct": 0.2,
+          "radiusM": 15,
+          "durationSec": 20,
+          "maxMines": 2
+        }
       ]
     }
   },
@@ -485,46 +853,139 @@
     "mass": 250,
     "radius": 14,
     "types": {
-      "rare": { "armorRings": 0, "mass": 250 },
-      "epic": { "armorRings": 1, "mass": 350 },
-      "gold": { "armorRings": 2, "mass": 450 }
+      "rare": {
+        "armorRings": 0,
+        "mass": 250
+      },
+      "epic": {
+        "armorRings": 1,
+        "mass": 350
+      },
+      "gold": {
+        "armorRings": 2,
+        "mass": 450
+      }
     },
     "phaseWeights": {
-      "Growth": { "rare": 85, "epic": 15, "gold": 0 },
-      "Hunt": { "rare": 65, "epic": 30, "gold": 5 },
-      "Final": { "rare": 50, "epic": 35, "gold": 15 }
+      "Growth": {
+        "rare": 85,
+        "epic": 15,
+        "gold": 0
+      },
+      "Hunt": {
+        "rare": 65,
+        "epic": 30,
+        "gold": 5
+      },
+      "Final": {
+        "rare": 50,
+        "epic": 35,
+        "gold": 15
+      }
     },
     "rewards": {
-      "scatterTotalMassPct": [0.12, 0.18, 0.28],
-      "scatterBubbleCount": [10, 16, 24],
-      "scatterInnerFrac": [0.30, 0.30, 0.25],
-      "scatterInnerSpeedMpsMin": [25, 25, 25],
-      "scatterInnerSpeedMpsMax": [45, 45, 40],
-      "scatterOuterSpeedMpsMin": [55, 65, 75],
-      "scatterOuterSpeedMpsMax": [75, 85, 95],
+      "scatterTotalMassPct": [
+        0.12,
+        0.18,
+        0.28
+      ],
+      "scatterBubbleCount": [
+        10,
+        16,
+        24
+      ],
+      "scatterInnerFrac": [
+        0.3,
+        0.3,
+        0.25
+      ],
+      "scatterInnerSpeedMpsMin": [
+        25,
+        25,
+        25
+      ],
+      "scatterInnerSpeedMpsMax": [
+        45,
+        45,
+        40
+      ],
+      "scatterOuterSpeedMpsMin": [
+        55,
+        65,
+        75
+      ],
+      "scatterOuterSpeedMpsMax": [
+        75,
+        85,
+        95
+      ],
       "scatterSmallBubbleSpeedMul": 1.25,
       "talentRarityWeights": {
-        "rare": { "common": 80, "rare": 20, "epic": 0 },
-        "epic": { "common": 30, "rare": 60, "epic": 10 },
-        "gold": { "common": 0, "rare": 40, "epic": 60 }
+        "rare": {
+          "common": 80,
+          "rare": 20,
+          "epic": 0
+        },
+        "epic": {
+          "common": 30,
+          "rare": 60,
+          "epic": 10
+        },
+        "gold": {
+          "common": 0,
+          "rare": 40,
+          "epic": 60
+        }
       }
     }
   },
   "boosts": {
     "maxStackTimeSec": 20,
-    "rage": { "durationSec": 10, "damageMul": 1.25 },
-    "haste": { "durationSec": 10, "speedMul": 1.30 },
-    "guard": { "durationSec": 15, "charges": 1 },
-    "greed": { "durationSec": 15, "bubbleMassMul": 2.0, "charges": 3 },
+    "rage": {
+      "durationSec": 10,
+      "damageMul": 1.25
+    },
+    "haste": {
+      "durationSec": 10,
+      "speedMul": 1.3
+    },
+    "guard": {
+      "durationSec": 15,
+      "charges": 1
+    },
+    "greed": {
+      "durationSec": 15,
+      "bubbleMassMul": 2.0,
+      "charges": 3
+    },
     "allowedByChestType": {
-      "rare": ["haste", "guard"],
-      "epic": ["rage", "haste", "guard"],
-      "gold": ["greed", "rage", "guard"]
+      "rare": [
+        "haste",
+        "guard"
+      ],
+      "epic": [
+        "rage",
+        "haste",
+        "guard"
+      ],
+      "gold": [
+        "greed",
+        "rage",
+        "guard"
+      ]
     }
   },
   "obstacles": {
-    "countByMapSize": { "small": 4, "medium": 6, "large": 9 },
-    "passageCountByMapSize": { "small": 1, "medium": 2, "large": 2 },
+    "countByMapSize": {
+      "small": 4,
+      "medium": 6,
+      "large": 9
+    },
+    "passageCountByMapSize": {
+      "small": 1,
+      "medium": 2,
+      "large": 2
+    },
     "passageGapWidth": 25,
     "passagePillarRadius": 18,
     "pillarRadius": 20,
@@ -540,12 +1001,28 @@
     "damagePctPerSec": 0.015,
     "minDistance": 200,
     "placementRetries": 30,
-    "countByMapSize": { "small": 1, "medium": 2, "large": 3 },
-    "radiusByMapSize": { "small": 120, "medium": 150, "large": 180 }
+    "countByMapSize": {
+      "small": 1,
+      "medium": 2,
+      "large": 3
+    },
+    "radiusByMapSize": {
+      "small": 120,
+      "medium": 150,
+      "large": 180
+    }
   },
   "zones": {
-    "countByMapSize": { "small": 3, "medium": 4, "large": 5 },
-    "radiusByMapSize": { "small": 90, "medium": 110, "large": 130 },
+    "countByMapSize": {
+      "small": 3,
+      "medium": 4,
+      "large": 5
+    },
+    "radiusByMapSize": {
+      "small": 90,
+      "medium": 110,
+      "large": 130
+    },
     "minDistance": 180,
     "placementRetries": 40,
     "typeWeights": {
@@ -556,11 +1033,25 @@
       "turbo": 1
     },
     "lavaMinDistanceFromSpawn": 100,
-    "nectar": { "massGainPctPerSec": 0.01 },
-    "ice": { "frictionMultiplier": 0.3 },
-    "slime": { "speedMultiplier": 0.5, "frictionMultiplier": 2.0 },
-    "lava": { "damagePctPerSec": 0.02, "scatterPct": 0.5, "scatterOrbCount": 6, "scatterSpeedMps": 60 },
-    "turbo": { "speedMultiplier": 1.4 }
+    "nectar": {
+      "massGainPctPerSec": 0.01
+    },
+    "ice": {
+      "frictionMultiplier": 0.3
+    },
+    "slime": {
+      "speedMultiplier": 0.5,
+      "frictionMultiplier": 2.0
+    },
+    "lava": {
+      "damagePctPerSec": 0.02,
+      "scatterPct": 0.5,
+      "scatterOrbCount": 6,
+      "scatterSpeedMps": 60
+    },
+    "turbo": {
+      "speedMultiplier": 1.4
+    }
   },
   "hotZones": {
     "chaosCount": 2,
@@ -590,76 +1081,575 @@
     "cardQueueMax": 3,
     "abilityUpgradeChance": 0.5,
     "talentPool": {
-      "common": ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind", "sense", "regeneration"],
-      "rare": ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
-      "epic": ["lightning", "doubleActivation", "explosion", "leviathan", "invisible"]
+      "common": [
+        "fastLegs",
+        "spinner",
+        "sharpTeeth",
+        "glutton",
+        "thickSkin",
+        "economical",
+        "recharge",
+        "aggressor",
+        "sturdy",
+        "accelerator",
+        "anchor",
+        "crab",
+        "bloodlust",
+        "secondWind",
+        "sense",
+        "regeneration"
+      ],
+      "rare": [
+        "poison",
+        "frost",
+        "vampire",
+        "vacuum",
+        "motor",
+        "ricochet",
+        "piercing",
+        "longDash",
+        "backNeedles",
+        "toxic"
+      ],
+      "epic": [
+        "lightning",
+        "doubleActivation",
+        "explosion",
+        "leviathan",
+        "invisible"
+      ]
     },
     "talentRarityByLevel": {
-      "2": { "common": 100, "rare": 0, "epic": 0 },
-      "3": { "common": 85, "rare": 15, "epic": 0 },
-      "4": { "common": 70, "rare": 28, "epic": 2 },
-      "5": { "common": 60, "rare": 35, "epic": 5 },
-      "6": { "common": 50, "rare": 40, "epic": 10 },
-      "7": { "common": 40, "rare": 45, "epic": 15 }
+      "2": {
+        "common": 100,
+        "rare": 0,
+        "epic": 0
+      },
+      "3": {
+        "common": 85,
+        "rare": 15,
+        "epic": 0
+      },
+      "4": {
+        "common": 70,
+        "rare": 28,
+        "epic": 2
+      },
+      "5": {
+        "common": 60,
+        "rare": 35,
+        "epic": 5
+      },
+      "6": {
+        "common": 50,
+        "rare": 40,
+        "epic": 10
+      },
+      "7": {
+        "common": 40,
+        "rare": 45,
+        "epic": 15
+      }
     },
     "autoPickPriorities": {
-      "hunter": { "speed": 3, "damage": 2, "defense": 1, "gather": 1 },
-      "warrior": { "defense": 3, "damage": 2, "speed": 1, "gather": 1 },
-      "collector": { "gather": 3, "defense": 2, "speed": 1, "damage": 1 }
+      "hunter": {
+        "speed": 3,
+        "damage": 2,
+        "defense": 1,
+        "gather": 1
+      },
+      "warrior": {
+        "defense": 3,
+        "damage": 2,
+        "speed": 1,
+        "gather": 1
+      },
+      "collector": {
+        "gather": 3,
+        "defense": 2,
+        "speed": 1,
+        "damage": 1
+      }
     },
     "common": {
-      "fastLegs": { "name": "Быстрые ноги", "maxLevel": 3, "values": [0.10, 0.18, 0.25], "effect": "speedLimitBonus", "category": "speed" },
-      "spinner": { "name": "Юла", "maxLevel": 3, "values": [0.10, 0.18, 0.25], "effect": "turnBonus", "category": "speed" },
-      "sharpTeeth": { "name": "Острые зубы", "maxLevel": 3, "values": [0.15, 0.25, 0.35], "effect": "biteDamageBonus", "category": "damage" },
-      "glutton": { "name": "Обжора", "maxLevel": 3, "values": [0.20, 0.35, 0.50], "effect": "orbMassBonus", "category": "gather" },
-      "thickSkin": { "name": "Толстая шкура", "maxLevel": 3, "values": [0.12, 0.20, 0.27], "effect": "biteResistBonus", "category": "defense" },
-      "economical": { "name": "Экономный", "maxLevel": 3, "values": [0.15, 0.25, 0.33], "effect": "abilityCostReduction", "category": "gather" },
-      "recharge": { "name": "Перезарядка", "maxLevel": 3, "values": [0.15, 0.25, 0.33], "effect": "cooldownReduction", "category": "speed" },
-      "aggressor": { "name": "Агрессор", "maxLevel": 1, "values": [0.12], "effect": "aggressorDual", "category": "damage" },
-      "sturdy": { "name": "Стойкий", "maxLevel": 1, "values": [0.10], "effect": "allDamageReduction", "category": "defense" },
-      "accelerator": { "name": "Ускоритель", "maxLevel": 1, "values": [0.15], "effect": "thrustForwardBonus", "category": "speed" },
-      "anchor": { "name": "Якорь", "maxLevel": 1, "values": [0.20], "effect": "thrustReverseBonus", "category": "defense" },
-      "crab": { "name": "Краб", "maxLevel": 1, "values": [0.15], "effect": "thrustLateralBonus", "category": "speed" },
-      "bloodlust": { "name": "Кровожадность", "maxLevel": 1, "values": [0.15], "effect": "killMassBonus", "category": "damage" },
-      "secondWind": { "name": "Второе дыхание", "maxLevel": 1, "values": [150], "effect": "respawnMass", "category": "defense" },
-      "sense": { "name": "Чутьё", "maxLevel": 2, "values": [2, 5], "effect": "chestSense", "category": "gather" },
-      "regeneration": { "name": "Регенерация", "maxLevel": 2, "values": [[0.01, 5], [0.01, 4]], "effect": "outOfCombatRegen", "category": "defense" }
+      "fastLegs": {
+        "name": "Быстрые ноги",
+        "maxLevel": 3,
+        "values": [
+          0.1,
+          0.18,
+          0.25
+        ],
+        "effect": "speedLimitBonus",
+        "category": "speed"
+      },
+      "spinner": {
+        "name": "Юла",
+        "maxLevel": 3,
+        "values": [
+          0.1,
+          0.18,
+          0.25
+        ],
+        "effect": "turnBonus",
+        "category": "speed"
+      },
+      "sharpTeeth": {
+        "name": "Острые зубы",
+        "maxLevel": 3,
+        "values": [
+          0.15,
+          0.25,
+          0.35
+        ],
+        "effect": "biteDamageBonus",
+        "category": "damage"
+      },
+      "glutton": {
+        "name": "Обжора",
+        "maxLevel": 3,
+        "values": [
+          0.2,
+          0.35,
+          0.5
+        ],
+        "effect": "orbMassBonus",
+        "category": "gather"
+      },
+      "thickSkin": {
+        "name": "Толстая шкура",
+        "maxLevel": 3,
+        "values": [
+          0.12,
+          0.2,
+          0.27
+        ],
+        "effect": "biteResistBonus",
+        "category": "defense"
+      },
+      "economical": {
+        "name": "Экономный",
+        "maxLevel": 3,
+        "values": [
+          0.15,
+          0.25,
+          0.33
+        ],
+        "effect": "abilityCostReduction",
+        "category": "gather"
+      },
+      "recharge": {
+        "name": "Перезарядка",
+        "maxLevel": 3,
+        "values": [
+          0.15,
+          0.25,
+          0.33
+        ],
+        "effect": "cooldownReduction",
+        "category": "speed"
+      },
+      "aggressor": {
+        "name": "Агрессор",
+        "maxLevel": 1,
+        "values": [
+          0.12
+        ],
+        "effect": "aggressorDual",
+        "category": "damage"
+      },
+      "sturdy": {
+        "name": "Стойкий",
+        "maxLevel": 1,
+        "values": [
+          0.1
+        ],
+        "effect": "allDamageReduction",
+        "category": "defense"
+      },
+      "accelerator": {
+        "name": "Ускоритель",
+        "maxLevel": 1,
+        "values": [
+          0.15
+        ],
+        "effect": "thrustForwardBonus",
+        "category": "speed"
+      },
+      "anchor": {
+        "name": "Якорь",
+        "maxLevel": 1,
+        "values": [
+          0.2
+        ],
+        "effect": "thrustReverseBonus",
+        "category": "defense"
+      },
+      "crab": {
+        "name": "Краб",
+        "maxLevel": 1,
+        "values": [
+          0.15
+        ],
+        "effect": "thrustLateralBonus",
+        "category": "speed"
+      },
+      "bloodlust": {
+        "name": "Кровожадность",
+        "maxLevel": 1,
+        "values": [
+          0.15
+        ],
+        "effect": "killMassBonus",
+        "category": "damage"
+      },
+      "secondWind": {
+        "name": "Второе дыхание",
+        "maxLevel": 1,
+        "values": [
+          150
+        ],
+        "effect": "respawnMass",
+        "category": "defense"
+      },
+      "sense": {
+        "name": "Чутьё",
+        "maxLevel": 2,
+        "values": [
+          2,
+          5
+        ],
+        "effect": "chestSense",
+        "category": "gather"
+      },
+      "regeneration": {
+        "name": "Регенерация",
+        "maxLevel": 2,
+        "values": [
+          [
+            0.01,
+            5
+          ],
+          [
+            0.01,
+            4
+          ]
+        ],
+        "effect": "outOfCombatRegen",
+        "category": "defense"
+      }
     },
     "rare": {
-      "poison": { "name": "Яд", "maxLevel": 2, "values": [[0.02, 3], [0.03, 3]], "effect": "poisonOnBite", "requirement": null, "category": "damage" },
-      "frost": { "name": "Мороз", "maxLevel": 2, "values": [[0.30, 2], [0.40, 2.5]], "effect": "frostOnBite", "requirement": null, "category": "damage" },
-      "vampire": { "name": "Вампир", "maxLevel": 1, "values": [[0.20, 0.25]], "effect": "vampireBite", "requirement": null, "category": "gather" },
-      "vacuum": { "name": "Вакуум", "maxLevel": 2, "values": [[40, 15], [60, 20]], "effect": "vacuumOrbs", "requirement": null, "category": "gather" },
-      "motor": { "name": "Мотор", "maxLevel": 1, "values": [0.25], "effect": "allThrustBonus", "requirement": null, "category": "speed" },
-      "ricochet": { "name": "Рикошет", "maxLevel": 1, "values": [1], "effect": "projectileRicochet", "requirement": "projectile", "category": "damage" },
-      "piercing": { "name": "Пробивание", "maxLevel": 1, "values": [[1.0, 0.6]], "effect": "projectilePiercing", "requirement": "projectile", "category": "damage" },
-      "longDash": { "name": "Длинный рывок", "maxLevel": 1, "values": [0.40], "effect": "dashDistanceBonus", "requirement": "dash", "category": "speed" },
-      "backNeedles": { "name": "Иглы назад", "maxLevel": 1, "values": [[3, 0.10]], "effect": "deathNeedles", "requirement": null, "category": "damage" },
-      "toxic": { "name": "Токсичный", "maxLevel": 1, "values": [2.0], "effect": "toxicPoolBonus", "requirement": null, "category": "damage" }
+      "poison": {
+        "name": "Яд",
+        "maxLevel": 2,
+        "values": [
+          [
+            0.02,
+            3
+          ],
+          [
+            0.03,
+            3
+          ]
+        ],
+        "effect": "poisonOnBite",
+        "requirement": null,
+        "category": "damage"
+      },
+      "frost": {
+        "name": "Мороз",
+        "maxLevel": 2,
+        "values": [
+          [
+            0.3,
+            2
+          ],
+          [
+            0.4,
+            2.5
+          ]
+        ],
+        "effect": "frostOnBite",
+        "requirement": null,
+        "category": "damage"
+      },
+      "vampire": {
+        "name": "Вампир",
+        "maxLevel": 1,
+        "values": [
+          [
+            0.2,
+            0.25
+          ]
+        ],
+        "effect": "vampireBite",
+        "requirement": null,
+        "category": "gather"
+      },
+      "vacuum": {
+        "name": "Вакуум",
+        "maxLevel": 2,
+        "values": [
+          [
+            40,
+            15
+          ],
+          [
+            60,
+            20
+          ]
+        ],
+        "effect": "vacuumOrbs",
+        "requirement": null,
+        "category": "gather"
+      },
+      "motor": {
+        "name": "Мотор",
+        "maxLevel": 1,
+        "values": [
+          0.25
+        ],
+        "effect": "allThrustBonus",
+        "requirement": null,
+        "category": "speed"
+      },
+      "ricochet": {
+        "name": "Рикошет",
+        "maxLevel": 1,
+        "values": [
+          1
+        ],
+        "effect": "projectileRicochet",
+        "requirement": "projectile",
+        "category": "damage"
+      },
+      "piercing": {
+        "name": "Пробивание",
+        "maxLevel": 1,
+        "values": [
+          [
+            1.0,
+            0.6
+          ]
+        ],
+        "effect": "projectilePiercing",
+        "requirement": "projectile",
+        "category": "damage"
+      },
+      "longDash": {
+        "name": "Длинный рывок",
+        "maxLevel": 1,
+        "values": [
+          0.4
+        ],
+        "effect": "dashDistanceBonus",
+        "requirement": "dash",
+        "category": "speed"
+      },
+      "backNeedles": {
+        "name": "Иглы назад",
+        "maxLevel": 1,
+        "values": [
+          [
+            3,
+            0.1
+          ]
+        ],
+        "effect": "deathNeedles",
+        "requirement": null,
+        "category": "damage"
+      },
+      "toxic": {
+        "name": "Токсичный",
+        "maxLevel": 1,
+        "values": [
+          2.0
+        ],
+        "effect": "toxicPoolBonus",
+        "requirement": null,
+        "category": "damage"
+      }
     },
     "epic": {
-      "lightning": { "name": "Молния", "maxLevel": 1, "values": [[0.25, 0.3]], "effect": "lightningSpeed", "requirement": null, "category": "speed" },
-      "doubleActivation": { "name": "Двойная активация", "maxLevel": 1, "values": [[1.0, 0.80]], "effect": "doubleAbility", "requirement": null, "category": "damage" },
-      "explosion": { "name": "Взрыв", "maxLevel": 1, "values": [[60, 0.08]], "effect": "deathExplosion", "requirement": null, "category": "damage" },
-      "leviathan": { "name": "Левиафан", "maxLevel": 1, "values": [[1.3, 1.5]], "effect": "leviathanSize", "requirement": null, "category": "defense" },
-      "invisible": { "name": "Невидимка", "maxLevel": 1, "values": [1.5], "effect": "invisibleAfterDash", "requirement": "dash", "category": "speed" }
+      "lightning": {
+        "name": "Молния",
+        "maxLevel": 1,
+        "values": [
+          [
+            0.25,
+            0.3
+          ]
+        ],
+        "effect": "lightningSpeed",
+        "requirement": null,
+        "category": "speed"
+      },
+      "doubleActivation": {
+        "name": "Двойная активация",
+        "maxLevel": 1,
+        "values": [
+          [
+            1.0,
+            0.8
+          ]
+        ],
+        "effect": "doubleAbility",
+        "requirement": null,
+        "category": "damage"
+      },
+      "explosion": {
+        "name": "Взрыв",
+        "maxLevel": 1,
+        "values": [
+          [
+            60,
+            0.08
+          ]
+        ],
+        "effect": "deathExplosion",
+        "requirement": null,
+        "category": "damage"
+      },
+      "leviathan": {
+        "name": "Левиафан",
+        "maxLevel": 1,
+        "values": [
+          [
+            1.3,
+            1.5
+          ]
+        ],
+        "effect": "leviathanSize",
+        "requirement": null,
+        "category": "defense"
+      },
+      "invisible": {
+        "name": "Невидимка",
+        "maxLevel": 1,
+        "values": [
+          1.5
+        ],
+        "effect": "invisibleAfterDash",
+        "requirement": "dash",
+        "category": "speed"
+      }
     },
     "classTalents": {
       "hunter": {
-        "ambush": { "name": "Засада", "maxLevel": 1, "values": [0.30], "effect": "ambushDamage", "rarity": "rare", "category": "damage" },
-        "momentum": { "name": "Разгон", "maxLevel": 1, "values": [[0.05, 0.20]], "effect": "movementSpeedBonus", "rarity": "rare", "category": "speed" },
-        "hunterInvisible": { "name": "Невидимка", "maxLevel": 1, "values": [1.5], "effect": "invisibleAfterDash", "requirement": "dash", "rarity": "epic", "category": "speed" }
+        "ambush": {
+          "name": "Засада",
+          "maxLevel": 1,
+          "values": [
+            0.3
+          ],
+          "effect": "ambushDamage",
+          "rarity": "rare",
+          "category": "damage"
+        },
+        "momentum": {
+          "name": "Разгон",
+          "maxLevel": 1,
+          "values": [
+            [
+              0.05,
+              0.2
+            ]
+          ],
+          "effect": "movementSpeedBonus",
+          "rarity": "rare",
+          "category": "speed"
+        },
+        "hunterInvisible": {
+          "name": "Невидимка",
+          "maxLevel": 1,
+          "values": [
+            1.5
+          ],
+          "effect": "invisibleAfterDash",
+          "requirement": "dash",
+          "rarity": "epic",
+          "category": "speed"
+        }
       },
       "warrior": {
-        "indestructible": { "name": "Несокрушимый", "maxLevel": 1, "values": [0.15], "effect": "allDamageReduction", "rarity": "rare", "category": "defense" },
-        "thorns": { "name": "Шипы", "maxLevel": 1, "values": [0.10], "effect": "thornsDamage", "rarity": "rare", "category": "defense" },
-        "berserk": { "name": "Берсерк", "maxLevel": 1, "values": [[0.03, 0.30]], "effect": "berserkDamage", "rarity": "epic", "category": "damage" }
+        "indestructible": {
+          "name": "Несокрушимый",
+          "maxLevel": 1,
+          "values": [
+            0.15
+          ],
+          "effect": "allDamageReduction",
+          "rarity": "rare",
+          "category": "defense"
+        },
+        "thorns": {
+          "name": "Шипы",
+          "maxLevel": 1,
+          "values": [
+            0.1
+          ],
+          "effect": "thornsDamage",
+          "rarity": "rare",
+          "category": "defense"
+        },
+        "berserk": {
+          "name": "Берсерк",
+          "maxLevel": 1,
+          "values": [
+            [
+              0.03,
+              0.3
+            ]
+          ],
+          "effect": "berserkDamage",
+          "rarity": "epic",
+          "category": "damage"
+        }
       },
       "collector": {
-        "parasite": { "name": "Паразит", "maxLevel": 1, "values": [0.05], "effect": "parasiteMass", "rarity": "rare", "category": "gather" },
-        "magnet": { "name": "Магнит", "maxLevel": 1, "values": [[50, 10]], "effect": "magnetOrbs", "rarity": "rare", "category": "gather" },
-        "symbiosis": { "name": "Симбиоз", "maxLevel": 1, "values": [0.50], "effect": "symbiosisBubbles", "rarity": "epic", "category": "gather" }
+        "parasite": {
+          "name": "Паразит",
+          "maxLevel": 1,
+          "values": [
+            0.05
+          ],
+          "effect": "parasiteMass",
+          "rarity": "rare",
+          "category": "gather"
+        },
+        "magnet": {
+          "name": "Магнит",
+          "maxLevel": 1,
+          "values": [
+            [
+              50,
+              10
+            ]
+          ],
+          "effect": "magnetOrbs",
+          "rarity": "rare",
+          "category": "gather"
+        },
+        "symbiosis": {
+          "name": "Симбиоз",
+          "maxLevel": 1,
+          "values": [
+            0.5
+          ],
+          "effect": "symbiosisBubbles",
+          "rarity": "epic",
+          "category": "gather"
+        }
       }
-    }
+    },
+    "abilityPool": [
+      "slow",
+      "projectile",
+      "spit",
+      "bomb",
+      "push",
+      "mine"
+    ]
   }
 }

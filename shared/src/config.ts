@@ -257,7 +257,7 @@ export interface BalanceConfig {
         slotUnlockLevels: number[];      // [1, 3, 5]
         talentGrantLevels: number[];     // [2, 4, 6] - уровни, дающие карточки талантов
         cardChoiceTimeoutSec: number;    // 12
-        abilityPool: string[];           // ["pull", "projectile", "spit", ...]
+        abilityPool: string[];           // ["slow", "projectile", "spit", ...]
     };
     combat: {
         mouthArcDeg: number;
@@ -624,15 +624,15 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inertiaFactor: 0.5,
             },
             propulsion: {
-                thrustForwardN: 9000,
+                thrustForwardN: 10000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
                 turnTorqueNm: 17500,
             },
             limits: {
-                speedLimitForwardMps: 260,
-                speedLimitReverseMps: 180,
-                speedLimitLateralMps: 220,
+                speedLimitForwardMps: 275,
+                speedLimitReverseMps: 190,
+                speedLimitLateralMps: 235,
                 angularSpeedLimitRadps: (80 * Math.PI) / 180,
             },
             assist: {
@@ -660,7 +660,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             },
             massScaling: {
                 minMassFactor: 0.1,
-                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustForwardN: { type: "power", exp: 0.6 },
                 thrustReverseN: { type: "power", exp: 0.5 },
                 thrustLateralN: { type: "power", exp: 0.5 },
                 turnTorqueNm: { type: "power", exp: 1.5 },
@@ -679,15 +679,15 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inertiaFactor: 0.5,
             },
             propulsion: {
-                thrustForwardN: 9000,
+                thrustForwardN: 10000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
                 turnTorqueNm: 17500,
             },
             limits: {
-                speedLimitForwardMps: 260,
-                speedLimitReverseMps: 180,
-                speedLimitLateralMps: 220,
+                speedLimitForwardMps: 275,
+                speedLimitReverseMps: 190,
+                speedLimitLateralMps: 235,
                 angularSpeedLimitRadps: (80 * Math.PI) / 180,
             },
             assist: {
@@ -715,7 +715,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             },
             massScaling: {
                 minMassFactor: 0.1,
-                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustForwardN: { type: "power", exp: 0.6 },
                 thrustReverseN: { type: "power", exp: 0.5 },
                 thrustLateralN: { type: "power", exp: 0.5 },
                 turnTorqueNm: { type: "power", exp: 1.5 },
@@ -734,15 +734,15 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inertiaFactor: 0.5,
             },
             propulsion: {
-                thrustForwardN: 9000,
+                thrustForwardN: 10000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
                 turnTorqueNm: 17500,
             },
             limits: {
-                speedLimitForwardMps: 260,
-                speedLimitReverseMps: 180,
-                speedLimitLateralMps: 220,
+                speedLimitForwardMps: 275,
+                speedLimitReverseMps: 190,
+                speedLimitLateralMps: 235,
                 angularSpeedLimitRadps: (80 * Math.PI) / 180,
             },
             assist: {
@@ -770,7 +770,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             },
             massScaling: {
                 minMassFactor: 0.1,
-                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustForwardN: { type: "power", exp: 0.6 },
                 thrustReverseN: { type: "power", exp: 0.5 },
                 thrustLateralN: { type: "power", exp: 0.5 },
                 turnTorqueNm: { type: "power", exp: 1.5 },
@@ -789,15 +789,15 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 inertiaFactor: 0.5,
             },
             propulsion: {
-                thrustForwardN: 9000,
+                thrustForwardN: 10000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
                 turnTorqueNm: 17500,
             },
             limits: {
-                speedLimitForwardMps: 260,
-                speedLimitReverseMps: 180,
-                speedLimitLateralMps: 220,
+                speedLimitForwardMps: 275,
+                speedLimitReverseMps: 190,
+                speedLimitLateralMps: 235,
                 angularSpeedLimitRadps: (80 * Math.PI) / 180,
             },
             assist: {
@@ -825,7 +825,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             },
             massScaling: {
                 minMassFactor: 0.1,
-                thrustForwardN: { type: "power", exp: 0.5 },
+                thrustForwardN: { type: "power", exp: 0.6 },
                 thrustReverseN: { type: "power", exp: 0.5 },
                 thrustLateralN: { type: "power", exp: 0.5 },
                 turnTorqueNm: { type: "power", exp: 1.5 },
@@ -869,7 +869,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         slotUnlockLevels: [1, 3, 5],
         talentGrantLevels: [2, 4, 6],
         cardChoiceTimeoutSec: 12,
-        abilityPool: ["pull", "projectile", "spit", "bomb", "push", "mine"],
+        abilityPool: ["slow", "projectile", "spit", "bomb", "push", "mine"],
     },
     combat: {
         mouthArcDeg: 120,
