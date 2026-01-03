@@ -4303,14 +4303,17 @@ async function connectToServer(playerName: string, classId: number) {
             const isCoarse = isCoarsePointer;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
-            const isPrimaryMouseButton = isMousePointer && event.button === 0;
-            if (!isTouchPointer && !isPrimaryMouseButton && !isCoarse) return;
+            
+            // Мышь не активирует джойстик — для мыши используется WASD + курсор для направления
+            if (isMousePointer) return;
+            
+            if (!isTouchPointer && !isCoarse) return;
             if (joystickState.active) return;
-            if (!isPrimaryMouseButton) {
-                const gate = getJoystickActivationGate();
-                if (event.clientX > gate.maxX) return;
-                if (event.clientY < gate.minY) return;
-            }
+            
+            const gate = getJoystickActivationGate();
+            if (event.clientX > gate.maxX) return;
+            if (event.clientY < gate.minY) return;
+            
             event.preventDefault();
             hasFocus = true;
             joystickState.active = true;
