@@ -3139,11 +3139,14 @@ async function connectToServer(playerName: string, classId: number) {
                         Boolean(statePlayer.pendingTalentCard?.option0) ||
                         ((statePlayer.pendingCardCount ?? 0) + (statePlayer.pendingTalentCount ?? 0) > 0);
                     const currentMass = Number(statePlayer.mass ?? 0);
-                    const tookDamage = lastLocalMass > 0 && currentMass < lastLocalMass - 0.01;
+                    const massLoss = lastLocalMass > 0 ? Math.max(0, lastLocalMass - currentMass) : 0;
+                    const tookDamage = massLoss > 0.01;
                     if (tookDamage) {
                         lastDamageTimeMs = performance.now();
                     }
-                    if (hasPending && tookDamage) {
+                    const collapseLoss = Math.max(10, lastLocalMass * 0.1);
+                    const tookHeavyDamage = massLoss >= collapseLoss;
+                    if (hasPending && tookHeavyDamage) {
                         cardsCollapsed = true;
                     }
                     lastLocalMass = currentMass;
