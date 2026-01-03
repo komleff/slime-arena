@@ -1396,7 +1396,7 @@ const chestStyles = [
 
 const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
-const desiredView = { width: 400, height: 400 };
+const desiredView = { width: 800, height: 800 }; // Увеличено в 2 раза для лучшего обзора
 let hasFocus = true;
 let cameraZoom = 1;
 let cameraZoomTarget = 1;
@@ -2378,6 +2378,7 @@ function worldToScreen(x: number, y: number, scale: number, camX: number, camY: 
 
 function drawGrid(scale: number, camX: number, camY: number, cw: number, ch: number) {
     const step = 200;
+    const majorStep = step * 5; // Каждые 5 клеток — толстая линия
     const halfW = cw / scale / 2;
     const halfH = ch / scale / 2;
     const worldHalfW = worldWidth / 2;
@@ -2386,9 +2387,12 @@ function drawGrid(scale: number, camX: number, camY: number, cw: number, ch: num
     const endX = Math.min(worldHalfW, Math.ceil((camX + halfW) / step) * step);
     const startY = Math.max(-worldHalfH, Math.floor((camY - halfH) / step) * step);
     const endY = Math.min(worldHalfH, Math.ceil((camY + halfH) / step) * step);
-    canvasCtx.strokeStyle = "rgba(255,255,255,0.03)";
+    
+    // Обычные линии сетки
+    canvasCtx.strokeStyle = "rgba(255,255,255,0.12)";
     canvasCtx.lineWidth = 1;
     for (let x = startX; x <= endX; x += step) {
+        if (x % majorStep === 0) continue; // Major линии рисуем отдельно
         const screen = worldToScreen(x, 0, scale, camX, camY, cw, ch);
         canvasCtx.beginPath();
         canvasCtx.moveTo(screen.x, 0);
@@ -2396,6 +2400,25 @@ function drawGrid(scale: number, camX: number, camY: number, cw: number, ch: num
         canvasCtx.stroke();
     }
     for (let y = startY; y <= endY; y += step) {
+        if (y % majorStep === 0) continue;
+        const screen = worldToScreen(0, y, scale, camX, camY, cw, ch);
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(0, screen.y);
+        canvasCtx.lineTo(cw, screen.y);
+        canvasCtx.stroke();
+    }
+    
+    // Major линии (каждые 5 клеток) — ярче и толще
+    canvasCtx.strokeStyle = "rgba(255,255,255,0.25)";
+    canvasCtx.lineWidth = 2;
+    for (let x = Math.ceil(startX / majorStep) * majorStep; x <= endX; x += majorStep) {
+        const screen = worldToScreen(x, 0, scale, camX, camY, cw, ch);
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(screen.x, 0);
+        canvasCtx.lineTo(screen.x, ch);
+        canvasCtx.stroke();
+    }
+    for (let y = Math.ceil(startY / majorStep) * majorStep; y <= endY; y += majorStep) {
         const screen = worldToScreen(0, y, scale, camX, camY, cw, ch);
         canvasCtx.beginPath();
         canvasCtx.moveTo(0, screen.y);
