@@ -1547,10 +1547,10 @@ const setJoystickVisible = (visible: boolean) => {
         joystickState.pointerType = null;
         joystickState.moveX = 0;
         joystickState.moveY = 0;
-    joystickState.knobX = joystickState.baseX;
-    joystickState.knobY = joystickState.baseY;
-    setJoystickVisible(false);
-};
+        joystickState.knobX = joystickState.baseX;
+        joystickState.knobY = joystickState.baseY;
+        setJoystickVisible(false);
+    };
 
 const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     let baseX = joystickState.baseX;
@@ -4319,11 +4319,9 @@ async function connectToServer(playerName: string, classId: number) {
             if (isMousePointer) return;
             if (!isTouchPointer && !isCoarse) return;
             if (joystickState.active) return;
-            if (!isPrimaryMouseButton) {
-                const gate = getJoystickActivationGate();
-                if (event.clientX > gate.maxX) return;
-                if (event.clientY < gate.minY) return;
-            }
+            const gate = getJoystickActivationGate();
+            if (event.clientX > gate.maxX) return;
+            if (event.clientY < gate.minY) return;
             event.preventDefault();
             hasFocus = true;
             joystickState.active = true;
