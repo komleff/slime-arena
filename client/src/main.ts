@@ -971,7 +971,7 @@ document.head.appendChild(styleSheet);
 const abilityIcons: Record<number, string> = {
     0: "⚡", // Hunter - Dash
     1: "🛡️", // Warrior - Shield
-    2: "❄️", // Collector - Slow
+    2: "🧲", // Collector - Pull
 };
 
 // Иконки классов для отображения у имени
@@ -1174,7 +1174,7 @@ const classesData = [
         name: "Собиратель", 
         emoji: "🧲",
         desc: "+25% радиус сбора", 
-        ability: "Замедление",
+        ability: "Притяжение",
         color: "#60a5fa"
     },
 ];

@@ -292,7 +292,7 @@
     "slotUnlockLevels": [1, 3, 5],
     "talentGrantLevels": [2, 4, 6],
     "cardChoiceTimeoutSec": 12,
-    "abilityPool": ["pull", "projectile", "spit", "bomb", "push", "mine"]
+    "abilityPool": ["slow", "projectile", "spit", "bomb", "push", "mine"]
   },
   "combat": {
     "mouthArcDeg": 120,

@@ -257,7 +257,7 @@ export interface BalanceConfig {
         slotUnlockLevels: number[];      // [1, 3, 5]
         talentGrantLevels: number[];     // [2, 4, 6] - уровни, дающие карточки талантов
         cardChoiceTimeoutSec: number;    // 12
-        abilityPool: string[];           // ["pull", "projectile", "spit", ...]
+        abilityPool: string[];           // ["slow", "projectile", "spit", ...]
     };
     combat: {
         mouthArcDeg: number;
@@ -869,7 +869,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         slotUnlockLevels: [1, 3, 5],
         talentGrantLevels: [2, 4, 6],
         cardChoiceTimeoutSec: 12,
-        abilityPool: ["pull", "projectile", "spit", "bomb", "push", "mine"],
+        abilityPool: ["slow", "projectile", "spit", "bomb", "push", "mine"],
     },
     combat: {
         mouthArcDeg: 120,
