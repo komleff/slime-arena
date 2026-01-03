@@ -78,7 +78,11 @@
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
-        "inputMagnitudeThreshold": 0.01
+        "inputMagnitudeThreshold": 0.01,
+        "counterAccelEnabled": true,
+        "counterAccelDirectionThresholdDeg": 30,
+        "counterAccelTimeS": 0.15,
+        "counterAccelMinSpeedMps": 50
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
@@ -132,7 +136,11 @@
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
-        "inputMagnitudeThreshold": 0.01
+        "inputMagnitudeThreshold": 0.01,
+        "counterAccelEnabled": true,
+        "counterAccelDirectionThresholdDeg": 30,
+        "counterAccelTimeS": 0.15,
+        "counterAccelMinSpeedMps": 50
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
@@ -186,7 +194,11 @@
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
-        "inputMagnitudeThreshold": 0.01
+        "inputMagnitudeThreshold": 0.01,
+        "counterAccelEnabled": true,
+        "counterAccelDirectionThresholdDeg": 30,
+        "counterAccelTimeS": 0.15,
+        "counterAccelMinSpeedMps": 50
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
@@ -240,7 +252,11 @@
         "reactionTimeS": 0.15,
         "accelTimeS": 0.5,
         "velocityErrorThreshold": 0.1,
-        "inputMagnitudeThreshold": 0.01
+        "inputMagnitudeThreshold": 0.01,
+        "counterAccelEnabled": true,
+        "counterAccelDirectionThresholdDeg": 30,
+        "counterAccelTimeS": 0.15,
+        "counterAccelMinSpeedMps": 50
       },
       "combat": {
         "biteDamagePctOfMass": 0.02,
