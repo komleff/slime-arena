@@ -4410,11 +4410,7 @@ async function connectToServer(playerName: string, classId: number) {
         // Управление мышью для ПК (agar.io style)
         // Приоритет: touch/joystick > mouse
         const onMouseMove = (event: MouseEvent) => {
-            // Активируем только если это настоящая мышь (не touch)
-            // Кэшируем результат matchMedia
-            if (isCoarsePointer) return;
-            
-            // Не активируем если уже активен джойстик
+            // Не активируем если уже активен джойстик (touch имеет приоритет)
             if (joystickState.active) return;
             if (classSelectMode) return;
             
