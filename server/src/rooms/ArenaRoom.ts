@@ -1725,8 +1725,26 @@ export class ArenaRoom extends Room<GameState> {
     private openChest(player: Player, chest: Chest) {
         const chestTypeId = this.getChestTypeId(chest.type);
         const awardedTalent = this.awardChestTalent(player, chestTypeId);
-        if (!awardedTalent) {
-            this.awardChestBoost(player, chestTypeId);
+        if (awardedTalent) {
+            const client = this.clients.find((entry) => entry.sessionId === player.id);
+            if (client) {
+                client.send("chestReward", {
+                    kind: "talent",
+                    talentId: awardedTalent.talentId,
+                    level: awardedTalent.level,
+                });
+            }
+        } else {
+            const awardedBoost = this.awardChestBoost(player, chestTypeId);
+            if (awardedBoost) {
+                const client = this.clients.find((entry) => entry.sessionId === player.id);
+                if (client) {
+                    client.send("chestReward", {
+                        kind: "boost",
+                        boostType: awardedBoost,
+                    });
+                }
+            }
         }
         this.spawnChestRewardOrbs(chestTypeId, chest.x, chest.y);
         this.state.chests.delete(chest.id);
@@ -1742,11 +1760,14 @@ export class ArenaRoom extends Room<GameState> {
         return typeId === "epic" ? 1 : typeId === "gold" ? 2 : 0;
     }
 
-    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestTalent(
+        player: Player,
+        chestTypeId: "rare" | "epic" | "gold"
+    ): { talentId: string; level: number } | null {
         const available = this.getAvailableTalentsByRarity(player);
         const rarityPools = [available.common, available.rare, available.epic];
         if (rarityPools[0].length === 0 && rarityPools[1].length === 0 && rarityPools[2].length === 0) {
-            return false;
+            return null;
         }
 
         const weights = this.balance.chests.rewards.talentRarityWeights[chestTypeId];
@@ -1771,16 +1792,16 @@ export class ArenaRoom extends Room<GameState> {
         }
         const pool = rarityPools[chosenRarity];
         const choice = pool[Math.floor(this.rng.next() * pool.length)];
-        this.addTalentToPlayer(player, choice);
-        return true;
+        const level = this.addTalentToPlayer(player, choice);
+        return { talentId: choice, level };
     }
 
-    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
         const allowedBoosts = this.balance.boosts.allowedByChestType[chestTypeId] ?? [];
-        if (allowedBoosts.length === 0) return false;
+        if (allowedBoosts.length === 0) return null;
         const choice = allowedBoosts[Math.floor(this.rng.next() * allowedBoosts.length)];
         this.applyBoost(player, choice);
-        return true;
+        return choice;
     }
 
     private pickTalentRarity(weights: { common: number; rare: number; epic: number }): number {
@@ -2231,8 +2252,9 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private updateLeaderboard() {
+        const includeDead = this.isMatchEnded || this.state.phase === "Results";
         const sorted = Array.from(this.state.players.values())
-            .filter((player) => !player.isDead)
+            .filter((player) => player.classId >= 0 && (includeDead || !player.isDead))
             .sort((a, b) => b.mass - a.mass)
             .slice(0, 10);
         this.state.leaderboard.length = 0;
@@ -3158,7 +3180,7 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Добавляет талант игроку или повышает уровень существующего
      */
-    private addTalentToPlayer(player: Player, talentId: string) {
+    private addTalentToPlayer(player: Player, talentId: string): number {
         // Найдём существующий талант
         let existingTalent: Talent | null = null;
         for (const t of player.talents) {
@@ -3170,7 +3192,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Получаем конфиг таланта
         const talentConfig = this.getTalentConfig(talentId);
-        if (!talentConfig) return;
+        if (!talentConfig) return 0;
         const beforeLevel = existingTalent?.level ?? 0;
         
         if (existingTalent) {
@@ -3193,6 +3215,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Пересчитываем модификаторы
         this.recalculateTalentModifiers(player);
+        return afterLevel;
     }
     
     /**

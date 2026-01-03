@@ -420,7 +420,7 @@
     ],
     "cardChoiceTimeoutSec": 12,
     "abilityPool": [
-      "pull",
+      "slow",
       "projectile",
       "spit",
       "bomb",
@@ -1642,14 +1642,6 @@
           "category": "gather"
         }
       }
-    },
-    "abilityPool": [
-      "slow",
-      "projectile",
-      "spit",
-      "bomb",
-      "push",
-      "mine"
-    ]
+    }
   }
 }

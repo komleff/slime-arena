@@ -29,10 +29,9 @@ export function abilitySystem(room: any) {
             room.activateAbility(player, player.queuedAbilitySlot);
             player.queuedAbilitySlot = null;
         } else if (!gcdReady && pressed !== null && room.balance.server.abilityQueueSize > 0) {
-            if (player.queuedAbilitySlot === null) {
-                player.queuedAbilitySlot = pressed;
-                player.queuedAbilityTick = currentTick;
-            }
+            // Берём последнее нажатие, чтобы не зависать на устаревшем слоте
+            player.queuedAbilitySlot = pressed;
+            player.queuedAbilityTick = currentTick;
         }
 
         player.abilitySlotPressed = null;

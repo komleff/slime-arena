@@ -89,6 +89,37 @@ boostText.style.display = "flex";
 boostText.style.flexDirection = "column";
 boostText.style.gap = "2px";
 boostPanel.appendChild(boostText);
+boostPanel.style.transition = "box-shadow 120ms ease, transform 120ms ease";
+const boostPanelBaseShadow = "0 0 0 rgba(0, 0, 0, 0)";
+const boostPanelFlashShadow = "0 0 18px rgba(111, 214, 255, 0.65)";
+const boostPanelFlashScale = "scale(1.02)";
+const boostPanelBaseScale = "scale(1)";
+let boostFlashUntilMs = 0;
+
+type RewardPopup = {
+    id: number;
+    text: string;
+    x: number;
+    y: number;
+    startMs: number;
+    durationMs: number;
+};
+
+const rewardPopups: RewardPopup[] = [];
+let rewardPopupId = 0;
+const rewardPopupDurationMs = 1400;
+const rewardPopupRisePx = 28;
+
+const addRewardPopup = (text: string, x: number, y: number) => {
+    rewardPopups.push({
+        id: rewardPopupId++,
+        text,
+        x,
+        y,
+        startMs: performance.now(),
+        durationMs: rewardPopupDurationMs,
+    });
+};
 
 const topCenterHud = document.createElement("div");
 topCenterHud.style.position = "fixed";
@@ -2406,6 +2437,36 @@ function drawCircle(x: number, y: number, radius: number, fill: string, stroke?:
     }
 }
 
+function drawSpikedCircle(
+    x: number,
+    y: number,
+    radius: number,
+    fill: string,
+    stroke: string | undefined,
+    spikeCount = 10,
+    spikeLength = 0.35
+) {
+    drawCircle(x, y, radius, fill, stroke);
+    const spikeOuter = radius * (1 + spikeLength);
+    const spikeInner = radius * 0.85;
+    const step = (Math.PI * 2) / spikeCount;
+    canvasCtx.save();
+    canvasCtx.translate(x, y);
+    canvasCtx.beginPath();
+    for (let i = 0; i < spikeCount; i += 1) {
+        const angle = i * step;
+        const a1 = angle - step * 0.25;
+        const a2 = angle + step * 0.25;
+        canvasCtx.moveTo(Math.cos(angle) * spikeOuter, Math.sin(angle) * spikeOuter);
+        canvasCtx.lineTo(Math.cos(a1) * spikeInner, Math.sin(a1) * spikeInner);
+        canvasCtx.lineTo(Math.cos(a2) * spikeInner, Math.sin(a2) * spikeInner);
+    }
+    canvasCtx.closePath();
+    canvasCtx.fillStyle = stroke ?? "#606060";
+    canvasCtx.fill();
+    canvasCtx.restore();
+}
+
 function drawCrown(x: number, y: number, size: number, fill: string, stroke?: string) {
     const w = size;
     const h = size * 0.7;
@@ -2870,6 +2931,23 @@ async function connectToServer(playerName: string, classId: number) {
             greed: "#34d399",
         };
 
+        room.onMessage("chestReward", (data: any) => {
+            const player = room.state.players.get(room.sessionId);
+            if (!player || !data) return;
+            if (data.kind === "talent") {
+                const talentId = String(data.talentId ?? "");
+                const level = Number(data.level ?? 1);
+                const info = talentInfo[talentId] ?? { name: talentId };
+                const levelText = level > 1 ? ` ур. ${level}` : "";
+                addRewardPopup(`Талант: ${info.name}${levelText}`, player.x, player.y);
+            } else if (data.kind === "boost") {
+                const boostType = String(data.boostType ?? "");
+                const boostName = boostLabels[boostType] ?? boostType || "Усиление";
+                addRewardPopup(`Усиление: ${boostName}`, player.x, player.y);
+                boostFlashUntilMs = performance.now() + 650;
+            }
+        });
+
         const updateHud = () => {
             // Update Top Center HUD (Timer & Kills)
             const timeRem = room.state.timeRemaining ?? 0;
@@ -2963,8 +3041,18 @@ async function connectToServer(playerName: string, classId: number) {
                 } else {
                     boostPanel.style.display = "none";
                 }
+                const nowMs = performance.now();
+                if (boostPanel.style.display !== "none" && nowMs < boostFlashUntilMs) {
+                    boostPanel.style.boxShadow = boostPanelFlashShadow;
+                    boostPanel.style.transform = boostPanelFlashScale;
+                } else {
+                    boostPanel.style.boxShadow = boostPanelBaseShadow;
+                    boostPanel.style.transform = boostPanelBaseScale;
+                }
             } else {
                 boostPanel.style.display = "none";
+                boostPanel.style.boxShadow = boostPanelBaseShadow;
+                boostPanel.style.transform = boostPanelBaseScale;
             }
             if (room.state.leaderboard && room.state.leaderboard.length > 0) {
                 lines.push("Лидеры:");
@@ -3440,7 +3528,7 @@ async function connectToServer(playerName: string, classId: number) {
                 const isSpikes = obstacle.type === OBSTACLE_TYPE_SPIKES;
                 const isPillar = obstacle.type === OBSTACLE_TYPE_PILLAR;
                 if (isSpikes) {
-                    ctx.fillStyle = "rgba(255, 80, 80, 0.7)";
+                    ctx.fillStyle = "rgba(120, 120, 120, 0.7)";
                 } else if (isPillar) {
                     ctx.fillStyle = "rgba(160, 160, 160, 0.8)";
                 } else {
@@ -3728,17 +3816,13 @@ async function connectToServer(playerName: string, classId: number) {
                 const r = Math.max(6, obstacle.radius * scale);
                 const isSpikes = obstacle.type === OBSTACLE_TYPE_SPIKES;
                 const isPillar = obstacle.type === OBSTACLE_TYPE_PILLAR;
-                const fill = isSpikes
-                    ? "rgba(255, 80, 80, 0.85)"
-                    : isPillar
-                      ? "rgba(140, 140, 140, 0.85)"
-                      : "rgba(110, 110, 110, 0.7)";
-                const stroke = isSpikes
-                    ? "rgba(255, 40, 40, 0.9)"
-                    : isPillar
-                      ? "rgba(80, 80, 80, 0.9)"
-                      : "rgba(60, 60, 60, 0.7)";
-                drawCircle(p.x, p.y, r, fill, stroke);
+                const fill = isPillar ? "rgba(140, 140, 140, 0.85)" : "rgba(110, 110, 110, 0.7)";
+                const stroke = isPillar ? "rgba(80, 80, 80, 0.9)" : "rgba(60, 60, 60, 0.7)";
+                if (isSpikes) {
+                    drawSpikedCircle(p.x, p.y, r, "rgba(120, 120, 120, 0.85)", "rgba(70, 70, 70, 0.9)");
+                } else {
+                    drawCircle(p.x, p.y, r, fill, stroke);
+                }
             }
 
             for (const [, orb] of orbsView.entries()) {
@@ -4057,6 +4141,32 @@ async function connectToServer(playerName: string, classId: number) {
                 canvasCtx.restore();
             }
 
+            if (rewardPopups.length > 0) {
+                const nowMs = performance.now();
+                for (let i = rewardPopups.length - 1; i >= 0; i -= 1) {
+                    const popup = rewardPopups[i];
+                    const elapsed = nowMs - popup.startMs;
+                    const t = popup.durationMs > 0 ? elapsed / popup.durationMs : 1;
+                    if (t >= 1) {
+                        rewardPopups.splice(i, 1);
+                        continue;
+                    }
+                    const alpha = 1 - t;
+                    const rise = rewardPopupRisePx * t;
+                    const screen = worldToScreen(popup.x, popup.y, scale, camera.x, camera.y, cw, ch);
+                    canvasCtx.save();
+                    canvasCtx.globalAlpha = alpha;
+                    canvasCtx.font = "14px \"IBM Plex Mono\", monospace";
+                    canvasCtx.textAlign = "center";
+                    canvasCtx.textBaseline = "bottom";
+                    canvasCtx.fillStyle = "#fbbf24";
+                    canvasCtx.shadowColor = "rgba(0, 0, 0, 0.7)";
+                    canvasCtx.shadowBlur = 6;
+                    canvasCtx.fillText(popup.text, screen.x, screen.y - 28 - rise);
+                    canvasCtx.restore();
+                }
+            }
+
             // Chest indicators по краям экрана
             for (const [, chest] of chestsView.entries()) {
                 const dx = chest.x - camera.x;
@@ -4191,14 +4301,19 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
         };
 
+        const canSendInput = () => {
+            if (!hasFocus) return false;
+            if (document.visibilityState !== "visible") return false;
+            if (!document.hasFocus()) return false;
+            if (classSelectMode) return false;
+            return true;
+        };
+
         const onKeyDown = (event: KeyboardEvent) => {
-            if (document.visibilityState !== "visible") return;
-            if (!document.hasFocus()) return;
+            if (!canSendInput()) return;
             if (event.ctrlKey || event.metaKey || event.altKey) return;
             if (event.repeat) return;
-            if (classSelectMode) return;
             const key = event.key.toLowerCase();
-            hasFocus = true;
             
             // Способность активируется клавишей 1 (slot 0 - классовая способность)
             if (key === "1") {
@@ -4435,6 +4550,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчик кнопки способности
         const onAbilityButtonClick = () => {
+            if (!canSendInput()) return;
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
         };
@@ -4442,6 +4558,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчик кнопки Выброса (Projectile)
         const onProjectileButtonClick = () => {
+            if (!canSendInput()) return;
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
         };
@@ -4449,6 +4566,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчик кнопки Slot 2
         const onSlot2ButtonClick = () => {
+            if (!canSendInput()) return;
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
         };
