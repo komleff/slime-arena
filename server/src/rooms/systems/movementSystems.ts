@@ -268,7 +268,8 @@ export function flightAssistSystem(room: any) {
                     
                     // Гасим перпендикулярную скорость за counterAccelTimeS
                     if (vPerpMag > 1e-3) {
-                        const counterAccelTime = Math.max(slimeConfig.assist.counterAccelTimeS, dt);
+                        // Минимальное время 1мс для избежания нестабильности
+                        const counterAccelTime = Math.max(slimeConfig.assist.counterAccelTimeS, 0.001);
                         const desiredPerpAccel = -vPerpMag / counterAccelTime;
                         
                         // Направление торможения
@@ -283,9 +284,13 @@ export function flightAssistSystem(room: any) {
                         const counterForceForward = mass * desiredPerpAccel * perpForward;
                         const counterForceRight = mass * desiredPerpAccel * perpRight;
                         
-                        // Ограничиваем силы доступной тягой
-                        const limitedForward = room.clamp(counterForceForward, -thrustReverse, thrustForward);
-                        const limitedRight = room.clamp(counterForceRight, -thrustLateral, thrustLateral);
+                        // Ограничиваем силы доступной тягой с учётом направления
+                        const limitedForward = counterForceForward >= 0 
+                            ? Math.min(counterForceForward, thrustForward)
+                            : Math.max(counterForceForward, -thrustReverse);
+                        const limitedRight = counterForceRight >= 0
+                            ? Math.min(counterForceRight, thrustLateral)
+                            : Math.max(counterForceRight, -thrustLateral);
                         
                         // Добавляем контр-ускорение к общей силе
                         forceForward += limitedForward;
