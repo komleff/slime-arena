@@ -53,8 +53,8 @@
       "propulsion": {
         "thrustForwardN": 27000,
         "thrustReverseN": 9000,
-        "thrustLateralN": 11333,
-        "turnTorqueNm": 46667
+        "thrustLateralN": 11300,
+        "turnTorqueNm": 46700
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -107,8 +107,8 @@
       "propulsion": {
         "thrustForwardN": 27000,
         "thrustReverseN": 9000,
-        "thrustLateralN": 11333,
-        "turnTorqueNm": 23333
+        "thrustLateralN": 11300,
+        "turnTorqueNm": 23300
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -161,8 +161,8 @@
       "propulsion": {
         "thrustForwardN": 27000,
         "thrustReverseN": 9000,
-        "thrustLateralN": 11333,
-        "turnTorqueNm": 46667
+        "thrustLateralN": 11300,
+        "turnTorqueNm": 46700
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -215,8 +215,8 @@
       "propulsion": {
         "thrustForwardN": 27000,
         "thrustReverseN": 9000,
-        "thrustLateralN": 11333,
-        "turnTorqueNm": 46667
+        "thrustLateralN": 11300,
+        "turnTorqueNm": 46700
       },
       "limits": {
         "speedLimitForwardMps": 260,
@@ -308,7 +308,8 @@
     "pvpBiteAttackerGainPct": 0.10,
     "pvpBiteScatterPct": 0.10,
     "pvpBiteScatterOrbCount": 3,
-    "pvpBiteScatterSpeed": 60
+    "pvpBiteScatterSpeed": 60,
+    "scatterOrbMinMass": 5
   },
   "death": {
     "respawnDelaySec": 2,

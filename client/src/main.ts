@@ -3799,17 +3799,59 @@ async function connectToServer(playerName: string, classId: number) {
                 const r = Math.max(6, obstacle.radius * scale);
                 const isSpikes = obstacle.type === OBSTACLE_TYPE_SPIKES;
                 const isPillar = obstacle.type === OBSTACLE_TYPE_PILLAR;
-                const fill = isSpikes
-                    ? "rgba(255, 80, 80, 0.85)"
-                    : isPillar
-                      ? "rgba(140, 140, 140, 0.85)"
-                      : "rgba(110, 110, 110, 0.7)";
-                const stroke = isSpikes
-                    ? "rgba(255, 40, 40, 0.9)"
-                    : isPillar
-                      ? "rgba(80, 80, 80, 0.9)"
-                      : "rgba(60, 60, 60, 0.7)";
-                drawCircle(p.x, p.y, r, fill, stroke);
+                
+                if (isSpikes) {
+                    // Шипастое препятствие: серая основа + красные шипы
+                    const spikeCount = 12;
+                    const innerR = r * 0.7;
+                    const outerR = r * 1.15;
+                    
+                    // Серая основа
+                    drawCircle(p.x, p.y, innerR, "rgba(80, 80, 80, 0.9)", "rgba(50, 50, 50, 1)");
+                    
+                    // Красные шипы (треугольники)
+                    canvasCtx.fillStyle = "rgba(220, 50, 50, 0.95)";
+                    canvasCtx.strokeStyle = "rgba(150, 30, 30, 1)";
+                    canvasCtx.lineWidth = 1;
+                    for (let i = 0; i < spikeCount; i++) {
+                        const angle = (i / spikeCount) * Math.PI * 2;
+                        const nextAngle = ((i + 0.5) / spikeCount) * Math.PI * 2;
+                        const prevAngle = ((i - 0.5) / spikeCount) * Math.PI * 2;
+                        
+                        // Точка шипа
+                        const tipX = p.x + Math.cos(angle) * outerR;
+                        const tipY = p.y + Math.sin(angle) * outerR;
+                        // Основание шипа
+                        const base1X = p.x + Math.cos(prevAngle) * innerR;
+                        const base1Y = p.y + Math.sin(prevAngle) * innerR;
+                        const base2X = p.x + Math.cos(nextAngle) * innerR;
+                        const base2Y = p.y + Math.sin(nextAngle) * innerR;
+                        
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(tipX, tipY);
+                        canvasCtx.lineTo(base1X, base1Y);
+                        canvasCtx.lineTo(base2X, base2Y);
+                        canvasCtx.closePath();
+                        canvasCtx.fill();
+                        canvasCtx.stroke();
+                    }
+                    
+                    // Предупреждающий символ в центре
+                    canvasCtx.fillStyle = "rgba(255, 200, 50, 0.9)";
+                    canvasCtx.font = `bold ${Math.max(10, r * 0.5)}px Arial`;
+                    canvasCtx.textAlign = "center";
+                    canvasCtx.textBaseline = "middle";
+                    canvasCtx.fillText("⚠", p.x, p.y);
+                } else {
+                    // Обычный столб или pillar
+                    const fill = isPillar
+                        ? "rgba(140, 140, 140, 0.85)"
+                        : "rgba(110, 110, 110, 0.7)";
+                    const stroke = isPillar
+                        ? "rgba(80, 80, 80, 0.9)"
+                        : "rgba(60, 60, 60, 0.7)";
+                    drawCircle(p.x, p.y, r, fill, stroke);
+                }
             }
 
             for (const [, orb] of orbsView.entries()) {

@@ -1579,9 +1579,29 @@ export class ArenaRoom extends Room<GameState> {
      */
     private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
         if (count <= 0 || totalMass <= 0) return;
         
+        // Если общая масса слишком мала — не создаём мелкие орбы
         const perOrbMass = totalMass / count;
+        if (perOrbMass < minOrbMass) {
+            // Объединяем в меньшее количество орбов с минимальной массой
+            const actualCount = Math.max(1, Math.floor(totalMass / minOrbMass));
+            if (actualCount === 0) return; // Масса слишком мала даже для 1 орба
+            
+            const actualPerOrb = totalMass / actualCount;
+            const angleStep = (Math.PI * 2) / actualCount;
+            const speed = this.balance.combat.pvpBiteScatterSpeed;
+            
+            for (let i = 0; i < actualCount; i++) {
+                const angle = i * angleStep + this.rng.range(-0.3, 0.3);
+                const orb = this.forceSpawnOrb(x, y, actualPerOrb, colorId);
+                orb.vx = Math.cos(angle) * speed;
+                orb.vy = Math.sin(angle) * speed;
+            }
+            return;
+        }
+        
         const angleStep = (Math.PI * 2) / count;
         const speed = this.balance.combat.pvpBiteScatterSpeed;
         

@@ -274,6 +274,7 @@ export interface BalanceConfig {
         pvpBiteScatterPct: number;
         pvpBiteScatterOrbCount: number;
         pvpBiteScatterSpeed: number;
+        scatterOrbMinMass: number;
     };
     death: {
         respawnDelaySec: number;
@@ -886,6 +887,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         pvpBiteScatterPct: 0.10,
         pvpBiteScatterOrbCount: 3,
         pvpBiteScatterSpeed: 200,
+        scatterOrbMinMass: 5,
     },
     death: {
         respawnDelaySec: 2,
@@ -2002,6 +2004,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 combat.pvpBiteScatterSpeed,
                 DEFAULT_BALANCE_CONFIG.combat.pvpBiteScatterSpeed,
                 "combat.pvpBiteScatterSpeed"
+            ),
+            scatterOrbMinMass: readNumber(
+                combat.scatterOrbMinMass,
+                DEFAULT_BALANCE_CONFIG.combat.scatterOrbMinMass,
+                "combat.scatterOrbMinMass"
             ),
         },
         death: {
