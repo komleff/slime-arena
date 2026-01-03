@@ -3937,32 +3937,36 @@ async function connectToServer(playerName: string, classId: number) {
                 // Визуализация магнитного поля собирателя
                 if ((player.flags & FLAG_MAGNETIZING) !== 0) {
                     const magnetRadius = (balanceConfig.abilities?.magnet?.radiusM ?? 150) * scale;
-                    // Внешний круг
+                    // Точка «пасти» — смещена от центра на 90% радиуса в направлении взгляда
+                    const mouthOffset = r * 0.9;
+                    const mouthX = p.x + Math.cos(angleRad) * mouthOffset;
+                    const mouthY = p.y + Math.sin(angleRad) * mouthOffset;
+                    // Внешний круг (вокруг пасти)
                     canvasCtx.beginPath();
-                    canvasCtx.arc(p.x, p.y, magnetRadius, 0, Math.PI * 2);
+                    canvasCtx.arc(mouthX, mouthY, magnetRadius, 0, Math.PI * 2);
                     canvasCtx.strokeStyle = "rgba(138, 43, 226, 0.6)";
                     canvasCtx.lineWidth = 3;
                     canvasCtx.setLineDash([10, 5]);
                     canvasCtx.stroke();
                     canvasCtx.setLineDash([]);
                     // Внутреннее свечение
-                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, magnetRadius);
+                    const gradient = canvasCtx.createRadialGradient(mouthX, mouthY, 0, mouthX, mouthY, magnetRadius);
                     gradient.addColorStop(0, "rgba(138, 43, 226, 0.2)");
                     gradient.addColorStop(0.7, "rgba(138, 43, 226, 0.1)");
                     gradient.addColorStop(1, "rgba(138, 43, 226, 0)");
                     canvasCtx.beginPath();
-                    canvasCtx.arc(p.x, p.y, magnetRadius, 0, Math.PI * 2);
+                    canvasCtx.arc(mouthX, mouthY, magnetRadius, 0, Math.PI * 2);
                     canvasCtx.fillStyle = gradient;
                     canvasCtx.fill();
-                    // Магнитные линии
+                    // Магнитные линии (от пасти)
                     canvasCtx.strokeStyle = "rgba(200, 100, 255, 0.4)";
                     canvasCtx.lineWidth = 1;
                     for (let i = 0; i < 8; i++) {
                         const angle = (i / 8) * Math.PI * 2;
-                        const innerR = r * 1.5;
+                        const innerR = r * 0.5;
                         canvasCtx.beginPath();
-                        canvasCtx.moveTo(p.x + Math.cos(angle) * innerR, p.y + Math.sin(angle) * innerR);
-                        canvasCtx.lineTo(p.x + Math.cos(angle) * magnetRadius * 0.9, p.y + Math.sin(angle) * magnetRadius * 0.9);
+                        canvasCtx.moveTo(mouthX + Math.cos(angle) * innerR, mouthY + Math.sin(angle) * innerR);
+                        canvasCtx.lineTo(mouthX + Math.cos(angle) * magnetRadius * 0.9, mouthY + Math.sin(angle) * magnetRadius * 0.9);
                         canvasCtx.stroke();
                     }
                 }

@@ -2832,6 +2832,16 @@ export class ArenaRoom extends Room<GameState> {
         return getSlimeRadiusFromConfig(player.mass, slimeConfig) * classStats.radiusMult * leviathanMul;
     }
 
+    /** Точка «пасти» слайма (смещена от центра к направлению взгляда на 90% радиуса) */
+    public getMouthPoint(player: Player): { x: number; y: number } {
+        const radius = this.getPlayerRadius(player);
+        const offset = radius * 0.9;
+        return {
+            x: player.x + Math.cos(player.angle) * offset,
+            y: player.y + Math.sin(player.angle) * offset,
+        };
+    }
+
     private getClassStats(player: Player): ClassStats {
         switch (player.classId) {
             case 1:
