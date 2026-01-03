@@ -1274,11 +1274,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             },
             warrior: {
                 indestructible: { name: "Несокрушимый", maxLevel: 1, values: [0.15], effect: "allDamageReduction", rarity: "rare", category: "defense" },
-                thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" }
+                thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" },
             },
             collector: {
                 parasite: { name: "Паразит", maxLevel: 1, values: [0.05], effect: "parasiteMass", rarity: "rare", category: "gather" },
-                magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" }
+                magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" },
             },
         },
     },
