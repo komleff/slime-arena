@@ -116,6 +116,9 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
+- **Улучшение управления (3 янв 2026)**: Реализовано контр-ускорение для fly-by-wire джойстика. При резких поворотах (> 30°) система активно гасит перпендикулярную составляющую скорости (drift) за 150 мс, что улучшает отзывчивость управления на мобильных устройствах. Параметры контр-ускорения добавлены в `balance.json` для всех классов: `counterAccelEnabled`, `counterAccelDirectionThresholdDeg`, `counterAccelTimeS`, `counterAccelMinSpeedMps`.
+- **Изменённые файлы**: `server/src/rooms/systems/movementSystems.ts`, `config/balance.json`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`, `README.md`.
+
 - **Исправления интерфейса**: у `pendingChestRewards` добавлено ограничение размера и быстрая очистка, параметры визуализации шипов и цвета вынесены в константы, редкость таланта считается через общую функцию, при `chests.onRemove` используется позиция из `chest`. `.claude/` добавлена в `.gitignore`.
 - **Изменённые файлы**: `client/src/main.ts`, `.gitignore`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.
 
