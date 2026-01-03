@@ -236,6 +236,70 @@ export function flightAssistSystem(room: any) {
             forceRight = mass * clampedAccelRight;
         }
 
+        // === КОНТР-УСКОРЕНИЕ (counter-acceleration) ===
+        // При резкой смене направления активно гасим перпендикулярную составляющую скорости
+        if (slimeConfig.assist.counterAccelEnabled && hasInput) {
+            const currentSpeed = Math.hypot(player.vx, player.vy);
+            const desiredSpeed = Math.hypot(desiredVx, desiredVy);
+            
+            // Проверяем минимальную скорость для активации контр-ускорения
+            if (currentSpeed >= slimeConfig.assist.counterAccelMinSpeedMps && desiredSpeed > 1e-3) {
+                // Вычисляем угол между текущей и желаемой скоростью
+                const currentVelAngle = Math.atan2(player.vy, player.vx);
+                const desiredVelAngle = Math.atan2(desiredVy, desiredVx);
+                const angleDiff = Math.abs(room.normalizeAngle(desiredVelAngle - currentVelAngle));
+                
+                // Порог угла в радианах
+                const thresholdRad = (slimeConfig.assist.counterAccelDirectionThresholdDeg * Math.PI) / 180;
+                
+                // Если угол превышает порог — применяем контр-ускорение
+                if (angleDiff > thresholdRad) {
+                    // Направление желаемой скорости (единичный вектор)
+                    const desiredDirX = desiredVx / desiredSpeed;
+                    const desiredDirY = desiredVy / desiredSpeed;
+                    
+                    // Проекция текущей скорости на желаемое направление
+                    const vParallel = player.vx * desiredDirX + player.vy * desiredDirY;
+                    
+                    // Перпендикулярная составляющая скорости (drift)
+                    const vPerpX = player.vx - vParallel * desiredDirX;
+                    const vPerpY = player.vy - vParallel * desiredDirY;
+                    const vPerpMag = Math.hypot(vPerpX, vPerpY);
+                    
+                    // Гасим перпендикулярную скорость за counterAccelTimeS
+                    if (vPerpMag > 1e-3) {
+                        // Минимальное время 1мс для избежания нестабильности
+                        const counterAccelTime = Math.max(slimeConfig.assist.counterAccelTimeS, 0.001);
+                        const desiredPerpAccel = -vPerpMag / counterAccelTime;
+                        
+                        // Направление торможения
+                        const perpDirX = vPerpX / vPerpMag;
+                        const perpDirY = vPerpY / vPerpMag;
+                        
+                        // Проецируем на локальные оси слайма
+                        const perpForward = perpDirX * forwardX + perpDirY * forwardY;
+                        const perpRight = perpDirX * rightX + perpDirY * rightY;
+                        
+                        // Рассчитываем силы контр-ускорения
+                        const counterForceForward = mass * desiredPerpAccel * perpForward;
+                        const counterForceRight = mass * desiredPerpAccel * perpRight;
+                        
+                        // Ограничиваем силы доступной тягой с учётом направления
+                        const limitedForward = counterForceForward >= 0 
+                            ? Math.min(counterForceForward, thrustForward)
+                            : Math.max(counterForceForward, -thrustReverse);
+                        const limitedRight = counterForceRight >= 0
+                            ? Math.min(counterForceRight, thrustLateral)
+                            : Math.max(counterForceRight, -thrustLateral);
+                        
+                        // Добавляем контр-ускорение к общей силе
+                        forceForward += limitedForward;
+                        forceRight += limitedRight;
+                    }
+                }
+            }
+        }
+
         const overspeedRate = slimeConfig.assist.overspeedDampingRate;
         if (overspeedRate > 0) {
             const vForward = player.vx * forwardX + player.vy * forwardY;

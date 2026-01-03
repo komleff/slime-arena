@@ -153,6 +153,11 @@ export interface SlimeConfig {
         accelTimeS: number;
         velocityErrorThreshold: number;
         inputMagnitudeThreshold: number;
+        // Параметры контр-ускорения
+        counterAccelEnabled: boolean;
+        counterAccelDirectionThresholdDeg: number;
+        counterAccelTimeS: number;
+        counterAccelMinSpeedMps: number;
     };
     combat: {
         biteDamagePctOfMass: number;
@@ -653,6 +658,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -708,6 +717,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -763,6 +776,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -818,6 +835,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -1304,6 +1325,14 @@ function readString(value: unknown, fallback: string, path: string): string {
     return value;
 }
 
+function readBoolean(value: unknown, fallback: boolean, path: string): boolean {
+    if (value === undefined || value === null) return fallback;
+    if (typeof value !== "boolean") {
+        throw new Error(`Invalid boolean at ${path}`);
+    }
+    return value;
+}
+
 function readNumberArray(value: unknown, fallback: number[], path: string): number[] {
     if (value === undefined || value === null) return fallback;
     if (!Array.isArray(value)) {
@@ -1545,6 +1574,26 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
                 assist.inputMagnitudeThreshold,
                 fallback.assist.inputMagnitudeThreshold,
                 `${path}.assist.inputMagnitudeThreshold`
+            ),
+            counterAccelEnabled: readBoolean(
+                assist.counterAccelEnabled,
+                fallback.assist.counterAccelEnabled,
+                `${path}.assist.counterAccelEnabled`
+            ),
+            counterAccelDirectionThresholdDeg: readNumber(
+                assist.counterAccelDirectionThresholdDeg,
+                fallback.assist.counterAccelDirectionThresholdDeg,
+                `${path}.assist.counterAccelDirectionThresholdDeg`
+            ),
+            counterAccelTimeS: readNumber(
+                assist.counterAccelTimeS,
+                fallback.assist.counterAccelTimeS,
+                `${path}.assist.counterAccelTimeS`
+            ),
+            counterAccelMinSpeedMps: readNumber(
+                assist.counterAccelMinSpeedMps,
+                fallback.assist.counterAccelMinSpeedMps,
+                `${path}.assist.counterAccelMinSpeedMps`
             ),
         },
         combat: {
