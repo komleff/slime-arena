@@ -1492,6 +1492,41 @@ let joystickKnobRadius = joystickRadius * 0.45;
 const joystickFixedBase = { x: joystickRadius + 24, y: window.innerHeight - joystickRadius - 24 };
 const joystickLeftZoneRatio = 1;
 const joystickLandscapeRatio = 1;
+const joystickDebugEnabled = new URLSearchParams(window.location.search).get("debugJoystick") === "1";
+const joystickDebugMoveThrottleMs = 80;
+let lastJoystickMoveLogMs = 0;
+
+const getJoystickDebugState = () => ({
+    active: joystickState.active,
+    pointerId: joystickState.pointerId,
+    pointerType: joystickState.pointerType,
+    baseX: Math.round(joystickState.baseX),
+    baseY: Math.round(joystickState.baseY),
+    knobX: Math.round(joystickState.knobX),
+    knobY: Math.round(joystickState.knobY),
+    moveX: Number(joystickState.moveX.toFixed(3)),
+    moveY: Number(joystickState.moveY.toFixed(3)),
+    mode: joystickMode,
+    radius: joystickRadius,
+    deadzone: joystickDeadzone,
+    followSpeed: joystickFollowSpeed,
+    canvasW: canvas.width,
+    canvasH: canvas.height,
+});
+
+const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
+    if (!joystickDebugEnabled) return;
+    const now = Math.round(performance.now());
+    console.log(`[joystick] ${label}`, { t: now, ...payload, ...getJoystickDebugState() });
+};
+
+const logJoystickMove = (clientX: number, clientY: number) => {
+    if (!joystickDebugEnabled) return;
+    const now = performance.now();
+    if (now - lastJoystickMoveLogMs < joystickDebugMoveThrottleMs) return;
+    lastJoystickMoveLogMs = now;
+    logJoystick("pointermove", { clientX, clientY });
+};
 const slimeSpriteNames = [
     "slime-angrybird.png",
     "slime-astronaut.png",
@@ -1577,6 +1612,14 @@ const updateJoystickConfig = () => {
         joystickState.baseY = joystickFixedBase.y;
         updateJoystickVisual();
     }
+    logJoystick("config", {
+        rect: {
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+        },
+    });
 };
 
 const setJoystickVisible = (visible: boolean) => {
@@ -1601,6 +1644,7 @@ const resetJoystick = () => {
     joystickState.knobX = joystickState.baseX;
     joystickState.knobY = joystickState.baseY;
     setJoystickVisible(false);
+    logJoystick("reset");
 };
 
 const updateJoystickFromPointer = (clientX: number, clientY: number) => {
@@ -1609,6 +1653,8 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     let dx = clientX - baseX;
     let dy = clientY - baseY;
     let distance = Math.hypot(dx, dy);
+    let baseShifted = false;
+    let baseClamped = false;
 
     const allowAdaptiveBase = joystickMode === "adaptive" && joystickState.pointerType !== "mouse";
     if (allowAdaptiveBase && distance > joystickRadius) {
@@ -1623,6 +1669,7 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
         dx = clientX - baseX;
         dy = clientY - baseY;
         distance = Math.hypot(dx, dy);
+        baseShifted = true;
     }
 
     const rect = canvas.getBoundingClientRect();
@@ -1648,6 +1695,7 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
         dx = clientX - baseX;
         dy = clientY - baseY;
         distance = Math.hypot(dx, dy);
+        baseClamped = true;
     }
 
     if (distance > joystickRadius && distance > 0) {
@@ -1675,6 +1723,10 @@ const updateJoystickFromPointer = (clientX: number, clientY: number) => {
     joystickState.knobX = baseX + dx;
     joystickState.knobY = baseY + dy;
     updateJoystickVisual();
+    if (baseShifted || baseClamped) {
+        logJoystick("baseAdjust", { baseShifted, baseClamped, clientX, clientY });
+    }
+    logJoystickMove(clientX, clientY);
 };
 
 // No top exclusion while HUD/abilities are not implemented.
@@ -2446,6 +2498,7 @@ function getTalentRarityFromConfig(talents: BalanceConfig["talents"] | undefined
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    logJoystick("resize", { width: canvas.width, height: canvas.height });
     updateJoystickConfig();
 }
 resizeCanvas();
@@ -4699,16 +4752,38 @@ async function connectToServer(playerName: string, classId: number) {
             const isCoarse = isCoarsePointer;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
+            logJoystick("pointerdown", {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                pointerId: event.pointerId,
+                pointerType: event.pointerType,
+                isCoarse,
+            });
             
-            // Мышь не активирует джойстик — управление мышью: курсор задаёт направление
-            if (isMousePointer) return;
+            // Мышь не активирует джойстик - управление мышью: курсор задаёт направление
+            if (isMousePointer) {
+                logJoystick("pointerdown-skip", { reason: "mouse" });
+                return;
+            }
             
-            if (!isTouchPointer && !isCoarse) return;
-            if (joystickState.active) return;
+            if (!isTouchPointer && !isCoarse) {
+                logJoystick("pointerdown-skip", { reason: "not-touch-or-coarse" });
+                return;
+            }
+            if (joystickState.active) {
+                logJoystick("pointerdown-skip", { reason: "already-active" });
+                return;
+            }
             
             const gate = getJoystickActivationGate();
-            if (event.clientX > gate.maxX) return;
-            if (event.clientY < gate.minY) return;
+            if (event.clientX > gate.maxX) {
+                logJoystick("pointerdown-skip", { reason: "gate-maxX", maxX: gate.maxX });
+                return;
+            }
+            if (event.clientY < gate.minY) {
+                logJoystick("pointerdown-skip", { reason: "gate-minY", minY: gate.minY });
+                return;
+            }
             
             event.preventDefault();
             hasFocus = true;
@@ -4727,6 +4802,7 @@ async function connectToServer(playerName: string, classId: number) {
             joystickState.knobY = joystickState.baseY;
             setJoystickVisible(true);
             updateJoystickFromPointer(event.clientX, event.clientY);
+            logJoystick("pointerdown-activate", { clientX: event.clientX, clientY: event.clientY });
             try {
                 canvas.setPointerCapture(event.pointerId);
             } catch {
@@ -4735,29 +4811,49 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const onPointerMove = (event: PointerEvent) => {
-            if (!joystickState.active) return;
-            if (event.pointerId !== joystickState.pointerId) return;
+            if (!joystickState.active) {
+                logJoystick("pointermove-skip", { reason: "inactive", pointerId: event.pointerId });
+                return;
+            }
+            if (event.pointerId !== joystickState.pointerId) {
+                logJoystick("pointermove-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
+                return;
+            }
             event.preventDefault();
             updateJoystickFromPointer(event.clientX, event.clientY);
         };
 
         const onPointerUp = (event: PointerEvent) => {
-            if (!joystickState.active) return;
-            if (event.pointerId !== joystickState.pointerId) return;
+            if (!joystickState.active) {
+                logJoystick("pointerup-skip", { reason: "inactive", pointerId: event.pointerId });
+                return;
+            }
+            if (event.pointerId !== joystickState.pointerId) {
+                logJoystick("pointerup-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
+                return;
+            }
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            logJoystick("pointerup", { clientX: event.clientX, clientY: event.clientY });
             if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
                 sendStopInput();
             }
         };
 
         const onPointerCancel = (event: PointerEvent) => {
-            if (!joystickState.active) return;
-            if (event.pointerId !== joystickState.pointerId) return;
+            if (!joystickState.active) {
+                logJoystick("pointercancel-skip", { reason: "inactive", pointerId: event.pointerId });
+                return;
+            }
+            if (event.pointerId !== joystickState.pointerId) {
+                logJoystick("pointercancel-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
+                return;
+            }
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            logJoystick("pointercancel", { clientX: event.clientX, clientY: event.clientY });
             if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
                 sendStopInput();
             }
@@ -4772,6 +4868,7 @@ async function connectToServer(playerName: string, classId: number) {
             sendStopInput();
             detachJoystickPointerListeners();
             resetJoystick();
+            logJoystick("blur");
         };
         
         const onFocus = () => {
@@ -4789,8 +4886,10 @@ async function connectToServer(playerName: string, classId: number) {
                 sendStopInput();
                 detachJoystickPointerListeners();
                 resetJoystick();
+                logJoystick("visibility-hidden");
             } else {
                 hasFocus = true;
+                logJoystick("visibility-visible");
             }
         };
 
@@ -4819,6 +4918,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчик кнопки способности
         const onAbilityButtonClick = () => {
+            logJoystick("ability-click", { slot: 0 });
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
         };
@@ -4826,6 +4926,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчик кнопки Выброса (Projectile)
         const onProjectileButtonClick = () => {
+            logJoystick("ability-click", { slot: 1 });
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
         };
@@ -4833,6 +4934,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         // Обработчик кнопки Slot 2
         const onSlot2ButtonClick = () => {
+            logJoystick("ability-click", { slot: 2 });
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
         };
