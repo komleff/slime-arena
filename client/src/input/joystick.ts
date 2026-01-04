@@ -96,12 +96,14 @@ export function updateJoystickFromPointer(
     clientX: number,
     clientY: number,
     canvasRect: DOMRect
-): void {
+): { baseShifted: boolean; baseClamped: boolean } {
     let baseX = state.baseX;
     let baseY = state.baseY;
     let dx = clientX - baseX;
     let dy = clientY - baseY;
     let distance = Math.hypot(dx, dy);
+    let baseShifted = false;
+    let baseClamped = false;
 
     // Adaptive: база следует за пальцем, если выходит за радиус
     const allowAdaptiveBase = config.mode === "adaptive" && state.pointerType !== "mouse";
@@ -117,6 +119,7 @@ export function updateJoystickFromPointer(
         dx = clientX - baseX;
         dy = clientY - baseY;
         distance = Math.hypot(dx, dy);
+        baseShifted = true;
     }
 
     // Ограничиваем базу в пределах canvas
@@ -142,6 +145,7 @@ export function updateJoystickFromPointer(
         dx = clientX - baseX;
         dy = clientY - baseY;
         distance = Math.hypot(dx, dy);
+        baseClamped = true;
     }
 
     // Ограничиваем knob радиусом
@@ -171,6 +175,7 @@ export function updateJoystickFromPointer(
     state.moveY = outY;
     state.knobX = baseX + dx;
     state.knobY = baseY + dy;
+    return { baseShifted, baseClamped };
 }
 
 /**

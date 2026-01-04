@@ -26,6 +26,18 @@ import {
     wrapAngle,
     generateRandomName,
 } from "@slime-arena/shared";
+import {
+    type JoystickState,
+    type JoystickConfig,
+    createJoystickState,
+    createJoystickConfig,
+    resetJoystick as resetJoystickState,
+    updateJoystickFromPointer as updateJoystickFromPointerModule,
+    createJoystickElements,
+    updateJoystickVisual as updateJoystickVisualModule,
+    setJoystickVisible as setJoystickVisibleModule,
+    updateJoystickSize,
+} from "./input";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -450,31 +462,7 @@ function syncResultsClassButtons() {
 
 // Кнопки создаются после определения classesData (см. initResultsClassButtons)
 
-const joystickLayer = document.createElement("div");
-joystickLayer.style.position = "fixed";
-joystickLayer.style.inset = "0";
-joystickLayer.style.pointerEvents = "none";
-joystickLayer.style.zIndex = "5";
-
-const joystickBase = document.createElement("div");
-joystickBase.style.position = "fixed";
-joystickBase.style.borderRadius = "50%";
-joystickBase.style.border = "2px solid rgba(255, 255, 255, 0.18)";
-joystickBase.style.background = "rgba(12, 16, 24, 0.25)";
-joystickBase.style.backdropFilter = "blur(2px)";
-joystickBase.style.opacity = "0";
-joystickBase.style.transform = "translate(-50%, -50%)";
-
-const joystickKnob = document.createElement("div");
-joystickKnob.style.position = "fixed";
-joystickKnob.style.borderRadius = "50%";
-joystickKnob.style.background = "rgba(150, 200, 255, 0.55)";
-joystickKnob.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.35)";
-joystickKnob.style.opacity = "0";
-joystickKnob.style.transform = "translate(-50%, -50%)";
-
-joystickLayer.appendChild(joystickBase);
-joystickLayer.appendChild(joystickKnob);
+const { layer: joystickLayer, base: joystickBase, knob: joystickKnob } = createJoystickElements();
 document.body.appendChild(joystickLayer);
 
 // ============================================
@@ -1472,24 +1460,15 @@ const mouseState = {
     moveY: 0,
 };
 
-const joystickState = {
-    active: false,
-    pointerId: null as number | null,
-    pointerType: null as string | null,
-    baseX: 0,
-    baseY: 0,
-    knobX: 0,
-    knobY: 0,
-    moveX: 0,
-    moveY: 0,
-};
-let joystickRadius = balanceConfig.controls.joystickRadius;
-let joystickDeadzone = balanceConfig.controls.joystickDeadzone;
-let joystickSensitivity = balanceConfig.controls.joystickSensitivity;
-let joystickMode = balanceConfig.controls.joystickMode;
-let joystickFollowSpeed = balanceConfig.controls.joystickFollowSpeed;
-let joystickKnobRadius = joystickRadius * 0.45;
-const joystickFixedBase = { x: joystickRadius + 24, y: window.innerHeight - joystickRadius - 24 };
+const joystickState: JoystickState = createJoystickState();
+let joystickConfig: JoystickConfig = createJoystickConfig(
+    Number(balanceConfig.controls.joystickRadius ?? 90),
+    Number(balanceConfig.controls.joystickDeadzone ?? 0.1),
+    Number(balanceConfig.controls.joystickSensitivity ?? 1),
+    balanceConfig.controls.joystickMode ?? "adaptive",
+    Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8)
+);
+let joystickFixedBase = { x: joystickConfig.radius + 24, y: window.innerHeight - joystickConfig.radius - 24 };
 const joystickLeftZoneRatio = 1;
 const joystickLandscapeRatio = 1;
 const joystickDebugEnabled = new URLSearchParams(window.location.search).get("debugJoystick") === "1";
@@ -1506,10 +1485,10 @@ const getJoystickDebugState = () => ({
     knobY: Math.round(joystickState.knobY),
     moveX: Number(joystickState.moveX.toFixed(3)),
     moveY: Number(joystickState.moveY.toFixed(3)),
-    mode: joystickMode,
-    radius: joystickRadius,
-    deadzone: joystickDeadzone,
-    followSpeed: joystickFollowSpeed,
+    mode: joystickConfig.mode,
+    radius: joystickConfig.radius,
+    deadzone: joystickConfig.deadzone,
+    followSpeed: joystickConfig.followSpeed,
     canvasW: canvas.width,
     canvasH: canvas.height,
 });
@@ -1594,23 +1573,23 @@ const applyBalanceConfig = (config: BalanceConfig) => {
 };
 
 const updateJoystickConfig = () => {
-    joystickRadius = Number(balanceConfig.controls.joystickRadius ?? 90);
-    joystickDeadzone = Number(balanceConfig.controls.joystickDeadzone ?? 0.1);
-    joystickSensitivity = Number(balanceConfig.controls.joystickSensitivity ?? 1);
-    joystickMode = balanceConfig.controls.joystickMode ?? "adaptive";
-    joystickFollowSpeed = Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8);
-    joystickKnobRadius = joystickRadius * 0.45;
+    joystickConfig = createJoystickConfig(
+        Number(balanceConfig.controls.joystickRadius ?? 90),
+        Number(balanceConfig.controls.joystickDeadzone ?? 0.1),
+        Number(balanceConfig.controls.joystickSensitivity ?? 1),
+        balanceConfig.controls.joystickMode ?? "adaptive",
+        Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8)
+    );
     const rect = canvas.getBoundingClientRect();
-    joystickFixedBase.x = rect.left + joystickRadius + 24;
-    joystickFixedBase.y = rect.top + rect.height - joystickRadius - 24;
-    joystickBase.style.width = `${joystickRadius * 2}px`;
-    joystickBase.style.height = `${joystickRadius * 2}px`;
-    joystickKnob.style.width = `${joystickKnobRadius * 2}px`;
-    joystickKnob.style.height = `${joystickKnobRadius * 2}px`;
-    if (joystickMode === "fixed" && joystickState.active) {
+    joystickFixedBase = {
+        x: rect.left + joystickConfig.radius + 24,
+        y: rect.top + rect.height - joystickConfig.radius - 24,
+    };
+    updateJoystickSize(joystickConfig, joystickBase, joystickKnob);
+    if (joystickConfig.mode === "fixed" && joystickState.active) {
         joystickState.baseX = joystickFixedBase.x;
         joystickState.baseY = joystickFixedBase.y;
-        updateJoystickVisual();
+        updateJoystickVisualModule(joystickState, joystickBase, joystickKnob);
     }
     logJoystick("config", {
         rect: {
@@ -1623,105 +1602,28 @@ const updateJoystickConfig = () => {
 };
 
 const setJoystickVisible = (visible: boolean) => {
-    const opacity = visible ? "1" : "0";
-    joystickBase.style.opacity = opacity;
-    joystickKnob.style.opacity = opacity;
+    setJoystickVisibleModule(visible, joystickBase, joystickKnob);
 };
 
 const updateJoystickVisual = () => {
-    joystickBase.style.left = `${joystickState.baseX}px`;
-    joystickBase.style.top = `${joystickState.baseY}px`;
-    joystickKnob.style.left = `${joystickState.knobX}px`;
-    joystickKnob.style.top = `${joystickState.knobY}px`;
+    updateJoystickVisualModule(joystickState, joystickBase, joystickKnob);
 };
 
 const resetJoystick = () => {
-    joystickState.active = false;
-    joystickState.pointerId = null;
-    joystickState.pointerType = null;
-    joystickState.moveX = 0;
-    joystickState.moveY = 0;
-    joystickState.knobX = joystickState.baseX;
-    joystickState.knobY = joystickState.baseY;
+    resetJoystickState(joystickState);
     setJoystickVisible(false);
     logJoystick("reset");
 };
 
 const updateJoystickFromPointer = (clientX: number, clientY: number) => {
-    let baseX = joystickState.baseX;
-    let baseY = joystickState.baseY;
-    let dx = clientX - baseX;
-    let dy = clientY - baseY;
-    let distance = Math.hypot(dx, dy);
-    let baseShifted = false;
-    let baseClamped = false;
-
-    const allowAdaptiveBase = joystickMode === "adaptive" && joystickState.pointerType !== "mouse";
-    if (allowAdaptiveBase && distance > joystickRadius) {
-        const excess = distance - joystickRadius;
-        const shift = excess * joystickFollowSpeed;
-        const nx = distance > 0 ? dx / distance : 0;
-        const ny = distance > 0 ? dy / distance : 0;
-        baseX += nx * shift;
-        baseY += ny * shift;
-        joystickState.baseX = baseX;
-        joystickState.baseY = baseY;
-        dx = clientX - baseX;
-        dy = clientY - baseY;
-        distance = Math.hypot(dx, dy);
-        baseShifted = true;
-    }
-
     const rect = canvas.getBoundingClientRect();
-    let minX = rect.left + joystickRadius;
-    let maxX = rect.left + rect.width - joystickRadius;
-    let minY = rect.top + joystickRadius;
-    let maxY = rect.top + rect.height - joystickRadius;
-    if (maxX < minX) {
-        minX = rect.left + rect.width / 2;
-        maxX = minX;
-    }
-    if (maxY < minY) {
-        minY = rect.top + rect.height / 2;
-        maxY = minY;
-    }
-    const clampedBaseX = clamp(baseX, minX, maxX);
-    const clampedBaseY = clamp(baseY, minY, maxY);
-    if (clampedBaseX !== baseX || clampedBaseY !== baseY) {
-        baseX = clampedBaseX;
-        baseY = clampedBaseY;
-        joystickState.baseX = baseX;
-        joystickState.baseY = baseY;
-        dx = clientX - baseX;
-        dy = clientY - baseY;
-        distance = Math.hypot(dx, dy);
-        baseClamped = true;
-    }
-
-    if (distance > joystickRadius && distance > 0) {
-        const scale = joystickRadius / distance;
-        dx *= scale;
-        dy *= scale;
-        distance = joystickRadius;
-    }
-
-    const deadzonePx = joystickRadius * joystickDeadzone;
-    let outX = 0;
-    let outY = 0;
-    if (distance > deadzonePx) {
-        const normalized = (distance - deadzonePx) / Math.max(joystickRadius - deadzonePx, 1);
-        const scale = normalized / Math.max(distance, 1);
-        outX = dx * scale;
-        outY = dy * scale;
-    }
-
-    outX = clamp(outX * joystickSensitivity, -1, 1);
-    outY = clamp(outY * joystickSensitivity, -1, 1);
-
-    joystickState.moveX = outX;
-    joystickState.moveY = outY;
-    joystickState.knobX = baseX + dx;
-    joystickState.knobY = baseY + dy;
+    const { baseShifted, baseClamped } = updateJoystickFromPointerModule(
+        joystickState,
+        joystickConfig,
+        clientX,
+        clientY,
+        rect
+    );
     updateJoystickVisual();
     if (baseShifted || baseClamped) {
         logJoystick("baseAdjust", { baseShifted, baseClamped, clientX, clientY });
@@ -4791,7 +4693,7 @@ async function connectToServer(playerName: string, classId: number) {
             joystickState.pointerId = event.pointerId;
             joystickState.pointerType = event.pointerType;
             attachJoystickPointerListeners();
-            if (joystickMode === "fixed") {
+            if (joystickConfig.mode === "fixed") {
                 joystickState.baseX = joystickFixedBase.x;
                 joystickState.baseY = joystickFixedBase.y;
             } else {
