@@ -9,7 +9,7 @@
 ## Последние изменения
 
 - **План рефакторинга архитектуры (Claude Opus 4.5):** Проведён анализ God Objects, создан `docs/Refactoring-Plan-Claude-Opus-4.5.md`. Выявлены критические проблемы: `ArenaRoom.ts` (4,026 строк), `main.ts` (4,958 строк), `config.ts` (2,982 строки). Оценка: 18-29 рабочих дней, 3 фазы.
-- **Мобильный ввод:** добавлен lock viewport (maximum/minimum-scale, user-scalable=no) на время матча; запрет gesture-zoom/double-tap на кнопках умений; flush idle движения после кликов по кнопкам умений, если джойстик не активен.
+- **Мобильный ввод:** lock viewport (maximum/minimum-scale, user-scalable=no) на время матча; глобальный gesture-guard; touch-guard хелпер для кнопок умений; `flushIdleMovement` вызывается до отправки ability; pointer-capture освобождается в `pointerup/cancel`.
 - **Диагностика мобильного джойстика:** добавлены отладочные логи pointer/resize/visibility и кликов умений (флаг `?debugJoystick=1`).
 - **Рефакторинг джойстика (шаг 2):** `main.ts` переведён на модуль `client/src/input/joystick.ts` (конфиг, состояние, размеры через модульные функции).
 - **Релиз v0.2:** публикация релиза и контейнеров в GHCR, ссылки добавлены в README.

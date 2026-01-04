@@ -52,6 +52,7 @@ root.style.wordWrap = "break-word";
 
 document.body.appendChild(root);
 
+// Глобальный guard для мобильного масштабирования: включается при входе в матч, выключается при выходе/результатах
 const viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
 const defaultViewportContent = viewportMeta?.content ?? "width=device-width, initial-scale=1.0";
 let isGameViewportLocked = false;
@@ -1545,7 +1546,8 @@ const getJoystickDebugState = () => ({
 const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
     if (!joystickDebugEnabled) return;
     const now = Math.round(performance.now());
-    console.log(`[joystick] ${label}`, { t: now, ...payload, ...getJoystickDebugState() });
+    const state = getJoystickDebugState();
+    console.log(`[joystick] ${label}`, { t: now, ...payload, ...state });
 };
 
 const logJoystickMove = (clientX: number, clientY: number) => {
@@ -4798,6 +4800,13 @@ async function connectToServer(playerName: string, classId: number) {
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            if (canvas.hasPointerCapture(event.pointerId)) {
+                try {
+                    canvas.releasePointerCapture(event.pointerId);
+                } catch {
+                    // ignore release errors
+                }
+            }
             logJoystick("pointerup", { clientX: event.clientX, clientY: event.clientY });
             if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
                 sendStopInput();
@@ -4816,6 +4825,13 @@ async function connectToServer(playerName: string, classId: number) {
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            if (canvas.hasPointerCapture(event.pointerId)) {
+                try {
+                    canvas.releasePointerCapture(event.pointerId);
+                } catch {
+                    // ignore release errors
+                }
+            }
             logJoystick("pointercancel", { clientX: event.clientX, clientY: event.clientY });
             if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
                 sendStopInput();
@@ -4888,7 +4904,7 @@ async function connectToServer(playerName: string, classId: number) {
             lastSentInput = { x: 0, y: 0 };
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
-            logJoystick("flush-idle", {});
+            logJoystick("flush-idle");
         };
         
         // Обработчик кнопки способности

@@ -8,9 +8,9 @@
 **Текущая ветка:** `fix/mobile-joystick-input`
 
 ### Фокус сессии
-- **Мобильный ввод:** добавлен lock viewport (maximum/minimum-scale, user-scalable=no) на время матча, запрет gesture-zoom/double-tap на кнопках умений, touch-guard хелпер для всех мобильных кнопок.
-- **Джойстик (адаптивный):** вынесен в `client/src/input/joystick.ts`, логи pointer/resize/visibility/ability-click по флагу `?debugJoystick=1`.
-- **Fail-safe движения:** после кликов по кнопкам умений отправляется стоп-ввод, если джойстик/клавиши/мышь не активны (защита от «залипания»).
+- **Мобильный ввод:** lock viewport (maximum/minimum-scale, user-scalable=no) на время матча; глобальные gesture guards; touch-guard хелпер для всех мобильных кнопок.
+- **Джойстик (адаптивный):** вынесен в `client/src/input/joystick.ts`, логи pointer/resize/visibility/ability-click по флагу `?debugJoystick=1`; `updateJoystickFromPointer` возвращает флаги `baseShifted/baseClamped`.
+- **Fail-safe движения:** после кликов по кнопкам умений сначала отправляется стоп-ввод (если джойстик/клавиши/мышь не активны), затем ability; pointer-capture освобождается в `pointerup/cancel`.
 - **Шаг 1 выполнен:** Собиратель получил `pull` как стартовое умение, `slow` перенесено в общий пул.
 - **Шаг 2 выполнен:** Притяжение орбов к пасти (1.9 радиуса от центра), визуализация магнитного поля смещена.
 - **Шаг 3 выполнен:** Мышь не активирует джойстик. Управление мышью: курсор задаёт направление движения.
