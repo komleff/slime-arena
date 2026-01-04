@@ -89,6 +89,7 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * Обновляет состояние джойстика по позиции указателя
+ * @returns {{ baseShifted: boolean; baseClamped: boolean }}
  */
 export function updateJoystickFromPointer(
     state: JoystickState,

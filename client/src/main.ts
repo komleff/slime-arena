@@ -500,6 +500,14 @@ function syncResultsClassButtons() {
 const { layer: joystickLayer, base: joystickBase, knob: joystickKnob } = createJoystickElements();
 document.body.appendChild(joystickLayer);
 
+const applyMobileTouchGuard = (btn: HTMLButtonElement) => {
+    btn.style.touchAction = "manipulation";
+    btn.style.webkitUserSelect = "none";
+    btn.style.userSelect = "none";
+    btn.style.setProperty("-webkit-touch-callout", "none");
+    btn.addEventListener("dblclick", (event) => event.preventDefault());
+};
+
 // ============================================
 // ABILITY BUTTON - кнопка способности класса
 // ============================================
@@ -517,11 +525,6 @@ abilityButton.style.border = "3px solid #4a90c2";
 abilityButton.style.color = "#e6f3ff";
 abilityButton.style.fontSize = "28px";
 abilityButton.style.cursor = "pointer";
-abilityButton.style.touchAction = "manipulation";
-abilityButton.style.webkitUserSelect = "none";
-abilityButton.style.userSelect = "none";
-abilityButton.style.setProperty("-webkit-touch-callout", "none");
-abilityButton.addEventListener("dblclick", (event) => event.preventDefault());
 abilityButton.style.zIndex = "50";
 abilityButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 abilityButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
@@ -596,6 +599,8 @@ abilityButtonTimer.style.pointerEvents = "none";
 abilityButtonTimer.style.display = "none";
 abilityButton.appendChild(abilityButtonTimer);
 
+applyMobileTouchGuard(abilityButton);
+
 document.body.appendChild(abilityButton);
 
 const abilityCooldownUi: CooldownUi = {
@@ -623,11 +628,6 @@ projectileButton.style.border = "3px solid #9a4ac2";
 projectileButton.style.color = "#f3e6ff";
 projectileButton.style.fontSize = "24px";
 projectileButton.style.cursor = "pointer";
-projectileButton.style.touchAction = "manipulation";
-projectileButton.style.webkitUserSelect = "none";
-projectileButton.style.userSelect = "none";
-projectileButton.style.setProperty("-webkit-touch-callout", "none");
-projectileButton.addEventListener("dblclick", (event) => event.preventDefault());
 projectileButton.style.zIndex = "50";
 projectileButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 projectileButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
@@ -699,6 +699,8 @@ projectileTimer.style.pointerEvents = "none";
 projectileTimer.style.display = "none";
 projectileButton.appendChild(projectileTimer);
 
+applyMobileTouchGuard(projectileButton);
+
 document.body.appendChild(projectileButton);
 
 const projectileCooldownUi: CooldownUi = {
@@ -728,11 +730,6 @@ slot2Button.style.border = "3px solid #4ac27a";
 slot2Button.style.color = "#e6fff3";
 slot2Button.style.fontSize = "24px";
 slot2Button.style.cursor = "pointer";
-slot2Button.style.touchAction = "manipulation";
-slot2Button.style.webkitUserSelect = "none";
-slot2Button.style.userSelect = "none";
-slot2Button.style.setProperty("-webkit-touch-callout", "none");
-slot2Button.addEventListener("dblclick", (event) => event.preventDefault());
 slot2Button.style.zIndex = "50";
 slot2Button.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 slot2Button.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
@@ -803,6 +800,8 @@ slot2Timer.style.textShadow = "0 0 4px #000";
 slot2Timer.style.pointerEvents = "none";
 slot2Timer.style.display = "none";
 slot2Button.appendChild(slot2Timer);
+
+applyMobileTouchGuard(slot2Button);
 
 document.body.appendChild(slot2Button);
 
@@ -4895,27 +4894,27 @@ async function connectToServer(playerName: string, classId: number) {
         // Обработчик кнопки способности
         const onAbilityButtonClick = () => {
             logJoystick("ability-click", { slot: 0 });
+            flushIdleMovement();
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
-            flushIdleMovement();
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
         
         // Обработчик кнопки Выброса (Projectile)
         const onProjectileButtonClick = () => {
             logJoystick("ability-click", { slot: 1 });
+            flushIdleMovement();
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
-            flushIdleMovement();
         };
         projectileButton.addEventListener("click", onProjectileButtonClick);
         
         // Обработчик кнопки Slot 2
         const onSlot2ButtonClick = () => {
             logJoystick("ability-click", { slot: 2 });
+            flushIdleMovement();
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
-            flushIdleMovement();
         };
         slot2Button.addEventListener("click", onSlot2ButtonClick);
         
@@ -5013,6 +5012,7 @@ async function connectToServer(playerName: string, classId: number) {
             abilityCardModal.style.display = "none";
             levelIndicator.style.display = "none";
             joinScreen.style.display = "flex";
+            isViewportUnlockedForResults = false;
             setGameViewportLock(false);
         });
     } catch (e) {
