@@ -9,9 +9,10 @@
 ## Последние изменения
 
 - **План рефакторинга архитектуры (Claude Opus 4.5):** Проведён анализ God Objects, создан `docs/Refactoring-Plan-Claude-Opus-4.5.md`. Выявлены критические проблемы: `ArenaRoom.ts` (4,026 строк), `main.ts` (4,958 строк), `config.ts` (2,982 строки). Оценка: 18-29 рабочих дней, 3 фазы.
-- **Мобильный ввод:** lock viewport (maximum/minimum-scale, user-scalable=no) на время матча; глобальный gesture-guard; touch-guard хелпер для кнопок умений; `flushIdleMovement` вызывается до отправки ability; pointer-capture освобождается в `pointerup/cancel`.
+- **Мобильный ввод:** блокировка масштабирования (maximum/minimum-scale, user-scalable=no) на время матча; защита от масштабирования жестами; защита от сенсорного ввода для кнопок умений; `flushIdleMovement` вызывается до отправки ability; pointer-capture освобождается в `pointerup/cancel`.
 - **Диагностика мобильного джойстика:** добавлены отладочные логи pointer/resize/visibility и кликов умений (флаг `?debugJoystick=1`).
 - **Рефакторинг джойстика (шаг 2):** `main.ts` переведён на модуль `client/src/input/joystick.ts` (конфиг, состояние, размеры через модульные функции).
+- **Фиксы ревью по mobile input:** добавлена защита от сенсорного ввода, guard для viewport, логика `flushIdleMovement` перед ability, освобождение pointer-capture, уточнены отладочные сообщения для pointer events.
 - **Релиз v0.2:** публикация релиза и контейнеров в GHCR, ссылки добавлены в README.
 - **Шаг 1:** Собиратель получил `pull` как стартовое умение, `slow` перенесено в общий пул карточек.
 - **Шаг 2:** Притяжение орбов к пасти (getMouthPoint: 1.9 радиуса), визуализация смещена.

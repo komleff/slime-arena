@@ -4725,7 +4725,7 @@ async function connectToServer(playerName: string, classId: number) {
                 isCoarse,
             });
             
-            // Мышь не активирует джойстик - управление мышью: курсор задаёт направление
+            // Мышь не активирует джойстик — управление мышью: курсор задаёт направление
             if (isMousePointer) {
                 logJoystick("pointerdown-skip", { reason: "mouse" });
                 return;
@@ -4777,11 +4777,9 @@ async function connectToServer(playerName: string, classId: number) {
 
         const onPointerMove = (event: PointerEvent) => {
             if (!joystickState.active) {
-                logJoystick("pointermove-skip", { reason: "inactive", pointerId: event.pointerId });
                 return;
             }
             if (event.pointerId !== joystickState.pointerId) {
-                logJoystick("pointermove-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
                 return;
             }
             event.preventDefault();
