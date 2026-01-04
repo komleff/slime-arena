@@ -4893,44 +4893,54 @@ async function connectToServer(playerName: string, classId: number) {
             mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
         };
 
-        const flushIdleMovement = () => {
-            if (joystickState.active) return;
-            if (mouseState.active) return;
-            if (keyState.up || keyState.down || keyState.left || keyState.right) return;
-            const hasResidualMove = Math.abs(lastSentInput.x) > 1e-3 || Math.abs(lastSentInput.y) > 1e-3;
-            if (!hasResidualMove) return;
+        // Принудительный сброс джойстика перед активацией умения
+        // Решает проблему гонки событий click/pointerup на мобильных
+        const forceResetJoystickForAbility = (slot: number) => {
+            const wasActive = joystickState.active;
+            if (wasActive) {
+                detachJoystickPointerListeners();
+                resetJoystick();
+                logJoystick("force-reset-for-ability", { slot });
+            }
+            // Сбрасываем lastSentInput чтобы ability отправился с нулевым движением
             lastSentInput = { x: 0, y: 0 };
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
-            logJoystick("flush-idle");
         };
         
         // Обработчик кнопки способности
         const onAbilityButtonClick = () => {
             logJoystick("ability-click", { slot: 0 });
-            flushIdleMovement();
+            forceResetJoystickForAbility(0);
             inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 0 });
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
+        abilityButton.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+        });
         
         // Обработчик кнопки Выброса (Projectile)
         const onProjectileButtonClick = () => {
             logJoystick("ability-click", { slot: 1 });
-            flushIdleMovement();
+            forceResetJoystickForAbility(1);
             inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 1 });
         };
         projectileButton.addEventListener("click", onProjectileButtonClick);
+        projectileButton.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+        });
         
         // Обработчик кнопки Slot 2
         const onSlot2ButtonClick = () => {
             logJoystick("ability-click", { slot: 2 });
-            flushIdleMovement();
+            forceResetJoystickForAbility(2);
             inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 2 });
         };
         slot2Button.addEventListener("click", onSlot2ButtonClick);
+        slot2Button.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+        });
         
         // Обработчики кнопок карточки умений
         const onAbilityCardChoice = (choiceIndex: number) => {
