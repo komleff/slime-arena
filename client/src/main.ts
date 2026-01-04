@@ -52,6 +52,41 @@ root.style.wordWrap = "break-word";
 
 document.body.appendChild(root);
 
+const viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+const defaultViewportContent = viewportMeta?.content ?? "width=device-width, initial-scale=1.0";
+let isGameViewportLocked = false;
+
+function setGameViewportLock(enabled: boolean) {
+    isGameViewportLocked = enabled;
+    if (!viewportMeta) return;
+
+    if (!enabled) {
+        viewportMeta.content = defaultViewportContent;
+        return;
+    }
+
+    let nextContent = defaultViewportContent;
+    if (!/maximum-scale\s*=/.test(nextContent)) {
+        nextContent += ", maximum-scale=1.0";
+    }
+    if (!/minimum-scale\s*=/.test(nextContent)) {
+        nextContent += ", minimum-scale=1.0";
+    }
+    if (!/user-scalable\s*=/.test(nextContent)) {
+        nextContent += ", user-scalable=no";
+    }
+    viewportMeta.content = nextContent;
+}
+
+const preventGestureZoom = (event: Event) => {
+    if (!isGameViewportLocked) return;
+    event.preventDefault();
+};
+
+document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+document.addEventListener("gestureend", preventGestureZoom, { passive: false });
+
 const hud = document.createElement("div");
 hud.style.position = "fixed";
 hud.style.top = "12px";
@@ -482,6 +517,11 @@ abilityButton.style.border = "3px solid #4a90c2";
 abilityButton.style.color = "#e6f3ff";
 abilityButton.style.fontSize = "28px";
 abilityButton.style.cursor = "pointer";
+abilityButton.style.touchAction = "manipulation";
+abilityButton.style.webkitUserSelect = "none";
+abilityButton.style.userSelect = "none";
+abilityButton.style.setProperty("-webkit-touch-callout", "none");
+abilityButton.addEventListener("dblclick", (event) => event.preventDefault());
 abilityButton.style.zIndex = "50";
 abilityButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 abilityButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
@@ -583,6 +623,11 @@ projectileButton.style.border = "3px solid #9a4ac2";
 projectileButton.style.color = "#f3e6ff";
 projectileButton.style.fontSize = "24px";
 projectileButton.style.cursor = "pointer";
+projectileButton.style.touchAction = "manipulation";
+projectileButton.style.webkitUserSelect = "none";
+projectileButton.style.userSelect = "none";
+projectileButton.style.setProperty("-webkit-touch-callout", "none");
+projectileButton.addEventListener("dblclick", (event) => event.preventDefault());
 projectileButton.style.zIndex = "50";
 projectileButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 projectileButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
@@ -683,6 +728,11 @@ slot2Button.style.border = "3px solid #4ac27a";
 slot2Button.style.color = "#e6fff3";
 slot2Button.style.fontSize = "24px";
 slot2Button.style.cursor = "pointer";
+slot2Button.style.touchAction = "manipulation";
+slot2Button.style.webkitUserSelect = "none";
+slot2Button.style.userSelect = "none";
+slot2Button.style.setProperty("-webkit-touch-callout", "none");
+slot2Button.addEventListener("dblclick", (event) => event.preventDefault());
 slot2Button.style.zIndex = "50";
 slot2Button.style.transition = "transform 150ms, background 150ms, opacity 150ms";
 slot2Button.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
@@ -2551,6 +2601,7 @@ async function connectToServer(playerName: string, classId: number) {
     hud.style.display = "block";
     topCenterHud.style.display = "flex";
     joinScreen.style.display = "none";
+    setGameViewportLock(true);
     try {
         (document.activeElement as HTMLElement | null)?.blur?.();
         canvas.focus();
@@ -2612,6 +2663,7 @@ async function connectToServer(playerName: string, classId: number) {
         let talentSelectionInFlight = false;
         let cardsCollapsed = false;
         let lastLocalMass = 0;
+        let isViewportUnlockedForResults = false;
 
         queueIndicator.onclick = () => {
             cardsCollapsed = false;
@@ -2675,6 +2727,7 @@ async function connectToServer(playerName: string, classId: number) {
                 resultsOverlay.style.display = "none";
                 topCenterHud.style.display = "none";
                 joinScreen.style.display = "flex";
+                setGameViewportLock(false);
                 return;
             }
 
@@ -2688,6 +2741,7 @@ async function connectToServer(playerName: string, classId: number) {
             abilityButton.style.display = "flex";
             abilityButton.style.alignItems = "center";
             abilityButton.style.justifyContent = "center";
+            setGameViewportLock(true);
             try {
                 (document.activeElement as HTMLElement | null)?.blur?.();
                 canvas.focus();
@@ -3402,9 +3456,17 @@ async function connectToServer(playerName: string, classId: number) {
             const phase = room.state.phase;
             if (phase !== "Results") {
                 resultsOverlay.style.display = "none";
+                if (isViewportUnlockedForResults) {
+                    setGameViewportLock(true);
+                    isViewportUnlockedForResults = false;
+                }
                 return;
             }
 
+            if (!isViewportUnlockedForResults) {
+                setGameViewportLock(false);
+                isViewportUnlockedForResults = true;
+            }
             resultsOverlay.style.display = "flex";
             resultsTitle.textContent = "🏆 Матч завершён!";
 
@@ -4817,12 +4879,25 @@ async function connectToServer(playerName: string, classId: number) {
             mouseState.screenX = clamp(event.clientX, rect.left + 1, rect.right - 1);
             mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
         };
+
+        const flushIdleMovement = () => {
+            if (joystickState.active) return;
+            if (mouseState.active) return;
+            if (keyState.up || keyState.down || keyState.left || keyState.right) return;
+            const hasResidualMove = Math.abs(lastSentInput.x) > 1e-3 || Math.abs(lastSentInput.y) > 1e-3;
+            if (!hasResidualMove) return;
+            lastSentInput = { x: 0, y: 0 };
+            inputSeq += 1;
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
+            logJoystick("flush-idle", {});
+        };
         
         // Обработчик кнопки способности
         const onAbilityButtonClick = () => {
             logJoystick("ability-click", { slot: 0 });
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+            flushIdleMovement();
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
         
@@ -4831,6 +4906,7 @@ async function connectToServer(playerName: string, classId: number) {
             logJoystick("ability-click", { slot: 1 });
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+            flushIdleMovement();
         };
         projectileButton.addEventListener("click", onProjectileButtonClick);
         
@@ -4839,6 +4915,7 @@ async function connectToServer(playerName: string, classId: number) {
             logJoystick("ability-click", { slot: 2 });
             inputSeq += 1;
             room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
+            flushIdleMovement();
         };
         slot2Button.addEventListener("click", onSlot2ButtonClick);
         
@@ -4936,6 +5013,7 @@ async function connectToServer(playerName: string, classId: number) {
             abilityCardModal.style.display = "none";
             levelIndicator.style.display = "none";
             joinScreen.style.display = "flex";
+            setGameViewportLock(false);
         });
     } catch (e) {
         hud.textContent = `Ошибка подключения: ${e}`;
@@ -4945,6 +5023,7 @@ async function connectToServer(playerName: string, classId: number) {
         hud.style.display = "none";
         topCenterHud.style.display = "none";
         joinScreen.style.display = "flex";
+        setGameViewportLock(false);
     }
 }
 
