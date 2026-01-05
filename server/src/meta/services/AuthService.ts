@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
 import * as crypto from 'crypto';
+import { AuthProviderFactory } from '../platform/AuthProviderFactory';
 
 export interface User {
   id: string;
@@ -28,7 +29,7 @@ export class AuthService {
 
   /**
    * Verify platform authentication and create/update user
-   * For now, this is a simple implementation - platform-specific verification should be added
+   * Uses platform-specific adapters for token verification
    */
   async verifyAndCreateSession(
     platformType: string,
@@ -36,13 +37,15 @@ export class AuthService {
     ip?: string,
     userAgent?: string
   ): Promise<{ user: User; session: Session }> {
-    // TODO: Add platform-specific token verification (Telegram, Yandex, etc.)
-    // For now, we'll parse a simple format: "platform_id:nickname"
-    const [platformId, nickname] = platformAuthToken.split(':');
-    
-    if (!platformId || !nickname) {
-      throw new Error('Invalid auth token format');
+    // Получаем провайдер для платформы
+    const provider = AuthProviderFactory.getProvider(platformType);
+    if (!provider) {
+      throw new Error(`Unsupported platform: ${platformType}`);
     }
+
+    // Верифицируем токен через платформенный провайдер
+    const platformUser = await provider.verifyToken(platformAuthToken);
+    const { platformUserId, nickname, avatarUrl } = platformUser;
 
     const client = await this.pool.connect();
 
@@ -52,7 +55,7 @@ export class AuthService {
       // Find or create user
       let userResult = await client.query(
         'SELECT id, platform_type, platform_id, nickname, avatar_url, locale FROM users WHERE platform_type = $1 AND platform_id = $2',
-        [platformType, platformId]
+        [platformType, platformUserId]
       );
 
       let user: User;
@@ -60,10 +63,10 @@ export class AuthService {
       if (userResult.rows.length === 0) {
         // Create new user
         const insertUserResult = await client.query(
-          `INSERT INTO users (platform_type, platform_id, nickname, last_login_at) 
-           VALUES ($1, $2, $3, NOW()) 
+          `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, last_login_at) 
+           VALUES ($1, $2, $3, $4, NOW()) 
            RETURNING id, platform_type, platform_id, nickname, avatar_url, locale`,
-          [platformType, platformId, nickname]
+          [platformType, platformUserId, nickname, avatarUrl || null]
         );
         user = this.mapUserRow(insertUserResult.rows[0]);
 

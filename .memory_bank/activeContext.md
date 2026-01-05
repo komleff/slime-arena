@@ -10,6 +10,48 @@
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] Stage B - Core Services (5 января 2025):**
+  
+  **Platform Adapters (5 новых файлов):**
+  - `server/src/meta/platform/IAuthProvider.ts` — Интерфейс платформенных провайдеров
+  - `server/src/meta/platform/DevAuthProvider.ts` — Dev-режим авторизации  
+  - `server/src/meta/platform/TelegramAuthProvider.ts` — Telegram Mini App (HMAC-SHA256)
+  - `server/src/meta/platform/YandexAuthProvider.ts` — Yandex Games SDK (JWT)
+  - `server/src/meta/platform/PokiAuthProvider.ts` — Poki SDK
+  - `server/src/meta/platform/AuthProviderFactory.ts` — Фабрика провайдеров
+
+  **Core Services (4 новых сервиса):**
+  - `server/src/meta/services/MatchmakingService.ts` — Redis queue, FIFO matchmaking, 60s timeout, 2-8 игроков
+  - `server/src/meta/services/WalletService.ts` — Транзакции с idempotency, audit trail
+  - `server/src/meta/services/ShopService.ts` — Офферы из RuntimeConfig, unlocking items
+  - `server/src/meta/services/AdsService.ts` — grantId-based rewards, 5-min TTL
+
+  **HTTP Routes (4 новых роута):**
+  - `server/src/meta/routes/matchmaking.ts` — POST /join, /cancel, GET /status
+  - `server/src/meta/routes/wallet.ts` — GET /balance, /transactions
+  - `server/src/meta/routes/shop.ts` — GET /offers, /unlocked, POST /purchase
+  - `server/src/meta/routes/ads.ts` — POST /grant, /claim, GET /grant/:id
+
+  **Интеграции:**
+  - AuthService обновлён для использования platform adapters
+  - MetaServer инициализирует AuthProviderFactory при старте
+  - Все новые роуты добавлены в server.ts
+
+  **Smoke Tests:**
+  - Обновлён run-smoke-tests.ps1: 11 тестов (wallet, matchmaking, shop)
+  - Тесты покрывают join/cancel queue, balance check, shop offers
+
+  **Ключевые особенности:**
+  - **Platform abstraction**: Dev, Telegram, Yandex, Poki готовы
+  - **Matchmaking**: Redis-based FIFO queue, processQueue() для создания матчей
+  - **Wallet**: Idempotent add/deduct, защита от insufficient balance
+  - **Shop**: Интеграция с RuntimeConfig, unlocking skins/currency/battlepass
+  - **Ads**: Grant → Show ad → Claim reward workflow
+
+  **Файлы:**
+  - Создано 17 новых файлов
+  - Изменено 3 файла (AuthService.ts, server.ts, run-smoke-tests.ps1)
+
 - **[ЗАВЕРШЕНО] Stage A - MetaServer Infrastructure (5 января 2025):**
   
   **Создано 13 новых файлов:**
@@ -57,9 +99,9 @@
   - **Добавлены инструкции:** 3 файла в корне для ИИ-агентов (архитектор, кодер, тестировщик)
   - **Пакет документов:** Архитектура v4.2.5 (части 1-4), ТЗ v1.4.7, План v1.0.5, Шаблоны v1.0.1, AI Guides v1.0.1
 - **План реализации Soft Launch составлен:** 5 этапов, 40-55 рабочих дней
-  - Stage A: Подготовка окружений (PostgreSQL, Redis, MetaServer) — **ЗАВЕРШЕНО**
-  - Stage B: Функциональный минимум (авторизация, матчмейкинг, экономика) — 12-15 дней
-  - Stage C: Монетизация и LiveOps (конфиги, магазин, реклама, A/B тесты) — 8-10 дней
+  - Stage A: Подготовка окружений (PostgreSQL, Redis, MetaServer) — **ЗАВЕРШЕНО (5 января)**
+  - Stage B: Функциональный минимум (авторизация, матчмейкинг, экономика) — **ЗАВЕРШЕНО (5 января)**
+  - Stage C: Монетизация и LiveOps (конфиги, магазин, реклама, A/B тесты) — **Следующий этап**
   - UI Refactoring: Preact миграция, ScreenManager, HUD оптимизация — 10-12 дней
   - Stage D: Тестирование (smoke, нагрузка, идемпотентность) — 5-7 дней
 

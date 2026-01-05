@@ -8,9 +8,84 @@
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A MetaServer**: ЗАВЕРШЕНО (5 января 2026)
-- **Резюме**: Stage A реализован — PostgreSQL, Redis, MetaServer с базовым HTTP API.
+- **Stage B Core Services**: ЗАВЕРШЕНО (5 января 2026)
+- **Резюме**: Stage A+B завершены — MetaServer с platform adapters, matchmaking, wallet, shop, ads.
 
 ## Последние изменения (5 января 2026)
+
+### Stage B - Core Services (ЗАВЕРШЕНО)
+
+**Platform Adapters (6 файлов):**
+- IAuthProvider: Интерфейс для платформенной авторизации
+- DevAuthProvider: Dev-режим (userId:nickname формат)
+- TelegramAuthProvider: Telegram Mini App (HMAC-SHA256 signature validation)
+- YandexAuthProvider: Yandex Games SDK (JWT parsing, placeholder signature check)
+- PokiAuthProvider: Poki SDK (player_id based)
+- AuthProviderFactory: Фабрика провайдеров с автоинициализацией
+
+**Core Services (4 сервиса):**
+- MatchmakingService (228 строк):
+  - Redis ZSET-based queue (sorted by timestamp)
+  - FIFO matchmaking: 2-8 игроков per match
+  - 60-second timeout для requests
+  - processQueue() для создания матчей
+  - Match assignment: roomId, roomHost, roomPort, matchId
+- WalletService (256 строк):
+  - Idempotent add/deduct currency (soft/hard)
+  - Balance checks перед deduct
+  - Transaction history (50 items limit)
+  - Audit trail для всех операций
+- ShopService (166 строк):
+  - Offers из RuntimeConfig.shop.offers
+  - Purchase: deduct currency → unlock item/grant currency/enable battlepass
+  - Idempotency через transactions table
+  - getUnlockedItems() по типу
+- AdsService (133 строки):
+  - generateGrant() перед показом рекламы
+  - grantId TTL: 5 минут (Redis)
+  - claimReward() после просмотра (idempotent)
+  - Rewards: soft/hard currency или items
+
+**HTTP Routes (4 роута):**
+- /api/v1/matchmaking:
+  - POST /join — добавить в очередь
+  - POST /cancel — покинуть очередь
+  - GET /status — статус и позиция в очереди
+- /api/v1/wallet:
+  - GET /balance — текущий баланс
+  - GET /transactions — история транзакций
+- /api/v1/shop:
+  - GET /offers — доступные офферы
+  - POST /purchase — купить за валюту
+  - GET /unlocked — разблокированные items
+- /api/v1/ads:
+  - POST /grant — создать grant перед показом
+  - POST /claim — claim reward после просмотра
+  - GET /grant/:grantId — статус grant
+
+**Интеграции:**
+- AuthService.verifyAndCreateSession() использует IAuthProvider.verifyToken()
+- MetaServer инициализирует AuthProviderFactory при старте
+- Environment variables: TELEGRAM_BOT_TOKEN, YANDEX_APP_ID
+
+**Smoke Tests (обновлено до 11 тестов):**
+- Wallet balance check
+- Matchmaking: join → status → cancel
+- Shop offers list
+- Сохранены Stage A тесты: health, config, auth, profile, idempotency
+
+**Технические решения:**
+- **Platform abstraction**: Провайдеры выбираются по platformType (dev/telegram/yandex/poki)
+- **Matchmaking**: Redis ZSET для FIFO, match assignments хранятся 5 минут
+- **Wallet**: PostgreSQL transactions для atomicity, idempotency ключ: (user_id, operation_id)
+- **Shop**: Офферы из RuntimeConfig → гибкость для LiveOps
+- **Ads**: Grant-based flow предотвращает reward farming
+
+**Файлы:**
+- Создано 17 новых файлов
+- Изменено 3 файла (AuthService.ts, server.ts, run-smoke-tests.ps1)
+
+**Оценка vs факт:** Stage B оценен в 12-15 дней, реализован за 1 сессию (вместе с Stage A).
 
 ### Stage A - MetaServer Infrastructure (ЗАВЕРШЕНО)
 

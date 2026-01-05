@@ -1,9 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import { initializePostgres, closePostgres, initializeRedis, closeRedis } from '../db/pool';
+import { AuthProviderFactory } from './platform/AuthProviderFactory';
 import authRoutes from './routes/auth';
 import configRoutes from './routes/config';
 import profileRoutes from './routes/profile';
+import matchmakingRoutes from './routes/matchmaking';
+import walletRoutes from './routes/wallet';
+import shopRoutes from './routes/shop';
+import adsRoutes from './routes/ads';
 
 const app = express();
 const PORT = process.env.META_PORT || 3000;
@@ -35,6 +40,10 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/profile', profileRoutes);
+app.use('/api/v1/matchmaking', matchmakingRoutes);
+app.use('/api/v1/wallet', walletRoutes);
+app.use('/api/v1/shop', shopRoutes);
+app.use('/api/v1/ads', adsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -61,10 +70,14 @@ async function start() {
     initializePostgres();
     await initializeRedis();
 
+    // Initialize platform auth providers
+    AuthProviderFactory.initialize();
+
     // Start server
     app.listen(PORT, () => {
       console.log(`[MetaServer] Listening on port ${PORT}`);
       console.log(`[MetaServer] Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`[MetaServer] Available platforms: ${AuthProviderFactory.getAvailablePlatforms().join(', ')}`);
     });
   } catch (error) {
     console.error('[MetaServer] Failed to start:', error);
