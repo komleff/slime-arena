@@ -2743,6 +2743,9 @@ async function connectToServer(playerName: string, classId: number) {
                 return;
             }
 
+            // При выключении режима выбора класса — переключить Preact UI на playing
+            setPhase("playing");
+
             nameInput.disabled = false;
             randomNameBtn.disabled = false;
 
@@ -3473,6 +3476,9 @@ async function connectToServer(playerName: string, classId: number) {
                 // Если да — не переключаем на "playing", т.к. hudTimer вызовет setClassSelectMode(true) → setPhase("menu")
                 if (wasInResultsPhase) {
                     wasInResultsPhase = false;
+                    // Очистить визуальное состояние для предотвращения "призраков" между матчами
+                    visualPlayers.clear();
+                    visualOrbs.clear();
                     const selfPlayer = room.state.players.get(room.sessionId);
                     const needsClassSelect = !selfPlayer || !isValidClassId(selfPlayer.classId);
                     if (!needsClassSelect) {
