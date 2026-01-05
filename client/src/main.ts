@@ -1322,6 +1322,7 @@ initResultsClassButtons();
 let selectedClassId = -1;  // -1 = класс не выбран
 let activeRoom: any = null;
 let globalInputSeq = 0; // Единый монотонный счётчик для всех input команд
+let lastSentInput = { x: 0, y: 0 }; // Последнее отправленное направление движения
 
 const classCardsContainer = document.createElement("div");
 classCardsContainer.style.display = "flex";
@@ -3467,11 +3468,18 @@ async function connectToServer(playerName: string, classId: number) {
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
             if (phase !== "Results") {
-                // Сбрасываем Preact UI на фазу playing ТОЛЬКО при выходе из Results
-                // (не каждый тик, иначе перезапишем menu/class-select)
+                // Сбрасываем Preact UI при выходе из Results
+                // НО: проверяем, нужен ли class-select (classId == -1)
+                // Если да — не переключаем на "playing", т.к. hudTimer вызовет setClassSelectMode(true) → setPhase("menu")
                 if (wasInResultsPhase) {
-                    setPhase("playing");
                     wasInResultsPhase = false;
+                    const selfPlayer = room.state.players.get(room.sessionId);
+                    const needsClassSelect = !selfPlayer || !isValidClassId(selfPlayer.classId);
+                    if (!needsClassSelect) {
+                        // Класс уже выбран — переходим в playing
+                        setPhase("playing");
+                    }
+                    // Иначе: hudTimer установит setPhase("menu") через setClassSelectMode(true)
                 }
                 if (isViewportUnlockedForResults) {
                     setGameViewportLock(true);
@@ -3604,7 +3612,8 @@ async function connectToServer(playerName: string, classId: number) {
             return { x, y: -y };
         };
 
-        let lastSentInput = { x: 0, y: 0 };
+        // lastSentInput теперь на уровне модуля для доступа из activateAbilityFromUI
+        lastSentInput = { x: 0, y: 0 }; // Сброс при новом подключении
         let isRendering = true;
         let rafId: number | null = null;
 
@@ -5037,8 +5046,11 @@ async function connectToServer(playerName: string, classId: number) {
             resetSnapshotBuffer();
 
             // Очистка визуальных сущностей для предотвращения "призраков"
-            visualPlayers.clear();
-            visualOrbs.clear();
+            // Проверяем что это та же комната, чтобы избежать race condition при reconnect
+            if (room === activeRoom || activeRoom === null) {
+                visualPlayers.clear();
+                visualOrbs.clear();
+            }
 
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
@@ -5111,13 +5123,14 @@ function sendTalentChoiceFromUI(index: number): void {
 
 // Helper function to activate ability through activeRoom
 // Использует единый globalInputSeq для совместимости с game loop
+// Сохраняет текущее направление движения (lastSentInput) вместо сброса
 function activateAbilityFromUI(slot: number): void {
     if (!activeRoom) return;
     globalInputSeq += 1;
     activeRoom.send("input", {
         seq: globalInputSeq,
-        moveX: 0,
-        moveY: 0,
+        moveX: lastSentInput.x,
+        moveY: lastSentInput.y,
         abilitySlot: slot
     });
 }
@@ -5135,6 +5148,13 @@ function leaveRoomFromUI(): void {
 // Initialize Preact UI
 const uiCallbacks: UICallbacks = {
     onPlay: (name: string, classId: number) => {
+        // Если уже подключены к комнате (между матчами), отправить selectClass
+        if (activeRoom) {
+            activeRoom.send("selectClass", { classId });
+            setPhase("waiting");
+            return;
+        }
+        // Первое подключение — создать комнату
         connectToServer(name, classId);
     },
     onSelectTalent: (_talentId: string, index: number) => {
@@ -5145,12 +5165,17 @@ const uiCallbacks: UICallbacks = {
     },
     onPlayAgain: (classId: number) => {
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
-        if (activeRoom) {
-            activeRoom.leave();
-            activeRoom = null;
-        }
+        // Используем .finally() чтобы гарантировать выполнение после завершения leave()
         const name = getPlayerName() || generateRandomName();
-        connectToServer(name, classId);
+        if (activeRoom) {
+            const roomToLeave = activeRoom;
+            activeRoom = null;
+            roomToLeave.leave().finally(() => {
+                connectToServer(name, classId);
+            });
+        } else {
+            connectToServer(name, classId);
+        }
     },
     onExit: () => {
         leaveRoomFromUI();
@@ -5158,9 +5183,8 @@ const uiCallbacks: UICallbacks = {
 };
 
 const uiContainer = document.getElementById("ui-root");
-if (uiContainer) {
-    initUI(uiContainer, uiCallbacks);
-    setPhase("menu");
-} else {
-    console.warn('UI не инициализирован: элемент "ui-root" не найден в DOM.');
+if (!uiContainer) {
+    throw new Error('UI не инициализирован: элемент "ui-root" не найден в DOM. Добавьте <div id="ui-root"></div> в index.html.');
 }
+initUI(uiContainer, uiCallbacks);
+setPhase("menu");

@@ -120,6 +120,39 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
+### UI Refactoring Phase 2 - Bug Fixes (6 января 2026)
+
+**SDET Review и исправления критических багов** — интеграция Preact UI с game loop:
+
+#### Исправленные баги
+
+**P0 (Critical):**
+
+- **onPlay: selectClass vs connectToServer** — между матчами отправляем `selectClass` вместо переподключения
+- **visualPlayers.clear race condition** — добавлена проверка `room === activeRoom` перед очисткой
+- **wasInResultsPhase** — корректная обработка переходов фаз
+
+**P1 (High):**
+
+- **Results timer** — теперь использует `matchTimer` signal для реактивных обновлений
+- **useEffect name overwrite** — проверка `playerName.value` вместо closure-переменной
+- **onPlayAgain room.leave()** — используем `.finally()` для гарантии последовательности
+- **activateAbilityFromUI movement** — сохраняем направление через `lastSentInput`
+
+**P2 (Medium):**
+
+- **Double setPhase** — унифицирована логика переходов Results → Playing/Menu
+- **ui-root missing** — теперь `throw Error` вместо `console.warn`
+
+#### Изменённые файлы
+
+- `client/src/main.ts` — интеграция UIBridge, исправления race conditions
+- `client/src/ui/components/ResultsScreen.tsx` — использование matchTimer signal
+- `client/src/ui/components/MainMenu.tsx` — защита от перезаписи имени
+- `client/index.html` — добавлен `<div id="ui-root">`
+
+---
+
 ### UI Refactoring (Phase 1 завершена, ожидает merge)
 
 **Preact миграция и ScreenManager** — модернизация UI-слоя клиента:

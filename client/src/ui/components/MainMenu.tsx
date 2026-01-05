@@ -237,8 +237,11 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
   const error = connectionError.value;
 
   // Генерируем случайное имя при первом монтировании, если имя пустое
+  // Используем playerName.value (signal) вместо name (closure), чтобы не перезаписать
+  // имя, которое пользователь начал вводить до срабатывания эффекта
   useEffect(() => {
-    if (!name || name.trim() === '') {
+    const currentName = playerName.value;
+    if (!currentName || currentName.trim() === '') {
       const newName = generateRandomName();
       setName(newName);
       playerName.value = newName;

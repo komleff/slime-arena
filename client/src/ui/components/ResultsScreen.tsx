@@ -9,6 +9,7 @@ import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
 import {
   matchResults,
+  matchTimer,
   selectedClassId,
   resetGameState,
 } from '../signals/gameState';
@@ -244,7 +245,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     return null;
   }
 
-  const { winner, finalLeaderboard, personalStats, nextMatchTimer } = results;
+  const { winner, finalLeaderboard, personalStats } = results;
 
   return (
     <div class="results-overlay">
@@ -310,10 +311,10 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           })}
         </div>
 
-        {/* Таймер до следующего матча */}
-        {nextMatchTimer > 0 && (
+        {/* Таймер до следующего матча — используем signal для реактивного обновления */}
+        {matchTimer.value.timeLeft > 0 && (
           <div class="results-timer">
-            Следующий матч через: {Math.ceil(nextMatchTimer)} сек
+            Следующий матч через: {Math.ceil(matchTimer.value.timeLeft)} сек
           </div>
         )}
 

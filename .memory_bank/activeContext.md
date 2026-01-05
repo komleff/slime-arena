@@ -7,12 +7,37 @@
 **Релиз:** v0.2.2
 **GDD версия:** 3.3.2
 **Текущая ветка:** `feature/ui-refactoring`
-**PR:** #32 — ожидает merge (Claude review запрошен)
+**PR:** #32 — Phase 2 Bug Fixes завершены
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] UI Refactoring - Phase 2 Bug Fixes (6 января 2026):**
+
+  **SDET Review — исправлены 9 критических багов:**
+
+  **P0 (Critical):**
+  - ✅ onPlay: selectClass vs connectToServer — между матчами отправляем selectClass
+  - ✅ visualPlayers.clear race condition — проверка room === activeRoom
+  - ✅ wasInResultsPhase — корректная обработка переходов фаз
+
+  **P1 (High):**
+  - ✅ Results timer — использует matchTimer signal для реактивных обновлений
+  - ✅ useEffect name overwrite — проверка playerName.value вместо closure
+  - ✅ onPlayAgain room.leave() — используем .finally() для последовательности
+  - ✅ activateAbilityFromUI movement — сохраняем направление через lastSentInput
+
+  **P2 (Medium):**
+  - ✅ Double setPhase — унифицирована логика Results → Playing/Menu
+  - ✅ ui-root missing — throw Error вместо console.warn
+
+  **Изменённые файлы:**
+  - `client/src/main.ts` — интеграция UIBridge, исправления race conditions
+  - `client/src/ui/components/ResultsScreen.tsx` — matchTimer signal
+  - `client/src/ui/components/MainMenu.tsx` — защита от перезаписи имени
+  - `client/index.html` — добавлен `<div id="ui-root">`
+
 - **[ЗАВЕРШЕНО] UI Refactoring - Phase 1 + Copilot Review:**
-  
+
   **Компоненты (все готовы):**
   - ✅ MainMenu — главное меню с выбором класса
   - ✅ GameHUD — HUD с throttled 10 Hz обновлением
@@ -21,25 +46,9 @@
   - ✅ ResultsScreen — экран результатов матча
   - ✅ ScreenManager — стек экранов с анимациями
   - ✅ UIBridge — мост Canvas ↔ Preact
-  
-  **Copilot Review (6 batch, 40+ комментариев исправлено):**
-  - ✅ Batch 1: FLAG_IS_DEAD=16, parseFloat, useMemo, DRY
-  - ✅ Batch 2: JSX типы, keys, focus trap, версия
-  - ✅ Batch 3: isConnecting signal, MAX_ABILITY_SLOTS, visualViewport
-  - ✅ Batch 4: abilities.ts, rarity.ts, цвета классов, ModalType
-  - ✅ Batch 5: импорты, округление, position fixed, devicePixelRatio
-  - ✅ Batch 6: entry.place key, FLAG_IS_DEAD import from shared
-  
-  **Новые файлы (DRY):**
-  - `data/classes.ts` — централизованные данные классов
-  - `data/abilities.ts` — централизованные данные способностей
-  - `data/rarity.ts` — централизованные данные редкости
-  - `utils/injectStyles.ts` — утилита CSS injection (HMR-safe)
 
-- **[ОЖИДАЕТ] Phase 2: Integration:**
-  - Интеграция `UIBridge` в `client/src/main.ts`
-  - Замена старого DOM-кода на вызовы `ui.bridge.*`
-  - Тестирование взаимодействия Canvas <-> Preact
+  **Copilot Review (6 batch, 40+ комментариев исправлено):**
+  - ✅ Batch 1-6: все замечания исправлены
 
 ### Архитектура файлов PR #32
   ```

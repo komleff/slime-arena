@@ -2,18 +2,47 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: 30b256f (feature/ui-refactoring) @ 5 января 2026
+- **last_checked_commit**: feature/ui-refactoring @ 6 января 2026
 - **Текущая ветка**: feature/ui-refactoring
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: Phase 1 завершена, все Copilot Review (6 batch) пройдены
-- **PR #32**: Ожидает merge (Claude review запрошен)
+- **UI Refactoring**: Phase 1 + Phase 2 Bug Fixes завершены
+- **PR #32**: Phase 2 Bug Fixes готовы к merge
 
-## Последние изменения (5 января 2026)
+## Последние изменения (6 января 2026)
 
-### UI Refactoring — PR #32 (готов к merge)
+### UI Refactoring Phase 2 — Bug Fixes (SDET Review)
+
+**Исправлены 9 критических багов из SDET/Copilot review:**
+
+**P0 (Critical):**
+- ✅ onPlay: selectClass vs connectToServer — между матчами отправляем selectClass вместо переподключения
+- ✅ visualPlayers.clear race condition — добавлена проверка `room === activeRoom`
+- ✅ wasInResultsPhase — корректная обработка переходов фаз
+
+**P1 (High):**
+- ✅ Results timer — использует `matchTimer` signal для реактивных обновлений
+- ✅ useEffect name overwrite — проверка `playerName.value` вместо closure-переменной
+- ✅ onPlayAgain room.leave() — используем `.finally()` для гарантии последовательности
+- ✅ activateAbilityFromUI movement — сохраняем направление через `lastSentInput`
+
+**P2 (Medium):**
+- ✅ Double setPhase — унифицирована логика переходов Results → Playing/Menu
+- ✅ ui-root missing — теперь `throw Error` вместо `console.warn`
+
+**Изменённые файлы:**
+- `client/src/main.ts` — интеграция UIBridge, исправления race conditions
+- `client/src/ui/components/ResultsScreen.tsx` — matchTimer signal
+- `client/src/ui/components/MainMenu.tsx` — защита от перезаписи имени
+- `client/index.html` — добавлен `<div id="ui-root">`
+
+---
+
+## Предыдущие изменения (5 января 2026)
+
+### UI Refactoring — PR #32 Phase 1 (готов к merge)
 
 **Copilot Review — все 6 batch пройдены (40+ комментариев):**
 
