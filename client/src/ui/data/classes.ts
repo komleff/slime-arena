@@ -12,9 +12,9 @@ export interface ClassData {
 }
 
 export const CLASSES_DATA: ClassData[] = [
-  { id: 0, name: 'Охотник', icon: '🎯', cssClass: 'hunter', color: '#ff6b35' },
-  { id: 1, name: 'Воин', icon: '⚔️', cssClass: 'warrior', color: '#e63946' },
-  { id: 2, name: 'Собиратель', icon: '💎', cssClass: 'collector', color: '#4ecdc4' },
+  { id: 0, name: 'Охотник', icon: '🎯', cssClass: 'hunter', color: '#4ade80' },
+  { id: 1, name: 'Воин', icon: '⚔️', cssClass: 'warrior', color: '#f87171' },
+  { id: 2, name: 'Собиратель', icon: '💎', cssClass: 'collector', color: '#60a5fa' },
 ];
 
 export function getClassById(id: number): ClassData | undefined {

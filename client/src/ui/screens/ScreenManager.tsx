@@ -370,7 +370,7 @@ export function goBack(): boolean {
   return popped !== null;
 }
 
-export function showModal(modal: Exclude<ModalType, null>) {
+export function showModal(modal: ModalType) {
   openModal(modal);
 }
 

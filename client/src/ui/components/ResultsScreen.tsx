@@ -214,10 +214,7 @@ const styles = `
 `;
 
 const STYLES_ID = 'results-screen-styles';
-
-if (typeof window !== 'undefined') {
-  injectStyles(STYLES_ID, styles);
-}
+injectStyles(STYLES_ID, styles);
 
 // ========== Компонент ==========
 

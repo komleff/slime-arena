@@ -12,6 +12,7 @@ import {
   showTalentModal,
   type TalentChoice,
 } from '../signals/gameState';
+import { getRarityName } from '../data/rarity';
 
 // ========== Стили ==========
 
@@ -144,18 +145,7 @@ const styles = `
 `;
 
 const STYLES_ID = 'talent-modal-styles';
-
-if (typeof window !== 'undefined') {
-  injectStyles(STYLES_ID, styles);
-}
-
-// ========== Компонент ==========
-
-const rarityNames: Record<number, string> = {
-  0: 'Обычный',
-  1: 'Редкий',
-  2: 'Эпический',
-};
+injectStyles(STYLES_ID, styles);
 
 interface TalentModalProps {
   onSelectTalent: (talentId: string, index: number) => void;
@@ -198,7 +188,7 @@ export function TalentModal({ onSelectTalent }: TalentModalProps) {
                 <div class="talent-name">{talent.name}</div>
                 <div class="talent-desc">{talent.description}</div>
                 <div class={`talent-rarity rarity-${talent.rarity}`}>
-                  {rarityNames[talent.rarity] || 'Обычный'}
+                  {getRarityName(talent.rarity)}
                 </div>
               </div>
             </button>

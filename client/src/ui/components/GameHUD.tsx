@@ -185,7 +185,7 @@ function formatTime(seconds: number): string {
 }
 
 function formatMass(mass: number): string {
-  if (mass >= 1000) {
+  if (mass >= 10000) {
     return `${(mass / 1000).toFixed(1)}k`;
   }
   return Math.floor(mass).toString();
@@ -225,8 +225,8 @@ function Leaderboard() {
 
   return (
     <div class="hud-leaderboard">
-      {entries.map((entry) => (
-        <div key={`${entry.place}-${entry.name}`} class={`leaderboard-entry ${entry.isLocal ? 'is-local' : ''}`}>
+      {entries.map((entry, index) => (
+        <div key={index} class={`leaderboard-entry ${entry.isLocal ? 'is-local' : ''}`}>
           <span class="leaderboard-place">{entry.place}.</span>
           <span class="leaderboard-name">{entry.name}</span>
           <span class="leaderboard-mass">{formatMass(entry.mass)}</span>

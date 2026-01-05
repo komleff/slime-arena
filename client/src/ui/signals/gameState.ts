@@ -9,7 +9,7 @@ import { signal, computed, batch } from '@preact/signals';
 
 export type GamePhase = 'menu' | 'connecting' | 'waiting' | 'playing' | 'results';
 export type ScreenType = 'main-menu' | 'lobby' | 'game' | 'results' | 'settings' | 'shop' | 'profile';
-export type ModalType = 'talent' | 'pause' | 'confirm-exit' | 'settings' | null;
+export type ModalType = 'talent' | 'pause' | 'confirm-exit' | 'settings';
 
 export interface PlayerStats {
   name: string;
@@ -66,7 +66,7 @@ export const gamePhase = signal<GamePhase>('menu');
 
 // Текущий экран и модальное окно
 export const currentScreen = signal<ScreenType>('main-menu');
-export const activeModal = signal<ModalType>(null);
+export const activeModal = signal<ModalType | null>(null);
 export const screenStack = signal<ScreenType[]>(['main-menu']);
 
 // Подключение

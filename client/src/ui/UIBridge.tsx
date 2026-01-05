@@ -150,7 +150,7 @@ export function destroyUI(): void {
  * Вызывается из main.ts на каждом HUD-тике (10 Hz)
  */
 export function syncPlayerState(stats: PlayerStats | null | undefined): void {
-  if (!stats) return;
+  if (stats == null || typeof stats !== 'object') return;
   updateLocalPlayer(stats);
 }
 

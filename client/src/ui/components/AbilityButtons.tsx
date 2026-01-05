@@ -142,17 +142,9 @@ const styles = `
 
 const STYLES_ID = 'ability-buttons-styles';
 
-if (typeof window !== 'undefined') {
-  injectStyles(STYLES_ID, styles);
-}
+injectStyles(STYLES_ID, styles);
 
-// ========== Данные способностей ==========
-
-const abilityData = [
-  { slot: 0, icon: '⚡', label: '1', color: '#4fc3f7' },
-  { slot: 1, icon: '💥', label: '2', color: '#c74ff7' },
-  { slot: 2, icon: '🛡️', label: '3', color: '#f7c74f' },
-];
+import { ABILITIES_DATA } from '../data/abilities';
 
 // ========== Компонент кнопки ==========
 
@@ -239,7 +231,7 @@ export function AbilityButtons({ onActivateAbility, visibleSlots = [0, 1, 2] }: 
   const cooldowns = abilityCooldowns.value;
 
   const visibleAbilities = useMemo(() => 
-    abilityData.filter(a => visibleSlots.includes(a.slot)),
+    ABILITIES_DATA.filter(a => visibleSlots.includes(a.slot)),
     [visibleSlots]
   );
 
