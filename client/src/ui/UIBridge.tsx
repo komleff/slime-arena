@@ -63,21 +63,21 @@ let callbacks: UICallbacks | null = null;
 let cleanupMobileDetection: (() => void) | null = null;
 
 function UIRoot() {
-  const phase = gamePhase.value;
-  const connecting = isConnecting.value;
+  // Используем сигналы напрямую в JSX для автоматической реактивности
+  // Чтение .value в теле компонента создаёт подписку на изменения
 
   return (
     <Fragment>
       {/* Main Menu */}
-      {phase === 'menu' && callbacks && (
-        <MainMenu 
-          onPlay={callbacks.onPlay} 
-          isConnecting={connecting}
+      {gamePhase.value === 'menu' && callbacks && (
+        <MainMenu
+          onPlay={callbacks.onPlay}
+          isConnecting={isConnecting.value}
         />
       )}
 
       {/* Game HUD */}
-      {(phase === 'playing' || phase === 'waiting') && (
+      {(gamePhase.value === 'playing' || gamePhase.value === 'waiting') && (
         <Fragment>
           <GameHUD />
           {callbacks && (
@@ -92,8 +92,8 @@ function UIRoot() {
       )}
 
       {/* Results Screen */}
-      {phase === 'results' && callbacks && (
-        <ResultsScreen 
+      {gamePhase.value === 'results' && callbacks && (
+        <ResultsScreen
           onPlayAgain={callbacks.onPlayAgain}
           onExit={callbacks.onExit}
         />
@@ -209,6 +209,8 @@ export function syncBoost(boost: BoostState | null): void {
  */
 export function setPhase(phase: GamePhase): void {
   setGamePhase(phase);
+  // Принудительный перерендер для обновления UI при смене фазы
+  renderUI();
 }
 
 /**
@@ -227,6 +229,8 @@ export function setConnected(connected: boolean, error?: string): void {
  */
 export function setConnecting(connecting: boolean): void {
   isConnecting.value = connecting;
+  // Принудительный перерендер для обновления состояния подключения
+  renderUI();
 }
 
 /**
@@ -239,6 +243,8 @@ export function showResults(results: {
   nextMatchTimer: number;
 }): void {
   setMatchResults(results);
+  // Принудительный перерендер для показа результатов
+  renderUI();
 }
 
 /**

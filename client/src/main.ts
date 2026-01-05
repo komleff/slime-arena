@@ -43,6 +43,7 @@ import {
     setPhase,
     setConnecting,
     getPlayerName,
+    showResults as showResultsUI,
     type UICallbacks,
 } from "./ui/UIBridge";
 
@@ -2619,16 +2620,9 @@ async function connectToServer(playerName: string, classId: number) {
         // ignore focus errors
     }
     
-    // Показываем кнопки способностей и устанавливаем иконку
-    abilityButton.style.display = "flex";
-    abilityButton.style.alignItems = "center";
-    abilityButton.style.justifyContent = "center";
+    // Legacy кнопки способностей скрыты — используем Preact AbilityButtons
+    // abilityButton, projectileButton, slot2Button остаются display: "none"
     abilityButtonIcon.textContent = abilityIcons[classId] ?? "⚡";
-    
-    // projectileButton и slot2Button будут показаны через updateSlot1Button/updateSlot2Button
-    // после подключения к комнате и получения состояния игрока
-    projectileButton.style.display = "none";
-    slot2Button.style.display = "none";
 
     hud.textContent = "Подключение к серверу...";
 
@@ -2752,9 +2746,7 @@ async function connectToServer(playerName: string, classId: number) {
             canvas.style.display = "block";
             hud.style.display = "block";
             topCenterHud.style.display = "flex";
-            abilityButton.style.display = "flex";
-            abilityButton.style.alignItems = "center";
-            abilityButton.style.justifyContent = "center";
+            // Legacy кнопки способностей скрыты — используем Preact AbilityButtons
             setGameViewportLock(true);
             try {
                 (document.activeElement as HTMLElement | null)?.blur?.();
@@ -3417,8 +3409,9 @@ async function connectToServer(playerName: string, classId: number) {
             }
         };
         
-        // Обновление кнопки слота 2
+        // Обновление кнопки слота 2 (legacy — скрыта, используем Preact AbilityButtons)
         const updateSlot2Button = () => {
+            return; // Legacy кнопка скрыта
             const player = room.state.players.get(room.sessionId);
             if (!player) {
                 slot2Button.style.display = "none";
@@ -3443,8 +3436,9 @@ async function connectToServer(playerName: string, classId: number) {
             slot2ButtonIcon.textContent = info.icon;
         };
         
-        // Обновление иконки кнопки Slot 1 (projectile или другое умение)
+        // Обновление иконки кнопки Slot 1 (legacy — скрыта, используем Preact AbilityButtons)
         const updateSlot1Button = () => {
+            return; // Legacy кнопка скрыта
             const player = room.state.players.get(room.sessionId);
             if (!player) return;
             
@@ -3466,18 +3460,23 @@ async function connectToServer(playerName: string, classId: number) {
             projectileButtonIcon.textContent = info.icon;
         };
 
+        let wasInResultsPhase = false;
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
             if (phase !== "Results") {
-                // Сбрасываем Preact UI на фазу playing при выходе из Results
-                setPhase("playing");
-                // Legacy resultsOverlay скрыт, используем Preact ResultsScreen
+                // Сбрасываем Preact UI на фазу playing ТОЛЬКО при выходе из Results
+                // (не каждый тик, иначе перезапишем menu/class-select)
+                if (wasInResultsPhase) {
+                    setPhase("playing");
+                    wasInResultsPhase = false;
+                }
                 if (isViewportUnlockedForResults) {
                     setGameViewportLock(true);
                     isViewportUnlockedForResults = false;
                 }
                 return;
             }
+            wasInResultsPhase = true;
 
             // Переключаем Preact UI на фазу results
             setPhase("results");
@@ -3486,92 +3485,53 @@ async function connectToServer(playerName: string, classId: number) {
                 setGameViewportLock(false);
                 isViewportUnlockedForResults = true;
             }
-            // Legacy resultsOverlay скрыт, используем Preact ResultsScreen
-            resultsTitle.textContent = "🏆 Матч завершён!";
 
             // Получаем победителя
             const leaderId = room.state.leaderboard?.[0];
             const winner = leaderId ? room.state.players.get(leaderId) : null;
-            if (winner) {
-                const isKing = (winner.flags & FLAG_IS_REBEL) !== 0;
-                const crown = isKing ? "👑 " : "";
-                resultsWinner.textContent = `${crown}Победитель: ${winner.name}`;
-            } else {
-                resultsWinner.textContent = "Нет победителя";
-            }
+            const winnerName = winner ? winner.name : "Нет победителя";
 
-            // Формируем лидерборд
-            resultsLeaderboard.innerHTML = "";
-            
-            const leaderboardTitle = document.createElement("div");
-            leaderboardTitle.style.fontSize = "14px";
-            leaderboardTitle.style.marginBottom = "8px";
-            leaderboardTitle.style.color = "#9fb5cc";
-            leaderboardTitle.textContent = "Таблица лидеров:";
-            resultsLeaderboard.appendChild(leaderboardTitle);
-            
+            // Формируем лидерборд для Preact UI
+            const finalLeaderboard: { name: string; mass: number; kills: number; isLocal: boolean; place: number }[] = [];
             const maxEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
             for (let i = 0; i < maxEntries; i++) {
                 const playerId = room.state.leaderboard[i];
                 const player = room.state.players.get(playerId);
                 if (!player) continue;
-
-                const isKing = (player.flags & FLAG_IS_REBEL) !== 0;
-                const isSelf = playerId === room.sessionId;
-                const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
-                const displayName = getDisplayName(player.name, player.classId ?? 0, isKing);
-                
-                const row = document.createElement("div");
-                row.style.padding = "4px 0";
-                if (isSelf) {
-                    row.style.color = "#6fd6ff";
-                    row.style.fontWeight = "bold";
-                }
-                const kills = player.killCount ?? 0;
-                row.textContent = `${medal} ${displayName} - ${player.mass.toFixed(0)} кг | 🎯 ${kills}`;
-                resultsLeaderboard.appendChild(row);
-            }
-
-            // Личная статистика
-            const self = room.state.players.get(room.sessionId);
-            if (self) {
-                resultsPersonalStats.innerHTML = "";
-                
-                const myRank = room.state.leaderboard.indexOf(room.sessionId) + 1;
-                const rankText = myRank > 0 ? `#${myRank}` : "-";
-                
-                const stats = [
-                    { label: "Место", value: rankText, color: "#fff" },
-                    { label: "Масса", value: self.mass.toFixed(0), color: "#9be070" },
-                    { label: "Убийства", value: self.killCount ?? 0, color: "#ff4d4d" }
-                ];
-                
-                stats.forEach(stat => {
-                    const div = document.createElement("div");
-                    div.style.display = "flex";
-                    div.style.flexDirection = "column";
-                    div.style.alignItems = "center";
-                    
-                    const val = document.createElement("div");
-                    val.textContent = String(stat.value);
-                    val.style.fontSize = "20px";
-                    val.style.fontWeight = "bold";
-                    val.style.color = stat.color;
-                    
-                    const lbl = document.createElement("div");
-                    lbl.textContent = stat.label;
-                    lbl.style.fontSize = "12px";
-                    lbl.style.color = "#9fb5cc";
-                    
-                    div.appendChild(val);
-                    div.appendChild(lbl);
-                    resultsPersonalStats.appendChild(div);
+                finalLeaderboard.push({
+                    name: player.name,
+                    mass: player.mass,
+                    kills: player.killCount ?? 0,
+                    isLocal: playerId === room.sessionId,
+                    place: i + 1,
                 });
             }
 
+            // Личная статистика для Preact UI
+            const self = room.state.players.get(room.sessionId);
+            const personalStats = self ? {
+                name: self.name,
+                mass: self.mass,
+                kills: self.killCount ?? 0,
+                maxMass: self.maxMass ?? self.mass,
+                level: self.level ?? 1,
+                xp: self.xp ?? 0,
+                classId: self.classId ?? 0,
+                flags: self.flags ?? 0,
+            } : null;
+
             // Таймер до рестарта
             const timeRemaining = room.state.timeRemaining ?? 0;
-            resultsTimer.textContent = `Новый матч через ${Math.ceil(timeRemaining)}с...`;
+
+            // Вызываем Preact UI для отображения результатов
+            showResultsUI({
+                winner: winnerName,
+                finalLeaderboard,
+                personalStats,
+                nextMatchTimer: timeRemaining,
+            });
+
+            // Legacy resultsOverlay удалён — используем только Preact ResultsScreen
         };
 
         // Обновление управления мышью: вычисляем направление от слайма к курсору
@@ -5059,7 +5019,8 @@ async function connectToServer(playerName: string, classId: number) {
             slot2Button.style.display = "none";
             abilityCardModal.style.display = "none";
             levelIndicator.style.display = "none";
-            // Legacy joinScreen скрыт, используем Preact MainMenu
+            // Сбрасываем индикатор подключения и переходим в меню
+            setConnecting(false);
             setPhase("menu");
             isViewportUnlockedForResults = false;
             setGameViewportLock(false);
@@ -5134,6 +5095,11 @@ const uiCallbacks: UICallbacks = {
         activateAbilityFromUI(slot);
     },
     onPlayAgain: (classId: number) => {
+        // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
+        if (activeRoom) {
+            activeRoom.leave();
+            activeRoom = null;
+        }
         const name = getPlayerName() || generateRandomName();
         connectToServer(name, classId);
     },
