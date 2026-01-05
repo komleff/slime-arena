@@ -1,0 +1,32 @@
+name: Make Container Packages Public
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: write
+
+jobs:
+  make-public:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make slime-arena-server public
+        run: |
+          curl -X PATCH \
+            -H "Authorization: token ${{ github.token }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/user/packages/container/slime-arena-server/access \
+            -d '{"visibility":"public"}' || echo "Note: API endpoint may have changed"
+
+      - name: Make slime-arena-client public
+        run: |
+          curl -X PATCH \
+            -H "Authorization: token ${{ github.token }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/user/packages/container/slime-arena-client/access \
+            -d '{"visibility":"public"}' || echo "Note: API endpoint may have changed"
+
+      - name: List packages
+        run: |
+          curl -H "Authorization: token ${{ github.token }}" \
+            "https://api.github.com/user/packages?package_type=container" | jq '.[] | {name, visibility}'

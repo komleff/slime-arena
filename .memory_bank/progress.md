@@ -8,7 +8,8 @@
 
 ## Последние изменения
 
-- **[P0 FIX] Залипание джойстика при активации умений (ПОЛНОЕ ИСПРАВЛЕНИЕ):** Корневая причина — браузеры генерируют compatibility mouse events на touch-устройствах, активируя `mouseState`. Решение: добавлен `if (isCoarsePointer) return;` в `onMouseMove` и `onMouseLeave`; `forceResetJoystickForAbility` теперь сбрасывает `mouseState.active = false`.
+- **Выпуск v0.2.2:** добавлены workflow для публикации контейнеров и перевода пакетов в public, обновлен README, подготовлены заметки выпуска.
+- **[P0 FIX] Залипание джойстика при активации умений (ПОЛНОЕ ИСПРАВЛЕНИЕ):** Корневая причина - браузеры генерируют compatibility mouse events на touch-устройствах, активируя `mouseState`. Решение: добавлен `if (isCoarsePointer) return;` в `onMouseMove` и `onMouseLeave`; `forceResetJoystickForAbility` теперь сбрасывает `mouseState.active = false`.
 - **План рефакторинга архитектуры (Claude Opus 4.5):** Проведён анализ God Objects, создан `docs/Refactoring-Plan-Claude-Opus-4.5.md`. Выявлены критические проблемы: `ArenaRoom.ts` (4,026 строк), `main.ts` (4,958 строк), `config.ts` (2,982 строки). Оценка: 18-29 рабочих дней, 3 фазы.
 - **Мобильный ввод:** блокировка масштабирования (maximum/minimum-scale, user-scalable=no) на время матча; защита от масштабирования жестами; защита от сенсорного ввода для кнопок умений.
 - **Диагностика мобильного джойстика:** добавлены отладочные логи pointer/resize/visibility и кликов умений (флаг `?debugJoystick=1`).

@@ -86,8 +86,8 @@ docker compose -f docker/docker-compose.yml up --build
 ```
 
 Контейнеры доступны в GitHub Container Registry:
-- `ghcr.io/komleff/slime-arena-server:v0.2`
-- `ghcr.io/komleff/slime-arena-client:v0.2`
+- `ghcr.io/komleff/slime-arena-server:v0.2.2`
+- `ghcr.io/komleff/slime-arena-client:v0.2.2`
 
 ### Рекомендуемый рабочий процесс
 
@@ -120,7 +120,20 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
-### Релиз v0.2
+### Релиз v0.2.2
+
+- Исправлено залипание управления на мобильных устройствах с адаптивным джойстиком.
+- Автоматизирована публикация Docker-контейнеров через GitHub Actions.
+- Контейнеры опубликованы в GitHub Container Registry: `ghcr.io/komleff/slime-arena-server:v0.2.2`, `ghcr.io/komleff/slime-arena-client:v0.2.2`.
+
+### История изменений с v0.2
+
+#### Релиз v0.2.1
+
+- Исправлено залипание управления на мобильных устройствах с адаптивным джойстиком.
+- Контейнеры опубликованы в GitHub Container Registry: `ghcr.io/komleff/slime-arena-server:v0.2.1`, `ghcr.io/komleff/slime-arena-client:v0.2.1`.
+
+#### Релиз v0.2
 
 - Полный цикл матча на 3 минуты с фазами Рост/Охота/Финал, детерминированный сервер 30 Гц.
 - Три класса (Hunter, Warrior, Collector) с пассивами, стартовыми умениями и балансом из config/balance.json.
