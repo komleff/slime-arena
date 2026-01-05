@@ -4,6 +4,7 @@
  */
 
 import { signal, computed, batch } from '@preact/signals';
+import { FLAG_IS_DEAD } from '@slime-arena/shared';
 
 // ========== Типы ==========
 
@@ -130,8 +131,6 @@ export const showHud = computed(() =>
 export const isPlayerDead = computed(() => {
   const player = localPlayer.value;
   if (!player) return false;
-  // FLAG_IS_DEAD = 1 << 4 = 16 (см. shared/src/constants.ts)
-  const FLAG_IS_DEAD = 16;
   return (player.flags & FLAG_IS_DEAD) !== 0;
 });
 

@@ -10,6 +10,8 @@ export * from './signals/gameState';
 
 // Data
 export * from './data/classes';
+export * from './data/abilities';
+export * from './data/rarity';
 
 // Screen Manager
 export { 
