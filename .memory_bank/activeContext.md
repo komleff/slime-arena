@@ -7,9 +7,21 @@
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
 **Текущая ветка:** `feature/ui-refactoring`
-**PR:** #32 — Phase 2.6 Round 2 Bug Fixes завершены
+**PR:** #32 — Phase 2.7 Final Fixes завершены, готов к merge
 
 ### Фокус сессии
+
+- **[ЗАВЕРШЕНО] UI Refactoring - Phase 2.7 Final Fixes (7 января 2026):**
+
+  **Быстрые исправления перед merge:**
+
+  - ✅ Security: `rel="noopener noreferrer"` для внешней ссылки GitHub (MainMenu.tsx)
+  - ✅ Race condition: `activeRoom = null` перемещён внутрь `.then()` в onPlayAgain (main.ts)
+
+  **Отложены для Stage D (Soft Launch):**
+  - MetaServer integration (Auth, RuntimeConfig, MatchAssignment, MatchSummary)
+  - globalInputSeq reset (требует проверки серверного контракта)
+  - visualViewport.onresize (nice-to-have)
 
 - **[ЗАВЕРШЕНО] UI Refactoring - Phase 2.6 Round 2 Bug Fixes (7 января 2026):**
 

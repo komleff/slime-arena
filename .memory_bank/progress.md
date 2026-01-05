@@ -8,10 +8,28 @@
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: Phase 1 + Phase 2.6 Round 2 Bug Fixes завершены
-- **PR #32**: Phase 2.6 Round 2 Bug Fixes готовы к merge
+- **UI Refactoring**: Phase 1 + Phase 2.7 Final Fixes завершены
+- **PR #32**: Готов к merge
 
 ## Последние изменения (7 января 2026)
+
+### UI Refactoring Phase 2.7 — Final Fixes
+
+**Быстрые исправления перед merge:**
+
+- ✅ Security: `rel="noopener noreferrer"` для внешней ссылки GitHub
+- ✅ Race condition: `activeRoom = null` перемещён внутрь `.then()`/`.catch()`
+
+**Изменённые файлы:**
+- `client/src/ui/components/MainMenu.tsx` — безопасность ссылок
+- `client/src/main.ts` — исправление race condition в onPlayAgain
+
+**Отложены для Stage D (Soft Launch):**
+- MetaServer integration (Auth, RuntimeConfig, MatchAssignment, MatchSummary)
+- globalInputSeq reset (требует проверки серверного контракта)
+- visualViewport.onresize (nice-to-have)
+
+---
 
 ### UI Refactoring Phase 2.6 — Round 2 Bug Fixes + Copilot Review
 

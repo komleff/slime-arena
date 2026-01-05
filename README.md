@@ -120,6 +120,24 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
+### UI Refactoring Phase 2.7 - Final Fixes (7 января 2026)
+
+**Быстрые исправления перед merge:**
+
+- **Security:** `rel="noopener noreferrer"` для внешней ссылки GitHub (защита от tabnabbing)
+- **Race condition:** `activeRoom = null` перемещён внутрь `.then()`/`.catch()` в onPlayAgain
+
+### UI Refactoring Phase 2.6 - Round 2 Bug Fixes (7 января 2026)
+
+**Исправления из пользовательского тестирования и Copilot Review:**
+
+- **R4-1:** "Призраки" (игроки без classId) — фильтр в render loop
+- **R4-2:** Дублирование HUD — legacy HUD скрыт
+- **R4-4:** "Играть снова" — кнопка disabled до конца таймера
+- **R4-5:** "В меню" — корректный выход с `room.leave()`
+- **C1:** `.finally()` → `.then() + .catch()` для обработки ошибок
+- **C4:** injectStyles — корректный порядок проверки кэша и DOM
+
 ### UI Refactoring Phase 2 - Bug Fixes (6 января 2026)
 
 **SDET Review и исправления критических багов** — интеграция Preact UI с game loop:
@@ -136,7 +154,7 @@ docker compose -f docker/docker-compose.yml up --build
 
 - **Results timer** — теперь использует `matchTimer` signal для реактивных обновлений
 - **useEffect name overwrite** — проверка `playerName.value` вместо closure-переменной
-- **onPlayAgain room.leave()** — используем `.finally()` для гарантии последовательности
+- **onPlayAgain room.leave()** — используем `.then() + .catch()` для обработки ошибок
 - **activateAbilityFromUI movement** — сохраняем направление через `lastSentInput`
 
 **P2 (Medium):**

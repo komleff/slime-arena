@@ -353,7 +353,7 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
       </div>
 
       <div class="menu-footer">
-        Slime Arena v0.3.0 • <a href="https://github.com/komleff/slime-arena" target="_blank">GitHub</a>
+        Slime Arena v0.3.0 • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
   );

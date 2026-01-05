@@ -5181,14 +5181,18 @@ const uiCallbacks: UICallbacks = {
         const name = getPlayerName() || generateRandomName();
         if (activeRoom) {
             const roomToLeave = activeRoom;
-            activeRoom = null;
             roomToLeave
                 .leave()
                 .then(() => {
+                    // Сбрасываем activeRoom только после успешного выхода
+                    // чтобы избежать race condition при быстром переподключении
+                    activeRoom = null;
                     connectToServer(name, classId);
                 })
                 .catch((error: unknown) => {
                     console.error("Не удалось покинуть комнату перед повторным входом:", error);
+                    // Сбрасываем activeRoom даже при ошибке, чтобы не заблокировать повторное подключение
+                    activeRoom = null;
                 });
         } else {
             connectToServer(name, classId);
