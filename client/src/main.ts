@@ -44,6 +44,9 @@ import {
     setConnecting,
     getPlayerName,
     showResults as showResultsUI,
+    syncPlayerState,
+    syncLeaderboard,
+    syncMatchTimer,
     type UICallbacks,
 } from "./ui/UIBridge";
 
@@ -3476,62 +3479,64 @@ async function connectToServer(playerName: string, classId: number) {
                 }
                 return;
             }
-            wasInResultsPhase = true;
-
-            // Переключаем Preact UI на фазу results
-            setPhase("results");
-
             if (!isViewportUnlockedForResults) {
                 setGameViewportLock(false);
                 isViewportUnlockedForResults = true;
             }
 
-            // Получаем победителя
-            const leaderId = room.state.leaderboard?.[0];
-            const winner = leaderId ? room.state.players.get(leaderId) : null;
-            const winnerName = winner ? winner.name : "Нет победителя";
+            // Вызываем showResultsUI ТОЛЬКО один раз при входе в Results
+            // (не каждый тик, чтобы избежать множественных ре-рендеров)
+            if (!wasInResultsPhase) {
+                wasInResultsPhase = true;
 
-            // Формируем лидерборд для Preact UI
-            const finalLeaderboard: { name: string; mass: number; kills: number; isLocal: boolean; place: number }[] = [];
-            const maxEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
-            for (let i = 0; i < maxEntries; i++) {
-                const playerId = room.state.leaderboard[i];
-                const player = room.state.players.get(playerId);
-                if (!player) continue;
-                finalLeaderboard.push({
-                    name: player.name,
-                    mass: player.mass,
-                    kills: player.killCount ?? 0,
-                    isLocal: playerId === room.sessionId,
-                    place: i + 1,
+                // Переключаем Preact UI на фазу results
+                setPhase("results");
+
+                // Получаем победителя
+                const leaderId = room.state.leaderboard?.[0];
+                const winner = leaderId ? room.state.players.get(leaderId) : null;
+                const winnerName = winner ? winner.name : "Нет победителя";
+
+                // Формируем лидерборд для Preact UI
+                const finalLeaderboard: { name: string; mass: number; kills: number; isLocal: boolean; place: number }[] = [];
+                const maxEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
+                for (let i = 0; i < maxEntries; i++) {
+                    const playerId = room.state.leaderboard[i];
+                    const player = room.state.players.get(playerId);
+                    if (!player) continue;
+                    finalLeaderboard.push({
+                        name: player.name,
+                        mass: player.mass,
+                        kills: player.killCount ?? 0,
+                        isLocal: playerId === room.sessionId,
+                        place: i + 1,
+                    });
+                }
+
+                // Личная статистика для Preact UI
+                const self = room.state.players.get(room.sessionId);
+                const personalStats = self ? {
+                    name: self.name,
+                    mass: self.mass,
+                    kills: self.killCount ?? 0,
+                    maxMass: self.maxMass ?? self.mass,
+                    level: self.level ?? 1,
+                    xp: self.xp ?? 0,
+                    classId: self.classId ?? 0,
+                    flags: self.flags ?? 0,
+                } : null;
+
+                // Таймер до рестарта
+                const timeRemaining = room.state.timeRemaining ?? 0;
+
+                // Вызываем Preact UI для отображения результатов
+                showResultsUI({
+                    winner: winnerName,
+                    finalLeaderboard,
+                    personalStats,
+                    nextMatchTimer: timeRemaining,
                 });
             }
-
-            // Личная статистика для Preact UI
-            const self = room.state.players.get(room.sessionId);
-            const personalStats = self ? {
-                name: self.name,
-                mass: self.mass,
-                kills: self.killCount ?? 0,
-                maxMass: self.maxMass ?? self.mass,
-                level: self.level ?? 1,
-                xp: self.xp ?? 0,
-                classId: self.classId ?? 0,
-                flags: self.flags ?? 0,
-            } : null;
-
-            // Таймер до рестарта
-            const timeRemaining = room.state.timeRemaining ?? 0;
-
-            // Вызываем Preact UI для отображения результатов
-            showResultsUI({
-                winner: winnerName,
-                finalLeaderboard,
-                personalStats,
-                nextMatchTimer: timeRemaining,
-            });
-
-            // Legacy resultsOverlay удалён — используем только Preact ResultsScreen
         };
 
         // Обновление управления мышью: вычисляем направление от слайма к курсору
@@ -4966,9 +4971,48 @@ async function connectToServer(playerName: string, classId: number) {
             updateAbilityCardUI();
             updateSlot1Button();
             updateSlot2Button();
-            
-            const phase = room.state.phase;
+
+            // Синхронизация Preact UI с игровым состоянием
             const selfPlayer = room.state.players.get(room.sessionId);
+            if (selfPlayer) {
+                syncPlayerState({
+                    name: selfPlayer.name ?? '',
+                    mass: Math.floor(selfPlayer.mass),
+                    kills: selfPlayer.killCount ?? 0,
+                    maxMass: selfPlayer.maxMass ?? selfPlayer.mass,
+                    level: selfPlayer.level ?? 1,
+                    xp: selfPlayer.xp ?? 0,
+                    classId: selfPlayer.classId ?? 0,
+                    flags: selfPlayer.flags ?? 0,
+                });
+            }
+
+            // Синхронизация лидерборда
+            const leaderboardEntries: { name: string; mass: number; kills: number; isLocal: boolean; place: number }[] = [];
+            const maxLeaderboardEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
+            for (let i = 0; i < maxLeaderboardEntries; i++) {
+                const playerId = room.state.leaderboard[i];
+                const player = room.state.players.get(playerId);
+                if (!player) continue;
+                leaderboardEntries.push({
+                    name: player.name,
+                    mass: Math.floor(player.mass),
+                    kills: player.killCount ?? 0,
+                    isLocal: playerId === room.sessionId,
+                    place: i + 1,
+                });
+            }
+            syncLeaderboard(leaderboardEntries);
+
+            // Синхронизация таймера матча
+            const matchDuration = balanceConfig.match?.durationSec ?? 180;
+            syncMatchTimer({
+                phase: room.state.phase ?? '',
+                timeLeft: room.state.timeRemaining ?? 0,
+                totalTime: matchDuration,
+            });
+
+            const phase = room.state.phase;
             if (phase !== "Results" && selfPlayer) {
                 if (!isValidClassId(selfPlayer.classId)) {
                     // Между матчами класс сбрасывается на сервере - возвращаем экран выбора
@@ -4991,6 +5035,11 @@ async function connectToServer(playerName: string, classId: number) {
             }
             detachJoystickPointerListeners();
             resetSnapshotBuffer();
+
+            // Очистка визуальных сущностей для предотвращения "призраков"
+            visualPlayers.clear();
+            visualOrbs.clear();
+
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
             canvas.removeEventListener("pointerdown", onPointerDown);
@@ -5112,4 +5161,6 @@ const uiContainer = document.getElementById("ui-root");
 if (uiContainer) {
     initUI(uiContainer, uiCallbacks);
     setPhase("menu");
+} else {
+    console.warn('UI не инициализирован: элемент "ui-root" не найден в DOM.');
 }

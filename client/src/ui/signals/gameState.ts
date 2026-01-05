@@ -148,25 +148,27 @@ export const currentPlace = computed(() => {
 // ========== Действия ==========
 
 export function setGamePhase(phase: GamePhase) {
-  gamePhase.value = phase;
-  
-  // Автоматически переключаем экраны при смене фазы
-  switch (phase) {
-    case 'menu':
-      currentScreen.value = 'main-menu';
-      screenStack.value = ['main-menu'];
-      break;
-    case 'connecting':
-    case 'waiting':
-      currentScreen.value = 'lobby';
-      break;
-    case 'playing':
-      currentScreen.value = 'game';
-      break;
-    case 'results':
-      currentScreen.value = 'results';
-      break;
-  }
+  batch(() => {
+    gamePhase.value = phase;
+
+    // Автоматически переключаем экраны при смене фазы
+    switch (phase) {
+      case 'menu':
+        currentScreen.value = 'main-menu';
+        screenStack.value = ['main-menu'];
+        break;
+      case 'connecting':
+      case 'waiting':
+        currentScreen.value = 'lobby';
+        break;
+      case 'playing':
+        currentScreen.value = 'game';
+        break;
+      case 'results':
+        currentScreen.value = 'results';
+        break;
+    }
+  });
 }
 
 export function pushScreen(screen: ScreenType) {

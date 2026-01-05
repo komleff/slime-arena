@@ -4,7 +4,8 @@
 
 // JSX runtime imported automatically via jsxImportSource
 import type { JSX } from 'preact';
-import { useState, useCallback } from 'preact/hooks';
+import { useState, useCallback, useEffect } from 'preact/hooks';
+import { generateRandomName } from '@slime-arena/shared';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
 import {
@@ -73,8 +74,14 @@ const styles = `
     margin-bottom: 8px;
   }
 
+  .menu-name-row {
+    display: flex;
+    gap: 8px;
+  }
+
   .menu-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 12px 16px;
     background: #0a0f18;
     border: 2px solid #2d4a6d;
@@ -92,6 +99,25 @@ const styles = `
 
   .menu-input::placeholder {
     color: #4a6080;
+  }
+
+  .menu-random-button {
+    padding: 12px 16px;
+    font-size: 18px;
+    background: #1b2c45;
+    border: 2px solid #2d4a6d;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 150ms, border-color 150ms;
+  }
+
+  .menu-random-button:hover {
+    background: #2a3f5f;
+    border-color: #4a90c2;
+  }
+
+  .menu-random-button:active {
+    background: #1a2a40;
   }
 
   .class-selector {
@@ -210,10 +236,25 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
   const [classId, setClassId] = useState(selectedClassId.value);
   const error = connectionError.value;
 
+  // Генерируем случайное имя при первом монтировании, если имя пустое
+  useEffect(() => {
+    if (!name || name.trim() === '') {
+      const newName = generateRandomName();
+      setName(newName);
+      playerName.value = newName;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleNameChange = useCallback((e: JSX.TargetedEvent<HTMLInputElement>) => {
     const value = e.currentTarget.value;
     setName(value);
     playerName.value = value;
+  }, []);
+
+  const handleRandomize = useCallback(() => {
+    const newName = generateRandomName();
+    setName(newName);
+    playerName.value = newName;
   }, []);
 
   const handleClassSelect = useCallback((id: number) => {
@@ -242,16 +283,26 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
       <div class="menu-card">
         <div class="menu-section">
           <div class="menu-label">Твоё имя</div>
-          <input
-            class="menu-input"
-            type="text"
-            placeholder="Введи имя..."
-            value={name}
-            onInput={handleNameChange}
-            onKeyDown={handleKeyDown}
-            maxLength={20}
-            autoFocus
-          />
+          <div class="menu-name-row">
+            <input
+              class="menu-input"
+              type="text"
+              placeholder="Введи имя..."
+              value={name}
+              onInput={handleNameChange}
+              onKeyDown={handleKeyDown}
+              maxLength={20}
+              autoFocus
+            />
+            <button
+              type="button"
+              class="menu-random-button"
+              onClick={handleRandomize}
+              title="Случайное имя"
+            >
+              🎲
+            </button>
+          </div>
         </div>
 
         <div class="menu-section">
