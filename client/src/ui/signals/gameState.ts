@@ -126,7 +126,8 @@ export const showHud = computed(() =>
 export const isPlayerDead = computed(() => {
   const player = localPlayer.value;
   if (!player) return false;
-  const FLAG_IS_DEAD = 4; // из shared/constants
+  // FLAG_IS_DEAD = 1 << 4 = 16 (см. shared/src/constants.ts)
+  const FLAG_IS_DEAD = 16;
   return (player.flags & FLAG_IS_DEAD) !== 0;
 });
 
@@ -295,10 +296,10 @@ export function initMobileDetection(): () => void {
   const updateSafeArea = () => {
     const style = getComputedStyle(document.documentElement);
     safeAreaInsets.value = {
-      top: parseInt(style.getPropertyValue('--sat') || '0', 10),
-      bottom: parseInt(style.getPropertyValue('--sab') || '0', 10),
-      left: parseInt(style.getPropertyValue('--sal') || '0', 10),
-      right: parseInt(style.getPropertyValue('--sar') || '0', 10),
+      top: parseFloat(style.getPropertyValue('--sat') || '0'),
+      bottom: parseFloat(style.getPropertyValue('--sab') || '0'),
+      left: parseFloat(style.getPropertyValue('--sal') || '0'),
+      right: parseFloat(style.getPropertyValue('--sar') || '0'),
     };
   };
 

@@ -5,6 +5,7 @@
 // JSX runtime imported automatically via jsxImportSource
 import { useState, useCallback } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
+import { CLASSES_DATA } from '../data/classes';
 import {
   playerName,
   selectedClassId,
@@ -199,14 +200,6 @@ if (typeof window !== 'undefined') {
   injectStyles(STYLES_ID, styles);
 }
 
-// ========== Данные классов ==========
-
-const classesData = [
-  { id: 0, name: 'Охотник', icon: '🎯', cssClass: 'hunter' },
-  { id: 1, name: 'Воин', icon: '⚔️', cssClass: 'warrior' },
-  { id: 2, name: 'Собиратель', icon: '💎', cssClass: 'collector' },
-];
-
 // ========== Компонент ==========
 
 interface MainMenuProps {
@@ -236,8 +229,13 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
     }
   }, [name, classId, onPlay]);
 
+  // Проверка e.target для предотвращения конфликтов с другими элементами формы
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Enter' && name.trim()) {
+    if (
+      e.key === 'Enter' &&
+      e.target instanceof HTMLInputElement &&
+      name.trim()
+    ) {
       handlePlay();
     }
   }, [name, handlePlay]);
@@ -265,7 +263,7 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
         <div class="menu-section">
           <div class="menu-label">Выбери класс</div>
           <div class="class-selector">
-            {classesData.map(cls => (
+            {CLASSES_DATA.map(cls => (
               <button
                 key={cls.id}
                 class={`class-option ${cls.cssClass} ${classId === cls.id ? 'selected' : ''}`}

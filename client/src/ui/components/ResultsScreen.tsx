@@ -5,6 +5,7 @@
 // JSX runtime imported automatically via jsxImportSource
 import { useCallback } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
+import { CLASSES_DATA } from '../data/classes';
 import {
   matchResults,
   selectedClassId,
@@ -212,14 +213,6 @@ if (typeof window !== 'undefined') {
   injectStyles(STYLES_ID, styles);
 }
 
-// ========== Данные классов ==========
-
-const classesData = [
-  { id: 0, name: 'Охотник', icon: '🎯', color: '#4ade80' },
-  { id: 1, name: 'Воин', icon: '⚔️', color: '#f87171' },
-  { id: 2, name: 'Собиратель', icon: '💎', color: '#60a5fa' },
-];
-
 // ========== Компонент ==========
 
 interface ResultsScreenProps {
@@ -295,14 +288,15 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
 
         {/* Выбор класса */}
         <div class="results-class-selection">
-          {classesData.map(cls => (
+          {CLASSES_DATA.map(cls => (
             <button
               key={cls.id}
               class={`class-button ${currentClassId === cls.id ? 'selected' : ''}`}
-              style={{ 
-                background: currentClassId === cls.id ? cls.color : 'rgba(255, 255, 255, 0.05)',
-                borderColor: cls.color,
-              }}
+              style={{
+                '--class-color': cls.color,
+                background: currentClassId === cls.id ? 'var(--class-color)' : 'rgba(255, 255, 255, 0.05)',
+                borderColor: 'var(--class-color)',
+              } as any}
               onClick={() => handleClassSelect(cls.id)}
             >
               {cls.icon} {cls.name}

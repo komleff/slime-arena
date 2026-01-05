@@ -173,12 +173,19 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
     }
   }, [slot, cooldown.ready, onClick]);
 
-  const progress = cooldown.total > 0 
-    ? Math.max(0, Math.min(1, cooldown.remaining / cooldown.total))
-    : 0;
-  
-  const circumference = 2 * Math.PI * 45;
-  const strokeDashoffset = circumference * (1 - progress);
+  // useMemo для кэширования вычислений при частых ре-рендерах
+  const { circumference, strokeDashoffset, displayTime } = useMemo(() => {
+    const prog = cooldown.total > 0 
+      ? Math.max(0, Math.min(1, cooldown.remaining / cooldown.total))
+      : 0;
+    const circ = 2 * Math.PI * 45;
+    const offset = circ * (1 - prog);
+    // Math.ceil для последней секунды, toFixed для остальных
+    const display = cooldown.remaining < 1 
+      ? Math.ceil(cooldown.remaining * 10) / 10  // 0.1 precision
+      : cooldown.remaining.toFixed(1);
+    return { circumference: circ, strokeDashoffset: offset, displayTime: display };
+  }, [cooldown.remaining, cooldown.total]);
 
   const isOnCooldown = cooldown.remaining > 0;
 
@@ -208,7 +215,7 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
           </svg>
 
           <span class="ability-timer">
-            {cooldown.remaining.toFixed(1)}
+            {displayTime}
           </span>
         </>
       )}

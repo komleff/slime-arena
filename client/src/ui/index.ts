@@ -8,6 +8,9 @@ export * from './UIBridge';
 // Signals (состояние)
 export * from './signals/gameState';
 
+// Data
+export * from './data/classes';
+
 // Screen Manager
 export { 
   ScreenManager, 
