@@ -324,8 +324,10 @@ export function ScreenManager() {
       }
     };
 
-    // Добавляем запись в историю для перехвата кнопки Назад
-    window.history.pushState(null, '', window.location.href);
+    // Добавляем запись в историю только если ещё не добавляли (проверка через state)
+    if (!window.history.state?.__screenManagerInit) {
+      window.history.pushState({ __screenManagerInit: true }, '', window.location.href);
+    }
     window.addEventListener('popstate', handlePopState);
 
     return () => {

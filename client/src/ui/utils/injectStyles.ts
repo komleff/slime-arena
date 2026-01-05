@@ -11,7 +11,11 @@ const injectedStyles = new Set<string>();
  * @param css CSS код для внедрения
  */
 export function injectStyles(id: string, css: string): void {
-  if (injectedStyles.has(id)) return;
+  // Проверяем кэш и DOM
+  if (injectedStyles.has(id) || document.getElementById(id)) {
+    injectedStyles.add(id);
+    return;
+  }
 
   const styleEl = document.createElement('style');
   styleEl.id = id;

@@ -175,6 +175,11 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
 
   // useMemo для кэширования вычислений при частых ре-рендерах
   const { circumference, strokeDashoffset, displayTime } = useMemo(() => {
+    // Early return когда нет кулдауна
+    if (cooldown.remaining <= 0) {
+      return { circumference: 0, strokeDashoffset: 0, displayTime: '0' };
+    }
+    
     const prog = cooldown.total > 0 
       ? Math.max(0, Math.min(1, cooldown.remaining / cooldown.total))
       : 0;

@@ -4,7 +4,7 @@
  */
 
 import { Fragment } from 'preact';
-import { useEffect, useState, useRef } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import {
   localPlayer,
@@ -177,8 +177,10 @@ const STYLES_ID = 'hud-styles';
 // ========== Утилиты ==========
 
 function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
+  // Math.ceil чтобы таймер показывал 0:01 до полного завершения
+  const totalSeconds = Math.ceil(seconds);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
@@ -276,25 +278,17 @@ function DeathOverlay() {
 // ========== Главный компонент HUD ==========
 
 export function GameHUD() {
-  // Throttled обновления (10 Hz)
+  // Throttled обновления (10 Hz) через setInterval для точного throttling
   const [, forceUpdate] = useState(0);
-  const lastUpdateRef = useRef(0);
 
   useEffect(() => {
     injectStyles(STYLES_ID, styles);
 
-    let rafId: number;
-    const update = () => {
-      const now = performance.now();
-      if (now - lastUpdateRef.current >= 100) { // 10 Hz
-        lastUpdateRef.current = now;
-        forceUpdate(n => n + 1);
-      }
-      rafId = requestAnimationFrame(update);
-    };
-    
-    rafId = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(rafId);
+    const intervalId = window.setInterval(() => {
+      forceUpdate(n => n + 1);
+    }, 100); // 10 Hz
+
+    return () => clearInterval(intervalId);
   }, []);
 
   if (!showHud.value) return null;

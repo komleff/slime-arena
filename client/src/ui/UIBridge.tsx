@@ -13,8 +13,10 @@ import {
   selectedClassId,
   playerName,
   isConnected,
+  isConnecting,
   connectionError,
   hudVisible,
+  MAX_ABILITY_SLOTS,
   
   // Actions
   setGamePhase,
@@ -58,11 +60,11 @@ export interface UICallbacks {
 
 let uiContainer: HTMLElement | null = null;
 let callbacks: UICallbacks | null = null;
-let isConnecting = false;
 let cleanupMobileDetection: (() => void) | null = null;
 
 function UIRoot() {
   const phase = gamePhase.value;
+  const connecting = isConnecting.value;
 
   return (
     <Fragment>
@@ -70,7 +72,7 @@ function UIRoot() {
       {phase === 'menu' && callbacks && (
         <MainMenu 
           onPlay={callbacks.onPlay} 
-          isConnecting={isConnecting}
+          isConnecting={connecting}
         />
       )}
 
@@ -191,7 +193,7 @@ export function hideTalentChoices(): void {
  * Обновить кулдаун способности
  */
 export function syncAbilityCooldown(slot: number, remaining: number, total: number): void {
-  if (typeof slot !== 'number' || slot < 0 || slot > 2) return;
+  if (typeof slot !== 'number' || slot < 0 || slot >= MAX_ABILITY_SLOTS) return;
   updateAbilityCooldown(slot, remaining, total);
 }
 
@@ -216,7 +218,7 @@ export function setConnected(connected: boolean, error?: string): void {
   batch(() => {
     isConnected.value = connected;
     connectionError.value = error || null;
-    isConnecting = false;
+    isConnecting.value = false;
   });
 }
 
@@ -224,8 +226,7 @@ export function setConnected(connected: boolean, error?: string): void {
  * Установить статус "подключаемся"
  */
 export function setConnecting(connecting: boolean): void {
-  isConnecting = connecting;
-  renderUI();
+  isConnecting.value = connecting;
 }
 
 /**

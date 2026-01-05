@@ -71,8 +71,12 @@ export const screenStack = signal<ScreenType[]>(['main-menu']);
 
 // Подключение
 export const isConnected = signal(false);
+export const isConnecting = signal(false);
 export const connectionError = signal<string | null>(null);
 export const serverUrl = signal('');
+
+// Константы
+export const MAX_ABILITY_SLOTS = 3;
 
 // Игрок
 export const localPlayer = signal<PlayerStats | null>(null);
@@ -292,15 +296,18 @@ export function initMobileDetection(): () => void {
   checkMobile();
   mediaQuery.addEventListener('change', checkMobile);
 
-  // Safe area insets
+  // Safe area insets через visualViewport API
   const updateSafeArea = () => {
-    const style = getComputedStyle(document.documentElement);
-    safeAreaInsets.value = {
-      top: parseFloat(style.getPropertyValue('--sat') || '0'),
-      bottom: parseFloat(style.getPropertyValue('--sab') || '0'),
-      left: parseFloat(style.getPropertyValue('--sal') || '0'),
-      right: parseFloat(style.getPropertyValue('--sar') || '0'),
-    };
+    const viewport = window.visualViewport;
+    if (viewport) {
+      const top = viewport.offsetTop;
+      const left = viewport.offsetLeft;
+      const right = Math.max(0, window.innerWidth - viewport.width - viewport.offsetLeft);
+      const bottom = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      safeAreaInsets.value = { top, bottom, left, right };
+    } else {
+      safeAreaInsets.value = { top: 0, bottom: 0, left: 0, right: 0 };
+    }
   };
 
   updateSafeArea();
