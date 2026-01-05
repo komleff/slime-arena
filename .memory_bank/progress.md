@@ -2,102 +2,80 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: 75dc235 (feature/ui-refactoring) @ 5 января 2026
+- **last_checked_commit**: 30b256f (feature/ui-refactoring) @ 5 января 2026
 - **Текущая ветка**: feature/ui-refactoring
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: Phase 1 (Components) + все Copilot Review Fixes завершены
-- **Резюме**: PR #32 готов к merge. Phase 2 (Integration with main.ts) — следующий этап.
+- **UI Refactoring**: Phase 1 завершена, все Copilot Review (6 batch) пройдены
+- **PR #32**: Ожидает merge (Claude review запрошен)
 
 ## Последние изменения (5 января 2026)
 
-### UI Refactoring — All Copilot Review Fixes (PR #32)
+### UI Refactoring — PR #32 (готов к merge)
 
-**Исправлено (все 14 комментариев Copilot):**
+**Copilot Review — все 6 batch пройдены (40+ комментариев):**
 
-1. ✅ vite.config.ts: удалён конфликтующий esbuild.jsx* конфиг
-2. ✅ ScreenManager.tsx: replaceState вместо pushState (fix history accumulation)
-3. ✅ ScreenManager.tsx: Safe Area CSS с max() fallbacks
-4. ✅ DRY: создана утилита `utils/injectStyles.ts`, обновлены 6 компонентов
-5. ✅ gameState.ts: memory leak fix (cleanup function)
-6. ✅ UIBridge.tsx: null-safe checks для sync functions
-7. ✅ **CRITICAL: FLAG_IS_DEAD = 16 (1<<4), не 4** — исправлен баг
-8. ✅ parseFloat вместо parseInt для safe-area-inset (High DPI)
-9. ✅ useMemo для cooldown вычислений в AbilityButtons
-10. ✅ DRY: CLASSES_DATA вынесены в `data/classes.ts`
-11. ✅ CSS variables для динамических цветов классов
-12. ✅ Проверка e.target instanceof HTMLInputElement в MainMenu
-13. ✅ Math.ceil для последней секунды в таймере способности
+| Batch | Исправления |
+|-------|-------------|
+| 1 | FLAG_IS_DEAD=16, parseFloat для DPI, useMemo, DRY classes.ts |
+| 2 | JSX типы событий, stable keys, focus trap, версия v0.2.2 |
+| 3 | isConnecting signal, MAX_ABILITY_SLOTS, visualViewport API |
+| 4 | abilities.ts, rarity.ts, унификация цветов, ModalType без null |
+| 5 | порядок импортов, toFixed(1) округление, position: fixed, devicePixelRatio |
+| 6 | entry.place как key, import FLAG_IS_DEAD from shared |
 
-**Новые файлы:**
+**Коммиты PR #32:**
+```
+30b256f fix: import FLAG_IS_DEAD from shared, export abilities/rarity data
+0443e82 fix: use entry.place as key in leaderboard
+2202000 fix: address Copilot review batch 5
+65c16bc fix: address Copilot review batch 4
+b162752 fix: address Copilot review batch 3
+5f4c186 fix: address Copilot review batch 2
+ab89c18 docs: update progress.md with all Copilot review fixes
+75dc235 fix: address remaining Copilot review comments
+b4d3391 fix: address Copilot review feedback
+d4b85b9 fix: memory leak and race conditions
+2019135 feat(client): UI Refactoring - Preact migration and ScreenManager
+```
 
-- `client/src/ui/utils/injectStyles.ts` — DRY утилита для CSS
-- `client/src/ui/data/classes.ts` — централизованные данные классов (DRY)
-
-### UI Refactoring — Phase 1: Components (ЗАВЕРШЕНО)
-
-**Установлено:**
-- `preact` (10.x) — минималистичный React-совместимый фреймворк
-- `@preact/signals` — реактивное состояние без Redux
-
-**Созданные файлы (8):**
-1. `client/src/ui/signals/gameState.ts` (~280 строк)
-   - Глобальное состояние через Preact Signals
-   - gamePhase, localPlayer, leaderboard, matchTimer, talentChoices
-   - abilityCooldowns, activeBoost, matchResults
-   - Actions: setGamePhase, updateLocalPlayer, setTalentChoices и др.
-
-2. `client/src/ui/screens/ScreenManager.tsx` (~300 строк)
-   - Stack-based navigation с CSS-анимациями
-   - Modal overlay с backdrop blur
-   - Hardware back button (popstate) support
-   - registerScreen, navigateTo, showModal API
-
-3. `client/src/ui/components/GameHUD.tsx` (~260 строк)
-   - Throttled updates 10 Hz (vs 60 Hz canvas)
-   - Player stats, leaderboard mini-table
-   - Boost panel, death overlay
-
-4. `client/src/ui/components/AbilityButtons.tsx` (~250 строк)
-   - SVG cooldown progress circles
-   - Pulse animation when ready
-   - Touch-friendly sizing
-
-5. `client/src/ui/components/TalentModal.tsx` (~200 строк)
-   - Talent cards with rarity colors
-   - Timer display, keyboard hints
-   - Queue indicator
-
-6. `client/src/ui/components/ResultsScreen.tsx` (~280 строк)
-   - Final leaderboard, personal stats
-   - Class selection for next match
-   - Play again / exit buttons
-
-7. `client/src/ui/components/MainMenu.tsx` (~260 строк)
-   - Name input (localStorage persistence)
-   - Class selection grid
-   - Connection status indicator
-
-8. `client/src/ui/UIBridge.tsx` (~200 строк)
-   - Bridge between Canvas game and Preact UI
-   - sync* functions for state updates
-   - UICallbacks interface for events
-
-9. `client/src/ui/index.ts` — central exports
+**Новые файлы (13):**
+```
+client/src/ui/
+├── signals/gameState.ts      — глобальное состояние (Preact Signals)
+├── screens/ScreenManager.tsx — стек экранов и модалок
+├── components/MainMenu.tsx   — главное меню
+├── components/GameHUD.tsx    — HUD (10 Hz throttled)
+├── components/AbilityButtons.tsx — кнопки способностей (SVG)
+├── components/TalentModal.tsx — выбор талантов
+├── components/ResultsScreen.tsx — экран результатов
+├── data/classes.ts           — данные классов (DRY)
+├── data/abilities.ts         — данные способностей (DRY)
+├── data/rarity.ts            — данные редкости (DRY)
+├── utils/injectStyles.ts     — утилита CSS injection
+├── UIBridge.tsx              — API интеграции с Canvas
+└── index.ts                  — экспорты модуля
+```
 
 **Изменённые файлы (3):**
 - `client/package.json` — dependencies: preact, @preact/signals
-- `client/vite.config.ts` — esbuild JSX config (jsxFactory: 'h')
-- `client/tsconfig.json` — jsx: "react-jsx", jsxImportSource: "preact"
+- `client/vite.config.ts` — JSX config для Preact
+- `client/tsconfig.json` — jsxImportSource: "preact"
 
 **Статус:**
 - ✅ Сборка: `npm run build` проходит
-- ✅ Коммит: 2019135
-- ⏳ Следующий шаг: Интеграция UIBridge с main.ts
+- ✅ Copilot Review: все замечания исправлены
+- ⏳ Claude Review: запрошен
+- ⏳ Merge: после Claude review
 
----
+### Следующий этап — Phase 2: Integration
+
+После merge PR #32:
+- Интеграция UIBridge в main.ts
+- Замена старого DOM-кода
+- Тестирование Canvas ↔ Preact
 
 ## Предыдущие изменения (5 января 2026)
 

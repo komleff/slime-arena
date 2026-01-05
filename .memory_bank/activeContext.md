@@ -7,39 +7,41 @@
 **Релиз:** v0.2.2
 **GDD версия:** 3.3.2
 **Текущая ветка:** `feature/ui-refactoring`
+**PR:** #32 — ожидает merge (Claude review запрошен)
 
 ### Фокус сессии
 
-- **[ЗАВЕРШЕНО] UI Refactoring - Copilot Review Fixes:**
-  - ✅ vite.config.ts: удалён конфликтующий esbuild.jsx* конфиг
-  - ✅ ScreenManager.tsx: replaceState вместо pushState (fix history accumulation)
-  - ✅ ScreenManager.tsx: Safe Area CSS с max() fallbacks
-  - ✅ DRY: создана утилита utils/injectStyles.ts, обновлены 6 компонентов
-  - ✅ Исправлены комментарии в файлах (Hz, JSX runtime)
-  - ✅ Ранее исправлено: memory leak в gameState.ts, null-checks в UIBridge
+- **[ЗАВЕРШЕНО] UI Refactoring - Phase 1 + Copilot Review:**
+  
+  **Компоненты (все готовы):**
+  - ✅ MainMenu — главное меню с выбором класса
+  - ✅ GameHUD — HUD с throttled 10 Hz обновлением
+  - ✅ AbilityButtons — SVG визуализация кулдауна
+  - ✅ TalentModal — выбор талантов с focus trap
+  - ✅ ResultsScreen — экран результатов матча
+  - ✅ ScreenManager — стек экранов с анимациями
+  - ✅ UIBridge — мост Canvas ↔ Preact
+  
+  **Copilot Review (6 batch, 40+ комментариев исправлено):**
+  - ✅ Batch 1: FLAG_IS_DEAD=16, parseFloat, useMemo, DRY
+  - ✅ Batch 2: JSX типы, keys, focus trap, версия
+  - ✅ Batch 3: isConnecting signal, MAX_ABILITY_SLOTS, visualViewport
+  - ✅ Batch 4: abilities.ts, rarity.ts, цвета классов, ModalType
+  - ✅ Batch 5: импорты, округление, position fixed, devicePixelRatio
+  - ✅ Batch 6: entry.place key, FLAG_IS_DEAD import from shared
+  
+  **Новые файлы (DRY):**
+  - `data/classes.ts` — централизованные данные классов
+  - `data/abilities.ts` — централизованные данные способностей
+  - `data/rarity.ts` — централизованные данные редкости
+  - `utils/injectStyles.ts` — утилита CSS injection (HMR-safe)
 
-- **[В РАБОТЕ] UI Refactoring - Phase 2: Integration:**
+- **[ОЖИДАЕТ] Phase 2: Integration:**
   - Интеграция `UIBridge` в `client/src/main.ts`
   - Замена старого DOM-кода на вызовы `ui.bridge.*`
   - Тестирование взаимодействия Canvas <-> Preact
-  - Проверка Safe Area на мобильных
 
-- **[ЗАВЕРШЕНО] UI Refactoring - Phase 1: Components (6 января 2026):**
-  
-  **Реализовано (Commit 2019135):**
-  - ✅ **Preact + Signals** — установлены `preact` и `@preact/signals`
-  - ✅ **State Management** — глобальное состояние через Preact Signals
-  - ✅ **ScreenManager** — стек экранов с модальными окнами и CSS-анимациями
-  - ✅ **GameHUD** — throttled 10 Hz (снижение нагрузки на DOM)
-  - ✅ **AbilityButtons** — кнопки способностей с SVG-визуализацией кулдауна
-  - ✅ **TalentModal** — модальное окно выбора талантов
-  - ✅ **ResultsScreen** — экран результатов матча
-  - ✅ **MainMenu** — главное меню с выбором класса и именем
-  - ✅ **UIBridge** — API интеграции Canvas-игры с Preact компонентами
-  - ✅ **Vite/TypeScript** — конфигурация JSX для Preact
-  - ✅ **Сборка** — `npm run build` проходит успешно
-
-  **Архитектура файлов:**
+### Архитектура файлов PR #32
   ```
   client/src/ui/
   ├── signals/

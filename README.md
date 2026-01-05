@@ -120,13 +120,14 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
-### UI Refactoring (Phase 1 завершена, Phase 2 в разработке)
+### UI Refactoring (Phase 1 завершена, ожидает merge)
 
 **Preact миграция и ScreenManager** — модернизация UI-слоя клиента:
 
 **Статус:**
 - ✅ **Phase 1** — Preact компоненты, сигналы, стили (завершена)
-- 🔄 **Phase 2** — Интеграция с main.ts и Canvas (в разработке)
+- ✅ **Copilot Review** — все замечания исправлены (6 batch, 40+ комментариев)
+- ⏳ **Phase 2** — Интеграция с main.ts и Canvas (следующий этап)
 
 #### Архитектура
 - **Preact + Signals** — легковесный реактивный UI (3KB gzip) вместо императивного DOM
@@ -162,6 +163,24 @@ client/src/ui/
 - `client/package.json` — добавлены `preact`, `@preact/signals`
 - `client/vite.config.ts` — конфигурация JSX для Preact
 - `client/tsconfig.json` — `jsxImportSource: "preact"`
+
+#### Новые файлы (PR #32)
+```
+client/src/ui/
+├── signals/gameState.ts      — глобальное состояние (Preact Signals)
+├── screens/ScreenManager.tsx — стек экранов и модалок
+├── components/MainMenu.tsx   — главное меню
+├── components/GameHUD.tsx    — HUD (10 Hz throttled)
+├── components/AbilityButtons.tsx — кнопки способностей (SVG)
+├── components/TalentModal.tsx — выбор талантов
+├── components/ResultsScreen.tsx — экран результатов
+├── data/classes.ts           — данные классов (DRY)
+├── data/abilities.ts         — данные способностей (DRY)
+├── data/rarity.ts            — данные редкости (DRY)
+├── utils/injectStyles.ts     — утилита CSS injection
+├── UIBridge.tsx              — API интеграции с Canvas
+└── index.ts                  — экспорты модуля
+```
 
 ---
 
