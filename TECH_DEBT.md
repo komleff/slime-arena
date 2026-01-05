@@ -152,16 +152,27 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 **Контекст:**
 - Сейчас системы принимают `room: any`, теряется подсказка по полям и методам.
 - Это усложняет поддержку и повышает риск ошибок при рефакторинге.
+- Системы в `server/src/rooms/systems/` включают: abilitySystem, boostSystem, chestSystem, collisionSystem, deathSystem, effectSystems, hungerSystem, movementSystems, orbSystem, rebelSystem, safeZoneSystem, talentCardSystem.
 
 **Решение:**
 - Описать интерфейс `IArenaRoomContext` с используемыми полями/методами.
 - Подключить интерфейс в модулях систем.
+- Заменить `room: any` на `room: IArenaRoomContext` во всех системах.
+- Обновить импорты и типы для совместимости с TypeScript.
+
+**Польза:**
+- Автодополнение и проверка типов в IDE
+- Меньше ошибок при рефакторинге
+- Документирование API комнаты
 
 **Файлы:**
-- `server/src/rooms/systems/*`
+- `server/src/rooms/systems/*` (12 файлов)
 - `server/src/rooms/ArenaRoom.ts`
+- Новый файл: `server/src/rooms/IArenaRoomContext.ts`
 
-**Статус:** Открыто
+**Оценка трудозатрат:** 2-3 часа
+
+**Статус:** Открыто. Планируется в следующем спринте после завершения основного функционала.
 
 ---
 
@@ -170,17 +181,38 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 **Контекст:**
 - `getZoneForPlayer()` вызывается несколько раз в `movementSystems.ts` и `effectSystems.ts`.
-- При большом количестве игроков число проверок растёт.
+- При большом количестве игроков число проверок растёт квадратично.
+- Зона игрока не меняется в течение тика, но проверяется многократно.
+- Типичный игрок проверяет зону 2-3 раза за тик.
+
+**Текущая реализация:**
+- `effectSystems.ts`: проверка зоны для применения эффектов (урон от лавы, ускорение от турбо)
+- `movementSystems.ts`: проверка зоны для модификаторов скорости (замедление на льду, слизи)
 
 **Решение:**
-- Считать активную зону один раз на тик и переиспользовать.
+- Добавить поле `currentZoneId: string | null` в `Player` (server-only, не синхронизируется).
+- В начале тика запустить `zoneCalculationSystem()`, которая однократно считает зону для каждого игрока.
+- Переписать системы для использования `player.currentZoneId` вместо вызова `getZoneForPlayer()`.
+- Опционально: кэшировать объект зоны в `player.currentZone: Zone | null`.
+
+**Польза:**
+- Сокращение числа проверок с O(players × systems) до O(players).
+- Улучшение производительности симуляции при 10+ игроках.
+- Более предсказуемая нагрузка на каждый тик.
 
 **Файлы:**
 - `server/src/rooms/systems/movementSystems.ts`
 - `server/src/rooms/systems/effectSystems.ts`
-- `server/src/rooms/ArenaRoom.ts`
+- `server/src/rooms/ArenaRoom.ts` (порядок систем)
+- `server/src/rooms/schema/GameState.ts` (добавить server-only поле)
 
-**Статус:** Открыто
+**Оценка трудозатрат:** 1-2 часа
+
+**Метрики для проверки:**
+- Среднее время тика должно уменьшиться на 5-10% при 10+ игроках
+- Количество вызовов `getZoneForPlayer()` за тик = количество игроков (вместо 2-3× больше)
+
+**Статус:** Открыто. Низкий приоритет, не критично для MVP.
 
 ---
 
