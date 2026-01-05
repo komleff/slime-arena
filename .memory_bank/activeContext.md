@@ -3,19 +3,57 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (5 января 2026)
+**База:** main (6 января 2026)
 **Релиз:** v0.2.2
 **GDD версия:** 3.3.2
-**Текущая ветка:** `docs/soft-launch-prep`
+**Текущая ветка:** `feature/ui-refactoring`
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] UI Refactoring (Preact Migration):**
-  - Миграция HUD и меню на Preact
-  - Реализация ScreenManager (стек экранов)
-  - Оптимизация рендеринга (5-10 Hz для HUD)
-  - Адаптация под Safe Area и мобильные экраны
-  - Исправление "Back button" flow
+- **[ВЫПОЛНЯЕТСЯ] UI Refactoring (Preact Migration):**
+  
+  **Реализовано:**
+  - ✅ **Preact + Signals** — установлены `preact` и `@preact/signals`
+  - ✅ **State Management** — глобальное состояние через Preact Signals
+  - ✅ **ScreenManager** — стек экранов с модальными окнами и CSS-анимациями
+  - ✅ **GameHUD** — throttled 10 Hz (снижение нагрузки на DOM)
+  - ✅ **AbilityButtons** — кнопки способностей с SVG-визуализацией кулдауна
+  - ✅ **TalentModal** — модальное окно выбора талантов
+  - ✅ **ResultsScreen** — экран результатов матча
+  - ✅ **MainMenu** — главное меню с выбором класса и именем
+  - ✅ **UIBridge** — API интеграции Canvas-игры с Preact компонентами
+  - ✅ **Vite/TypeScript** — конфигурация JSX для Preact
+  - ✅ **Сборка** — `npm run build` проходит успешно
+
+  **Архитектура файлов:**
+  ```
+  client/src/ui/
+  ├── signals/
+  │   └── gameState.ts     — глобальное состояние (Preact Signals)
+  ├── screens/
+  │   └── ScreenManager.tsx — стек экранов и модалок
+  ├── components/
+  │   ├── MainMenu.tsx
+  │   ├── GameHUD.tsx
+  │   ├── AbilityButtons.tsx
+  │   ├── TalentModal.tsx
+  │   └── ResultsScreen.tsx
+  ├── UIBridge.tsx         — API интеграции с Canvas
+  └── index.ts             — экспорты модуля
+  ```
+
+  **Ожидает:**
+  - ⏳ Интеграция с main.ts (Canvas rendering)
+  - ⏳ Safe Area CSS variables
+  - ⏳ Тестирование на мобильных устройствах
+  - ⏳ PR review и merge
+
+- **[ЗАВЕРШЕНО] Stage A+B+C — MetaServer Infrastructure (5 января 2026):**
+  - PR #31 merged to main
+  - PostgreSQL 16, Redis 7, миграции БД
+  - Auth (Telegram/Yandex/Poki adapters), Profile, Wallet, Shop services
+  - A/B Testing, Analytics, Payment Providers (Telegram Stars, Yandex.Checkout)
+  - RuntimeConfig management с версионированием
 
 - **[ЗАВЕРШЕНО] Stage C - Monetization & LiveOps (5 января 2026):**
 

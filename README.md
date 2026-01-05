@@ -120,6 +120,47 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
+### UI Refactoring (текущая разработка)
+
+**Preact миграция и ScreenManager** — модернизация UI-слоя клиента:
+
+#### Архитектура
+- **Preact + Signals** — легковесный реактивный UI (3KB gzip) вместо императивного DOM
+- **UIBridge** — мост между Canvas-игрой и Preact компонентами
+- **ScreenManager** — стек экранов с модальными окнами и анимациями
+- **Throttled HUD** — обновление UI 10 Гц вместо 60 Гц (снижение нагрузки на DOM)
+
+#### Компоненты
+- `MainMenu` — главное меню с выбором класса и именем
+- `GameHUD` — игровой интерфейс (таймер, уровень, HP, очередь карточек)
+- `AbilityButtons` — кнопки способностей с визуализацией кулдауна (SVG)
+- `TalentModal` — модальное окно выбора талантов
+- `ResultsScreen` — экран результатов матча
+
+#### Структура файлов
+```
+client/src/ui/
+├── signals/
+│   └── gameState.ts     — глобальное состояние (Preact Signals)
+├── screens/
+│   └── ScreenManager.tsx — стек экранов и модалок
+├── components/
+│   ├── MainMenu.tsx
+│   ├── GameHUD.tsx
+│   ├── AbilityButtons.tsx
+│   ├── TalentModal.tsx
+│   └── ResultsScreen.tsx
+├── UIBridge.tsx         — API интеграции с Canvas
+└── index.ts             — экспорты модуля
+```
+
+#### Изменённые файлы
+- `client/package.json` — добавлены `preact`, `@preact/signals`
+- `client/vite.config.ts` — конфигурация JSX для Preact
+- `client/tsconfig.json` — `jsxImportSource: "preact"`
+
+---
+
 ### Релиз v0.2.2 (5 января 2026)
 
 **Основное:** Исправлено залипание управления на мобильных устройствах (корневая причина — браузеры генерируют compatibility mouse events на touch-устройствах). Автоматизирована сборка и публикация Docker-контейнеров в GHCR через GitHub Actions.

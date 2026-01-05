@@ -9,5 +9,16 @@ export default defineConfig({
       host: 'slime-arena.overmobile.space',
       protocol: 'wss'
     }
+  },
+  esbuild: {
+    jsxFactory: 'h',
+    jsxFragment: 'Fragment',
+    jsxInject: `import { h, Fragment } from 'preact'`
+  },
+  resolve: {
+    alias: {
+      'react': 'preact/compat',
+      'react-dom': 'preact/compat'
+    }
   }
 })

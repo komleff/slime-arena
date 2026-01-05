@@ -9,9 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@preact/signals": "^2.5.1",
     "@slime-arena/shared": "*",
     "colyseus.js": "^0.15.0",
-    "howler": "^2.2.3"
+    "howler": "^2.2.3",
+    "preact": "^10.28.1"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

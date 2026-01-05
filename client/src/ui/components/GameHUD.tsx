@@ -1,0 +1,330 @@
+/**
+ * HUD компонент — игровой интерфейс во время матча
+ * Оптимизирован: обновления throttled до 5-10 Hz
+ */
+
+import { Fragment } from 'preact';
+import { useEffect, useState, useRef } from 'preact/hooks';
+import {
+  localPlayer,
+  matchTimer,
+  leaderboard,
+  activeBoost,
+  showHud,
+  isPlayerDead,
+} from '../signals/gameState';
+
+// ========== Стили ==========
+
+const styles = `
+  .game-hud {
+    position: fixed;
+    pointer-events: none;
+    z-index: 50;
+    font-family: "IBM Plex Mono", "Courier New", monospace;
+    color: #e6f3ff;
+  }
+
+  .hud-top-left {
+    top: 12px;
+    left: 12px;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    min-width: 200px;
+  }
+
+  .hud-top-center {
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+
+  .hud-timer {
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+  }
+
+  .hud-phase {
+    font-size: 14px;
+    color: #6fd6ff;
+    margin-top: 4px;
+  }
+
+  .hud-kills {
+    font-size: 16px;
+    color: #ff4d4d;
+    font-weight: bold;
+    margin-top: 4px;
+  }
+
+  .hud-boost-panel {
+    position: fixed;
+    top: 12px;
+    left: 260px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .boost-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .hud-stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .hud-stat-label {
+    color: #8aa4c8;
+  }
+
+  .hud-stat-value {
+    font-weight: 600;
+  }
+
+  .hud-leaderboard {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .leaderboard-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    font-size: 12px;
+  }
+
+  .leaderboard-entry.is-local {
+    color: #9be070;
+    font-weight: 600;
+  }
+
+  .leaderboard-place {
+    width: 20px;
+    color: #ffc857;
+  }
+
+  .leaderboard-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
+  }
+
+  .leaderboard-mass {
+    min-width: 50px;
+    text-align: right;
+  }
+
+  .death-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 20, 0.85);
+    z-index: 80;
+    pointer-events: auto;
+  }
+
+  .death-title {
+    font-size: 36px;
+    font-weight: 700;
+    color: #ff4d4d;
+    text-shadow: 0 0 20px rgba(255, 77, 77, 0.5);
+    margin-bottom: 16px;
+  }
+
+  .death-respawn {
+    font-size: 18px;
+    color: #6fd6ff;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+`;
+
+// Внедрение стилей
+let stylesInjected = false;
+function injectStyles() {
+  if (stylesInjected) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'hud-styles';
+  styleEl.textContent = styles;
+  document.head.appendChild(styleEl);
+  stylesInjected = true;
+}
+
+// ========== Утилиты ==========
+
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatMass(mass: number): string {
+  if (mass >= 1000) {
+    return `${(mass / 1000).toFixed(1)}k`;
+  }
+  return Math.floor(mass).toString();
+}
+
+// ========== Компоненты ==========
+
+function PlayerStats() {
+  const player = localPlayer.value;
+  if (!player) return null;
+
+  return (
+    <div class="hud-stats">
+      <div class="hud-stat-row">
+        <span class="hud-stat-label">Масса:</span>
+        <span class="hud-stat-value">{formatMass(player.mass)} кг</span>
+      </div>
+      <div class="hud-stat-row">
+        <span class="hud-stat-label">Макс:</span>
+        <span class="hud-stat-value">{formatMass(player.maxMass)} кг</span>
+      </div>
+      <div class="hud-stat-row">
+        <span class="hud-stat-label">Убийства:</span>
+        <span class="hud-stat-value" style={{ color: '#ff4d4d' }}>{player.kills}</span>
+      </div>
+      <div class="hud-stat-row">
+        <span class="hud-stat-label">Уровень:</span>
+        <span class="hud-stat-value" style={{ color: '#ffc857' }}>{player.level}</span>
+      </div>
+    </div>
+  );
+}
+
+function Leaderboard() {
+  const entries = leaderboard.value.slice(0, 5);
+  if (entries.length === 0) return null;
+
+  return (
+    <div class="hud-leaderboard">
+      {entries.map((entry, idx) => (
+        <div key={idx} class={`leaderboard-entry ${entry.isLocal ? 'is-local' : ''}`}>
+          <span class="leaderboard-place">{entry.place}.</span>
+          <span class="leaderboard-name">{entry.name}</span>
+          <span class="leaderboard-mass">{formatMass(entry.mass)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BoostPanel() {
+  const boost = activeBoost.value;
+  if (!boost || !boost.active) return null;
+
+  return (
+    <div class="hud-boost-panel">
+      <div class="boost-icon" style={{ background: boost.color, color: '#0b0f14' }}>
+        {boost.icon}
+      </div>
+      <div>
+        <div style={{ fontWeight: 600 }}>{boost.type}</div>
+        <div style={{ color: '#8aa4c8' }}>{Math.ceil(boost.timeLeft)}с</div>
+      </div>
+    </div>
+  );
+}
+
+function MatchTimer() {
+  const timer = matchTimer.value;
+
+  return (
+    <div class="hud-top-center game-hud">
+      <div class="hud-timer">{formatTime(timer.timeLeft)}</div>
+      {timer.phase && <div class="hud-phase">{timer.phase}</div>}
+    </div>
+  );
+}
+
+function DeathOverlay() {
+  if (!isPlayerDead.value) return null;
+
+  return (
+    <div class="death-overlay">
+      <div class="death-title">💀 Вы погибли</div>
+      <div class="death-respawn">Возрождение...</div>
+    </div>
+  );
+}
+
+// ========== Главный компонент HUD ==========
+
+export function GameHUD() {
+  // Throttled обновления (10 Hz)
+  const [, forceUpdate] = useState(0);
+  const lastUpdateRef = useRef(0);
+
+  useEffect(() => {
+    injectStyles();
+
+    let rafId: number;
+    const update = () => {
+      const now = performance.now();
+      if (now - lastUpdateRef.current >= 100) { // 10 Hz
+        lastUpdateRef.current = now;
+        forceUpdate(n => n + 1);
+      }
+      rafId = requestAnimationFrame(update);
+    };
+    
+    rafId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  if (!showHud.value) return null;
+
+  return (
+    <Fragment>
+      {/* Top Left Panel - Stats & Leaderboard */}
+      <div class="hud-top-left game-hud">
+        <PlayerStats />
+        <Leaderboard />
+      </div>
+
+      {/* Top Center - Timer */}
+      <MatchTimer />
+
+      {/* Boost Panel */}
+      <BoostPanel />
+
+      {/* Death Overlay */}
+      <DeathOverlay />
+    </Fragment>
+  );
+}
+
+export default GameHUD;

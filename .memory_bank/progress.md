@@ -2,19 +2,86 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: 169a152 (docs/soft-launch-prep) @ 5 января 2026
-- **Текущая ветка**: docs/soft-launch-prep
+- **last_checked_commit**: feature/ui-refactoring @ 6 января 2026
+- **Текущая ветка**: feature/ui-refactoring
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
-- **Stage A MetaServer**: ЗАВЕРШЕНО (5 января 2026)
-- **Stage B Core Services**: ЗАВЕРШЕНО (5 января 2026)
-- **Stage C Monetization & LiveOps**: ЗАВЕРШЕНО (5 января 2026)
-- **Резюме**: Stage A+B+C завершены — MetaServer с полной инфраструктурой монетизации, A/B тестами и аналитикой.
+- **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
+- **UI Refactoring**: В РАБОТЕ
+- **Резюме**: Preact миграция — UI компоненты созданы, сборка проходит, ожидает интеграции с Canvas.
 
-## Последние изменения (5 января 2026)
+## Последние изменения (6 января 2026)
 
-### Stage C - Monetization & LiveOps (ЗАВЕРШЕНО)
+### UI Refactoring — Preact Migration (В РАБОТЕ)
+
+**Установлено:**
+- `preact` (10.x) — минималистичный React-совместимый фреймворк
+- `@preact/signals` — реактивное состояние без Redux
+
+**Созданные файлы (8):**
+1. `client/src/ui/signals/gameState.ts` (~280 строк)
+   - Глобальное состояние через Preact Signals
+   - gamePhase, localPlayer, leaderboard, matchTimer, talentChoices
+   - abilityCooldowns, activeBoost, matchResults
+   - Actions: setGamePhase, updateLocalPlayer, setTalentChoices и др.
+
+2. `client/src/ui/screens/ScreenManager.tsx` (~300 строк)
+   - Stack-based navigation с CSS-анимациями
+   - Modal overlay с backdrop blur
+   - Hardware back button (popstate) support
+   - registerScreen, navigateTo, showModal API
+
+3. `client/src/ui/components/GameHUD.tsx` (~260 строк)
+   - Throttled updates 10 Hz (vs 60 Hz canvas)
+   - Player stats, leaderboard mini-table
+   - Boost panel, death overlay
+
+4. `client/src/ui/components/AbilityButtons.tsx` (~250 строк)
+   - SVG cooldown progress circles
+   - Pulse animation when ready
+   - Touch-friendly sizing
+
+5. `client/src/ui/components/TalentModal.tsx` (~200 строк)
+   - Talent cards with rarity colors
+   - Timer display, keyboard hints
+   - Queue indicator
+
+6. `client/src/ui/components/ResultsScreen.tsx` (~280 строк)
+   - Final leaderboard, personal stats
+   - Class selection for next match
+   - Play again / exit buttons
+
+7. `client/src/ui/components/MainMenu.tsx` (~260 строк)
+   - Name input (localStorage persistence)
+   - Class selection grid
+   - Connection status indicator
+
+8. `client/src/ui/UIBridge.tsx` (~200 строк)
+   - Bridge between Canvas game and Preact UI
+   - sync* functions for state updates
+   - UICallbacks interface for events
+
+9. `client/src/ui/index.ts` — central exports
+
+**Изменённые файлы (3):**
+- `client/package.json` — dependencies: preact, @preact/signals
+- `client/vite.config.ts` — esbuild JSX config (jsxFactory: 'h')
+- `client/tsconfig.json` — jsx: "react-jsx", jsxImportSource: "preact"
+
+**Статус:**
+- ✅ Сборка: `npm run build` успешно
+- ✅ TypeScript: все типы корректны
+- ⏳ Интеграция: main.ts не изменён (требуется подключение UIBridge)
+- ⏳ Safe Area: CSS переменные готовы, требуется тестирование
+
+**Оценка vs факт:** План 10-12 дней, реализована основа за 1 сессию.
+
+---
+
+## Предыдущие изменения (5 января 2026)
+
+### Stage A+B+C — MetaServer Infrastructure (MERGED)
 
 **RuntimeConfig Management (расширение ConfigService):**
 - Полный CRUD для config versions (draft → active → archived)
