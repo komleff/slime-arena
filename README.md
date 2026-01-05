@@ -86,8 +86,8 @@ docker compose -f docker/docker-compose.yml up --build
 ```
 
 Контейнеры доступны в GitHub Container Registry:
-- `ghcr.io/komleff/slime-arena-server:v0.2`
-- `ghcr.io/komleff/slime-arena-client:v0.2`
+- `ghcr.io/komleff/slime-arena-server:v0.2.1`
+- `ghcr.io/komleff/slime-arena-client:v0.2.1`
 
 ### Рекомендуемый рабочий процесс
 
@@ -119,6 +119,11 @@ docker compose -f docker/docker-compose.yml up --build
 - [Список задач](TODO.md) - текущий прогресс и ближайшие цели.
 
 ## Последние изменения
+
+### Релиз v0.2.1
+
+- Исправлено залипание управления на мобильных устройствах с адаптивным джойстиком.
+- Контейнеры опубликованы в GitHub Container Registry: `ghcr.io/komleff/slime-arena-server:v0.2.1`, `ghcr.io/komleff/slime-arena-client:v0.2.1`.
 
 ### Релиз v0.2
 
