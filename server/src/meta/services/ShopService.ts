@@ -1,11 +1,11 @@
 import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
-import { ConfigService } from './ConfigService';
+import { ConfigService, RuntimeConfig } from './ConfigService';
 import { WalletService } from './WalletService';
 
 export interface ShopOffer {
   id: string;
-  type: 'skin' | 'currency' | 'battlepass';
+  type: string;
   itemId?: string;
   amount?: number;
   price: {
@@ -46,10 +46,8 @@ export class ShopService {
       return [];
     }
 
-    const configData = JSON.parse(config.data);
-    
     // Shop offers come from RuntimeConfig.shop field
-    const shopOffers = configData.shop?.offers || [];
+    const shopOffers = config.shop?.offers || [];
 
     return shopOffers;
   }
@@ -185,7 +183,7 @@ export class ShopService {
 
     const result = await this.pool.query(query, params);
 
-    return result.rows.map((row) => ({
+    return result.rows.map((row: any) => ({
       itemId: row.item_id,
       itemType: row.item_type,
       unlockedAt: row.unlocked_at,

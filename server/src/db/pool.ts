@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool } from 'pg';
 import { createClient, RedisClientType } from 'redis';
 
 // PostgreSQL connection pool
@@ -18,7 +18,7 @@ export function initializePostgres(): Pool {
     connectionTimeoutMillis: 5000,
   });
 
-  pgPool.on('error', (err) => {
+  pgPool.on('error', (err: Error) => {
     console.error('Unexpected error on idle PostgreSQL client', err);
   });
 
@@ -55,7 +55,7 @@ export async function initializeRedis(): Promise<RedisClientType> {
     url: redisUrl,
   });
 
-  redisClient.on('error', (err) => {
+  redisClient.on('error', (err: Error) => {
     console.error('Redis Client Error', err);
   });
 

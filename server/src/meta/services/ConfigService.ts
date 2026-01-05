@@ -4,7 +4,12 @@ import { getPostgresPool } from '../../db/pool';
 export interface RuntimeConfig {
   configVersion: string;
   economy: any;
-  shop?: any;
+  shop?: {
+    offers?: ShopOffer[];
+  };
+  ads?: {
+    rewards?: Record<string, AdRewardConfig>;
+  };
   battlepass?: any;
   achievements?: any;
   leaderboards?: any;
@@ -16,6 +21,24 @@ export interface RuntimeConfig {
     matchmakingEnabled: boolean;
   };
   abtests?: any;
+}
+
+interface ShopOffer {
+  id: string;
+  type: string;
+  itemId?: string;
+  amount?: number;
+  price: {
+    currency: 'soft' | 'hard';
+    amount: number;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+interface AdRewardConfig {
+  type: 'soft_currency' | 'hard_currency' | 'item';
+  amount?: number;
+  itemId?: string;
 }
 
 export class ConfigService {

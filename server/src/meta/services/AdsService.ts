@@ -43,8 +43,7 @@ export class AdsService {
       throw new Error('RuntimeConfig not available');
     }
 
-    const configData = JSON.parse(config.data);
-    const adRewards = configData.ads?.rewards || {};
+    const adRewards = (config as any).ads?.rewards || {};
 
     // Get reward for this placement
     const placementReward = adRewards[adPlacement];

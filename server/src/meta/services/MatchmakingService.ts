@@ -120,7 +120,7 @@ export class MatchmakingService {
       return [];
     }
 
-    const requests: MatchmakingRequest[] = members.map((m) => JSON.parse(m));
+    const requests: MatchmakingRequest[] = members.map((m: string) => JSON.parse(m));
     const now = Date.now();
 
     // Remove timed-out requests
@@ -211,7 +211,7 @@ export class MatchmakingService {
       return { queueSize: 0, oldestTimestamp: null };
     }
 
-    const oldest = await this.redis.zRange(this.QUEUE_KEY, 0, 0, { REV: false });
+    const oldest = await this.redis.zRange(this.QUEUE_KEY, 0, 0);
     if (oldest.length > 0) {
       const request: MatchmakingRequest = JSON.parse(oldest[0]);
       return { queueSize: size, oldestTimestamp: request.timestamp };

@@ -45,3 +45,6 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     });
   }
 }
+
+// Alias for backward compatibility
+export const authMiddleware = requireAuth;
