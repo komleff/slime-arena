@@ -1,6 +1,36 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: slime-arena-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=slime_arena
+      - POSTGRES_USER=slime
+      - POSTGRES_PASSWORD=slime_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slime -d slime_arena"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: slime-arena-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   server:
     build:
       context: ..
@@ -9,9 +39,16 @@ services:
       - "2567:2567"
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://slime:slime_dev_password@postgres:5432/slime_arena
+      - REDIS_URL=redis://redis:6379
     volumes:
       - ../server:/app/server
       - ../shared:/app/shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   client:
     build:
@@ -22,3 +59,7 @@ services:
     volumes:
       - ../client:/app/client
       - ../shared:/app/shared
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -2,14 +2,75 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 5 января 2026
+- **last_checked_commit**: docs/soft-launch-prep @ 5 января 2026
 - **Текущая ветка**: docs/soft-launch-prep
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
-- **Резюме**: Реорганизация документации Soft Launch, составлен план реализации (40-55 дней).
+- **Stage A MetaServer**: ЗАВЕРШЕНО (5 января 2026)
+- **Резюме**: Stage A реализован — PostgreSQL, Redis, MetaServer с базовым HTTP API.
 
 ## Последние изменения (5 января 2026)
+
+### Stage A - MetaServer Infrastructure (ЗАВЕРШЕНО)
+
+**Инфраструктура и БД:**
+- Docker Compose: PostgreSQL 16-alpine, Redis 7-alpine с health checks и persistent volumes
+- Database schema: 18 таблиц согласно Architecture v4.2.5 Part 4 Appendix B
+  - Core: users, sessions, profiles, wallets
+  - Economy: transactions (с idempotency через UNIQUE constraints), unlocked_items
+  - Progression: battlepass_progress, mission_progress, achievements, daily_rewards
+  - Ratings: player_ratings (Glicko-2: rating, rd, sigma)
+  - Monetization: purchase_receipts
+  - Social: social_invites, ab_tests
+  - System: configs (RuntimeConfig versions), audit_log, match_results
+- Миграционная система: runner с поддержкой .sql файлов
+- Connection pooling: PostgreSQL (max 20), Redis client
+
+**MetaServer HTTP API:**
+- Express.js 4.18 + CORS
+- Endpoints:
+  - GET /health — health check
+  - POST /api/v1/auth/verify — платформенная аутентификация
+  - POST /api/v1/auth/logout — revoke сессии
+  - GET /api/v1/config/runtime — получить активную RuntimeConfig
+  - GET /api/v1/profile — профиль игрока (требует auth)
+  - POST /api/v1/profile/nickname — обновить никнейм (idempotent)
+- Auth middleware: Bearer token validation
+- Graceful shutdown handlers
+
+**Сервисы:**
+- ConfigService: Управление версиями RuntimeConfig, atomic activation
+- AuthService: Opaque token auth (32-byte random, SHA-256 hash, 30-day sessions), platform-agnostic
+- PlayerService: Profile management, nickname updates, XP progression
+
+**Технические решения:**
+- **Opaque tokens** вместо JWT: проще, revocable, соответствует Architecture
+- **Platform abstraction**: готово к адаптерам Telegram, Yandex, Poki
+- **Idempotency**: UNIQUE constraints на (user_id, operation_id) в transactions
+- **Default RuntimeConfig**: v1.0.0 с paymentsEnabled: false
+
+**Тестирование:**
+- PowerShell smoke tests: 6 test cases (health, config, auth, profile, nickname update, idempotency)
+- Bash-версия smoke tests
+
+**Документация:**
+- server/src/meta/README.md — Quick start guide (Docker, migrations, API, development workflow)
+- tests/smoke/README.md — Manual test instructions + curl examples
+
+**Файлы:**
+- Создано 13 новых файлов
+- Изменено 2 файла (docker-compose.yml, server/package.json)
+
+**Готово для запуска:**
+```bash
+docker-compose up postgres redis
+npm run db:migrate
+npm run dev:meta
+./tests/smoke/run-smoke-tests.ps1
+```
+
+**Оценка vs факт:** Stage A оценен в 5-7 дней, реализован за 1 сессию.
 
 ### Реорганизация документации Soft Launch
 

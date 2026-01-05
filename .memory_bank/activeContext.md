@@ -10,13 +10,54 @@
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] Stage A - MetaServer Infrastructure (5 января 2025):**
+  
+  **Создано 13 новых файлов:**
+  - `server/src/db/pool.ts` — PostgreSQL и Redis connection pooling
+  - `server/src/db/migrate.ts` — Runner для миграций
+  - `server/src/db/migrations/001_initial_schema.sql` — Полная схема БД (18 таблиц)
+  - `server/src/meta/server.ts` — Главный entry point MetaServer
+  - `server/src/meta/services/ConfigService.ts` — Управление RuntimeConfig
+  - `server/src/meta/services/AuthService.ts` — Аутентификация (opaque tokens)
+  - `server/src/meta/services/PlayerService.ts` — Профили и прогрессия
+  - `server/src/meta/middleware/auth.ts` — Middleware для защищенных роутов
+  - `server/src/meta/routes/auth.ts` — POST /verify, POST /logout
+  - `server/src/meta/routes/config.ts` — GET /runtime
+  - `server/src/meta/routes/profile.ts` — GET /, POST /nickname
+  - `server/src/meta/README.md` — Quick start guide для разработчиков
+  - `tests/smoke/run-smoke-tests.ps1` — Автоматизированные smoke-тесты
+  
+  **Изменено 2 файла:**
+  - `docker/docker-compose.yml` — Добавлены PostgreSQL 16 и Redis 7 с health checks
+  - `server/package.json` — Зависимости pg, redis; скрипты dev:meta, db:migrate
+
+  **Ключевые решения:**
+  - Opaque tokens вместо JWT (32-byte random, SHA-256 hash, 30-day sessions)
+  - Platform-agnostic auth — готов к Telegram/Yandex адаптерам
+  - Idempotency через UNIQUE constraints на уровне БД
+  - Default RuntimeConfig v1.0.0 с `paymentsEnabled: false`
+  
+  **Инфраструктура:**
+  - Docker: PostgreSQL 16-alpine, Redis 7-alpine с health checks
+  - Database: 18 таблиц (users, sessions, profiles, wallets, transactions, player_ratings, battlepass_progress, mission_progress, achievements, daily_rewards, purchase_receipts, social_invites, ab_tests, configs, audit_log, unlocked_items, match_results)
+  - API endpoints: /health, /api/v1/auth/*, /api/v1/config/*, /api/v1/profile/*
+  - Connection pooling: max 20 connections, 30s idle timeout
+  
+  **Готово для запуска:**
+  ```bash
+  docker-compose up postgres redis
+  npm run db:migrate
+  npm run dev:meta
+  ./tests/smoke/run-smoke-tests.ps1
+  ```
+
 - **[ЗАВЕРШЕНО] Реорганизация документации Soft Launch:**
   - **Создана структура:** docs/soft-launch/ (9 файлов активной документации v1.5.6)
   - **Архивировано:** docs/archive/ (21 файл устаревших версий)
   - **Добавлены инструкции:** 3 файла в корне для ИИ-агентов (архитектор, кодер, тестировщик)
   - **Пакет документов:** Архитектура v4.2.5 (части 1-4), ТЗ v1.4.7, План v1.0.5, Шаблоны v1.0.1, AI Guides v1.0.1
 - **План реализации Soft Launch составлен:** 5 этапов, 40-55 рабочих дней
-  - Stage A: Подготовка окружений (PostgreSQL, Redis, MetaServer) — 5-7 дней
+  - Stage A: Подготовка окружений (PostgreSQL, Redis, MetaServer) — **ЗАВЕРШЕНО**
   - Stage B: Функциональный минимум (авторизация, матчмейкинг, экономика) — 12-15 дней
   - Stage C: Монетизация и LiveOps (конфиги, магазин, реклама, A/B тесты) — 8-10 дней
   - UI Refactoring: Preact миграция, ScreenManager, HUD оптимизация — 10-12 дней
