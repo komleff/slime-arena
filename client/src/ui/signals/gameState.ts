@@ -300,10 +300,13 @@ export function initMobileDetection(): () => void {
   const updateSafeArea = () => {
     const viewport = window.visualViewport;
     if (viewport) {
+      const dpr = window.devicePixelRatio || 1;
       const top = viewport.offsetTop;
       const left = viewport.offsetLeft;
-      const right = Math.max(0, window.innerWidth - viewport.width - viewport.offsetLeft);
-      const bottom = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      const rightDiff = window.innerWidth - viewport.width - viewport.offsetLeft;
+      const bottomDiff = window.innerHeight - viewport.height - viewport.offsetTop;
+      const right = Math.max(0, Math.round(rightDiff * dpr) / dpr);
+      const bottom = Math.max(0, Math.round(bottomDiff * dpr) / dpr);
       safeAreaInsets.value = { top, bottom, left, right };
     } else {
       safeAreaInsets.value = { top: 0, bottom: 0, left: 0, right: 0 };

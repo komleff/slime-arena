@@ -47,9 +47,7 @@ export function registerScreen(config: ScreenConfig) {
 }
 
 export function registerModal(config: ModalConfig) {
-  if (config.id !== null) {
-    modalRegistry.set(config.id, config);
-  }
+  modalRegistry.set(config.id, config);
 }
 
 // ========== CSS стили ==========
@@ -305,9 +303,7 @@ export function ScreenManager() {
 
   // Обработка hardware back button
   useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      e.preventDefault();
-
+    const handlePopState = () => {
       // Сначала закрываем модалку, если есть
       if (activeModal.value) {
         closeModal();

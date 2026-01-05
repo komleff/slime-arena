@@ -6,6 +6,7 @@
 import { useCallback, useMemo } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { abilityCooldowns, type AbilityCooldown } from '../signals/gameState';
+import { ABILITIES_DATA } from '../data/abilities';
 
 // ========== Стили ==========
 
@@ -144,8 +145,6 @@ const STYLES_ID = 'ability-buttons-styles';
 
 injectStyles(STYLES_ID, styles);
 
-import { ABILITIES_DATA } from '../data/abilities';
-
 // ========== Компонент кнопки ==========
 
 interface AbilityButtonProps {
@@ -177,10 +176,8 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
       : 0;
     const circ = 2 * Math.PI * 45;
     const offset = circ * (1 - prog);
-    // Math.ceil для последней секунды, toFixed для остальных
-    const display = cooldown.remaining < 1 
-      ? Math.ceil(cooldown.remaining * 10) / 10  // 0.1 precision
-      : cooldown.remaining.toFixed(1);
+    // Единая логика округления до одной десятой секунды
+    const display = cooldown.remaining.toFixed(1);
     return { circumference: circ, strokeDashoffset: offset, displayTime: display };
   }, [cooldown.remaining, cooldown.total]);
 

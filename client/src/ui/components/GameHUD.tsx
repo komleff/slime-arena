@@ -39,6 +39,7 @@ const styles = `
   }
 
   .hud-top-center {
+    position: fixed;
     top: 12px;
     left: 50%;
     transform: translateX(-50%);
@@ -177,7 +178,8 @@ const STYLES_ID = 'hud-styles';
 // ========== Утилиты ==========
 
 function formatTime(seconds: number): string {
-  // Math.ceil чтобы таймер показывал 0:01 до полного завершения
+  // Math.ceil чтобы таймер показывал 0:01 при 0 < seconds <= 1
+  // При seconds = 0 показывает 0:00
   const totalSeconds = Math.ceil(seconds);
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
