@@ -223,8 +223,8 @@ function Leaderboard() {
 
   return (
     <div class="hud-leaderboard">
-      {entries.map((entry, idx) => (
-        <div key={idx} class={`leaderboard-entry ${entry.isLocal ? 'is-local' : ''}`}>
+      {entries.map((entry) => (
+        <div key={`${entry.place}-${entry.name}`} class={`leaderboard-entry ${entry.isLocal ? 'is-local' : ''}`}>
           <span class="leaderboard-place">{entry.place}.</span>
           <span class="leaderboard-name">{entry.name}</span>
           <span class="leaderboard-mass">{formatMass(entry.mass)}</span>

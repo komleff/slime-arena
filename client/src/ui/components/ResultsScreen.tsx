@@ -3,6 +3,7 @@
  */
 
 // JSX runtime imported automatically via jsxImportSource
+import type { JSX } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
@@ -11,6 +12,11 @@ import {
   selectedClassId,
   resetGameState,
 } from '../signals/gameState';
+
+// Типизированный интерфейс для CSS переменных
+interface ClassButtonStyle extends JSX.CSSProperties {
+  '--class-color': string;
+}
 
 // ========== Стили ==========
 
@@ -256,8 +262,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
 
         {/* Таблица лидеров */}
         <div class="results-leaderboard">
-          {finalLeaderboard.map((entry, idx) => (
-            <div key={idx} class={`results-entry ${entry.isLocal ? 'is-local' : ''}`}>
+          {finalLeaderboard.map((entry) => (
+            <div key={entry.place} class={`results-entry ${entry.isLocal ? 'is-local' : ''}`}>
               <span class="results-place">{entry.place}.</span>
               <span class="results-name">{entry.name}</span>
               <div class="results-stats">
@@ -288,20 +294,23 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
 
         {/* Выбор класса */}
         <div class="results-class-selection">
-          {CLASSES_DATA.map(cls => (
-            <button
-              key={cls.id}
-              class={`class-button ${currentClassId === cls.id ? 'selected' : ''}`}
-              style={{
-                '--class-color': cls.color,
-                background: currentClassId === cls.id ? 'var(--class-color)' : 'rgba(255, 255, 255, 0.05)',
-                borderColor: 'var(--class-color)',
-              } as any}
-              onClick={() => handleClassSelect(cls.id)}
-            >
-              {cls.icon} {cls.name}
-            </button>
-          ))}
+          {CLASSES_DATA.map(cls => {
+            const buttonStyle: ClassButtonStyle = {
+              '--class-color': cls.color,
+              background: currentClassId === cls.id ? 'var(--class-color)' : 'rgba(255, 255, 255, 0.05)',
+              borderColor: 'var(--class-color)',
+            };
+            return (
+              <button
+                key={cls.id}
+                class={`class-button ${currentClassId === cls.id ? 'selected' : ''}`}
+                style={buttonStyle}
+                onClick={() => handleClassSelect(cls.id)}
+              >
+                {cls.icon} {cls.name}
+              </button>
+            );
+          })}
         </div>
 
         {/* Таймер до следующего матча */}

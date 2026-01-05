@@ -3,6 +3,7 @@
  */
 
 // JSX runtime imported automatically via jsxImportSource
+import type { JSX } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
@@ -212,8 +213,8 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
   const [classId, setClassId] = useState(selectedClassId.value);
   const error = connectionError.value;
 
-  const handleNameChange = useCallback((e: Event) => {
-    const value = (e.target as HTMLInputElement).value;
+  const handleNameChange = useCallback((e: JSX.TargetedEvent<HTMLInputElement>) => {
+    const value = e.currentTarget.value;
     setName(value);
     playerName.value = value;
   }, []);
@@ -230,12 +231,8 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
   }, [name, classId, onPlay]);
 
   // Проверка e.target для предотвращения конфликтов с другими элементами формы
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (
-      e.key === 'Enter' &&
-      e.target instanceof HTMLInputElement &&
-      name.trim()
-    ) {
+  const handleKeyDown = useCallback((e: JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && name.trim()) {
       handlePlay();
     }
   }, [name, handlePlay]);
@@ -294,7 +291,7 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
       </div>
 
       <div class="menu-footer">
-        Slime Arena v0.3.0 • <a href="https://github.com/komleff/slime-arena" target="_blank">GitHub</a>
+        Slime Arena v0.2.2 • <a href="https://github.com/komleff/slime-arena" target="_blank">GitHub</a>
       </div>
     </div>
   );

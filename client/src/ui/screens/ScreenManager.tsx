@@ -3,8 +3,9 @@
  * Реализует стек экранов с анимациями переходов
  */
 
+import type { JSX } from 'preact';
 import { render, VNode } from 'preact';
-import { useEffect, useCallback } from 'preact/hooks';
+import { useEffect, useCallback, useRef } from 'preact/hooks';
 // Signals читаются напрямую через .value, без useSignal
 import { injectStyles } from '../utils/injectStyles';
 import {
@@ -217,20 +218,47 @@ const STYLES_ID = 'screen-manager-styles';
 // ========== Компоненты ==========
 
 /**
- * Модальное окно
+ * Модальное окно с focus trap для доступности
  */
 function Modal({ config, onClose }: { config: ModalConfig; onClose: () => void }) {
-  const handleBackdropClick = (e: MouseEvent) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<Element | null>(null);
+
+  const handleBackdropClick = useCallback((e: JSX.TargetedMouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget && config.closable !== false) {
       onClose();
     }
-  };
+  }, [config.closable, onClose]);
 
+  // Для глобальных обработчиков (window.addEventListener) используем DOM KeyboardEvent
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape' && config.closable !== false) {
       onClose();
     }
   }, [onClose, config.closable]);
+
+  // Focus management: сохраняем фокус при открытии, возвращаем при закрытии
+  useEffect(() => {
+    // Сохраняем текущий фокус
+    previousFocusRef.current = document.activeElement;
+
+    // Перемещаем фокус на модальное окно
+    const focusableElements = modalRef.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusableElements && focusableElements.length > 0) {
+      focusableElements[0].focus();
+    } else {
+      modalRef.current?.focus();
+    }
+
+    return () => {
+      // Возвращаем фокус при закрытии
+      if (previousFocusRef.current instanceof HTMLElement) {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -241,7 +269,13 @@ function Modal({ config, onClose }: { config: ModalConfig; onClose: () => void }
 
   return (
     <div class="modal-backdrop" onClick={handleBackdropClick}>
-      <div class={`modal-container ${sizeClass}`} role="dialog" aria-modal="true">
+      <div 
+        ref={modalRef}
+        class={`modal-container ${sizeClass}`} 
+        role="dialog" 
+        aria-modal="true"
+        tabIndex={-1}
+      >
         {config.title && (
           <div class="modal-header">
             <h2 class="modal-title">{config.title}</h2>
