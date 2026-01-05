@@ -2,12 +2,275 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 5 января 2026
-- **Релиз:** v0.2.2
+- **last_checked_commit**: docs/soft-launch-prep @ 5 января 2026
+- **Текущая ветка**: docs/soft-launch-prep
+- **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
-- **Резюме**: Исправление мобильного управления, автоматизация CI/CD для Docker.
+- **Документация Soft Launch**: v1.5.6
+- **Stage A MetaServer**: ЗАВЕРШЕНО (5 января 2026)
+- **Stage B Core Services**: ЗАВЕРШЕНО (5 января 2026)
+- **Stage C Monetization & LiveOps**: ЗАВЕРШЕНО (5 января 2026)
+- **Резюме**: Stage A+B+C завершены — MetaServer с полной инфраструктурой монетизации, A/B тестами и аналитикой.
 
-## Последние изменения
+## Последние изменения (5 января 2026)
+
+### Stage C - Monetization & LiveOps (ЗАВЕРШЕНО)
+
+**RuntimeConfig Management (расширение ConfigService):**
+- Полный CRUD для config versions (draft → active → archived)
+- listConfigs, updateConfig, archiveConfig, deleteConfig, cloneConfig
+- validateConfig с детальными ошибками валидации
+- Admin HTTP API: /api/v1/config/admin/*
+
+**A/B Testing Infrastructure (2 файла):**
+- ABTestService (300+ строк):
+  - createTest с variants и weights validation
+  - Deterministic assignment по SHA-256(userId:testId)
+  - trackConversion с event_type и event_value
+  - getTestStats с conversion rates per variant
+  - Test lifecycle: draft → active → paused → completed
+- abtest.ts routes:
+  - User: GET /assignments, /assignment/:testId, POST /conversion
+  - Admin: list, create, update state, stats, delete
+
+**Payment Providers (4 файла):**
+- IPaymentProvider interface:
+  - createInvoice, verifyPayment, refundPayment, getPaymentStatus
+- TelegramStarsProvider (Telegram Bot Payments API):
+  - XTR currency (Telegram Stars)
+  - Pre-checkout query handling
+  - refundStarPayment support
+- YandexPayProvider (YooKassa API):
+  - RUB currency
+  - Webhook handling (payment.succeeded, payment.canceled)
+  - Idempotence-Key для безопасности
+- PaymentProviderFactory:
+  - Auto-init по env vars (TELEGRAM_BOT_TOKEN, YANDEX_SHOP_ID)
+  - getAvailableProviders() для UI
+
+**Analytics Service (2 файла):**
+- AnalyticsService (250+ строк):
+  - Buffer-based tracking (flush каждые 30s или 100 events)
+  - 25+ предопределённых EventTypes
+  - queryEvents с фильтрацией
+  - getStats с группировкой (hour/day/week)
+  - Graceful shutdown с финальным flush
+- analytics.ts routes:
+  - User: POST /track, /batch, GET /event-types
+  - Admin: GET /admin/query, /admin/stats, POST /admin/flush
+
+**HTTP Routes Stage C (3 роута):**
+- configAdmin.ts: 9 endpoints для config management
+- payment.ts: 6 endpoints + 2 webhooks
+- analytics.ts: 6 endpoints
+
+**Database Migration:**
+- 002_stage_c_monetization.sql:
+  - ab_tests: полная структура с variants JSONB
+  - ab_test_conversions: трекинг конверсий
+  - analytics_events: события с properties JSONB
+  - purchase_receipts: обновлённая структура
+
+**Smoke Tests:**
+- meta-stage-c.test.ts: 15+ тестов покрывающих все Stage C endpoints
+
+**Файлы Stage C:**
+- Создано: 12 новых файлов
+- Изменено: 4 файла
+
+**Оценка vs факт:** Stage C оценён в 8-10 дней, реализован за 1 сессию.
+
+### Stage B - Core Services (ЗАВЕРШЕНО)
+
+**Platform Adapters (6 файлов):**
+- IAuthProvider: Интерфейс для платформенной авторизации
+- DevAuthProvider: Dev-режим (userId:nickname формат)
+- TelegramAuthProvider: Telegram Mini App (HMAC-SHA256 signature validation)
+- YandexAuthProvider: Yandex Games SDK (JWT parsing, placeholder signature check)
+- PokiAuthProvider: Poki SDK (player_id based)
+- AuthProviderFactory: Фабрика провайдеров с автоинициализацией
+
+**Core Services (4 сервиса):**
+- MatchmakingService (228 строк):
+  - Redis ZSET-based queue (sorted by timestamp)
+  - FIFO matchmaking: 2-8 игроков per match
+  - 60-second timeout для requests
+  - processQueue() для создания матчей
+  - Match assignment: roomId, roomHost, roomPort, matchId
+- WalletService (256 строк):
+  - Idempotent add/deduct currency (soft/hard)
+  - Balance checks перед deduct
+  - Transaction history (50 items limit)
+  - Audit trail для всех операций
+- ShopService (166 строк):
+  - Offers из RuntimeConfig.shop.offers
+  - Purchase: deduct currency → unlock item/grant currency/enable battlepass
+  - Idempotency через transactions table
+  - getUnlockedItems() по типу
+- AdsService (133 строки):
+  - generateGrant() перед показом рекламы
+  - grantId TTL: 5 минут (Redis)
+  - claimReward() после просмотра (idempotent)
+  - Rewards: soft/hard currency или items
+
+**HTTP Routes (4 роута):**
+- /api/v1/matchmaking:
+  - POST /join — добавить в очередь
+  - POST /cancel — покинуть очередь
+  - GET /status — статус и позиция в очереди
+- /api/v1/wallet:
+  - GET /balance — текущий баланс
+  - GET /transactions — история транзакций
+- /api/v1/shop:
+  - GET /offers — доступные офферы
+  - POST /purchase — купить за валюту
+  - GET /unlocked — разблокированные items
+- /api/v1/ads:
+  - POST /grant — создать grant перед показом
+  - POST /claim — claim reward после просмотра
+  - GET /grant/:grantId — статус grant
+
+**Интеграции:**
+- AuthService.verifyAndCreateSession() использует IAuthProvider.verifyToken()
+- MetaServer инициализирует AuthProviderFactory при старте
+- Environment variables: TELEGRAM_BOT_TOKEN, YANDEX_APP_ID
+
+**Smoke Tests (обновлено до 11 тестов):**
+- Wallet balance check
+- Matchmaking: join → status → cancel
+- Shop offers list
+- Сохранены Stage A тесты: health, config, auth, profile, idempotency
+
+**Технические решения:**
+- **Platform abstraction**: Провайдеры выбираются по platformType (dev/telegram/yandex/poki)
+- **Matchmaking**: Redis ZSET для FIFO, match assignments хранятся 5 минут
+- **Wallet**: PostgreSQL transactions для atomicity, idempotency ключ: (user_id, operation_id)
+- **Shop**: Офферы из RuntimeConfig → гибкость для LiveOps
+- **Ads**: Grant-based flow предотвращает reward farming
+
+**Файлы:**
+- Создано 17 новых файлов
+- Изменено 3 файла (AuthService.ts, server.ts, run-smoke-tests.ps1)
+
+**Оценка vs факт:** Stage B оценен в 12-15 дней, реализован за 1 сессию (вместе с Stage A).
+
+### Stage A - MetaServer Infrastructure (ЗАВЕРШЕНО)
+
+**Инфраструктура и БД:**
+- Docker Compose: PostgreSQL 16-alpine, Redis 7-alpine с health checks и persistent volumes
+- Database schema: 18 таблиц согласно Architecture v4.2.5 Part 4 Appendix B
+  - Core: users, sessions, profiles, wallets
+  - Economy: transactions (с idempotency через UNIQUE constraints), unlocked_items
+  - Progression: battlepass_progress, mission_progress, achievements, daily_rewards
+  - Ratings: player_ratings (Glicko-2: rating, rd, sigma)
+  - Monetization: purchase_receipts
+  - Social: social_invites, ab_tests
+  - System: configs (RuntimeConfig versions), audit_log, match_results
+- Миграционная система: runner с поддержкой .sql файлов
+- Connection pooling: PostgreSQL (max 20), Redis client
+
+**MetaServer HTTP API:**
+- Express.js 4.18 + CORS
+- Endpoints:
+  - GET /health — health check
+  - POST /api/v1/auth/verify — платформенная аутентификация
+  - POST /api/v1/auth/logout — revoke сессии
+  - GET /api/v1/config/runtime — получить активную RuntimeConfig
+  - GET /api/v1/profile — профиль игрока (требует auth)
+  - POST /api/v1/profile/nickname — обновить никнейм (idempotent)
+- Auth middleware: Bearer token validation
+- Graceful shutdown handlers
+
+**Сервисы:**
+- ConfigService: Управление версиями RuntimeConfig, atomic activation
+- AuthService: Opaque token auth (32-byte random, SHA-256 hash, 30-day sessions), platform-agnostic
+- PlayerService: Profile management, nickname updates, XP progression
+
+**Технические решения:**
+- **Opaque tokens** вместо JWT: проще, revocable, соответствует Architecture
+- **Platform abstraction**: готово к адаптерам Telegram, Yandex, Poki
+- **Idempotency**: UNIQUE constraints на (user_id, operation_id) в transactions
+- **Default RuntimeConfig**: v1.0.0 с paymentsEnabled: false
+
+**Тестирование:**
+- PowerShell smoke tests: 6 test cases (health, config, auth, profile, nickname update, idempotency)
+- Bash-версия smoke tests
+
+**Документация:**
+- server/src/meta/README.md — Quick start guide (Docker, migrations, API, development workflow)
+- tests/smoke/README.md — Manual test instructions + curl examples
+
+**Файлы:**
+- Создано 13 новых файлов
+- Изменено 2 файла (docker-compose.yml, server/package.json)
+
+**Готово для запуска:**
+```bash
+docker-compose up postgres redis
+npm run db:migrate
+npm run dev:meta
+./tests/smoke/run-smoke-tests.ps1
+```
+
+**Оценка vs факт:** Stage A оценен в 5-7 дней, реализован за 1 сессию.
+
+### Реорганизация документации Soft Launch
+
+- **Создана структура docs/soft-launch/:** 9 файлов активной документации пакета v1.5.6
+  - Архитектура v4.2.5 (части 1-4): 72,979 строк суммарно
+  - ТЗ v1.4.7: 15,587 строк
+  - План v1.0.5: 11,080 строк
+  - Шаблоны v1.0.1: 5,848 строк
+  - AI Agent Guides v1.0.1: 6,944 строк
+  - Индекс v1.5.6: 2,448 строк
+- **Архивированы устаревшие версии:** 21 файл перемещен в docs/archive/
+  - TZ-SoftLaunch v1.0 (25,981 строк — оригинальная версия)
+  - Старые архитектуры: v1.4, v1.5, v3.3
+  - Старые GDD: v2.3, v2.4, v2.5
+  - Устаревшие планы: v1.7, v1.8, v3.3
+  - Специализированные документы: AlbumDB, Flight TZ, UI Screens
+- **Добавлены инструкции для ИИ-агентов:** 3 файла в корне проекта
+  - Инструкция для ИИ-агента-архитектора.md (6,653 строк)
+  - Инструкция для ИИ-агента-кодера.md (11,760 строк)
+  - Инструкция для ИИ-агента-тестировщика.md (14,198 строк)
+
+### План реализации Soft Launch (составлен)
+
+- **Общая оценка:** 40-55 рабочих дней, 5 этапов
+- **Stage A — Подготовка окружений (P0, 5-7 дней):**
+  - Docker Compose: PostgreSQL, Redis
+  - Миграции БД
+  - MetaServer (минимальный HTTP API)
+  - Smoke-тесты для stage
+- **Stage B — Функциональный минимум (P0, 12-15 дней):**
+  - Платформенная абстракция (IAuthProvider, IAdsProvider, IPaymentProvider)
+  - Авторизация и профиль
+  - Матчмейкинг (очередь, назначение, подключение)
+  - Завершение матча и экономика
+- **Stage C — Монетизация & LiveOps (P1, 8-10 дней):**
+  - Система конфигураций (RuntimeConfig с версионированием)
+  - Магазин (офферы, покупки за валюту)
+  - Реклама с наградой (grantId-based)
+  - A/B тесты (детерминированное назначение вариантов)
+- **UI Refactoring (P0 частично, 10-12 дней):**
+  - Preact миграция
+  - ScreenManager (стек экранов, модальные окна)
+  - HUD оптимизация (обновления 5-10 Hz)
+  - Safe-area и кнопка "назад"
+- **Stage D — Тестирование (P0, 5-7 дней):**
+  - Smoke-тесты критических путей
+  - Идемпотентность операций экономики
+  - Нагрузочные тесты (targetCCU=500, RPS=100)
+
+### Ключевые решения
+
+- **Рейтинг:** Glicko-2 (initialRating=1500, initialRD=350, initialSigma=0.06)
+- **Матчмейкинг:** Боты разрешены (botsPerMatch=1, botRatingStrategy=median, botsAffectRating=false)
+- **Реальные платежи:** Отключены на этапе софт-лонча (features.json → paymentsEnabled=false)
+- **Устойчивость:** reconnectWindowMs=15000, summaryTTL=86400000
+- **Целевая нагрузка:** CCU=500, playersPerRoom=10, targetRooms=60
+
+### Предыдущие изменения (v0.2.2)
 
 - **Выпуск v0.2.2:** полная история изменений добавлена в README (с v0.2), исправления мобильного управления и CI/CD, контейнеры готовы к публикации в GHCR через GitHub Actions.
 - **[P0 FIX] Залипание джойстика при активации умений (ПОЛНОЕ ИСПРАВЛЕНИЕ):** Корневая причина - браузеры генерируют compatibility mouse events на touch-устройствах, активируя `mouseState`. Решение: добавлен `if (isCoarsePointer) return;` в `onMouseMove` и `onMouseLeave`; `forceResetJoystickForAbility` теперь сбрасывает `mouseState.active = false`.
@@ -50,7 +313,20 @@
 
 **Все UX-улучшения и Known Issues завершены!**
 
-## Открытые задачи (рефакторинг)
+## Открытые задачи (Soft Launch — Stage A)
+
+- [ ] Поднять PostgreSQL и Redis в Docker Compose
+- [ ] Создать миграции БД (схема из Архитектуры v4.2.5 Part 4, Appendix B)
+- [ ] Реализовать MetaServer структуру (routes, services, db)
+- [ ] Реализовать минимальные маршруты HTTP API (auth/verify, config/runtime, profile)
+- [ ] Настроить резервное копирование PostgreSQL для stage
+- [ ] Написать smoke-тесты для критических маршрутов
+- [ ] **Решить открытые вопросы:**
+  - [ ] Prisma vs pg для PostgreSQL?
+  - [ ] JWT vs opaque tokens для сессий?
+  - [ ] Хранение конфигов: Git файлы vs configs таблица?
+
+## Открытые задачи (рефакторинг игрового прототипа)
 
 - [ ] Фаза 0.1: Типизация систем сервера (`room: any` → интерфейс)
 - [ ] Фаза 0.2: Удаление дублирования mathUtils
