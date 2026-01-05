@@ -2,31 +2,39 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: 2019135 (feature/ui-refactoring) @ 6 января 2026
+- **last_checked_commit**: 75dc235 (feature/ui-refactoring) @ 5 января 2026
 - **Текущая ветка**: feature/ui-refactoring
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: Phase 1.5 (Copilot Fixes) завершена
-- **Резюме**: Phase 1 (Components) + Copilot Review Fixes завершены. Phase 2 (Integration) начинается.
+- **UI Refactoring**: Phase 1 (Components) + все Copilot Review Fixes завершены
+- **Резюме**: PR #32 готов к merge. Phase 2 (Integration with main.ts) — следующий этап.
 
-## Последние изменения (6 января 2026)
+## Последние изменения (5 января 2026)
 
-### UI Refactoring — Copilot Review Fixes (PR #32)
+### UI Refactoring — All Copilot Review Fixes (PR #32)
 
-**Исправлено (17 комментариев Copilot):**
+**Исправлено (все 14 комментариев Copilot):**
 
-- ✅ vite.config.ts: удалён конфликтующий esbuild.jsx* конфиг
-- ✅ ScreenManager.tsx: replaceState вместо pushState (fix history accumulation)
-- ✅ ScreenManager.tsx: Safe Area CSS с max() fallbacks
-- ✅ DRY: создана утилита `utils/injectStyles.ts`, обновлены 6 компонентов
-- ✅ Исправлены комментарии (Hz, JSX runtime)
-- ✅ Ранее: memory leak в gameState.ts, null-checks в UIBridge
+1. ✅ vite.config.ts: удалён конфликтующий esbuild.jsx* конфиг
+2. ✅ ScreenManager.tsx: replaceState вместо pushState (fix history accumulation)
+3. ✅ ScreenManager.tsx: Safe Area CSS с max() fallbacks
+4. ✅ DRY: создана утилита `utils/injectStyles.ts`, обновлены 6 компонентов
+5. ✅ gameState.ts: memory leak fix (cleanup function)
+6. ✅ UIBridge.tsx: null-safe checks для sync functions
+7. ✅ **CRITICAL: FLAG_IS_DEAD = 16 (1<<4), не 4** — исправлен баг
+8. ✅ parseFloat вместо parseInt для safe-area-inset (High DPI)
+9. ✅ useMemo для cooldown вычислений в AbilityButtons
+10. ✅ DRY: CLASSES_DATA вынесены в `data/classes.ts`
+11. ✅ CSS variables для динамических цветов классов
+12. ✅ Проверка e.target instanceof HTMLInputElement в MainMenu
+13. ✅ Math.ceil для последней секунды в таймере способности
 
-**Новые файлы (1):**
+**Новые файлы:**
 
-- `client/src/ui/utils/injectStyles.ts` — DRY утилита для внедрения CSS
+- `client/src/ui/utils/injectStyles.ts` — DRY утилита для CSS
+- `client/src/ui/data/classes.ts` — централизованные данные классов (DRY)
 
 ### UI Refactoring — Phase 1: Components (ЗАВЕРШЕНО)
 
