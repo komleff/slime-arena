@@ -9,9 +9,76 @@
 - **Документация Soft Launch**: v1.5.6
 - **Stage A MetaServer**: ЗАВЕРШЕНО (5 января 2026)
 - **Stage B Core Services**: ЗАВЕРШЕНО (5 января 2026)
-- **Резюме**: Stage A+B завершены — MetaServer с platform adapters, matchmaking, wallet, shop, ads.
+- **Stage C Monetization & LiveOps**: ЗАВЕРШЕНО (5 января 2026)
+- **Резюме**: Stage A+B+C завершены — MetaServer с полной инфраструктурой монетизации, A/B тестами и аналитикой.
 
 ## Последние изменения (5 января 2026)
+
+### Stage C - Monetization & LiveOps (ЗАВЕРШЕНО)
+
+**RuntimeConfig Management (расширение ConfigService):**
+- Полный CRUD для config versions (draft → active → archived)
+- listConfigs, updateConfig, archiveConfig, deleteConfig, cloneConfig
+- validateConfig с детальными ошибками валидации
+- Admin HTTP API: /api/v1/config/admin/*
+
+**A/B Testing Infrastructure (2 файла):**
+- ABTestService (300+ строк):
+  - createTest с variants и weights validation
+  - Deterministic assignment по SHA-256(userId:testId)
+  - trackConversion с event_type и event_value
+  - getTestStats с conversion rates per variant
+  - Test lifecycle: draft → active → paused → completed
+- abtest.ts routes:
+  - User: GET /assignments, /assignment/:testId, POST /conversion
+  - Admin: list, create, update state, stats, delete
+
+**Payment Providers (4 файла):**
+- IPaymentProvider interface:
+  - createInvoice, verifyPayment, refundPayment, getPaymentStatus
+- TelegramStarsProvider (Telegram Bot Payments API):
+  - XTR currency (Telegram Stars)
+  - Pre-checkout query handling
+  - refundStarPayment support
+- YandexPayProvider (YooKassa API):
+  - RUB currency
+  - Webhook handling (payment.succeeded, payment.canceled)
+  - Idempotence-Key для безопасности
+- PaymentProviderFactory:
+  - Auto-init по env vars (TELEGRAM_BOT_TOKEN, YANDEX_SHOP_ID)
+  - getAvailableProviders() для UI
+
+**Analytics Service (2 файла):**
+- AnalyticsService (250+ строк):
+  - Buffer-based tracking (flush каждые 30s или 100 events)
+  - 25+ предопределённых EventTypes
+  - queryEvents с фильтрацией
+  - getStats с группировкой (hour/day/week)
+  - Graceful shutdown с финальным flush
+- analytics.ts routes:
+  - User: POST /track, /batch, GET /event-types
+  - Admin: GET /admin/query, /admin/stats, POST /admin/flush
+
+**HTTP Routes Stage C (3 роута):**
+- configAdmin.ts: 9 endpoints для config management
+- payment.ts: 6 endpoints + 2 webhooks
+- analytics.ts: 6 endpoints
+
+**Database Migration:**
+- 002_stage_c_monetization.sql:
+  - ab_tests: полная структура с variants JSONB
+  - ab_test_conversions: трекинг конверсий
+  - analytics_events: события с properties JSONB
+  - purchase_receipts: обновлённая структура
+
+**Smoke Tests:**
+- meta-stage-c.test.ts: 15+ тестов покрывающих все Stage C endpoints
+
+**Файлы Stage C:**
+- Создано: 12 новых файлов
+- Изменено: 4 файла
+
+**Оценка vs факт:** Stage C оценён в 8-10 дней, реализован за 1 сессию.
 
 ### Stage B - Core Services (ЗАВЕРШЕНО)
 

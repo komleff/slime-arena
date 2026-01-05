@@ -10,6 +10,71 @@
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] Stage C - Monetization & LiveOps (5 января 2026):**
+
+  **RuntimeConfig Management (расширение ConfigService):**
+  - `listConfigs(state?)` — Список всех версий конфигов
+  - `updateConfig(version, payload)` — Обновление draft-конфига
+  - `archiveConfig(version)` — Архивация версии
+  - `deleteConfig(version)` — Удаление draft-конфига
+  - `cloneConfig(source, target)` — Клонирование версии
+  - `validateConfig(payload)` — Валидация структуры
+
+  **A/B Testing (5 новых файлов):**
+  - `server/src/meta/services/ABTestService.ts` — Полный lifecycle A/B тестов
+    - createTest, getTest, listTests, updateTestState
+    - getAssignment (детерминистичный по userId+testId)
+    - trackConversion, getTestStats, deleteTest
+  - `server/src/meta/routes/abtest.ts` — HTTP API для A/B тестов
+    - GET /assignments, /assignment/:testId
+    - POST /conversion
+    - Admin: GET /admin/list, /admin/:testId, /admin/:testId/stats
+    - Admin: POST /admin/create, PUT /admin/:testId/state, DELETE /admin/:testId
+
+  **Payment Providers (4 новых файла):**
+  - `server/src/meta/payment/IPaymentProvider.ts` — Интерфейс платёжного провайдера
+  - `server/src/meta/payment/TelegramStarsProvider.ts` — Telegram Stars (XTR)
+    - createInvoice, verifyPayment, answerPreCheckoutQuery, refundPayment
+  - `server/src/meta/payment/YandexPayProvider.ts` — Yandex.Checkout
+    - createInvoice, verifyPayment, handleWebhook, refundPayment
+  - `server/src/meta/payment/PaymentProviderFactory.ts` — Фабрика провайдеров
+
+  **Analytics (2 новых файла):**
+  - `server/src/meta/services/AnalyticsService.ts` — Аналитика с буферизацией
+    - track, trackBatch, flush (auto 30s / size 100)
+    - queryEvents, getStats (для админов)
+    - EventTypes: 25+ предопределённых типов событий
+  - `server/src/meta/routes/analytics.ts` — HTTP API для аналитики
+    - POST /track, /batch
+    - GET /event-types
+    - Admin: GET /admin/query, /admin/stats, POST /admin/flush
+
+  **HTTP Routes Stage C (3 новых роута):**
+  - `server/src/meta/routes/configAdmin.ts` — Admin API для RuntimeConfig
+  - `server/src/meta/routes/payment.ts` — Payment webhooks и verifications
+    - POST /create-invoice, /verify
+    - GET /providers, /status/:invoiceId
+    - Webhooks: POST /webhook/telegram, /webhook/yandex
+
+  **Database (1 новая миграция):**
+  - `server/src/db/migrations/002_stage_c_monetization.sql`
+    - ab_tests: test definitions (variants JSONB, weights INT[], state)
+    - ab_test_conversions: event tracking with variant_id
+    - analytics_events: event_id, event_type, properties JSONB
+    - purchase_receipts: updated structure for payment providers
+
+  **Инфраструктура:**
+  - `server/src/db/redis.ts` — Re-export Redis client
+  - `server/src/meta/middleware/auth.ts` — Добавлен requireAdmin middleware
+  - `server/src/meta/server.ts` — Зарегистрированы все новые роуты
+
+  **Smoke Tests:**
+  - `server/tests/meta-stage-c.test.ts` — 15+ тестов для Stage C endpoints
+
+  **Файлы Stage C:**
+  - Создано 12 новых файлов
+  - Изменено 4 файла (ConfigService.ts, auth.ts, server.ts, pool.ts)
+
 - **[ЗАВЕРШЕНО] Stage B - Core Services (5 января 2025):**
   
   **Platform Adapters (5 новых файлов):**

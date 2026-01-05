@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
-import { ConfigService, RuntimeConfig } from './ConfigService';
+import { ConfigService } from './ConfigService';
 import { WalletService } from './WalletService';
 
 export interface ShopOffer {

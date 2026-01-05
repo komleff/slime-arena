@@ -13,6 +13,11 @@ declare global {
 
 const authService = new AuthService();
 
+// Admin user IDs (from environment or hardcoded for dev)
+const ADMIN_USER_IDS = new Set(
+  (process.env.ADMIN_USER_IDS || '').split(',').filter(Boolean)
+);
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const authHeader = req.get('authorization');
@@ -46,5 +51,42 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
+/**
+ * Require admin role
+ * Must be used after requireAuth
+ */
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Authentication required',
+      });
+    }
+
+    // Check if user is admin
+    const isAdmin = ADMIN_USER_IDS.has(req.user.id) || 
+                    ADMIN_USER_IDS.has(req.user.platformId) ||
+                    // Dev mode: allow all in development
+                    (process.env.NODE_ENV === 'development' && req.user.platformType === 'dev');
+
+    if (!isAdmin) {
+      return res.status(403).json({
+        error: 'forbidden',
+        message: 'Admin access required',
+      });
+    }
+
+    next();
+  } catch (error: any) {
+    console.error('[Admin Middleware] Error:', error);
+    res.status(500).json({
+      error: 'auth_error',
+      message: 'Admin verification failed',
+    });
+  }
+}
+
 // Alias for backward compatibility
 export const authMiddleware = requireAuth;
+
