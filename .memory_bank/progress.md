@@ -2,16 +2,21 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: feature/ui-refactoring @ 7 января 2026
-- **Текущая ветка**: feature/ui-refactoring
+- **last_checked_commit**: docs/update-readme @ 7 января 2026
+- **Текущая ветка**: docs/update-readme
 - **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: Phase 1 + Phase 2.7 Final Fixes завершены
-- **PR #32**: Готов к merge
+- **UI Refactoring**: ЗАВЕРШЕНО, merged to main (PR #32)
+- **README Update**: ЗАВЕРШЕНО
 
 ## Последние изменения (7 января 2026)
+
+### Обновление README и документации
+- ✅ Главный README.md переписан в соответствии с актуальным стеком и архитектурой.
+- ✅ Добавлены разделы по детерминизму, U2-сглаживанию и структуре проекта.
+- ✅ Обновлены инструкции по запуску и Docker-образы (v0.3.0).
 
 ### UI Refactoring Phase 2.7 — Final Fixes
 
