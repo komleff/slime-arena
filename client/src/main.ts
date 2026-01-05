@@ -38,6 +38,12 @@ import {
     setJoystickVisible as setJoystickVisibleModule,
     updateJoystickSize,
 } from "./input";
+import {
+    initUI,
+    setPhase,
+    getPlayerName,
+    type UICallbacks,
+} from "./ui/UIBridge";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -102,6 +108,7 @@ hud.style.color = "#e6f3ff";
 hud.style.pointerEvents = "none";
 hud.style.minWidth = "220px";
 hud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
+hud.style.display = "none"; // Hidden - using Preact GameHUD
 root.appendChild(hud);
 
 const boostPanel = document.createElement("div");
@@ -1171,7 +1178,7 @@ function getDisplayName(name: string, classId: number, isRebel: boolean): string
 const joinScreen = document.createElement("div");
 joinScreen.style.position = "fixed";
 joinScreen.style.inset = "0";
-joinScreen.style.display = "flex";
+joinScreen.style.display = "none"; // Hidden - using Preact MainMenu
 joinScreen.style.flexDirection = "column";
 joinScreen.style.alignItems = "center";
 joinScreen.style.justifyContent = "center";
@@ -2597,11 +2604,11 @@ function drawSprite(
 }
 
 async function connectToServer(playerName: string, classId: number) {
-    // Показываем canvas и HUD
+    // Переключаем Preact UI на фазу "playing"
+    setPhase("playing");
+
+    // Показываем canvas (legacy HUD скрыт, используется Preact GameHUD)
     canvas.style.display = "block";
-    hud.style.display = "block";
-    topCenterHud.style.display = "flex";
-    joinScreen.style.display = "none";
     setGameViewportLock(true);
     try {
         (document.activeElement as HTMLElement | null)?.blur?.();
@@ -3456,7 +3463,7 @@ async function connectToServer(playerName: string, classId: number) {
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
             if (phase !== "Results") {
-                resultsOverlay.style.display = "none";
+                // Legacy resultsOverlay скрыт, используем Preact ResultsScreen
                 if (isViewportUnlockedForResults) {
                     setGameViewportLock(true);
                     isViewportUnlockedForResults = false;
@@ -3464,11 +3471,14 @@ async function connectToServer(playerName: string, classId: number) {
                 return;
             }
 
+            // Переключаем Preact UI на фазу results
+            setPhase("results");
+
             if (!isViewportUnlockedForResults) {
                 setGameViewportLock(false);
                 isViewportUnlockedForResults = true;
             }
-            resultsOverlay.style.display = "flex";
+            // Legacy resultsOverlay скрыт, используем Preact ResultsScreen
             resultsTitle.textContent = "🏆 Матч завершён!";
 
             // Получаем победителя
@@ -5069,3 +5079,62 @@ playButton.addEventListener("click", () => {
     const name = nameInput.value.trim() || generateRandomName();
     connectToServer(name, selectedClassId);
 });
+
+// ========== UIBridge Integration ==========
+
+// Helper function to send talent choice through activeRoom
+function sendTalentChoiceFromUI(index: number): void {
+    if (!activeRoom) return;
+    activeRoom.send("talentChoice", { choice: index });
+}
+
+// Counter for UI-triggered inputs (separate from game loop's inputSeq)
+let uiInputSeq = 100000;
+
+// Helper function to activate ability through activeRoom
+function activateAbilityFromUI(slot: number): void {
+    if (!activeRoom) return;
+    uiInputSeq += 1;
+    activeRoom.send("input", {
+        seq: uiInputSeq,
+        moveX: 0,
+        moveY: 0,
+        abilitySlot: slot
+    });
+}
+
+// Helper function to leave room and return to menu
+function leaveRoomFromUI(): void {
+    if (activeRoom) {
+        activeRoom.leave();
+        activeRoom = null;
+    }
+    setPhase("menu");
+    setGameViewportLock(false);
+}
+
+// Initialize Preact UI
+const uiCallbacks: UICallbacks = {
+    onPlay: (name: string, classId: number) => {
+        connectToServer(name, classId);
+    },
+    onSelectTalent: (_talentId: string, index: number) => {
+        sendTalentChoiceFromUI(index);
+    },
+    onActivateAbility: (slot: number) => {
+        activateAbilityFromUI(slot);
+    },
+    onPlayAgain: (classId: number) => {
+        const name = getPlayerName() || generateRandomName();
+        connectToServer(name, classId);
+    },
+    onExit: () => {
+        leaveRoomFromUI();
+    },
+};
+
+const uiContainer = document.getElementById("ui-root");
+if (uiContainer) {
+    initUI(uiContainer, uiCallbacks);
+    setPhase("menu");
+}
