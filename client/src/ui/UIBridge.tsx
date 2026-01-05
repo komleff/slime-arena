@@ -63,21 +63,23 @@ let callbacks: UICallbacks | null = null;
 let cleanupMobileDetection: (() => void) | null = null;
 
 function UIRoot() {
-  // Используем сигналы напрямую в JSX для автоматической реактивности
-  // Чтение .value в теле компонента создаёт подписку на изменения
+  // Кэшируем значения сигналов для предотвращения множественных чтений
+  const phase = gamePhase.value;
+  const connecting = isConnecting.value;
+  const showTalent = showTalentModal.value;
 
   return (
     <Fragment>
       {/* Main Menu */}
-      {gamePhase.value === 'menu' && callbacks && (
+      {phase === 'menu' && callbacks && (
         <MainMenu
           onPlay={callbacks.onPlay}
-          isConnecting={isConnecting.value}
+          isConnecting={connecting}
         />
       )}
 
       {/* Game HUD */}
-      {(gamePhase.value === 'playing' || gamePhase.value === 'waiting') && (
+      {(phase === 'playing' || phase === 'waiting') && (
         <Fragment>
           <GameHUD />
           {callbacks && (
@@ -87,12 +89,12 @@ function UIRoot() {
       )}
 
       {/* Talent Modal */}
-      {showTalentModal.value && callbacks && (
+      {showTalent && callbacks && (
         <TalentModal onSelectTalent={callbacks.onSelectTalent} />
       )}
 
       {/* Results Screen */}
-      {gamePhase.value === 'results' && callbacks && (
+      {phase === 'results' && callbacks && (
         <ResultsScreen
           onPlayAgain={callbacks.onPlayAgain}
           onExit={callbacks.onExit}

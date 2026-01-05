@@ -311,17 +311,16 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           })}
         </div>
 
-        {/* Таймер до следующего матча — используем signal для реактивного обновления */}
-        {matchTimer.value.timeLeft > 0 && (
-          <div class="results-timer">
-            Следующий матч через: {Math.ceil(matchTimer.value.timeLeft)} сек
-          </div>
-        )}
-
         {/* Кнопки */}
         <div class="results-buttons">
-          <button class="results-button primary" onClick={handlePlayAgain}>
-            🔄 Играть снова
+          <button
+            class="results-button primary"
+            onClick={handlePlayAgain}
+            disabled={matchTimer.value.timeLeft > 0}
+          >
+            {matchTimer.value.timeLeft > 0
+              ? `⏳ ${Math.ceil(matchTimer.value.timeLeft)} сек`
+              : '🔄 Играть снова'}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
             Выйти в меню

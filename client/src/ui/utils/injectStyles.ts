@@ -14,8 +14,12 @@ const injectedStyles = new Set<string>();
  * @param css CSS код для внедрения
  */
 export function injectStyles(id: string, css: string): void {
-  // Проверяем кэш и DOM
-  if (injectedStyles.has(id) || document.getElementById(id)) {
+  // Сначала проверяем кэш
+  if (injectedStyles.has(id)) {
+    return;
+  }
+  // Затем проверяем DOM и синхронизируем кэш (для HMR)
+  if (document.getElementById(id)) {
     injectedStyles.add(id);
     return;
   }

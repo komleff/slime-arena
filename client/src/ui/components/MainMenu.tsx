@@ -4,7 +4,7 @@
 
 // JSX runtime imported automatically via jsxImportSource
 import type { JSX } from 'preact';
-import { useState, useCallback, useEffect } from 'preact/hooks';
+import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
 import { generateRandomName } from '@slime-arena/shared';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
@@ -236,6 +236,9 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
   const [classId, setClassId] = useState(selectedClassId.value);
   const error = connectionError.value;
 
+  // Сохраняем начальное имя при mount для отслеживания изменений
+  const initialNameRef = useRef(playerName.value);
+
   // Генерируем случайное имя при первом монтировании, если имя пустое
   // Используем playerName.value (signal) вместо name (closure), чтобы не перезаписать
   // имя, которое пользователь начал вводить до срабатывания эффекта
@@ -245,6 +248,7 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
       const newName = generateRandomName();
       setName(newName);
       playerName.value = newName;
+      initialNameRef.current = newName;
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -252,6 +256,13 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
     const value = e.currentTarget.value;
     setName(value);
     playerName.value = value;
+
+    // Если имя изменилось относительно начального — случайный скин
+    if (value !== initialNameRef.current && value.trim() !== '') {
+      const randomClass = Math.floor(Math.random() * CLASSES_DATA.length);
+      setClassId(randomClass);
+      selectedClassId.value = randomClass;
+    }
   }, []);
 
   const handleRandomize = useCallback(() => {
@@ -342,7 +353,7 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
       </div>
 
       <div class="menu-footer">
-        Slime Arena v0.2.2 • <a href="https://github.com/komleff/slime-arena" target="_blank">GitHub</a>
+        Slime Arena v0.3.0 • <a href="https://github.com/komleff/slime-arena" target="_blank">GitHub</a>
       </div>
     </div>
   );

@@ -2,16 +2,48 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: feature/ui-refactoring @ 6 января 2026
+- **last_checked_commit**: feature/ui-refactoring @ 7 января 2026
 - **Текущая ветка**: feature/ui-refactoring
-- **Релиз игрового прототипа:** v0.2.2
+- **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: Phase 1 + Phase 2 Bug Fixes завершены
-- **PR #32**: Phase 2 Bug Fixes готовы к merge
+- **UI Refactoring**: Phase 1 + Phase 2.6 Round 2 Bug Fixes завершены
+- **PR #32**: Phase 2.6 Round 2 Bug Fixes готовы к merge
 
-## Последние изменения (6 января 2026)
+## Последние изменения (7 января 2026)
+
+### UI Refactoring Phase 2.6 — Round 2 Bug Fixes + Copilot Review
+
+**Исправлены баги из пользовательского тестирования Round 2:**
+
+**User Testing fixes:**
+
+- ✅ R4-1: "Призраки" (игроки без classId) — фильтр `player.classId < 0` в render loop
+- ✅ R4-2: Дублирование HUD — legacy HUD скрыт (`hud.style.display = "none"`)
+- ✅ R4-4: "Играть снова" — кнопка disabled до конца таймера
+- ✅ R4-5: "В меню" — корректный выход с `room.leave()`
+- ✅ R4-6+7: Логика скина — сохраняется без смены имени, меняется при смене
+- ✅ Ghost Movement: сброс `lastSentInput` при выходе
+
+**Copilot AI Review fixes:**
+
+- ✅ C1: `.finally()` → `.then() + .catch()` для обработки ошибок
+- ✅ C3: Упрощение проверки `room === activeRoom`
+- ✅ C4: injectStyles — корректный порядок проверки кэша и DOM
+- ✅ C7: UIRoot — кэширование signal.value в локальных переменных
+
+**Изменённые файлы:**
+
+- `client/src/main.ts` — скрытие legacy HUD, фильтр призраков, сброс lastSentInput
+- `client/src/ui/components/MainMenu.tsx` — версия v0.3.0, логика скина при смене имени
+- `client/src/ui/components/ResultsScreen.tsx` — кнопка "Играть снова" с таймером
+- `client/src/ui/UIBridge.tsx` — кэширование signal.value
+- `client/src/ui/utils/injectStyles.ts` — исправление порядка проверки
+
+---
+
+## Предыдущие изменения (6 января 2026)
 
 ### UI Refactoring Phase 2.5 — Post-Implementation Bug Fixes
 

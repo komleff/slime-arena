@@ -3,13 +3,32 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (6 января 2026)
-**Релиз:** v0.2.2
+**База:** main (7 января 2026)
+**Релиз:** v0.3.0
 **GDD версия:** 3.3.2
 **Текущая ветка:** `feature/ui-refactoring`
-**PR:** #32 — Phase 2 Bug Fixes завершены
+**PR:** #32 — Phase 2.6 Round 2 Bug Fixes завершены
 
 ### Фокус сессии
+
+- **[ЗАВЕРШЕНО] UI Refactoring - Phase 2.6 Round 2 Bug Fixes (7 января 2026):**
+
+  **Исправлены баги из пользовательского тестирования Round 2:**
+
+  - ✅ R4-1: "Призраки" (игроки без classId) — фильтр `player.classId < 0` в render loop
+  - ✅ R4-2: Дублирование HUD — legacy HUD скрыт (`hud.style.display = "none"`)
+  - ✅ R4-4: "Играть снова" — кнопка disabled до конца таймера
+  - ✅ R4-5: "В меню" — корректный выход с `room.leave()`
+  - ✅ R4-6+7: Логика скина — сохраняется без смены имени, меняется при смене имени
+  - ✅ Ghost Movement: сброс `lastSentInput` при выходе
+
+  **Copilot AI Review fixes:**
+  - ✅ C1: `.finally()` → `.then() + .catch()` для обработки ошибок
+  - ✅ C3: Упрощение проверки `room === activeRoom`
+  - ✅ C4: injectStyles — корректный порядок проверки кэша и DOM
+  - ✅ C7: UIRoot — кэширование signal.value в локальных переменных
+
+  **Версия обновлена на v0.3.0**
 
 - **[ЗАВЕРШЕНО] UI Refactoring - Phase 2.5 Post-Implementation Fixes (6 января 2026):**
 

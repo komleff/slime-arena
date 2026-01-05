@@ -2751,8 +2751,9 @@ async function connectToServer(playerName: string, classId: number) {
 
             joinScreen.style.display = "none";
             canvas.style.display = "block";
-            hud.style.display = "block";
-            topCenterHud.style.display = "flex";
+            // Legacy HUD скрыт — используем Preact GameHUD
+            hud.style.display = "none";
+            topCenterHud.style.display = "none";
             // Legacy кнопки способностей скрыты — используем Preact AbilityButtons
             setGameViewportLock(true);
             try {
@@ -4213,6 +4214,8 @@ async function connectToServer(playerName: string, classId: number) {
             }
 
             for (const [id, player] of playersView.entries()) {
+                // Пропускать игроков без выбранного класса (между матчами)
+                if (player.classId < 0) continue;
                 if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
                 const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
                 const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
@@ -5053,10 +5056,13 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Очистка визуальных сущностей для предотвращения "призраков"
             // Проверяем что это та же комната, чтобы избежать race condition при reconnect
-            if (room === activeRoom || activeRoom === null) {
+            if (room === activeRoom) {
                 visualPlayers.clear();
                 visualOrbs.clear();
             }
+
+            // Сброс направления движения для предотвращения "фантомного движения" после респауна
+            lastSentInput = { x: 0, y: 0 };
 
             window.removeEventListener("keydown", onKeyDown);
             window.removeEventListener("keyup", onKeyUp);
@@ -5171,14 +5177,19 @@ const uiCallbacks: UICallbacks = {
     },
     onPlayAgain: (classId: number) => {
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
-        // Используем .finally() чтобы гарантировать выполнение после завершения leave()
+        // Используем .then() для подключения после выхода, .catch() для обработки ошибок
         const name = getPlayerName() || generateRandomName();
         if (activeRoom) {
             const roomToLeave = activeRoom;
             activeRoom = null;
-            roomToLeave.leave().finally(() => {
-                connectToServer(name, classId);
-            });
+            roomToLeave
+                .leave()
+                .then(() => {
+                    connectToServer(name, classId);
+                })
+                .catch((error: unknown) => {
+                    console.error("Не удалось покинуть комнату перед повторным входом:", error);
+                });
         } else {
             connectToServer(name, classId);
         }
