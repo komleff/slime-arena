@@ -10,6 +10,13 @@
 
 ### Фокус сессии
 
+- **[В РАБОТЕ] UI Refactoring (Preact Migration):**
+  - Миграция HUD и меню на Preact
+  - Реализация ScreenManager (стек экранов)
+  - Оптимизация рендеринга (5-10 Hz для HUD)
+  - Адаптация под Safe Area и мобильные экраны
+  - Исправление "Back button" flow
+
 - **[ЗАВЕРШЕНО] Stage C - Monetization & LiveOps (5 января 2026):**
 
   **RuntimeConfig Management (расширение ConfigService):**
@@ -73,7 +80,7 @@
 
   **Файлы Stage C:**
   - Создано 12 новых файлов
-  - Изменено 4 файла (ConfigService.ts, auth.ts, server.ts, pool.ts)
+  - Изменено 5 файлов (ConfigService.ts, auth.ts, server.ts, pool.ts, ShopService.ts)
 
 - **[ЗАВЕРШЕНО] Stage B - Core Services (5 января 2025):**
   
@@ -225,14 +232,13 @@
 
 ### Следующие шаги
 
-1. **Stage A реализации (5-7 дней):**
-   - Поднять PostgreSQL и Redis в Docker Compose
-   - Создать миграции БД (схема из Архитектуры Part 4, Приложение B)
-   - Реализовать MetaServer HTTP API (минимум: auth, config, profile)
-   - Настроить smoke-тесты для stage окружения
-2. **Открытые вопросы перед началом:**
-   - Prisma vs pg для PostgreSQL?
-   - JWT vs opaque tokens для сессий?
-   - Хранение конфигов: Git файлы vs configs таблица?
-3. **Публикация контейнеров v0.2.2:** выдать права `packages: write` для `GITHUB_TOKEN` (если потребуется).
-4. **Рефакторинг прототипа (Фаза 0):** типизация систем сервера, удаление дублирования mathUtils.
+1. **UI Refactoring (10-12 дней):**
+   - [ ] Настройка Preact + Vite в клиенте
+   - [ ] Создание ScreenManager и базовых компонентов
+   - [ ] Перенос HUD (здоровье, опыт, скиллы) на Preact
+   - [ ] Перенос меню (магазин, профиль, лидерборд)
+2. **Stage D - Тестирование (5-7 дней):**
+   - Smoke-тесты критических путей
+   - Нагрузочное тестирование (CCU=500)
+3. **Рефакторинг прототипа (Фаза 0):**
+   - Типизация систем сервера, удаление дублирования mathUtils.

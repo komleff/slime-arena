@@ -2,7 +2,7 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: docs/soft-launch-prep @ 5 января 2026
+- **last_checked_commit**: 169a152 (docs/soft-launch-prep) @ 5 января 2026
 - **Текущая ветка**: docs/soft-launch-prep
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
@@ -315,16 +315,40 @@ npm run dev:meta
 
 ## Открытые задачи (Soft Launch — Stage A)
 
-- [ ] Поднять PostgreSQL и Redis в Docker Compose
-- [ ] Создать миграции БД (схема из Архитектуры v4.2.5 Part 4, Appendix B)
-- [ ] Реализовать MetaServer структуру (routes, services, db)
-- [ ] Реализовать минимальные маршруты HTTP API (auth/verify, config/runtime, profile)
-- [ ] Настроить резервное копирование PostgreSQL для stage
-- [ ] Написать smoke-тесты для критических маршрутов
-- [ ] **Решить открытые вопросы:**
-  - [ ] Prisma vs pg для PostgreSQL?
-  - [ ] JWT vs opaque tokens для сессий?
-  - [ ] Хранение конфигов: Git файлы vs configs таблица?
+- [x] Поднять PostgreSQL и Redis в Docker Compose
+- [x] Создать миграции БД (схема из Архитектуры v4.2.5 Part 4, Appendix B)
+- [x] Реализовать MetaServer структуру (routes, services, db)
+- [x] Реализовать минимальные маршруты HTTP API (auth/verify, config/runtime, profile)
+- [x] Настроить резервное копирование PostgreSQL для stage (через volume persistence)
+- [x] Написать smoke-тесты для критических маршрутов
+- [x] **Решить открытые вопросы:**
+  - [x] Prisma vs pg для PostgreSQL? (Выбрано: pg)
+  - [x] JWT vs opaque tokens для сессий? (Выбрано: opaque tokens)
+  - [x] Хранение конфигов: Git файлы vs configs таблица? (Выбрано: configs table + versioning)
+
+## Открытые задачи (Soft Launch — Stage B)
+
+- [x] Платформенная абстракция (IAuthProvider)
+- [x] Реализация провайдеров (Dev, Telegram, Yandex, Poki)
+- [x] Сервис матчмейкинга (Redis queue)
+- [x] Сервис кошелька и транзакций
+- [x] Сервис магазина и инвентаря
+- [x] Сервис рекламы (Grants)
+
+## Открытые задачи (Soft Launch — Stage C)
+
+- [x] Управление конфигурациями (RuntimeConfig CRUD)
+- [x] A/B тестирование (Service + API)
+- [x] Платёжные провайдеры (Telegram Stars, Yandex Pay)
+- [x] Аналитика (Service + API)
+- [x] Admin API для управления
+
+## Открытые задачи (UI Refactoring)
+
+- [ ] Настройка Preact + Vite
+- [ ] ScreenManager implementation
+- [ ] HUD Refactoring
+- [ ] Main Menu Refactoring
 
 ## Открытые задачи (рефакторинг игрового прототипа)
 
