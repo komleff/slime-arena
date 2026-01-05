@@ -85,6 +85,10 @@ scripts\stop-servers.bat
 docker compose -f docker/docker-compose.yml up --build
 ```
 
+Контейнеры доступны в GitHub Container Registry:
+- `ghcr.io/komleff/slime-arena-server:v0.2`
+- `ghcr.io/komleff/slime-arena-client:v0.2`
+
 ### Рекомендуемый рабочий процесс
 
 1. Откройте **два терминала** в VS Code
@@ -115,6 +119,19 @@ docker compose -f docker/docker-compose.yml up --build
 - [Список задач](TODO.md) - текущий прогресс и ближайшие цели.
 
 ## Последние изменения
+
+### Релиз v0.2
+
+- Полный цикл матча на 3 минуты с фазами Рост/Охота/Финал, детерминированный сервер 30 Гц.
+- Три класса (Hunter, Warrior, Collector) с пассивами, стартовыми умениями и балансом из config/balance.json.
+- Умения и уровни умений: `dash`, `shield`, `pull`, `slow`, `projectile`, `spit`, `bomb`, `push`, `mine`.
+- Таланты и карточки выбора, редкости, автопик, класс-таланты, очередь карточек.
+- Сундуки с наградами (таланты или усиления), вспышки и подписи, карточка таланта.
+- Пузыри разных типов, укус ртом, scatter-орбы, детерминированный RNG.
+- Арена с препятствиями, проходами, безопасными зонами, зонами эффектов (нектар/лёд/слизь/лава/турбо).
+- Управление: тач‑джойстик, мышь как направление движения, поддержка кликов по карточкам.
+- Камера с динамическим масштабом, мини‑карта, HUD, экран результатов.
+- Контейнеры опубликованы в GitHub Container Registry: `ghcr.io/komleff/slime-arena-server:v0.2`, `ghcr.io/komleff/slime-arena-client:v0.2`.
 
 - **Исправления интерфейса**: у `pendingChestRewards` добавлено ограничение размера и быстрая очистка, параметры визуализации шипов и цвета вынесены в константы, редкость таланта считается через общую функцию, при `chests.onRemove` используется позиция из `chest`. `.claude/` добавлена в `.gitignore`.
 - **Изменённые файлы**: `client/src/main.ts`, `.gitignore`, `README.md`, `.memory_bank/activeContext.md`, `.memory_bank/progress.md`.

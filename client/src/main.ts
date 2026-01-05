@@ -26,6 +26,18 @@ import {
     wrapAngle,
     generateRandomName,
 } from "@slime-arena/shared";
+import {
+    type JoystickState,
+    type JoystickConfig,
+    createJoystickState,
+    createJoystickConfig,
+    resetJoystick as resetJoystickState,
+    updateJoystickFromPointer as updateJoystickFromPointerModule,
+    createJoystickElements,
+    updateJoystickVisual as updateJoystickVisualModule,
+    setJoystickVisible as setJoystickVisibleModule,
+    updateJoystickSize,
+} from "./input";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -39,6 +51,42 @@ root.style.whiteSpace = "pre-wrap";
 root.style.wordWrap = "break-word";
 
 document.body.appendChild(root);
+
+// Глобальный guard для мобильного масштабирования: включается при входе в матч, выключается при выходе/результатах
+const viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+const defaultViewportContent = viewportMeta?.content ?? "width=device-width, initial-scale=1.0";
+let isGameViewportLocked = false;
+
+function setGameViewportLock(enabled: boolean) {
+    isGameViewportLocked = enabled;
+    if (!viewportMeta) return;
+
+    if (!enabled) {
+        viewportMeta.content = defaultViewportContent;
+        return;
+    }
+
+    let nextContent = defaultViewportContent;
+    if (!/maximum-scale\s*=/.test(nextContent)) {
+        nextContent += ", maximum-scale=1.0";
+    }
+    if (!/minimum-scale\s*=/.test(nextContent)) {
+        nextContent += ", minimum-scale=1.0";
+    }
+    if (!/user-scalable\s*=/.test(nextContent)) {
+        nextContent += ", user-scalable=no";
+    }
+    viewportMeta.content = nextContent;
+}
+
+const preventGestureZoom = (event: Event) => {
+    if (!isGameViewportLocked) return;
+    event.preventDefault();
+};
+
+document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+document.addEventListener("gestureend", preventGestureZoom, { passive: false });
 
 const hud = document.createElement("div");
 hud.style.position = "fixed";
@@ -450,32 +498,16 @@ function syncResultsClassButtons() {
 
 // Кнопки создаются после определения classesData (см. initResultsClassButtons)
 
-const joystickLayer = document.createElement("div");
-joystickLayer.style.position = "fixed";
-joystickLayer.style.inset = "0";
-joystickLayer.style.pointerEvents = "none";
-joystickLayer.style.zIndex = "5";
-
-const joystickBase = document.createElement("div");
-joystickBase.style.position = "fixed";
-joystickBase.style.borderRadius = "50%";
-joystickBase.style.border = "2px solid rgba(255, 255, 255, 0.18)";
-joystickBase.style.background = "rgba(12, 16, 24, 0.25)";
-joystickBase.style.backdropFilter = "blur(2px)";
-joystickBase.style.opacity = "0";
-joystickBase.style.transform = "translate(-50%, -50%)";
-
-const joystickKnob = document.createElement("div");
-joystickKnob.style.position = "fixed";
-joystickKnob.style.borderRadius = "50%";
-joystickKnob.style.background = "rgba(150, 200, 255, 0.55)";
-joystickKnob.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.35)";
-joystickKnob.style.opacity = "0";
-joystickKnob.style.transform = "translate(-50%, -50%)";
-
-joystickLayer.appendChild(joystickBase);
-joystickLayer.appendChild(joystickKnob);
+const { layer: joystickLayer, base: joystickBase, knob: joystickKnob } = createJoystickElements();
 document.body.appendChild(joystickLayer);
+
+const applyMobileTouchGuard = (btn: HTMLButtonElement) => {
+    btn.style.touchAction = "manipulation";
+    btn.style.webkitUserSelect = "none";
+    btn.style.userSelect = "none";
+    btn.style.setProperty("-webkit-touch-callout", "none");
+    btn.addEventListener("dblclick", (event) => event.preventDefault());
+};
 
 // ============================================
 // ABILITY BUTTON - кнопка способности класса
@@ -567,6 +599,8 @@ abilityButtonTimer.style.textShadow = "0 0 4px #000";
 abilityButtonTimer.style.pointerEvents = "none";
 abilityButtonTimer.style.display = "none";
 abilityButton.appendChild(abilityButtonTimer);
+
+applyMobileTouchGuard(abilityButton);
 
 document.body.appendChild(abilityButton);
 
@@ -665,6 +699,8 @@ projectileTimer.style.textShadow = "0 0 4px #000";
 projectileTimer.style.pointerEvents = "none";
 projectileTimer.style.display = "none";
 projectileButton.appendChild(projectileTimer);
+
+applyMobileTouchGuard(projectileButton);
 
 document.body.appendChild(projectileButton);
 
@@ -765,6 +801,8 @@ slot2Timer.style.textShadow = "0 0 4px #000";
 slot2Timer.style.pointerEvents = "none";
 slot2Timer.style.display = "none";
 slot2Button.appendChild(slot2Timer);
+
+applyMobileTouchGuard(slot2Button);
 
 document.body.appendChild(slot2Button);
 
@@ -1472,26 +1510,53 @@ const mouseState = {
     moveY: 0,
 };
 
-const joystickState = {
-    active: false,
-    pointerId: null as number | null,
-    pointerType: null as string | null,
-    baseX: 0,
-    baseY: 0,
-    knobX: 0,
-    knobY: 0,
-    moveX: 0,
-    moveY: 0,
-};
-let joystickRadius = balanceConfig.controls.joystickRadius;
-let joystickDeadzone = balanceConfig.controls.joystickDeadzone;
-let joystickSensitivity = balanceConfig.controls.joystickSensitivity;
-let joystickMode = balanceConfig.controls.joystickMode;
-let joystickFollowSpeed = balanceConfig.controls.joystickFollowSpeed;
-let joystickKnobRadius = joystickRadius * 0.45;
-const joystickFixedBase = { x: joystickRadius + 24, y: window.innerHeight - joystickRadius - 24 };
+const joystickState: JoystickState = createJoystickState();
+let joystickConfig: JoystickConfig = createJoystickConfig(
+    Number(balanceConfig.controls.joystickRadius ?? 90),
+    Number(balanceConfig.controls.joystickDeadzone ?? 0.1),
+    Number(balanceConfig.controls.joystickSensitivity ?? 1),
+    balanceConfig.controls.joystickMode ?? "adaptive",
+    Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8)
+);
+let joystickFixedBase = { x: joystickConfig.radius + 24, y: window.innerHeight - joystickConfig.radius - 24 };
 const joystickLeftZoneRatio = 1;
 const joystickLandscapeRatio = 1;
+const joystickDebugEnabled = new URLSearchParams(window.location.search).get("debugJoystick") === "1";
+const joystickDebugMoveThrottleMs = 80;
+let lastJoystickMoveLogMs = 0;
+
+const getJoystickDebugState = () => ({
+    active: joystickState.active,
+    pointerId: joystickState.pointerId,
+    pointerType: joystickState.pointerType,
+    baseX: Math.round(joystickState.baseX),
+    baseY: Math.round(joystickState.baseY),
+    knobX: Math.round(joystickState.knobX),
+    knobY: Math.round(joystickState.knobY),
+    moveX: Number(joystickState.moveX.toFixed(3)),
+    moveY: Number(joystickState.moveY.toFixed(3)),
+    mode: joystickConfig.mode,
+    radius: joystickConfig.radius,
+    deadzone: joystickConfig.deadzone,
+    followSpeed: joystickConfig.followSpeed,
+    canvasW: canvas.width,
+    canvasH: canvas.height,
+});
+
+const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
+    if (!joystickDebugEnabled) return;
+    const now = Math.round(performance.now());
+    const state = getJoystickDebugState();
+    console.log(`[joystick] ${label}`, { t: now, ...payload, ...state });
+};
+
+const logJoystickMove = (clientX: number, clientY: number) => {
+    if (!joystickDebugEnabled) return;
+    const now = performance.now();
+    if (now - lastJoystickMoveLogMs < joystickDebugMoveThrottleMs) return;
+    lastJoystickMoveLogMs = now;
+    logJoystick("pointermove", { clientX, clientY });
+};
 const slimeSpriteNames = [
     "slime-angrybird.png",
     "slime-astronaut.png",
@@ -1559,122 +1624,62 @@ const applyBalanceConfig = (config: BalanceConfig) => {
 };
 
 const updateJoystickConfig = () => {
-    joystickRadius = Number(balanceConfig.controls.joystickRadius ?? 90);
-    joystickDeadzone = Number(balanceConfig.controls.joystickDeadzone ?? 0.1);
-    joystickSensitivity = Number(balanceConfig.controls.joystickSensitivity ?? 1);
-    joystickMode = balanceConfig.controls.joystickMode ?? "adaptive";
-    joystickFollowSpeed = Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8);
-    joystickKnobRadius = joystickRadius * 0.45;
+    joystickConfig = createJoystickConfig(
+        Number(balanceConfig.controls.joystickRadius ?? 90),
+        Number(balanceConfig.controls.joystickDeadzone ?? 0.1),
+        Number(balanceConfig.controls.joystickSensitivity ?? 1),
+        balanceConfig.controls.joystickMode ?? "adaptive",
+        Number(balanceConfig.controls.joystickFollowSpeed ?? 0.8)
+    );
     const rect = canvas.getBoundingClientRect();
-    joystickFixedBase.x = rect.left + joystickRadius + 24;
-    joystickFixedBase.y = rect.top + rect.height - joystickRadius - 24;
-    joystickBase.style.width = `${joystickRadius * 2}px`;
-    joystickBase.style.height = `${joystickRadius * 2}px`;
-    joystickKnob.style.width = `${joystickKnobRadius * 2}px`;
-    joystickKnob.style.height = `${joystickKnobRadius * 2}px`;
-    if (joystickMode === "fixed" && joystickState.active) {
+    joystickFixedBase = {
+        x: rect.left + joystickConfig.radius + 24,
+        y: rect.top + rect.height - joystickConfig.radius - 24,
+    };
+    updateJoystickSize(joystickConfig, joystickBase, joystickKnob);
+    if (joystickConfig.mode === "fixed" && joystickState.active) {
         joystickState.baseX = joystickFixedBase.x;
         joystickState.baseY = joystickFixedBase.y;
-        updateJoystickVisual();
+        updateJoystickVisualModule(joystickState, joystickBase, joystickKnob);
     }
+    logJoystick("config", {
+        rect: {
+            left: Math.round(rect.left),
+            top: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+        },
+    });
 };
 
 const setJoystickVisible = (visible: boolean) => {
-    const opacity = visible ? "1" : "0";
-    joystickBase.style.opacity = opacity;
-    joystickKnob.style.opacity = opacity;
+    setJoystickVisibleModule(visible, joystickBase, joystickKnob);
 };
 
 const updateJoystickVisual = () => {
-    joystickBase.style.left = `${joystickState.baseX}px`;
-    joystickBase.style.top = `${joystickState.baseY}px`;
-    joystickKnob.style.left = `${joystickState.knobX}px`;
-    joystickKnob.style.top = `${joystickState.knobY}px`;
+    updateJoystickVisualModule(joystickState, joystickBase, joystickKnob);
 };
 
 const resetJoystick = () => {
-    joystickState.active = false;
-    joystickState.pointerId = null;
-    joystickState.pointerType = null;
-    joystickState.moveX = 0;
-    joystickState.moveY = 0;
-    joystickState.knobX = joystickState.baseX;
-    joystickState.knobY = joystickState.baseY;
+    resetJoystickState(joystickState);
     setJoystickVisible(false);
+    logJoystick("reset");
 };
 
 const updateJoystickFromPointer = (clientX: number, clientY: number) => {
-    let baseX = joystickState.baseX;
-    let baseY = joystickState.baseY;
-    let dx = clientX - baseX;
-    let dy = clientY - baseY;
-    let distance = Math.hypot(dx, dy);
-
-    const allowAdaptiveBase = joystickMode === "adaptive" && joystickState.pointerType !== "mouse";
-    if (allowAdaptiveBase && distance > joystickRadius) {
-        const excess = distance - joystickRadius;
-        const shift = excess * joystickFollowSpeed;
-        const nx = distance > 0 ? dx / distance : 0;
-        const ny = distance > 0 ? dy / distance : 0;
-        baseX += nx * shift;
-        baseY += ny * shift;
-        joystickState.baseX = baseX;
-        joystickState.baseY = baseY;
-        dx = clientX - baseX;
-        dy = clientY - baseY;
-        distance = Math.hypot(dx, dy);
-    }
-
     const rect = canvas.getBoundingClientRect();
-    let minX = rect.left + joystickRadius;
-    let maxX = rect.left + rect.width - joystickRadius;
-    let minY = rect.top + joystickRadius;
-    let maxY = rect.top + rect.height - joystickRadius;
-    if (maxX < minX) {
-        minX = rect.left + rect.width / 2;
-        maxX = minX;
-    }
-    if (maxY < minY) {
-        minY = rect.top + rect.height / 2;
-        maxY = minY;
-    }
-    const clampedBaseX = clamp(baseX, minX, maxX);
-    const clampedBaseY = clamp(baseY, minY, maxY);
-    if (clampedBaseX !== baseX || clampedBaseY !== baseY) {
-        baseX = clampedBaseX;
-        baseY = clampedBaseY;
-        joystickState.baseX = baseX;
-        joystickState.baseY = baseY;
-        dx = clientX - baseX;
-        dy = clientY - baseY;
-        distance = Math.hypot(dx, dy);
-    }
-
-    if (distance > joystickRadius && distance > 0) {
-        const scale = joystickRadius / distance;
-        dx *= scale;
-        dy *= scale;
-        distance = joystickRadius;
-    }
-
-    const deadzonePx = joystickRadius * joystickDeadzone;
-    let outX = 0;
-    let outY = 0;
-    if (distance > deadzonePx) {
-        const normalized = (distance - deadzonePx) / Math.max(joystickRadius - deadzonePx, 1);
-        const scale = normalized / Math.max(distance, 1);
-        outX = dx * scale;
-        outY = dy * scale;
-    }
-
-    outX = clamp(outX * joystickSensitivity, -1, 1);
-    outY = clamp(outY * joystickSensitivity, -1, 1);
-
-    joystickState.moveX = outX;
-    joystickState.moveY = outY;
-    joystickState.knobX = baseX + dx;
-    joystickState.knobY = baseY + dy;
+    const { baseShifted, baseClamped } = updateJoystickFromPointerModule(
+        joystickState,
+        joystickConfig,
+        clientX,
+        clientY,
+        rect
+    );
     updateJoystickVisual();
+    if (baseShifted || baseClamped) {
+        logJoystick("baseAdjust", { baseShifted, baseClamped, clientX, clientY });
+    }
+    logJoystickMove(clientX, clientY);
 };
 
 // No top exclusion while HUD/abilities are not implemented.
@@ -2446,6 +2451,7 @@ function getTalentRarityFromConfig(talents: BalanceConfig["talents"] | undefined
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    logJoystick("resize", { width: canvas.width, height: canvas.height });
     updateJoystickConfig();
 }
 resizeCanvas();
@@ -2596,6 +2602,7 @@ async function connectToServer(playerName: string, classId: number) {
     hud.style.display = "block";
     topCenterHud.style.display = "flex";
     joinScreen.style.display = "none";
+    setGameViewportLock(true);
     try {
         (document.activeElement as HTMLElement | null)?.blur?.();
         canvas.focus();
@@ -2657,6 +2664,7 @@ async function connectToServer(playerName: string, classId: number) {
         let talentSelectionInFlight = false;
         let cardsCollapsed = false;
         let lastLocalMass = 0;
+        let isViewportUnlockedForResults = false;
 
         queueIndicator.onclick = () => {
             cardsCollapsed = false;
@@ -2720,6 +2728,7 @@ async function connectToServer(playerName: string, classId: number) {
                 resultsOverlay.style.display = "none";
                 topCenterHud.style.display = "none";
                 joinScreen.style.display = "flex";
+                setGameViewportLock(false);
                 return;
             }
 
@@ -2733,6 +2742,7 @@ async function connectToServer(playerName: string, classId: number) {
             abilityButton.style.display = "flex";
             abilityButton.style.alignItems = "center";
             abilityButton.style.justifyContent = "center";
+            setGameViewportLock(true);
             try {
                 (document.activeElement as HTMLElement | null)?.blur?.();
                 canvas.focus();
@@ -3447,9 +3457,17 @@ async function connectToServer(playerName: string, classId: number) {
             const phase = room.state.phase;
             if (phase !== "Results") {
                 resultsOverlay.style.display = "none";
+                if (isViewportUnlockedForResults) {
+                    setGameViewportLock(true);
+                    isViewportUnlockedForResults = false;
+                }
                 return;
             }
 
+            if (!isViewportUnlockedForResults) {
+                setGameViewportLock(false);
+                isViewportUnlockedForResults = true;
+            }
             resultsOverlay.style.display = "flex";
             resultsTitle.textContent = "🏆 Матч завершён!";
 
@@ -4699,16 +4717,38 @@ async function connectToServer(playerName: string, classId: number) {
             const isCoarse = isCoarsePointer;
             const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
             const isMousePointer = event.pointerType === "mouse";
+            logJoystick("pointerdown", {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                pointerId: event.pointerId,
+                pointerType: event.pointerType,
+                isCoarse,
+            });
             
             // Мышь не активирует джойстик — управление мышью: курсор задаёт направление
-            if (isMousePointer) return;
+            if (isMousePointer) {
+                logJoystick("pointerdown-skip", { reason: "mouse" });
+                return;
+            }
             
-            if (!isTouchPointer && !isCoarse) return;
-            if (joystickState.active) return;
+            if (!isTouchPointer && !isCoarse) {
+                logJoystick("pointerdown-skip", { reason: "not-touch-or-coarse" });
+                return;
+            }
+            if (joystickState.active) {
+                logJoystick("pointerdown-skip", { reason: "already-active" });
+                return;
+            }
             
             const gate = getJoystickActivationGate();
-            if (event.clientX > gate.maxX) return;
-            if (event.clientY < gate.minY) return;
+            if (event.clientX > gate.maxX) {
+                logJoystick("pointerdown-skip", { reason: "gate-maxX", maxX: gate.maxX });
+                return;
+            }
+            if (event.clientY < gate.minY) {
+                logJoystick("pointerdown-skip", { reason: "gate-minY", minY: gate.minY });
+                return;
+            }
             
             event.preventDefault();
             hasFocus = true;
@@ -4716,7 +4756,7 @@ async function connectToServer(playerName: string, classId: number) {
             joystickState.pointerId = event.pointerId;
             joystickState.pointerType = event.pointerType;
             attachJoystickPointerListeners();
-            if (joystickMode === "fixed") {
+            if (joystickConfig.mode === "fixed") {
                 joystickState.baseX = joystickFixedBase.x;
                 joystickState.baseY = joystickFixedBase.y;
             } else {
@@ -4727,6 +4767,7 @@ async function connectToServer(playerName: string, classId: number) {
             joystickState.knobY = joystickState.baseY;
             setJoystickVisible(true);
             updateJoystickFromPointer(event.clientX, event.clientY);
+            logJoystick("pointerdown-activate", { clientX: event.clientX, clientY: event.clientY });
             try {
                 canvas.setPointerCapture(event.pointerId);
             } catch {
@@ -4735,29 +4776,61 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const onPointerMove = (event: PointerEvent) => {
-            if (!joystickState.active) return;
-            if (event.pointerId !== joystickState.pointerId) return;
+            if (!joystickState.active) {
+                return;
+            }
+            if (event.pointerId !== joystickState.pointerId) {
+                return;
+            }
             event.preventDefault();
             updateJoystickFromPointer(event.clientX, event.clientY);
         };
 
         const onPointerUp = (event: PointerEvent) => {
-            if (!joystickState.active) return;
-            if (event.pointerId !== joystickState.pointerId) return;
+            if (!joystickState.active) {
+                logJoystick("pointerup-skip", { reason: "inactive", pointerId: event.pointerId });
+                return;
+            }
+            if (event.pointerId !== joystickState.pointerId) {
+                logJoystick("pointerup-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
+                return;
+            }
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            if (canvas.hasPointerCapture(event.pointerId)) {
+                try {
+                    canvas.releasePointerCapture(event.pointerId);
+                } catch {
+                    // ignore release errors
+                }
+            }
+            logJoystick("pointerup", { clientX: event.clientX, clientY: event.clientY });
             if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
                 sendStopInput();
             }
         };
 
         const onPointerCancel = (event: PointerEvent) => {
-            if (!joystickState.active) return;
-            if (event.pointerId !== joystickState.pointerId) return;
+            if (!joystickState.active) {
+                logJoystick("pointercancel-skip", { reason: "inactive", pointerId: event.pointerId });
+                return;
+            }
+            if (event.pointerId !== joystickState.pointerId) {
+                logJoystick("pointercancel-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
+                return;
+            }
             event.preventDefault();
             detachJoystickPointerListeners();
             resetJoystick();
+            if (canvas.hasPointerCapture(event.pointerId)) {
+                try {
+                    canvas.releasePointerCapture(event.pointerId);
+                } catch {
+                    // ignore release errors
+                }
+            }
+            logJoystick("pointercancel", { clientX: event.clientX, clientY: event.clientY });
             if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
                 sendStopInput();
             }
@@ -4772,6 +4845,7 @@ async function connectToServer(playerName: string, classId: number) {
             sendStopInput();
             detachJoystickPointerListeners();
             resetJoystick();
+            logJoystick("blur");
         };
         
         const onFocus = () => {
@@ -4789,14 +4863,18 @@ async function connectToServer(playerName: string, classId: number) {
                 sendStopInput();
                 detachJoystickPointerListeners();
                 resetJoystick();
+                logJoystick("visibility-hidden");
             } else {
                 hasFocus = true;
+                logJoystick("visibility-visible");
             }
         };
 
         // Управление мышью для ПК (agar.io style)
         // Приоритет: touch/joystick > mouse
         const onMouseMove = (event: MouseEvent) => {
+            // Игнорируем mouse события на touch-устройствах (compatibility events)
+            if (isCoarsePointer) return;
             // Не активируем если уже активен джойстик (touch имеет приоритет)
             if (joystickState.active) return;
             if (classSelectMode) return;
@@ -4808,6 +4886,8 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const onMouseLeave = (event: MouseEvent) => {
+            // Игнорируем mouse события на touch-устройствах (compatibility events)
+            if (isCoarsePointer) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
             if (classSelectMode) return;
@@ -4816,27 +4896,57 @@ async function connectToServer(playerName: string, classId: number) {
             mouseState.screenX = clamp(event.clientX, rect.left + 1, rect.right - 1);
             mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
         };
+
+        // Принудительный сброс джойстика перед активацией умения
+        // Решает проблему гонки событий click/pointerup на мобильных
+        const forceResetJoystickForAbility = (slot: number) => {
+            const wasActive = joystickState.active;
+            if (wasActive) {
+                detachJoystickPointerListeners();
+                resetJoystick();
+                logJoystick("force-reset-for-ability", { slot });
+            }
+            // Сбрасываем lastSentInput чтобы ability отправился с нулевым движением
+            lastSentInput = { x: 0, y: 0 };
+            // Сбрасываем mouseState для защиты от compatibility mouse events на touch
+            mouseState.active = false;
+        };
         
         // Обработчик кнопки способности
         const onAbilityButtonClick = () => {
+            logJoystick("ability-click", { slot: 0 });
+            forceResetJoystickForAbility(0);
             inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 0 });
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
+        abilityButton.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+        });
         
         // Обработчик кнопки Выброса (Projectile)
         const onProjectileButtonClick = () => {
+            logJoystick("ability-click", { slot: 1 });
+            forceResetJoystickForAbility(1);
             inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 1 });
         };
         projectileButton.addEventListener("click", onProjectileButtonClick);
+        projectileButton.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+        });
         
         // Обработчик кнопки Slot 2
         const onSlot2ButtonClick = () => {
+            logJoystick("ability-click", { slot: 2 });
+            forceResetJoystickForAbility(2);
             inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
+            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 2 });
         };
         slot2Button.addEventListener("click", onSlot2ButtonClick);
+        slot2Button.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+        });
         
         // Обработчики кнопок карточки умений
         const onAbilityCardChoice = (choiceIndex: number) => {
@@ -4932,6 +5042,8 @@ async function connectToServer(playerName: string, classId: number) {
             abilityCardModal.style.display = "none";
             levelIndicator.style.display = "none";
             joinScreen.style.display = "flex";
+            isViewportUnlockedForResults = false;
+            setGameViewportLock(false);
         });
     } catch (e) {
         hud.textContent = `Ошибка подключения: ${e}`;
@@ -4941,6 +5053,7 @@ async function connectToServer(playerName: string, classId: number) {
         hud.style.display = "none";
         topCenterHud.style.display = "none";
         joinScreen.style.display = "flex";
+        setGameViewportLock(false);
     }
 }
 
