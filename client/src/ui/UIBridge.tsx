@@ -59,6 +59,7 @@ export interface UICallbacks {
 let uiContainer: HTMLElement | null = null;
 let callbacks: UICallbacks | null = null;
 let isConnecting = false;
+let cleanupMobileDetection: (() => void) | null = null;
 
 function UIRoot() {
   const phase = gamePhase.value;
@@ -107,10 +108,10 @@ function UIRoot() {
 export function initUI(container: HTMLElement, cbs: UICallbacks): void {
   uiContainer = container;
   callbacks = cbs;
-  
-  // Инициализируем детекцию мобильных
-  initMobileDetection();
-  
+
+  // Инициализируем детекцию мобильных и сохраняем cleanup
+  cleanupMobileDetection = initMobileDetection();
+
   // Первый рендер
   renderUI();
 }
@@ -127,6 +128,12 @@ export function renderUI(): void {
  * Размонтирование UI
  */
 export function destroyUI(): void {
+  // Очистка event listeners от mobile detection
+  if (cleanupMobileDetection) {
+    cleanupMobileDetection();
+    cleanupMobileDetection = null;
+  }
+
   if (uiContainer) {
     render(null, uiContainer);
     uiContainer = null;
@@ -140,21 +147,24 @@ export function destroyUI(): void {
  * Обновление состояния игрока из game loop
  * Вызывается из main.ts на каждом HUD-тике (5-10 Hz)
  */
-export function syncPlayerState(stats: PlayerStats): void {
+export function syncPlayerState(stats: PlayerStats | null | undefined): void {
+  if (!stats) return;
   updateLocalPlayer(stats);
 }
 
 /**
  * Обновление таблицы лидеров
  */
-export function syncLeaderboard(entries: LeaderboardEntry[]): void {
+export function syncLeaderboard(entries: LeaderboardEntry[] | null | undefined): void {
+  if (!entries || !Array.isArray(entries)) return;
   updateLeaderboard(entries);
 }
 
 /**
  * Обновление таймера матча
  */
-export function syncMatchTimer(timer: MatchTimerState): void {
+export function syncMatchTimer(timer: MatchTimerState | null | undefined): void {
+  if (!timer) return;
   updateMatchTimer(timer);
 }
 
@@ -162,10 +172,11 @@ export function syncMatchTimer(timer: MatchTimerState): void {
  * Показать выбор талантов
  */
 export function showTalentChoices(
-  choices: TalentChoice[], 
-  queueSize: number, 
+  choices: TalentChoice[] | null | undefined,
+  queueSize: number,
   timerSeconds: number
 ): void {
+  if (!choices || !Array.isArray(choices)) return;
   setTalentChoices(choices, queueSize, timerSeconds);
 }
 
@@ -180,6 +191,7 @@ export function hideTalentChoices(): void {
  * Обновить кулдаун способности
  */
 export function syncAbilityCooldown(slot: number, remaining: number, total: number): void {
+  if (typeof slot !== 'number' || slot < 0 || slot > 2) return;
   updateAbilityCooldown(slot, remaining, total);
 }
 

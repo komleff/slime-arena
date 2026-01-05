@@ -277,14 +277,20 @@ export function resetGameState() {
 
 // ========== Инициализация ==========
 
-export function initMobileDetection() {
+/**
+ * Инициализирует детекцию мобильного устройства и safe area.
+ * @returns Функция очистки для удаления event listeners
+ */
+export function initMobileDetection(): () => void {
+  const mediaQuery = window.matchMedia('(pointer: coarse)');
+
   const checkMobile = () => {
-    isMobile.value = window.matchMedia('(pointer: coarse)').matches;
+    isMobile.value = mediaQuery.matches;
   };
-  
+
   checkMobile();
-  window.matchMedia('(pointer: coarse)').addEventListener('change', checkMobile);
-  
+  mediaQuery.addEventListener('change', checkMobile);
+
   // Safe area insets
   const updateSafeArea = () => {
     const style = getComputedStyle(document.documentElement);
@@ -295,7 +301,13 @@ export function initMobileDetection() {
       right: parseInt(style.getPropertyValue('--sar') || '0', 10),
     };
   };
-  
+
   updateSafeArea();
   window.addEventListener('resize', updateSafeArea);
+
+  // Возвращаем cleanup функцию
+  return () => {
+    mediaQuery.removeEventListener('change', checkMobile);
+    window.removeEventListener('resize', updateSafeArea);
+  };
 }
