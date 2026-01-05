@@ -120,13 +120,35 @@ docker compose -f docker/docker-compose.yml up --build
 
 ## Последние изменения
 
-### Релиз v0.2.2
+### Релиз v0.2.2 (5 января 2026)
 
-- Исправлено залипание управления на мобильных устройствах с адаптивным джойстиком.
-- Автоматизирована публикация Docker-контейнеров через GitHub Actions.
-- Контейнеры опубликованы в GitHub Container Registry: `ghcr.io/komleff/slime-arena-server:v0.2.2`, `ghcr.io/komleff/slime-arena-client:v0.2.2`.
+**Основное:** Исправлено залипание управления на мобильных устройствах (корневая причина — браузеры генерируют compatibility mouse events на touch-устройствах). Автоматизирована сборка и публикация Docker-контейнеров в GHCR через GitHub Actions.
 
-### История изменений с v0.2
+**Docker:** Контейнеры доступны в GitHub Container Registry:
+- `ghcr.io/komleff/slime-arena-server:v0.2.2`
+- `ghcr.io/komleff/slime-arena-client:v0.2.2`
+- `ghcr.io/komleff/slime-arena-server:latest`
+- `ghcr.io/komleff/slime-arena-client:latest`
+
+**История изменений с v0.2:**
+
+#### Исправления управления (Mobile Input) — PR #29
+- **P0 Fix: Залипание джойстика при клике на кнопку умения** — добавлена функция `forceResetJoystickForAbility()`, которая принудительно сбрасывает джойстик и `lastSentInput` перед отправкой ability. Все кнопки умений (1, 2, 3) отправляют `moveX: 0, moveY: 0`. Добавлены `pointerdown` обработчики с `stopPropagation`.
+- **Fix: Игнорирование mouse-событий на touch-устройствах** — браузеры генерируют compatibility mouse events при касании; добавлены проверки `if (isCoarsePointer) return;` в `onMouseMove` и `onMouseLeave` для предотвращения активации `mouseState`. Backup: `forceResetJoystickForAbility` сбрасывает `mouseState.active = false`.
+- **Fix: Защита от сенсорного ввода для кнопок умений** — добавлена функция `applyMobileTouchGuard()` с `touchAction: "manipulation"`, отключением стандартных жестов и двойного касания.
+- **Fix: Блокировка масштабирования и viewport-guard** — заблокирована масштабируемость во время игры через meta-тег (`maximum-scale=1.0`, `user-scalable=no`), добавлены глобальные обработчики жестов масштабирования.
+- **Refactor: Модульный джойстик** — вынесена логика обработки джойстика в `client/src/input/joystick.ts` (конфиг, состояние, размеры). Добавлены отладочные логи по флагу `?debugJoystick=1`.
+- **Review fixes:** Отполированы логи, добавлены документирующие комментарии.
+
+#### Улучшения управления (Flybywire) — PR #30
+- **Counter-acceleration:** Реализована система "контр-ускорения" для улучшенного управления джойстиком. Когда палец движется в противоположную сторону, слайм быстрее теряет скорость для более отзывчивого управления.
+- **Type safety:** Добавлены TypeScript-типы для улучшения безопасности кода.
+
+#### CI/CD Automation
+- **Workflow `publish-containers.yml`:** Автоматическая сборка и публикация образов в GHCR при push в `main` или создании тегов `v*`.
+- **Workflow `make-packages-public.yml`:** Ручной workflow для перевода пакетов в публичный доступ через GitHub API.
+
+### Релиз v0.2
 
 #### Релиз v0.2.1
 
