@@ -2,8 +2,9 @@
  * MainMenu — главное меню игры
  */
 
-// Preact JSX transform handles imports automatically
+// JSX runtime imported automatically via jsxImportSource
 import { useState, useCallback } from 'preact/hooks';
+import { injectStyles } from '../utils/injectStyles';
 import {
   playerName,
   selectedClassId,
@@ -192,19 +193,10 @@ const styles = `
   }
 `;
 
-// Внедрение стилей
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected) return;
-  const styleEl = document.createElement('style');
-  styleEl.id = 'main-menu-styles';
-  styleEl.textContent = styles;
-  document.head.appendChild(styleEl);
-  stylesInjected = true;
-}
+const STYLES_ID = 'main-menu-styles';
 
 if (typeof window !== 'undefined') {
-  injectStyles();
+  injectStyles(STYLES_ID, styles);
 }
 
 // ========== Данные классов ==========

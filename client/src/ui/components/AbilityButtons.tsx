@@ -2,8 +2,9 @@
  * AbilityButtons — кнопки способностей с визуализацией кулдауна
  */
 
-// Preact JSX transform handles imports automatically
+// JSX runtime imported automatically via jsxImportSource
 import { useCallback, useMemo } from 'preact/hooks';
+import { injectStyles } from '../utils/injectStyles';
 import { abilityCooldowns, type AbilityCooldown } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -139,19 +140,10 @@ const styles = `
   }
 `;
 
-// Внедрение стилей
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected) return;
-  const styleEl = document.createElement('style');
-  styleEl.id = 'ability-buttons-styles';
-  styleEl.textContent = styles;
-  document.head.appendChild(styleEl);
-  stylesInjected = true;
-}
+const STYLES_ID = 'ability-buttons-styles';
 
 if (typeof window !== 'undefined') {
-  injectStyles();
+  injectStyles(STYLES_ID, styles);
 }
 
 // ========== Данные способностей ==========

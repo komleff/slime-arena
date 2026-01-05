@@ -5,7 +5,8 @@
 
 import { render, VNode } from 'preact';
 import { useEffect, useCallback } from 'preact/hooks';
-// Signals are used directly, not via hooks
+// Signals читаются напрямую через .value, без useSignal
+import { injectStyles } from '../utils/injectStyles';
 import {
   currentScreen,
   activeModal,
@@ -193,33 +194,25 @@ const styles = `
     to { transform: translateY(0) scale(1); opacity: 1; }
   }
 
-  /* Safe area поддержка */
+  /* Safe area поддержка с корректными fallback значениями */
   .safe-area-top {
-    padding-top: env(safe-area-inset-top, 0);
+    padding-top: max(env(safe-area-inset-top, 0px), 0px);
   }
 
   .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
   }
 
   .safe-area-left {
-    padding-left: env(safe-area-inset-left, 0);
+    padding-left: max(env(safe-area-inset-left, 0px), 0px);
   }
 
   .safe-area-right {
-    padding-right: env(safe-area-inset-right, 0);
+    padding-right: max(env(safe-area-inset-right, 0px), 0px);
   }
 `;
 
-// Внедряем стили
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected) return;
-  const styleEl = document.createElement('style');
-  styleEl.textContent = styles;
-  document.head.appendChild(styleEl);
-  stylesInjected = true;
-}
+const STYLES_ID = 'screen-manager-styles';
 
 // ========== Компоненты ==========
 
@@ -280,18 +273,20 @@ export function ScreenManager() {
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
-      
+
       // Сначала закрываем модалку, если есть
       if (activeModal.value) {
         closeModal();
-        window.history.pushState(null, '', window.location.href);
+        // replaceState вместо pushState чтобы не накапливать историю
+        window.history.replaceState(null, '', window.location.href);
         return;
       }
-      
+
       // Затем возвращаемся по стеку экранов
       const popped = popScreen();
       if (popped) {
-        window.history.pushState(null, '', window.location.href);
+        // replaceState вместо pushState чтобы не накапливать историю
+        window.history.replaceState(null, '', window.location.href);
       }
     };
 
@@ -306,7 +301,7 @@ export function ScreenManager() {
 
   // Инжектируем стили при монтировании
   useEffect(() => {
-    injectStyles();
+    injectStyles(STYLES_ID, styles);
   }, []);
 
   if (!config) {

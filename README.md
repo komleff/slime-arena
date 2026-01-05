@@ -128,7 +128,7 @@ docker compose -f docker/docker-compose.yml up --build
 - **Preact + Signals** — легковесный реактивный UI (3KB gzip) вместо императивного DOM
 - **UIBridge** — мост между Canvas-игрой и Preact компонентами
 - **ScreenManager** — стек экранов с модальными окнами и анимациями
-- **Throttled HUD** — обновление UI 10 Гц вместо 60 Гц (снижение нагрузки на DOM)
+- **Throttled HUD** — обновление UI 10 Гц (вместо 60 Гц canvas loop)
 
 #### Компоненты
 - `MainMenu` — главное меню с выбором класса и именем

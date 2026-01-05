@@ -2,18 +2,33 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: feature/ui-refactoring @ 6 января 2026
+- **last_checked_commit**: 2019135 (feature/ui-refactoring) @ 6 января 2026
 - **Текущая ветка**: feature/ui-refactoring
 - **Релиз игрового прототипа:** v0.2.2
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: В РАБОТЕ
-- **Резюме**: Preact миграция — UI компоненты созданы, сборка проходит, ожидает интеграции с Canvas.
+- **UI Refactoring**: Phase 1.5 (Copilot Fixes) завершена
+- **Резюме**: Phase 1 (Components) + Copilot Review Fixes завершены. Phase 2 (Integration) начинается.
 
 ## Последние изменения (6 января 2026)
 
-### UI Refactoring — Preact Migration (В РАБОТЕ)
+### UI Refactoring — Copilot Review Fixes (PR #32)
+
+**Исправлено (17 комментариев Copilot):**
+
+- ✅ vite.config.ts: удалён конфликтующий esbuild.jsx* конфиг
+- ✅ ScreenManager.tsx: replaceState вместо pushState (fix history accumulation)
+- ✅ ScreenManager.tsx: Safe Area CSS с max() fallbacks
+- ✅ DRY: создана утилита `utils/injectStyles.ts`, обновлены 6 компонентов
+- ✅ Исправлены комментарии (Hz, JSX runtime)
+- ✅ Ранее: memory leak в gameState.ts, null-checks в UIBridge
+
+**Новые файлы (1):**
+
+- `client/src/ui/utils/injectStyles.ts` — DRY утилита для внедрения CSS
+
+### UI Refactoring — Phase 1: Components (ЗАВЕРШЕНО)
 
 **Установлено:**
 - `preact` (10.x) — минималистичный React-совместимый фреймворк
@@ -70,12 +85,9 @@
 - `client/tsconfig.json` — jsx: "react-jsx", jsxImportSource: "preact"
 
 **Статус:**
-- ✅ Сборка: `npm run build` успешно
-- ✅ TypeScript: все типы корректны
-- ⏳ Интеграция: main.ts не изменён (требуется подключение UIBridge)
-- ⏳ Safe Area: CSS переменные готовы, требуется тестирование
-
-**Оценка vs факт:** План 10-12 дней, реализована основа за 1 сессию.
+- ✅ Сборка: `npm run build` проходит
+- ✅ Коммит: 2019135
+- ⏳ Следующий шаг: Интеграция UIBridge с main.ts
 
 ---
 
@@ -412,10 +424,13 @@ npm run dev:meta
 
 ## Открытые задачи (UI Refactoring)
 
-- [ ] Настройка Preact + Vite
-- [ ] ScreenManager implementation
-- [ ] HUD Refactoring
-- [ ] Main Menu Refactoring
+- [x] Настройка Preact + Vite
+- [x] ScreenManager implementation
+- [x] HUD Refactoring
+- [x] Main Menu Refactoring
+- [ ] Интеграция UIBridge в main.ts
+- [ ] Удаление устаревшего DOM-кода
+- [ ] Тестирование на мобильных устройствах
 
 ## Открытые задачи (рефакторинг игрового прототипа)
 

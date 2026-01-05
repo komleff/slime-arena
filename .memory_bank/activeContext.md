@@ -10,9 +10,23 @@
 
 ### Фокус сессии
 
-- **[ВЫПОЛНЯЕТСЯ] UI Refactoring (Preact Migration):**
+- **[ЗАВЕРШЕНО] UI Refactoring - Copilot Review Fixes:**
+  - ✅ vite.config.ts: удалён конфликтующий esbuild.jsx* конфиг
+  - ✅ ScreenManager.tsx: replaceState вместо pushState (fix history accumulation)
+  - ✅ ScreenManager.tsx: Safe Area CSS с max() fallbacks
+  - ✅ DRY: создана утилита utils/injectStyles.ts, обновлены 6 компонентов
+  - ✅ Исправлены комментарии в файлах (Hz, JSX runtime)
+  - ✅ Ранее исправлено: memory leak в gameState.ts, null-checks в UIBridge
+
+- **[В РАБОТЕ] UI Refactoring - Phase 2: Integration:**
+  - Интеграция `UIBridge` в `client/src/main.ts`
+  - Замена старого DOM-кода на вызовы `ui.bridge.*`
+  - Тестирование взаимодействия Canvas <-> Preact
+  - Проверка Safe Area на мобильных
+
+- **[ЗАВЕРШЕНО] UI Refactoring - Phase 1: Components (6 января 2026):**
   
-  **Реализовано:**
+  **Реализовано (Commit 2019135):**
   - ✅ **Preact + Signals** — установлены `preact` и `@preact/signals`
   - ✅ **State Management** — глобальное состояние через Preact Signals
   - ✅ **ScreenManager** — стек экранов с модальными окнами и CSS-анимациями

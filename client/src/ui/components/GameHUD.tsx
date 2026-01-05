@@ -1,10 +1,11 @@
 /**
  * HUD компонент — игровой интерфейс во время матча
- * Оптимизирован: обновления throttled до 5-10 Hz
+ * Оптимизирован: обновления throttled до 10 Hz
  */
 
 import { Fragment } from 'preact';
 import { useEffect, useState, useRef } from 'preact/hooks';
+import { injectStyles } from '../utils/injectStyles';
 import {
   localPlayer,
   matchTimer,
@@ -171,16 +172,7 @@ const styles = `
   }
 `;
 
-// Внедрение стилей
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected) return;
-  const styleEl = document.createElement('style');
-  styleEl.id = 'hud-styles';
-  styleEl.textContent = styles;
-  document.head.appendChild(styleEl);
-  stylesInjected = true;
-}
+const STYLES_ID = 'hud-styles';
 
 // ========== Утилиты ==========
 
@@ -289,7 +281,7 @@ export function GameHUD() {
   const lastUpdateRef = useRef(0);
 
   useEffect(() => {
-    injectStyles();
+    injectStyles(STYLES_ID, styles);
 
     let rafId: number;
     const update = () => {

@@ -2,8 +2,9 @@
  * TalentModal — модальное окно выбора талантов
  */
 
-// Preact JSX transform handles imports automatically
+// JSX runtime imported automatically via jsxImportSource
 import { useCallback } from 'preact/hooks';
+import { injectStyles } from '../utils/injectStyles';
 import {
   talentChoices,
   talentQueueSize,
@@ -142,20 +143,10 @@ const styles = `
   }
 `;
 
-// Внедрение стилей
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected) return;
-  const styleEl = document.createElement('style');
-  styleEl.id = 'talent-modal-styles';
-  styleEl.textContent = styles;
-  document.head.appendChild(styleEl);
-  stylesInjected = true;
-}
+const STYLES_ID = 'talent-modal-styles';
 
-// Вызываем при импорте
 if (typeof window !== 'undefined') {
-  injectStyles();
+  injectStyles(STYLES_ID, styles);
 }
 
 // ========== Компонент ==========

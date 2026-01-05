@@ -145,7 +145,7 @@ export function destroyUI(): void {
 
 /**
  * Обновление состояния игрока из game loop
- * Вызывается из main.ts на каждом HUD-тике (5-10 Hz)
+ * Вызывается из main.ts на каждом HUD-тике (10 Hz)
  */
 export function syncPlayerState(stats: PlayerStats | null | undefined): void {
   if (!stats) return;

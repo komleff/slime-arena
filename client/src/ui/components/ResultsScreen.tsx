@@ -2,8 +2,9 @@
  * ResultsScreen — экран результатов матча
  */
 
-// Preact JSX transform handles imports automatically
+// JSX runtime imported automatically via jsxImportSource
 import { useCallback } from 'preact/hooks';
+import { injectStyles } from '../utils/injectStyles';
 import {
   matchResults,
   selectedClassId,
@@ -205,19 +206,10 @@ const styles = `
   }
 `;
 
-// Внедрение стилей
-let stylesInjected = false;
-function injectStyles() {
-  if (stylesInjected) return;
-  const styleEl = document.createElement('style');
-  styleEl.id = 'results-screen-styles';
-  styleEl.textContent = styles;
-  document.head.appendChild(styleEl);
-  stylesInjected = true;
-}
+const STYLES_ID = 'results-screen-styles';
 
 if (typeof window !== 'undefined') {
-  injectStyles();
+  injectStyles(STYLES_ID, styles);
 }
 
 // ========== Данные классов ==========
