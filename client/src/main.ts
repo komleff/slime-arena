@@ -4873,6 +4873,8 @@ async function connectToServer(playerName: string, classId: number) {
         // Управление мышью для ПК (agar.io style)
         // Приоритет: touch/joystick > mouse
         const onMouseMove = (event: MouseEvent) => {
+            // Игнорируем mouse события на touch-устройствах (compatibility events)
+            if (isCoarsePointer) return;
             // Не активируем если уже активен джойстик (touch имеет приоритет)
             if (joystickState.active) return;
             if (classSelectMode) return;
@@ -4884,6 +4886,8 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const onMouseLeave = (event: MouseEvent) => {
+            // Игнорируем mouse события на touch-устройствах (compatibility events)
+            if (isCoarsePointer) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
             if (classSelectMode) return;
@@ -4904,6 +4908,8 @@ async function connectToServer(playerName: string, classId: number) {
             }
             // Сбрасываем lastSentInput чтобы ability отправился с нулевым движением
             lastSentInput = { x: 0, y: 0 };
+            // Сбрасываем mouseState для защиты от compatibility mouse events на touch
+            mouseState.active = false;
         };
         
         // Обработчик кнопки способности
