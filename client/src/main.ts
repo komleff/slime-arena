@@ -41,6 +41,7 @@ import {
 import {
     initUI,
     setPhase,
+    setConnecting,
     getPlayerName,
     type UICallbacks,
 } from "./ui/UIBridge";
@@ -1316,6 +1317,7 @@ initResultsClassButtons();
 
 let selectedClassId = -1;  // -1 = класс не выбран
 let activeRoom: any = null;
+let globalInputSeq = 0; // Единый монотонный счётчик для всех input команд
 
 const classCardsContainer = document.createElement("div");
 classCardsContainer.style.display = "flex";
@@ -2604,8 +2606,8 @@ function drawSprite(
 }
 
 async function connectToServer(playerName: string, classId: number) {
-    // Переключаем Preact UI на фазу "playing"
-    setPhase("playing");
+    // Показываем индикатор подключения в Preact UI
+    setConnecting(true);
 
     // Показываем canvas (legacy HUD скрыт, используется Preact GameHUD)
     canvas.style.display = "block";
@@ -2652,6 +2654,9 @@ async function connectToServer(playerName: string, classId: number) {
                 classId,
             });
             activeRoom = room;
+            // Переключаем Preact UI на фазу "playing" ПОСЛЕ успешного подключения
+            setPhase("playing");
+            setConnecting(false);
             hud.textContent = "Подключено к серверу";
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
@@ -2662,7 +2667,7 @@ async function connectToServer(playerName: string, classId: number) {
         let chestsCount = 0;
         let orbsCount = 0;
         let playersCount = 0;
-        let inputSeq = 0;
+        // globalInputSeq теперь глобальный (globalInputSeq) — единый счётчик для UI и game loop
         let localPlayer: any = null;
         let renderStateForHud: RenderState | null = null;
         // Сглаженная позиция игрока для управления мышью
@@ -2734,7 +2739,8 @@ async function connectToServer(playerName: string, classId: number) {
                 talentModal.style.display = "none";
                 resultsOverlay.style.display = "none";
                 topCenterHud.style.display = "none";
-                joinScreen.style.display = "flex";
+                // Legacy joinScreen скрыт, используем Preact MainMenu
+                setPhase("menu");
                 setGameViewportLock(false);
                 return;
             }
@@ -3463,6 +3469,8 @@ async function connectToServer(playerName: string, classId: number) {
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
             if (phase !== "Results") {
+                // Сбрасываем Preact UI на фазу playing при выходе из Results
+                setPhase("playing");
                 // Legacy resultsOverlay скрыт, используем Preact ResultsScreen
                 if (isViewportUnlockedForResults) {
                     setGameViewportLock(true);
@@ -3644,8 +3652,8 @@ async function connectToServer(playerName: string, classId: number) {
             const changed = Math.abs(x - lastSentInput.x) > 1e-3 || Math.abs(y - lastSentInput.y) > 1e-3;
             if (!changed) return;
             lastSentInput = { x, y };
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: x, moveY: y });
+            globalInputSeq += 1;
+            room.send("input", { seq: globalInputSeq, moveX: x, moveY: y });
         }, inputIntervalMs);
 
         const drawMinimap = (
@@ -4599,8 +4607,8 @@ async function connectToServer(playerName: string, classId: number) {
 
         const sendStopInput = () => {
             lastSentInput = { x: 0, y: 0 };
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0 });
+            globalInputSeq += 1;
+            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0 });
         };
 
         const onKeyDown = (event: KeyboardEvent) => {
@@ -4614,24 +4622,24 @@ async function connectToServer(playerName: string, classId: number) {
             
             // Способность активируется клавишей 1 (slot 0 - классовая способность)
             if (key === "1") {
-                inputSeq += 1;
-                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
+                globalInputSeq += 1;
+                room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
                 event.preventDefault();
                 return;
             }
             
             // Выброс активируется клавишей 2 (slot 1)
             if (key === "2") {
-                inputSeq += 1;
-                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
+                globalInputSeq += 1;
+                room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
                 event.preventDefault();
                 return;
             }
             
             // Slot 2 активируется клавишей 3
             if (key === "3") {
-                inputSeq += 1;
-                room.send("input", { seq: inputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
+                globalInputSeq += 1;
+                room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
                 event.preventDefault();
                 return;
             }
@@ -4926,8 +4934,8 @@ async function connectToServer(playerName: string, classId: number) {
         const onAbilityButtonClick = () => {
             logJoystick("ability-click", { slot: 0 });
             forceResetJoystickForAbility(0);
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 0 });
+            globalInputSeq += 1;
+            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0, abilitySlot: 0 });
         };
         abilityButton.addEventListener("click", onAbilityButtonClick);
         abilityButton.addEventListener("pointerdown", (event) => {
@@ -4938,8 +4946,8 @@ async function connectToServer(playerName: string, classId: number) {
         const onProjectileButtonClick = () => {
             logJoystick("ability-click", { slot: 1 });
             forceResetJoystickForAbility(1);
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 1 });
+            globalInputSeq += 1;
+            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0, abilitySlot: 1 });
         };
         projectileButton.addEventListener("click", onProjectileButtonClick);
         projectileButton.addEventListener("pointerdown", (event) => {
@@ -4950,8 +4958,8 @@ async function connectToServer(playerName: string, classId: number) {
         const onSlot2ButtonClick = () => {
             logJoystick("ability-click", { slot: 2 });
             forceResetJoystickForAbility(2);
-            inputSeq += 1;
-            room.send("input", { seq: inputSeq, moveX: 0, moveY: 0, abilitySlot: 2 });
+            globalInputSeq += 1;
+            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0, abilitySlot: 2 });
         };
         slot2Button.addEventListener("click", onSlot2ButtonClick);
         slot2Button.addEventListener("pointerdown", (event) => {
@@ -5051,7 +5059,8 @@ async function connectToServer(playerName: string, classId: number) {
             slot2Button.style.display = "none";
             abilityCardModal.style.display = "none";
             levelIndicator.style.display = "none";
-            joinScreen.style.display = "flex";
+            // Legacy joinScreen скрыт, используем Preact MainMenu
+            setPhase("menu");
             isViewportUnlockedForResults = false;
             setGameViewportLock(false);
         });
@@ -5062,7 +5071,9 @@ async function connectToServer(playerName: string, classId: number) {
         canvas.style.display = "none";
         hud.style.display = "none";
         topCenterHud.style.display = "none";
-        joinScreen.style.display = "flex";
+        // Сбрасываем индикатор подключения и возвращаем в меню
+        setConnecting(false);
+        setPhase("menu");
         setGameViewportLock(false);
     }
 }
@@ -5088,15 +5099,13 @@ function sendTalentChoiceFromUI(index: number): void {
     activeRoom.send("talentChoice", { choice: index });
 }
 
-// Counter for UI-triggered inputs (separate from game loop's inputSeq)
-let uiInputSeq = 100000;
-
 // Helper function to activate ability through activeRoom
+// Использует единый globalInputSeq для совместимости с game loop
 function activateAbilityFromUI(slot: number): void {
     if (!activeRoom) return;
-    uiInputSeq += 1;
+    globalInputSeq += 1;
     activeRoom.send("input", {
-        seq: uiInputSeq,
+        seq: globalInputSeq,
         moveX: 0,
         moveY: 0,
         abilitySlot: slot
