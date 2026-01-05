@@ -11,6 +11,15 @@
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] UI Refactoring - Phase 2.5 Post-Implementation Fixes (6 января 2026):**
+
+  **Исправлены 2 бага из пользовательского тестирования:**
+
+  - ✅ POST-1: Лишний экран меню после выбора класса — добавлен `setPhase("playing")` в `setClassSelectMode(false)`
+  - ✅ POST-2: Призраки игроков между матчами — добавлены `visualPlayers.clear()` и `visualOrbs.clear()` при выходе из Results
+
+  **Коммит:** c4c5c08
+
 - **[ЗАВЕРШЕНО] UI Refactoring - Phase 2 Bug Fixes (6 января 2026):**
 
   **SDET Review — исправлены 9 критических багов:**
