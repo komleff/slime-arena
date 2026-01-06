@@ -58,10 +58,20 @@ export const options = {
   },
 };
 
-// Generate unique ID for match results (k6 doesn't have crypto.randomUUID)
-// T-03 fix: Use deterministic unique ID instead of Math.random()
-function generateUniqueId(vuId, iteration) {
-  return `${Date.now()}-${vuId}-${iteration}`;
+// Generate UUID for match results (k6 doesn't have crypto.randomUUID)
+// T-03 fix: Generate valid UUID v4 format for PostgreSQL compatibility
+function generateUUID(vuId, iteration) {
+  // Use vuId and iteration to seed the random values for some determinism
+  const seed = vuId * 1000 + iteration + Date.now();
+  const random = () => {
+    const x = Math.sin(seed + Math.random() * 10000) * 10000;
+    return x - Math.floor(x);
+  };
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 // Test user context (persists between iterations for a VU)
@@ -195,7 +205,7 @@ export default function () {
   // Simulate match completion (every 5th iteration to reduce load)
   if (iteration % 5 === 0) {
     group('6. Submit Match Results', function () {
-      const matchId = generateUniqueId(vuId, iteration);
+      const matchId = generateUUID(vuId, iteration);
       const matchSummary = {
         matchId: matchId,
         mode: 'arena',
