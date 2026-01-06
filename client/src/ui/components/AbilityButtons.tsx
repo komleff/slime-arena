@@ -3,6 +3,7 @@
  */
 
 // JSX runtime imported automatically via jsxImportSource
+import type { JSX } from 'preact';
 import { useCallback, useMemo } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { abilityCooldowns, abilitySlots, type AbilityCooldown } from '../signals/gameState';
@@ -153,16 +154,17 @@ interface AbilityButtonProps {
   label: string;
   color: string;
   cooldown: AbilityCooldown;
-  onClick: (slot: number) => void;
+  onActivate: (slot: number, pointerId: number) => void;
   small?: boolean;
 }
 
-function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: AbilityButtonProps) {
-  const handleClick = useCallback(() => {
+function AbilityButton({ slot, icon, label, color, cooldown, onActivate, small }: AbilityButtonProps) {
+  const handlePointerDown = useCallback((e: JSX.TargetedPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     if (cooldown.ready) {
-      onClick(slot);
+      onActivate(slot, e.pointerId);
     }
-  }, [slot, cooldown.ready, onClick]);
+  }, [slot, cooldown.ready, onActivate]);
 
   // useMemo для кэширования вычислений при частых ре-рендерах
   const { circumference, strokeDashoffset, displayTime } = useMemo(() => {
@@ -186,7 +188,7 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
   return (
     <button
       class={`ability-button slot-${slot} ${cooldown.ready ? 'ready' : ''} ${small ? 'small' : ''}`}
-      onClick={handleClick}
+      onPointerDown={handlePointerDown}
       disabled={isOnCooldown}
     >
       <span class="ability-icon">{icon}</span>
@@ -220,7 +222,7 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
 // ========== Главный компонент ==========
 
 interface AbilityButtonsProps {
-  onActivateAbility: (slot: number) => void;
+  onActivateAbility: (slot: number, pointerId: number) => void;
 }
 
 export function AbilityButtons({ onActivateAbility }: AbilityButtonsProps) {
@@ -290,7 +292,7 @@ export function AbilityButtons({ onActivateAbility }: AbilityButtonsProps) {
             label={ability.label}
             color={ability.color}
             cooldown={cooldown}
-            onClick={onActivateAbility}
+            onActivate={onActivateAbility}
             small={ability.slot !== 0}
           />
         );

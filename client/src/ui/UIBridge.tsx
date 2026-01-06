@@ -53,9 +53,10 @@ import { MainMenu } from './components/MainMenu';
 export interface UICallbacks {
   onPlay: (name: string, classId: number) => void;
   onSelectTalent: (talentId: string, index: number) => void;
-  onActivateAbility: (slot: number) => void;
+  onActivateAbility: (slot: number, pointerId: number) => void;
   onPlayAgain: (classId: number) => void;
   onExit: () => void;
+  onSelectClass?: () => void; // Вернуться к выбору класса без отключения
   onCancelMatchmaking?: () => void;
 }
 
@@ -102,6 +103,7 @@ function UIRoot() {
         <ResultsScreen
           onPlayAgain={callbacks.onPlayAgain}
           onExit={callbacks.onExit}
+          onSelectClass={callbacks.onSelectClass}
         />
       )}
     </Fragment>
