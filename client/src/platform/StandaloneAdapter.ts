@@ -7,6 +7,7 @@ import type { IAuthAdapter, PlatformCredentials, PlatformType } from './IAuthAda
 
 const STORAGE_KEY_USER_ID = 'standalone_user_id';
 const STORAGE_KEY_NICKNAME = 'standalone_nickname';
+const DEFAULT_NICKNAME = 'Player';
 
 export class StandaloneAdapter implements IAuthAdapter {
   private userId: string;
@@ -52,7 +53,7 @@ export class StandaloneAdapter implements IAuthAdapter {
   async getCredentials(): Promise<PlatformCredentials> {
     // Формат: "userId:nickname" для DevAuthProvider на сервере
     // Если nickname нет или пустой, используем дефолтный
-    const nickname = this.nickname?.trim() || 'Player';
+    const nickname = this.nickname?.trim() || DEFAULT_NICKNAME;
     const platformData = `${this.userId}:${nickname}`;
 
     return {
