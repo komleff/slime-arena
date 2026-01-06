@@ -69,7 +69,7 @@
 **Документация:**
 - Переработан план будущего спринта по мобильному управлению `docs/soft-launch/Sprint-Next-Mobile-Controls-Plan.md`.
 
-**Исправлено 15 issues из docs/soft-launch/Slime Arena v0.3.0 Known Issues.md:**
+**Исправлено 15 issues из docs/soft-launch/Slime Arena v0.3.0 Known Issues [ARCHIVED].md:**
 
 **P0: Кнопки умений (критическое):**
 - ✅ Иконки теперь динамические (из abilitySlot0/1/2 через ABILITY_ICON_MAP)
@@ -743,3 +743,24 @@ npm run dev:meta
 - [ ] Фаза 2.1: Извлечение AbilityManager из ArenaRoom
 - [ ] Фаза 2.2: Извлечение CombatManager из ArenaRoom
 - [ ] Фаза 3.1: Разделение config.ts на модули
+
+## Технический долг (AI Review Findings — 6 января 2026)
+
+Выявлено при review PR #39. Это pre-existing issues, не связанные с изменениями PR.
+
+### P0 — Critical
+
+- [ ] **G-1: Multitouch failure** — `forceResetJoystickForAbility` в main.ts убивает джойстик при нажатии кнопки умения. Игрок не может двигаться и использовать умения одновременно. (Gemini SDET)
+- [ ] **X-1: MetaServer не стартует** — AuthService создаётся на уровне модуля и вызывает getPostgresPool() до initializePostgres(). Блокирует Stage D тестирование. (Codex)
+
+### P1 — High
+
+- [ ] **G-2: Input lag для умений** — Активация способностей по `click` (после pointerup) вместо `pointerdown`. В динамичном бою ощущается как лаг. (Gemini SDET)
+- [ ] **G-3: HUD frequency mismatch** — GameHUD рендерит 10 Hz, но hudTimer обновляет данные 5 Hz. Половина рендеров вхолостую. (Gemini SDET)
+- [ ] **G-4: Hardcoded LEVEL_THRESHOLDS** — Таблица опыта захардкожена в GameHUD.tsx вместо чтения из balanceConfig. (Gemini SDET)
+- [ ] **X-2: meta-stage-c.test API mismatch** — Smoke-тесты используют другие имена полей чем реальный API auth.ts. (Codex)
+
+### P2 — Medium
+
+- [ ] **X-4: Telegram doc wrong port** — В `Тестирование Telegram Mini App.md` указан порт 5173 вместо 5174. (Codex)
+- [ ] **X-5: Name change not applied** — При возврате в меню без disconnect изменение имени не применяется (onPlay отправляет только selectClass). (Codex)

@@ -55,7 +55,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking } from "./ui/signals/gameState";
+import { resetMatchmaking, matchResults } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -5248,6 +5248,8 @@ const uiCallbacks: UICallbacks = {
     onSelectClass: () => {
         // Вернуться к выбору класса БЕЗ отключения от комнаты
         // matchTimer продолжит обновляться с сервера, MainMenu покажет таймер
+        // Очищаем устаревшие результаты предыдущего матча
+        matchResults.value = null;
         setPhase("menu");
         setGameViewportLock(false);
     },
