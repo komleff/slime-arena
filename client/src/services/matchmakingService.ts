@@ -78,7 +78,7 @@ class MatchmakingService {
       this.startPolling();
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to join queue';
+      const message = err instanceof Error ? err.message : 'Не удалось присоединиться к очереди';
       console.error('[MatchmakingService] Join failed:', message);
       setMatchmakingError(message);
       return false;
@@ -151,7 +151,7 @@ class MatchmakingService {
     if (Date.now() - this.queueStartTime > MAX_QUEUE_TIME) {
       console.log('[MatchmakingService] Queue timeout');
       this.stopPolling();
-      setMatchmakingError('Queue timeout');
+      setMatchmakingError('Превышено время ожидания в очереди');
       return;
     }
 
@@ -174,7 +174,7 @@ class MatchmakingService {
         case 'expired':
           console.log('[MatchmakingService] Queue expired');
           this.stopPolling();
-          setMatchmakingError('Queue expired');
+          setMatchmakingError('Время ожидания в очереди истекло');
           break;
       }
     } catch (err) {

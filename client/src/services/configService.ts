@@ -141,7 +141,7 @@ class ConfigService {
       // Загружаем с сервера
       return await this.fetchFromServer();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load config';
+      const message = err instanceof Error ? err.message : 'Не удалось загрузить конфигурацию';
       configError.value = message;
       console.error('[ConfigService] Load failed:', message);
       return null;

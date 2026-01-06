@@ -161,7 +161,7 @@ class AuthService {
       console.log('[AuthService] Login successful');
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Authentication failed';
+      const message = err instanceof Error ? err.message : 'Ошибка аутентификации';
       console.error('[AuthService] Login failed:', message);
       setAuthError(message);
       return false;

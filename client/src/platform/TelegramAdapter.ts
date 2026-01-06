@@ -70,7 +70,7 @@ export class TelegramAdapter implements IAuthAdapter {
 
   async getCredentials(): Promise<PlatformCredentials> {
     if (!this.webApp) {
-      throw new Error('Telegram WebApp not available');
+      throw new Error('Telegram WebApp недоступен');
     }
 
     return {

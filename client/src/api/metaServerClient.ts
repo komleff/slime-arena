@@ -183,7 +183,7 @@ class MetaServerClient {
 
       // Timeout после исчерпания попыток
       if (isAbortError) {
-        throw { status: 0, message: 'Request timeout', code: 'TIMEOUT' } as ApiError;
+        throw { status: 0, message: 'Превышено время ожидания запроса', code: 'TIMEOUT' } as ApiError;
       }
 
       throw err;
