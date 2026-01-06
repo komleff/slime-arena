@@ -6,8 +6,8 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `test/sprint3-stage-d-testing`
-**PR:** Sprint 3: Stage D Testing
+**Текущая ветка:** `docs/mobile-controls-ab-plan`
+**PR:** docs: refine mobile controls A/B plan (#40)
 
 ### Фокус сессии
 
