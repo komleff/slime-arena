@@ -14,6 +14,7 @@ import adsRoutes from './routes/ads';
 import abtestRoutes from './routes/abtest';
 import paymentRoutes from './routes/payment';
 import analyticsRoutes from './routes/analytics';
+import matchResultsRoutes from './routes/matchResults';
 
 const app = express();
 const PORT = process.env.META_PORT || 3000;
@@ -53,6 +54,7 @@ app.use('/api/v1/ads', adsRoutes);
 app.use('/api/v1/abtest', abtestRoutes);
 app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/match-results', matchResultsRoutes);
 
 // 404 handler
 app.use((req, res) => {

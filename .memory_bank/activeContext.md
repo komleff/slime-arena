@@ -6,10 +6,17 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `docs/mobile-controls-ab-plan`
-**PR:** Mobile Controls A/B Plan (draft)
+**Текущая ветка:** `feat/sprint2-matchserver-integration`
+**PR:** Sprint 2: MatchServer → MetaServer Integration
 
 ### Фокус сессии
+
+- **[В РАБОТЕ] Sprint 2: MatchServer → MetaServer Integration:**
+  - ✅ Sprint 2.0: Исправлен X-1 blocker (lazy initialization для всех DB сервисов)
+  - ✅ Sprint 2.1: Создан MatchResultService (`server/src/services/MatchResultService.ts`)
+  - ✅ Sprint 2.2: Создан /match-results endpoint (`server/src/meta/routes/matchResults.ts`)
+  - ✅ Sprint 2.3: Интегрирован в ArenaRoom.endMatch()
+  - ⏳ joinToken validation — отложено
 
 - **[ЗАВЕРШЕНО] Mobile Controls & Flight Assist Tuning (PR #39):**
   - Настроены параметры Virtual Joystick (deadzone, sensitivity, followSpeed)
@@ -53,18 +60,28 @@
   - ✅ PR #37 создан
   - ⏳ Ожидает ревью и слияния
 
-- **[СЛЕДУЮЩИЙ] Sprint 2: MatchServer → MetaServer Integration (Server Side):**
+- **[ЗАВЕРШЕНО] Sprint 2: MatchServer → MetaServer Integration (Server Side):**
 
-  **Цели:**
-  - Реализация `MatchResultService` на MetaServer.
-  - Создание endpoint `/match-results` для приема итогов матча.
-  - Интеграция отправки результатов в `ArenaRoom.endMatch()` (MatchServer).
-  - Валидация `joinToken` при подключении к комнате.
+  **Что реализовано:**
+  - ✅ Исправлен X-1 blocker: lazy initialization для 7 сервисов MetaServer
+  - ✅ Создан MatchSummary/PlayerResult интерфейсы в shared/src/types.ts
+  - ✅ Создан MatchResultService с retry + exponential backoff
+  - ✅ Создан POST /api/v1/match-results/submit endpoint
+  - ✅ Добавлен Server Token auth (MATCH_SERVER_TOKEN env)
+  - ✅ Интегрирована отправка результатов в ArenaRoom.endMatch()
+  - ⏳ joinToken validation — отложено до Stage D
 
-  **Задачи:**
-  1. Проектирование интерфейса `MatchSummary`.
-  2. SQL-миграция для таблицы `match_results`.
-  3. Реализация серверной логики начисления наград.
+  **Новые файлы (3):**
+  - `server/src/services/MatchResultService.ts` — HTTP клиент для MetaServer
+  - `server/src/meta/routes/matchResults.ts` — Endpoint результатов
+  - `shared/src/types.ts` — MatchSummary, PlayerResult interfaces
+
+  **Модифицированные файлы (9):**
+  - `server/src/meta/services/*.ts` — lazy initialization (7 файлов)
+  - `server/src/meta/middleware/auth.ts` — requireServerToken middleware
+  - `server/src/meta/server.ts` — matchResults route registration
+  - `server/src/index.ts` — MatchResultService initialization
+  - `server/src/rooms/ArenaRoom.ts` — submitMatchResults() integration
 
 - **[ЗАВЕРШЕНО] Sprint 1: Client ↔ MetaServer Integration (Client Side):**
 
@@ -443,11 +460,12 @@
 
 ### Следующие шаги
 
-1. **Sprint 2: MatchServer → MetaServer Integration (2-3 дня):**
-   - [ ] Создать MatchResultService (`server/src/services/MatchResultService.ts`)
-   - [ ] Создать match-results endpoint (`server/src/meta/routes/matchResults.ts`)
-   - [ ] Интегрировать в ArenaRoom.endMatch()
-   - [ ] Добавить joinToken validation в ArenaRoom
+1. **Sprint 2: MatchServer → MetaServer Integration (ЗАВЕРШЕНО):**
+   - [x] Исправить X-1 blocker (lazy initialization)
+   - [x] Создать MatchResultService (`server/src/services/MatchResultService.ts`)
+   - [x] Создать match-results endpoint (`server/src/meta/routes/matchResults.ts`)
+   - [x] Интегрировать в ArenaRoom.endMatch()
+   - [ ] joinToken validation в ArenaRoom (отложено)
 2. **Sprint 3: Stage D Testing (2-3 дня):**
    - [ ] Smoke-тесты полного flow (auth → matchmaking → game → results)
    - [ ] Тесты идемпотентности

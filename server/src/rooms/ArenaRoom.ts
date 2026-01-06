@@ -79,6 +79,8 @@ import {
     isInsideWorld,
     randomPointInMapWithMargin,
 } from "./helpers/arenaGeneration";
+import { getMatchResultService } from "../services/MatchResultService";
+import { MatchSummary, PlayerResult } from "@slime-arena/shared/src/types";
 
 type ContactZone = "mouth" | "tail" | "side";
 
@@ -120,6 +122,7 @@ export class ArenaRoom extends Room<GameState> {
     private matchIndex = 0;
     private matchId = "";
     private matchStartLogged = false;
+    private matchStartedAt: string = "";
 
     private attackCooldownTicks = 0;
     private invulnerableTicks = 0;
@@ -2448,7 +2451,7 @@ export class ArenaRoom extends Room<GameState> {
             leaderboard: Array.from(this.state.leaderboard),
             playersAlive: Array.from(this.state.players.values()).filter((player) => !player.isDead).length,
         });
-        
+
         // Останавливаем всех игроков
         for (const player of this.state.players.values()) {
             player.inputX = 0;
@@ -2456,6 +2459,58 @@ export class ArenaRoom extends Room<GameState> {
             player.vx = 0;
             player.vy = 0;
             player.angVel = 0;
+        }
+
+        // Отправляем результаты матча на MetaServer
+        this.submitMatchResults();
+    }
+
+    private submitMatchResults() {
+        try {
+            const matchResultService = getMatchResultService();
+
+            // Формируем результаты игроков
+            const playerResults: PlayerResult[] = [];
+            const leaderboard = Array.from(this.state.leaderboard);
+
+            for (const [sessionId, player] of this.state.players.entries()) {
+                const placement = leaderboard.indexOf(sessionId) + 1;
+                playerResults.push({
+                    userId: undefined, // TODO: получить userId из joinToken
+                    sessionId,
+                    placement: placement > 0 ? placement : leaderboard.length + 1,
+                    finalMass: player.mass,
+                    killCount: player.killCount,
+                    deathCount: 0, // TODO: добавить счётчик смертей в Player schema
+                    level: player.level,
+                    classId: player.classId,
+                    isDead: player.isDead,
+                });
+            }
+
+            // Формируем MatchSummary
+            const matchSummary: MatchSummary = {
+                matchId: this.matchId,
+                mode: "arena",
+                startedAt: this.matchStartedAt || new Date().toISOString(),
+                endedAt: new Date().toISOString(),
+                configVersion: "1.0.0", // TODO: получить из RuntimeConfig
+                buildVersion: "0.3.0", // TODO: получить из package.json
+                playerResults,
+                matchStats: {
+                    totalKills: playerResults.reduce((sum, p) => sum + p.killCount, 0),
+                    totalBubblesCollected: 0, // TODO: добавить счётчик
+                    matchDurationMs: Math.floor((this.tick / this.balance.server.tickRate) * 1000),
+                },
+            };
+
+            // Отправляем асинхронно, не блокируем игровой цикл
+            matchResultService.submitMatchResult(matchSummary).catch((error) => {
+                console.error(`[ArenaRoom] Failed to submit match results: ${error}`);
+            });
+        } catch (error) {
+            // MatchResultService не инициализирован — это нормально в dev режиме
+            console.log("[ArenaRoom] MatchResultService not available, skipping result submission");
         }
     }
 
@@ -2467,6 +2522,7 @@ export class ArenaRoom extends Room<GameState> {
         this.lastPhaseId = null;
         this.matchId = "";
         this.matchStartLogged = false;
+        this.matchStartedAt = "";
         this.initMatchId();
         this.lastOrbSpawnTick = 0;
         this.lastChestSpawnTick = 0;
@@ -3969,6 +4025,7 @@ export class ArenaRoom extends Room<GameState> {
         }
         if (this.matchStartLogged) return;
         this.matchStartLogged = true;
+        this.matchStartedAt = new Date().toISOString();
         this.logTelemetry("match_start", {
             mapSize: this.balance.world.mapSize,
             worldShape: this.balance.worldPhysics.worldShape,

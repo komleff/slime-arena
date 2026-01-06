@@ -3,7 +3,7 @@
 
 ## Контроль изменений
 - **last_checked_commit**: RELEASE v0.3.0 @ 7 января 2026
-- **Текущая ветка**: docs/mobile-controls-ab-plan
+- **Текущая ветка**: feat/sprint2-matchserver-integration
 - **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
@@ -11,8 +11,72 @@
 - **UI Refactoring**: ЗАВЕРШЕНО
 - **README Update**: ЗАВЕРШЕНО
 - **Sprint 1 Client Integration**: ЗАВЕРШЕНО
+- **Sprint 2 Server Integration**: ЗАВЕРШЕНО
 
-## Последние изменения (Mobile Controls & Flight Assist Tuning)
+## Последние изменения (Sprint 2: MatchServer → MetaServer Integration)
+
+### Sprint 2: Server Integration (feat/sprint2-matchserver-integration)
+
+**Ветка:** `feat/sprint2-matchserver-integration`
+**Статус:** 🟢 Готово к PR
+
+**Цель:** Связать MatchServer (Colyseus) с MetaServer (HTTP API) для сохранения результатов матчей.
+
+**Sprint 2.0: X-1 Blocker Fix (Critical)**
+
+Проблема: Все MetaServer сервисы вызывали `getPostgresPool()` в конструкторе, но модули импортируются до вызова `initializePostgres()`.
+
+Решение: Lazy initialization через getter:
+```typescript
+private _pool: Pool | null = null;
+private get pool(): Pool {
+  if (!this._pool) this._pool = getPostgresPool();
+  return this._pool;
+}
+```
+
+Изменённые файлы (7 сервисов):
+- `AuthService.ts`, `PlayerService.ts`, `ConfigService.ts`
+- `WalletService.ts`, `ShopService.ts`, `ABTestService.ts`, `AnalyticsService.ts`
+
+**Sprint 2.1: MatchResultService**
+
+Создан `server/src/services/MatchResultService.ts`:
+- HTTP клиент для POST /api/v1/match-results/submit
+- Retry с exponential backoff (3 попытки)
+- Server Token auth (Authorization: ServerToken <token>)
+- Timeout 10 секунд
+
+**Sprint 2.2: match-results endpoint**
+
+Создан `server/src/meta/routes/matchResults.ts`:
+- POST /api/v1/match-results/submit
+- requireServerToken middleware (MATCH_SERVER_TOKEN env)
+- Идемпотентность по matchId (UPSERT)
+- Обновление профиля игрока (XP, coins, stats)
+
+**Sprint 2.3: ArenaRoom Integration**
+
+Изменён `server/src/rooms/ArenaRoom.ts`:
+- Добавлен `matchStartedAt` timestamp
+- Добавлен `submitMatchResults()` метод
+- Вызов в `endMatch()` для отправки MatchSummary
+
+**Новые файлы (3):**
+- `server/src/services/MatchResultService.ts`
+- `server/src/meta/routes/matchResults.ts`
+- `shared/src/types.ts` — MatchSummary, PlayerResult interfaces
+
+**Модифицированные файлы (12):**
+- 7 MetaServer сервисов (lazy init)
+- `server/src/meta/middleware/auth.ts` — requireServerToken
+- `server/src/meta/server.ts` — route registration
+- `server/src/index.ts` — MatchResultService initialization
+- `server/src/rooms/ArenaRoom.ts` — integration
+
+---
+
+## Предыдущие изменения (Mobile Controls & Flight Assist Tuning)
 
 ### Mobile Controls A/B Plan (docs/mobile-controls-ab-plan)
 
@@ -747,12 +811,13 @@ npm run dev:meta
 - [x] Matchmaking UI в MainMenu.tsx
 - [x] Интеграция в main.ts
 
-## Открытые задачи (Sprint 2 — Server Integration)
+## Открытые задачи (Sprint 2 — Server Integration) ✅ ЗАВЕРШЕНО
 
-- [ ] MatchResultService (`server/src/services/MatchResultService.ts`)
-- [ ] match-results endpoint (`server/src/meta/routes/matchResults.ts`)
-- [ ] Интеграция в ArenaRoom.endMatch()
-- [ ] joinToken validation в ArenaRoom
+- [x] X-1 Fix: Lazy initialization для всех MetaServer сервисов
+- [x] MatchResultService (`server/src/services/MatchResultService.ts`)
+- [x] match-results endpoint (`server/src/meta/routes/matchResults.ts`)
+- [x] Интеграция в ArenaRoom.endMatch()
+- [ ] joinToken validation в ArenaRoom (отложено)
 
 ## Открытые задачи (Sprint 3 — Stage D Testing)
 
@@ -777,7 +842,7 @@ npm run dev:meta
 ### P0 — Critical
 
 - [ ] **G-1: Multitouch failure** — `forceResetJoystickForAbility` в main.ts убивает джойстик при нажатии кнопки умения. Игрок не может двигаться и использовать умения одновременно. (Gemini SDET)
-- [ ] **X-1: MetaServer не стартует** — AuthService создаётся на уровне модуля и вызывает getPostgresPool() до initializePostgres(). Блокирует Stage D тестирование. (Codex)
+- [x] **X-1: MetaServer не стартует** — ✅ ИСПРАВЛЕНО: Lazy initialization для всех 7 MetaServer сервисов (AuthService, PlayerService, ConfigService, WalletService, ShopService, ABTestService, AnalyticsService)
 
 ### P1 — High
 
