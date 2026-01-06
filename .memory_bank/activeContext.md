@@ -6,13 +6,34 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `main`
-**PR:** Все PR влиты, релиз v0.3.0 опубликован.
+**Текущая ветка:** `fix/ui-known-issues-v030`
+**PR:** PR для исправления 15 Known Issues UI v0.3.0 в разработке.
 
 ### Фокус сессии
 
+- **Приоритет тестовых устройств:** Telegram (все платформы) > мобильные телефоны > планшеты с тач-скрином > браузеры компьютера (мышь/клавиатура) > гибридные устройства (низкий приоритет).
 
-- **[В РАБОТЕ] Sprint 2: MatchServer → MetaServer Integration (Server Side):**
+- **[В РАБОТЕ] UI Known Issues v0.3.0 Fixes:**
+
+  **Исправлено 15 issues:**
+  - ✅ P0: Кнопки умений — динамические иконки, фильтрация слотов, синхронизация кулдаунов
+  - ✅ P1: ResultsScreen — кубок победителя, иконки классов в рейтинге, порядок статистики
+  - ✅ P1: Тексты кнопок — "В бой" вместо "Играть снова", "Выбрать другой класс"
+  - ✅ P2: HUD — удалены дубликаты Level/MaxMass, "Вы погибли" только в playing
+  - ✅ P2: Legacy levelIndicator отключен
+  - ✅ P2: Новый игрок не видит Results предыдущего матча
+  - ✅ P3: Safari safe-area insets для iOS
+
+  **Изменённые файлы (7):**
+  - `client/src/main.ts` — syncAbilityCooldown, syncAbilitySlots, leaderboard classId
+  - `client/src/ui/UIBridge.tsx` — экспорт syncAbilitySlots
+  - `client/src/ui/components/AbilityButtons.tsx` — динамические иконки/слоты
+  - `client/src/ui/components/GameHUD.tsx` — safe-area, удаление Level/MaxMass, isPlayerDead fix
+  - `client/src/ui/components/ResultsScreen.tsx` — тексты, иконки, порядок, удаление класс-выбора
+  - `client/src/ui/data/abilities.ts` — ABILITY_ICON_MAP маппинг
+  - `client/src/ui/signals/gameState.ts` — abilitySlots signal, classId в LeaderboardEntry
+
+- **[СЛЕДУЮЩИЙ] Sprint 2: MatchServer → MetaServer Integration (Server Side):**
 
   **Цели:**
   - Реализация `MatchResultService` на MetaServer.

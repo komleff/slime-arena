@@ -5,8 +5,8 @@
 // JSX runtime imported automatically via jsxImportSource
 import { useCallback, useMemo } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
-import { abilityCooldowns, type AbilityCooldown } from '../signals/gameState';
-import { ABILITIES_DATA } from '../data/abilities';
+import { abilityCooldowns, abilitySlots, type AbilityCooldown } from '../signals/gameState';
+import { getAbilityIcon, getSlotColor } from '../data/abilities';
 
 // ========== Стили ==========
 
@@ -221,16 +221,56 @@ function AbilityButton({ slot, icon, label, color, cooldown, onClick, small }: A
 
 interface AbilityButtonsProps {
   onActivateAbility: (slot: number) => void;
-  visibleSlots?: number[];
 }
 
-export function AbilityButtons({ onActivateAbility, visibleSlots = [0, 1, 2] }: AbilityButtonsProps) {
+export function AbilityButtons({ onActivateAbility }: AbilityButtonsProps) {
   const cooldowns = abilityCooldowns.value;
+  const slots = abilitySlots.value;
 
-  const visibleAbilities = useMemo(() => 
-    ABILITIES_DATA.filter(a => visibleSlots.includes(a.slot)),
-    [visibleSlots]
-  );
+  // Собираем данные по слотам из сигнала abilitySlots
+  const visibleAbilities = useMemo(() => {
+    const abilities: { slot: number; abilityId: string; icon: string; label: string; color: string }[] = [];
+
+    // Slot 0 — всегда есть (первичное умение)
+    if (slots.slot0) {
+      abilities.push({
+        slot: 0,
+        abilityId: slots.slot0,
+        icon: getAbilityIcon(slots.slot0),
+        label: '1',
+        color: getSlotColor(0),
+      });
+    }
+
+    // Slot 1 — появляется на уровне 3
+    if (slots.slot1) {
+      abilities.push({
+        slot: 1,
+        abilityId: slots.slot1,
+        icon: getAbilityIcon(slots.slot1),
+        label: '2',
+        color: getSlotColor(1),
+      });
+    }
+
+    // Slot 2 — появляется на уровне 5
+    if (slots.slot2) {
+      abilities.push({
+        slot: 2,
+        abilityId: slots.slot2,
+        icon: getAbilityIcon(slots.slot2),
+        label: '3',
+        color: getSlotColor(2),
+      });
+    }
+
+    return abilities;
+  }, [slots.slot0, slots.slot1, slots.slot2]);
+
+  // Не рендерим если нет умений
+  if (visibleAbilities.length === 0) {
+    return null;
+  }
 
   return (
     <div class="ability-buttons">

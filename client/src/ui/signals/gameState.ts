@@ -29,6 +29,7 @@ export interface LeaderboardEntry {
   kills: number;
   isLocal: boolean;
   place: number;
+  classId?: number;
 }
 
 export interface TalentChoice {
@@ -132,6 +133,22 @@ export const abilityCooldowns = signal<AbilityCooldown[]>([
   { slot: 1, remaining: 0, total: 0, ready: true },
   { slot: 2, remaining: 0, total: 0, ready: true },
 ]);
+
+/**
+ * Слоты умений игрока (abilityId для каждого слота).
+ * null означает, что слот пуст.
+ */
+export interface AbilitySlots {
+  slot0: string | null;
+  slot1: string | null;
+  slot2: string | null;
+}
+
+export const abilitySlots = signal<AbilitySlots>({
+  slot0: null,
+  slot1: null,
+  slot2: null,
+});
 
 // Буст
 export const activeBoost = signal<BoostState | null>(null);
@@ -308,6 +325,10 @@ export function updateAbilityCooldown(slot: number, remaining: number, total: nu
   }
 }
 
+export function updateAbilitySlots(slot0: string | null, slot1: string | null, slot2: string | null) {
+  abilitySlots.value = { slot0, slot1, slot2 };
+}
+
 export function setMatchResults(results: typeof matchResults.value) {
   matchResults.value = results;
   if (results) {
@@ -331,6 +352,7 @@ export function resetGameState() {
       { slot: 1, remaining: 0, total: 0, ready: true },
       { slot: 2, remaining: 0, total: 0, ready: true },
     ];
+    abilitySlots.value = { slot0: null, slot1: null, slot2: null };
     activeBoost.value = null;
     matchResults.value = null;
     // Сбрасываем matchmaking, но НЕ auth

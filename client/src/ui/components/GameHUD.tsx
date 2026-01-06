@@ -13,6 +13,7 @@ import {
   activeBoost,
   showHud,
   isPlayerDead,
+  gamePhase,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -27,8 +28,8 @@ const styles = `
   }
 
   .hud-top-left {
-    top: 12px;
-    left: 12px;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
     padding: 10px 12px;
     background: rgba(0, 0, 0, 0.55);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -40,7 +41,7 @@ const styles = `
 
   .hud-top-center {
     position: fixed;
-    top: 12px;
+    top: calc(12px + env(safe-area-inset-top, 0px));
     left: 50%;
     transform: translateX(-50%);
     text-align: center;
@@ -68,8 +69,8 @@ const styles = `
 
   .hud-boost-panel {
     position: fixed;
-    top: 12px;
-    left: 260px;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(260px + env(safe-area-inset-left, 0px));
     display: flex;
     align-items: center;
     gap: 8px;
@@ -206,16 +207,8 @@ function PlayerStats() {
         <span class="hud-stat-value">{formatMass(player.mass)} кг</span>
       </div>
       <div class="hud-stat-row">
-        <span class="hud-stat-label">Макс:</span>
-        <span class="hud-stat-value">{formatMass(player.maxMass)} кг</span>
-      </div>
-      <div class="hud-stat-row">
         <span class="hud-stat-label">Убийства:</span>
         <span class="hud-stat-value" style={{ color: '#ff4d4d' }}>{player.kills}</span>
-      </div>
-      <div class="hud-stat-row">
-        <span class="hud-stat-label">Уровень:</span>
-        <span class="hud-stat-value" style={{ color: '#ffc857' }}>{player.level}</span>
       </div>
     </div>
   );
@@ -267,7 +260,10 @@ function MatchTimer() {
 }
 
 function DeathOverlay() {
-  if (!isPlayerDead.value) return null;
+  // Показываем только если:
+  // 1. Игрок мёртв (FLAG_IS_DEAD)
+  // 2. Фаза матча = "playing" (не показываем в waiting/results)
+  if (!isPlayerDead.value || gamePhase.value !== 'playing') return null;
 
   return (
     <div class="death-overlay">

@@ -17,7 +17,7 @@ import {
   connectionError,
   hudVisible,
   MAX_ABILITY_SLOTS,
-  
+
   // Actions
   setGamePhase,
   updateLocalPlayer,
@@ -26,10 +26,11 @@ import {
   setTalentChoices,
   clearTalentChoices,
   updateAbilityCooldown,
+  updateAbilitySlots,
   setMatchResults,
   resetGameState,
   initMobileDetection,
-  
+
   // Types
   type GamePhase,
   type PlayerStats,
@@ -199,6 +200,17 @@ export function hideTalentChoices(): void {
 export function syncAbilityCooldown(slot: number, remaining: number, total: number): void {
   if (typeof slot !== 'number' || slot < 0 || slot >= MAX_ABILITY_SLOTS) return;
   updateAbilityCooldown(slot, remaining, total);
+}
+
+/**
+ * Обновить слоты способностей (abilityId для каждого слота)
+ */
+export function syncAbilitySlots(
+  slot0: string | null | undefined,
+  slot1: string | null | undefined,
+  slot2: string | null | undefined
+): void {
+  updateAbilitySlots(slot0 ?? null, slot1 ?? null, slot2 ?? null);
 }
 
 /**

@@ -47,6 +47,8 @@ import {
     syncPlayerState,
     syncLeaderboard,
     syncMatchTimer,
+    syncAbilityCooldown,
+    syncAbilitySlots,
     type UICallbacks,
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
@@ -3297,32 +3299,9 @@ async function connectToServer(playerName: string, classId: number) {
         };
         
         // Обновление индикатора уровня
+        // Legacy level indicator отключен — UI уровня перенесён в Preact HUD
         const updateLevelIndicator = () => {
-            const player = room.state.players.get(room.sessionId);
-            if (!player) {
-                levelIndicator.style.display = "none";
-                return;
-            }
-            levelIndicator.style.display = "flex";
-            const level = player.level ?? 1;
-            const thresholds = balanceConfig.slime?.levelThresholds ?? [100, 200, 300, 500, 800];
-            const nextThreshold = thresholds[level] ?? null;
-            const prevThreshold = level > 0 ? (thresholds[level - 1] ?? 0) : 0;
-            
-            let progressPct = 0;
-            let progressText = " MAX";
-            
-            if (nextThreshold) {
-                const current = Math.max(0, player.mass - prevThreshold);
-                const total = nextThreshold - prevThreshold;
-                progressPct = Math.min(100, Math.max(0, (current / total) * 100));
-                progressText = ` ${player.mass.toFixed(0)}/${nextThreshold}`;
-            } else {
-                progressPct = 100;
-            }
-            
-            levelText.textContent = `Ур. ${level}${progressText}`;
-            levelBarFill.style.width = `${progressPct}%`;
+            levelIndicator.style.display = "none";
         };
 
         const updateQueueIndicator = () => {
@@ -3505,7 +3484,11 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Вызываем showResultsUI ТОЛЬКО один раз при входе в Results
             // (не каждый тик, чтобы избежать множественных ре-рендеров)
-            if (!wasInResultsPhase) {
+            // Проверяем, что игрок участвовал в матче (находится в лидерборде)
+            const selfInLeaderboard = room.state.leaderboard?.some(
+                (id: string) => id === room.sessionId
+            );
+            if (!wasInResultsPhase && selfInLeaderboard) {
                 wasInResultsPhase = true;
 
                 // Переключаем Preact UI на фазу results
@@ -5010,7 +4993,7 @@ async function connectToServer(playerName: string, classId: number) {
             }
 
             // Синхронизация лидерборда
-            const leaderboardEntries: { name: string; mass: number; kills: number; isLocal: boolean; place: number }[] = [];
+            const leaderboardEntries: { name: string; mass: number; kills: number; isLocal: boolean; place: number; classId?: number }[] = [];
             const maxLeaderboardEntries = Math.min(10, room.state.leaderboard?.length ?? 0);
             for (let i = 0; i < maxLeaderboardEntries; i++) {
                 const playerId = room.state.leaderboard[i];
@@ -5022,6 +5005,7 @@ async function connectToServer(playerName: string, classId: number) {
                     kills: player.killCount ?? 0,
                     isLocal: playerId === room.sessionId,
                     place: i + 1,
+                    classId: player.classId ?? 0,
                 });
             }
             syncLeaderboard(leaderboardEntries);
@@ -5033,6 +5017,52 @@ async function connectToServer(playerName: string, classId: number) {
                 timeLeft: room.state.timeRemaining ?? 0,
                 totalTime: matchDuration,
             });
+
+            // Синхронизация слотов умений для Preact AbilityButtons
+            if (selfPlayer) {
+                syncAbilitySlots(
+                    selfPlayer.abilitySlot0 ?? null,
+                    selfPlayer.abilitySlot1 ?? null,
+                    selfPlayer.abilitySlot2 ?? null
+                );
+
+                // Синхронизация кулдаунов умений
+                const tickRate = balanceConfig.server?.tickRate ?? 30;
+                const serverTick = room.state.serverTick ?? 0;
+
+                // Slot 0
+                const startTick0 = Number.isFinite(selfPlayer.abilityCooldownStartTick0) ? Number(selfPlayer.abilityCooldownStartTick0) : 0;
+                const endTick0 = Number.isFinite(selfPlayer.abilityCooldownEndTick0) ? Number(selfPlayer.abilityCooldownEndTick0) : 0;
+                if (selfPlayer.abilitySlot0 && endTick0 > serverTick) {
+                    const ticksRemaining0 = endTick0 - serverTick;
+                    const totalTicks0 = Math.max(1, endTick0 - startTick0);
+                    syncAbilityCooldown(0, ticksRemaining0 / tickRate, totalTicks0 / tickRate);
+                } else {
+                    syncAbilityCooldown(0, 0, 0);
+                }
+
+                // Slot 1
+                const startTick1 = Number.isFinite(selfPlayer.abilityCooldownStartTick1) ? Number(selfPlayer.abilityCooldownStartTick1) : 0;
+                const endTick1 = Number.isFinite(selfPlayer.abilityCooldownEndTick1) ? Number(selfPlayer.abilityCooldownEndTick1) : 0;
+                if (selfPlayer.abilitySlot1 && endTick1 > serverTick) {
+                    const ticksRemaining1 = endTick1 - serverTick;
+                    const totalTicks1 = Math.max(1, endTick1 - startTick1);
+                    syncAbilityCooldown(1, ticksRemaining1 / tickRate, totalTicks1 / tickRate);
+                } else {
+                    syncAbilityCooldown(1, 0, 0);
+                }
+
+                // Slot 2
+                const startTick2 = Number.isFinite(selfPlayer.abilityCooldownStartTick2) ? Number(selfPlayer.abilityCooldownStartTick2) : 0;
+                const endTick2 = Number.isFinite(selfPlayer.abilityCooldownEndTick2) ? Number(selfPlayer.abilityCooldownEndTick2) : 0;
+                if (selfPlayer.abilitySlot2 && endTick2 > serverTick) {
+                    const ticksRemaining2 = endTick2 - serverTick;
+                    const totalTicks2 = Math.max(1, endTick2 - startTick2);
+                    syncAbilityCooldown(2, ticksRemaining2 / tickRate, totalTicks2 / tickRate);
+                } else {
+                    syncAbilityCooldown(2, 0, 0);
+                }
+            }
 
             const phase = room.state.phase;
             if (phase !== "Results" && selfPlayer) {
