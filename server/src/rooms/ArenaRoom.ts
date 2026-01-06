@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { Room, Client } from "colyseus";
 import {
     GameState,
@@ -4035,7 +4036,8 @@ export class ArenaRoom extends Room<GameState> {
 
     private initMatchId() {
         this.matchIndex += 1;
-        this.matchId = `${this.roomId}-${this.matchIndex}`;
+        // Generate UUID for matchId (required by match_results.match_id UUID PRIMARY KEY)
+        this.matchId = randomUUID();
     }
 
     private logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {

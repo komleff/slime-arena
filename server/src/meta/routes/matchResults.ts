@@ -21,6 +21,9 @@ function getPool(): Pool {
  * POST /api/v1/match-results/submit
  * Submit match results from MatchServer
  * Requires ServerToken authorization
+ *
+ * Schema: match_results table uses JSONB `summary` field for all player data
+ * See: server/src/db/migrations/001_initial_schema.sql
  */
 router.post('/submit', requireServerToken, async (req: Request, res: Response) => {
   try {
@@ -48,8 +51,9 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
       await client.query('BEGIN');
 
       // Check for idempotency - if match already exists, return success
+      // Note: match_id is the PRIMARY KEY (UUID), no separate `id` column
       const existingMatch = await client.query(
-        'SELECT id FROM match_results WHERE match_id = $1',
+        'SELECT match_id FROM match_results WHERE match_id = $1',
         [matchSummary.matchId]
       );
 
@@ -63,13 +67,18 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
         });
       }
 
-      // Insert match result
-      const matchResult = await client.query(
+      // Build summary JSONB with playerResults and matchStats
+      const summary = {
+        playerResults: matchSummary.playerResults,
+        matchStats: matchSummary.matchStats || null,
+      };
+
+      // Insert match result using existing schema columns
+      // Schema: match_id, mode, started_at, ended_at, config_version, build_version, summary
+      await client.query(
         `INSERT INTO match_results
-         (match_id, mode, started_at, ended_at, config_version, build_version,
-          player_count, match_stats, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-         RETURNING id`,
+         (match_id, mode, started_at, ended_at, config_version, build_version, summary)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           matchSummary.matchId,
           matchSummary.mode,
@@ -77,35 +86,12 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
           matchSummary.endedAt,
           matchSummary.configVersion,
           matchSummary.buildVersion,
-          matchSummary.playerResults.length,
-          matchSummary.matchStats ? JSON.stringify(matchSummary.matchStats) : null,
+          JSON.stringify(summary),
         ]
       );
 
-      const matchResultId = matchResult.rows[0].id;
-
-      // Insert player results
+      // Update authenticated players' stats (XP and coins only)
       for (const playerResult of matchSummary.playerResults) {
-        await client.query(
-          `INSERT INTO player_match_results
-           (match_result_id, user_id, session_id, placement, final_mass,
-            kill_count, death_count, level, class_id, is_dead, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())`,
-          [
-            matchResultId,
-            playerResult.userId || null,
-            playerResult.sessionId,
-            playerResult.placement,
-            playerResult.finalMass,
-            playerResult.killCount,
-            playerResult.deathCount,
-            playerResult.level,
-            playerResult.classId,
-            playerResult.isDead,
-          ]
-        );
-
-        // If player is authenticated, update their profile stats
         if (playerResult.userId) {
           await updatePlayerStats(client, playerResult);
         }
@@ -137,26 +123,14 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
 
 /**
  * Update player profile stats after match
+ *
+ * Note: profiles table only has columns: user_id, level, xp, selected_skin_id
+ * Stats like total_matches, total_kills are stored in match_results.summary JSONB
+ * and can be computed via SQL aggregation when needed.
  */
 async function updatePlayerStats(client: any, playerResult: PlayerResult): Promise<void> {
-  // Update profile stats
-  await client.query(
-    `UPDATE profiles SET
-       total_matches = total_matches + 1,
-       total_kills = total_kills + $2,
-       total_deaths = total_deaths + $3,
-       best_placement = LEAST(best_placement, $4),
-       updated_at = NOW()
-     WHERE user_id = $1`,
-    [
-      playerResult.userId,
-      playerResult.killCount,
-      playerResult.deathCount,
-      playerResult.placement,
-    ]
-  );
-
   // Grant XP based on placement and kills
+  // profiles.xp column exists in schema
   const xpGain = calculateXpGain(playerResult);
   if (xpGain > 0) {
     await client.query(
@@ -166,6 +140,7 @@ async function updatePlayerStats(client: any, playerResult: PlayerResult): Promi
   }
 
   // Grant coins based on placement
+  // wallets.coins column exists in schema
   const coinsGain = calculateCoinsGain(playerResult);
   if (coinsGain > 0) {
     await client.query(
