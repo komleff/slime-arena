@@ -3484,11 +3484,10 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Вызываем showResultsUI ТОЛЬКО один раз при входе в Results
             // (не каждый тик, чтобы избежать множественных ре-рендеров)
-            // Проверяем, что игрок участвовал в матче (находится в лидерборде)
-            const selfInLeaderboard = room.state.leaderboard?.some(
-                (id: string) => id === room.sessionId
-            );
-            if (!wasInResultsPhase && selfInLeaderboard) {
+            // Проверяем, что игрок участвовал в матче (classId >= 0 означает выбранный класс)
+            const selfPlayer = room.state.players.get(room.sessionId);
+            const wasParticipant = selfPlayer && selfPlayer.classId >= 0;
+            if (!wasInResultsPhase && wasParticipant) {
                 wasInResultsPhase = true;
 
                 // Переключаем Preact UI на фазу results

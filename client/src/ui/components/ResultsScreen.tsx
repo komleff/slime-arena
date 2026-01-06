@@ -175,6 +175,11 @@ const styles = `
     color: #fff;
   }
 
+  .results-button.play {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+  }
+
   .results-button.secondary {
     background: #ef4444;
     color: #fff;
@@ -264,13 +269,13 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
         {/* Кнопки */}
         <div class="results-buttons">
           <button
-            class="results-button primary"
+            class={`results-button ${matchTimer.value.timeLeft > 0 ? 'primary' : 'play'}`}
             onClick={handlePlayAgain}
             disabled={matchTimer.value.timeLeft > 0}
           >
             {matchTimer.value.timeLeft > 0
               ? `⏳ ${Math.ceil(matchTimer.value.timeLeft)} сек`
-              : '⚔️ В бой'}
+              : '▶️ Играть'}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
             Выбрать другой класс

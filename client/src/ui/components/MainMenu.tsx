@@ -19,6 +19,7 @@ import {
   matchmakingStatus,
   queuePosition,
   matchmakingError,
+  matchTimer,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -289,6 +290,20 @@ const styles = `
     border-color: #f87171;
     color: #f87171;
   }
+
+  .waiting-timer {
+    width: 100%;
+    padding: 16px;
+    background: rgba(111, 214, 255, 0.15);
+    border: 2px solid rgba(111, 214, 255, 0.3);
+    border-radius: 10px;
+    color: #6fd6ff;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+    font-family: inherit;
+    animation: pulse 2s infinite;
+  }
 `;
 
 const STYLES_ID = 'main-menu-styles';
@@ -433,13 +448,19 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
         </div>
 
         <div class="menu-section">
-          <button
-            class="play-button"
-            onClick={handlePlay}
-            disabled={!name.trim() || isLoading}
-          >
-            {getPlayButtonText(authenticating, isSearching, isConnecting)}
-          </button>
+          {matchTimer.value.phase === 'Results' ? (
+            <div class="waiting-timer">
+              ⏳ Новый матч через {Math.ceil(matchTimer.value.timeLeft)} сек
+            </div>
+          ) : (
+            <button
+              class="play-button"
+              onClick={handlePlay}
+              disabled={!name.trim() || isLoading}
+            >
+              {getPlayButtonText(authenticating, isSearching, isConnecting)}
+            </button>
+          )}
 
           {(isSearching || hasMatchmakingError) && onCancelMatchmaking && (
             <div class={`matchmaking-status ${hasMatchmakingError ? 'error' : 'searching'}`}>
