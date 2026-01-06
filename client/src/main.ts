@@ -4928,10 +4928,7 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
         };
         abilityButton.addEventListener("pointerdown", onAbilityButtonDown);
-        abilityButton.addEventListener("pointerdown", (event) => {
-            event.stopPropagation();
-        });
-        
+
         // Обработчик кнопки Выброса (Projectile)
         const onProjectileButtonDown = (e: PointerEvent) => {
             e.preventDefault();
@@ -4942,10 +4939,7 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
         };
         projectileButton.addEventListener("pointerdown", onProjectileButtonDown);
-        projectileButton.addEventListener("pointerdown", (event) => {
-            event.stopPropagation();
-        });
-        
+
         // Обработчик кнопки Slot 2
         const onSlot2ButtonDown = (e: PointerEvent) => {
             e.preventDefault();
@@ -4956,10 +4950,7 @@ async function connectToServer(playerName: string, classId: number) {
             room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
         };
         slot2Button.addEventListener("pointerdown", onSlot2ButtonDown);
-        slot2Button.addEventListener("pointerdown", (event) => {
-            event.stopPropagation();
-        });
-        
+
         // Обработчики кнопок карточки умений
         const onAbilityCardChoice = (choiceIndex: number) => {
             sendAbilityCardChoice(choiceIndex);

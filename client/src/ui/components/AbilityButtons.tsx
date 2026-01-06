@@ -3,6 +3,7 @@
  */
 
 // JSX runtime imported automatically via jsxImportSource
+import type { JSX } from 'preact';
 import { useCallback, useMemo } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { abilityCooldowns, abilitySlots, type AbilityCooldown } from '../signals/gameState';
@@ -158,7 +159,8 @@ interface AbilityButtonProps {
 }
 
 function AbilityButton({ slot, icon, label, color, cooldown, onActivate, small }: AbilityButtonProps) {
-  const handlePointerDown = useCallback((e: PointerEvent) => {
+  const handlePointerDown = useCallback((e: JSX.TargetedPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     if (cooldown.ready) {
       onActivate(slot, e.pointerId);
     }
