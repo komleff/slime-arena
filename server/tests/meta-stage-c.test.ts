@@ -43,13 +43,13 @@ async function authenticate(): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      platform: 'dev',
-      token: 'test_user_001:TestAdmin',
+      platformType: 'dev',
+      platformAuthToken: 'test_user_001:TestAdmin',
     }),
   });
 
   const data = await response.json();
-  assert(data.success, 'Auth failed');
+  assert(data.accessToken, 'Auth failed - no accessToken');
   authToken = data.accessToken;
   return authToken!;
 }

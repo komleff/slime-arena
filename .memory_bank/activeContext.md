@@ -6,16 +6,26 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `feat/sprint2-matchserver-integration`
-**PR:** Sprint 2: MatchServer → MetaServer Integration
+**Текущая ветка:** `test/sprint3-stage-d-testing`
+**PR:** Sprint 3: Stage D Testing
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] Sprint 2: MatchServer → MetaServer Integration:**
+- **[ЗАВЕРШЕНО] Sprint 3: Stage D Testing (PR #43 MERGED):**
+  - ✅ 3.1: Исправлен X-2 (API mismatch в тестах — platformType/platformAuthToken)
+  - ✅ 3.2: Созданы Stage D smoke тесты (`server/tests/meta-stage-d.test.ts`)
+  - ✅ 3.3: Созданы тесты идемпотентности (включены в Stage D)
+  - ✅ 3.4: Созданы k6 load тесты (`tests/load/soft-launch.js`)
+  - ✅ 3.5: AI Review Hotfix (T-01 to T-09 + UUID) — 10 дефектов исправлено
+  - ✅ 3.6: Stage D Validation — 19/19 тестов пройдены
+
+- **[ЗАВЕРШЕНО] Sprint 2: MatchServer → MetaServer Integration:**
   - ✅ Sprint 2.0: Исправлен X-1 blocker (lazy initialization для всех DB сервисов)
   - ✅ Sprint 2.1: Создан MatchResultService (`server/src/services/MatchResultService.ts`)
   - ✅ Sprint 2.2: Создан /match-results endpoint (`server/src/meta/routes/matchResults.ts`)
   - ✅ Sprint 2.3: Интегрирован в ArenaRoom.endMatch()
+  - ✅ Sprint 2.4: D-01 Hotfix (schema mismatch)
+  - ✅ Sprint 2.5: P1 Improvements (idempotency race, retry, timing-safe)
   - ⏳ joinToken validation — отложено
 
 - **[ЗАВЕРШЕНО] Mobile Controls & Flight Assist Tuning (PR #39):**
