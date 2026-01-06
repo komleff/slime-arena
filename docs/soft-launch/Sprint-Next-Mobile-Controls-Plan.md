@@ -1,16 +1,22 @@
-# Sprint Plan: Mobile Joystick Responsiveness and Flight Assist Tuning
+# План улучшения мобильного управления
 
-## Context
-Mobile joystick control feels inert and oscillatory during turns. PC mouse control feels responsive.
-Goal is to improve responsiveness on touch devices without breaking physics, architecture, or server authority.
+Краткое резюме: документ задает план настройки *Virtual Joystick* (см. глоссарий) и *Flight Assist* (см. глоссарий) для мобильных устройств, чтобы снизить инерционность и осцилляции при поворотах без нарушения серверной физики.
 
-## Constraints
-- Client continues to send only `InputCommand` (moveX, moveY, ability).
-- Server remains authoritative for physics and movement.
-- Changes should be isolated to balance config and minimal input/assist logic.
-- No architectural rewrites or new network contracts.
+## 1. Цели системы
+- [MUST] Повысить отзывчивость мобильного управления при поворотах и резких сменах направления.
+- [MUST] Сохранить серверную авторитативность и физическую корректность движения.
+- [SHOULD] Снизить боковой занос при поворотах без ухудшения управления на ПК.
+- [MAY] Добавить touch-only кривую отклика для улучшения микроконтроля.
 
-## References
+## 2. Контекст и ограничения
+<!-- ВАЖНО: клиент отправляет только команды ввода, сервер остается авторитетом физики -->
+- [MUST] Клиент отправляет только *InputCommand* (см. глоссарий), без передачи позиций и скоростей.
+- [MUST] *MatchServer* (см. глоссарий) остается единственным источником истины для движения и столкновений.
+- [MUST] Изменения ограничиваются настройками баланса и минимальными изменениями ввода/assist логики.
+- [SHOULD] Обновления параметров должны быть обратимыми и применяться без смены протоколов.
+- [MAY] Допускается изменение только клиентского поведения джойстика при pointerType=touch.
+
+Связанные материалы:
 - `client/src/input/joystick.ts`
 - `client/src/main.ts`
 - `server/src/rooms/systems/movementSystems.ts`
@@ -19,43 +25,146 @@ Goal is to improve responsiveness on touch devices without breaking physics, arc
 - `.memory_bank/ui_extension/components/virtual_joystick.md`
 - `.memory_bank/modules/U2-smoothing.md`
 
-## Step-by-step plan
+## 3. Компоненты и связи
 
-| Step | Expected result | Files/modules touched | Risks/uncertainties |
+Таблица компонентов:
+
+| Компонент | Ответственность | Вход | Выход | Примечания |
+| --- | --- | --- | --- | --- |
+| *Virtual Joystick* (см. глоссарий) | Преобразование touch в вектор | Pointer events | moveX/moveY | Клиентская логика |
+| Клиентский ввод | Формирование *InputCommand* (см. глоссарий) | moveX/moveY | InputCommand | Отправка по WebSocket |
+| *Flight Assist* (см. глоссарий) | Расчет сил и момента | InputCommand | assistFx/assistFy/assistTorque | Серверная логика |
+| Physics loop | Интеграция движения | Силы и момент | позиция/скорость/угол | Серверная физика |
+| *BalanceConfig* (см. глоссарий) | Параметры управления | JSON | значения конфигурации | Источник тюнинга |
+
+Схема взаимодействия (см. раздел 4.2):
+1. Touch ввод -> Virtual Joystick.
+2. Virtual Joystick -> InputCommand.
+3. InputCommand -> Flight Assist.
+4. Flight Assist -> Physics loop.
+
+## 4. Детали реализации
+
+### 4.1 Структуры данных
+
+*InputCommand* (см. глоссарий):
+
+| Поле | Тип | Обязательно | Описание |
 | --- | --- | --- | --- |
-| 1. Baseline measurements on priority devices | Comparable before/after metrics for turn time, lateral drift, and oscillation | None (use existing debugJoystick logging) | Device FPS and OS touch behavior can skew results |
-| 2. Tune joystick input parameters | Faster response to touch with less deadzone lag | `config/balance.json` (controls), `shared/src/config.ts` (validation only if new fields needed) | Too aggressive sensitivity can cause twitchy feel |
-| 3. Tune yaw (angular) Flight Assist parameters | Faster heading alignment with less overshoot | `config/balance.json` (assist), `shared/src/config.ts` | Risk of making PC control too sharp |
-| 4. Tune lateral drift damping | Reduced side-slip during turn transitions | `config/balance.json` (assist), `server/src/rooms/systems/movementSystems.ts` (no logic changes expected) | Over-damping can feel "sticky" |
-| 5. Optional: add touch-only response curve for joystick | More precise micro-control without sacrificing max turn rate | `client/src/input/joystick.ts`, `client/src/main.ts`, `shared/src/config.ts`, `config/balance.json` | Must avoid changing mouse behavior |
-| 6. Optional: refine predictive yaw braking edge cases | Reduce oscillation on fast direction changes | `server/src/rooms/systems/movementSystems.ts`, `shared/src/config.ts`, `config/balance.json` | Server change affects all devices; needs careful tuning |
-| 7. Validate on device matrix | Confirm improvement on Telegram mobile + tablet without regressions on PC | Test checklist only | Limited device coverage may miss edge cases |
+| `seq` | number | да | Монотонный счетчик команд ввода |
+| `moveX` | number | да | Нормализованный X в диапазоне [-1..1] |
+| `moveY` | number | да | Нормализованный Y в диапазоне [-1..1] |
+| `abilitySlot` | number | нет | Номер слота способности |
+| `talentChoice` | number | нет | Выбор таланта |
 
-## Parameter candidates (initial ranges)
+### 4.2 Логика управления (нумерованные шаги)
+1. Клиент считывает вектор от *Virtual Joystick* (см. глоссарий) с учетом deadzone и sensitivity.
+2. Клиент формирует *InputCommand* (см. глоссарий) и отправляет на сервер с фиксированным интервалом.
+3. Сервер принимает InputCommand и обновляет inputX/inputY игрока.
+4. *Flight Assist* (см. глоссарий) интерпретирует вектор ввода как желаемое направление игрока (*Heading* (см. глоссарий)) и вычисляет целевые угловые и линейные ускорения, учитывая *Yaw* (см. глоссарий) и ограничения скорости.
+5. Physics loop интегрирует силы и момент, обновляя позицию, скорость и угол.
 
-| Parameter | Current (balance.json) | Suggested range | Notes |
+### 4.3 Behavior-aware управление поворотом (Fly-by-wire)
+Цель: использовать поведенческую гипотезу «палец указывает на желаемое направление», чтобы уменьшить инерционность и осцилляции при поворотах.
+
+Требования:
+- [MUST] При наличии ввода (|move| > threshold) система должна стремиться привести текущий курс к *Heading* (см. глоссарий) игрока.
+- [MUST] Управление поворотом должно быть физически ограничено доступным torque и inertia (см. *Flight Assist* (см. глоссарий)).
+- [SHOULD] На высокой скорости система должна раньше включать предиктивное торможение, чтобы снижать перелёт и боковой занос.
+- [MAY] Стабилизация может быть усилена на touch-устройствах за счет отдельной настройки параметров (см. раздел 4.4 и «Открытые вопросы»).
+
+Нумерованный алгоритм (yaw channel):
+1. *Heading* (см. глоссарий) вычисляется как `atan2(moveY, moveX)` при |move| > threshold; иначе *Heading* считается отсутствующим.
+2. Рассчитывается угловая ошибка `angleDelta = normalizeAngle(heading - currentAngle)`.
+3. Рассчитывается «комфортная» целевая угловая скорость `desiredYawRate` как функция от `angleDelta` и *Reaction Time* (см. глоссарий): чем больше ошибка, тем выше допустимая скорость, но не выше angularSpeedLimit.
+4. Рассчитывается ошибка угловой скорости `yawRateError = desiredYawRate - currentYawRate`.
+5. Рассчитывается требуемое угловое ускорение `desiredYawAccel` как функция от `yawRateError` и *Reaction Time* (см. глоссарий), затем ограничивается физическим максимумом.
+6. Включается предиктивное торможение (если риск перелёта высок): при приближении stoppingAngle к |angleDelta| целевой yaw-командой становится торможение до нуля, затем повторный заход к цели.
+7. Применяется осцилляционное демпфирование (например, при частой смене знака yaw-команды в окне кадров) без подавления управляемости.
+
+### 4.4 Опциональные изменения
+- [MAY] Touch-only response curve для *Virtual Joystick* (см. глоссарий), чтобы усилить микроуправление.
+- [MAY] Touch-only коэффициенты для behavior-aware yaw (отдельные параметры *Reaction Time* (см. глоссарий) и демпфирования) при сохранении общих ограничений физики.
+- [SHOULD] Разделять параметры для touch и mouse, если это возможно без изменения протокола.
+- [MUST] Любое разделение параметров не должно влиять на *Desktop* (см. глоссарий) без явного включения.
+
+### 4.3 Параметры настройки (см. раздел 5)
+
+Группа controls:
+
+| Параметр | Тип | Обязательно | Назначение |
 | --- | --- | --- | --- |
-| controls.joystickDeadzone | 0.10 | 0.05 - 0.08 | Reduce idle gap for faster response |
-| controls.joystickSensitivity | 1.0 | 1.1 - 1.3 | Increase response without changing max range |
-| controls.joystickFollowSpeed | 0.8 | 0.9 - 1.0 | Reduce "lag" of adaptive base |
-| assist.yawRateGain | 4.0 | 4.5 - 6.0 | Faster turn command scaling |
-| assist.reactionTimeS | 0.15 | 0.10 - 0.12 | Shorter time to reach target angVel |
-| assist.angularStopTimeS | 0.20 | 0.12 - 0.18 | Faster stop to avoid overshoot |
-| assist.angularBrakeBoostFactor | 1.5 | 1.6 - 2.0 | Stronger braking when input stops |
-| assist.angularDeadzoneRad | 0.02 | 0.01 - 0.015 | Start turning earlier on small input |
-| assist.counterAccelTimeS | 0.15 | 0.10 - 0.12 | Faster lateral drift cancellation |
-| assist.counterAccelDirectionThresholdDeg | 30 | 20 - 25 | Trigger counter-accel earlier |
-| assist.overspeedDampingRate | 0.2 | 0.25 - 0.35 | Faster damping near speed limits |
-| assist.velocityErrorThreshold | 0.1 | 0.05 - 0.08 | React to smaller velocity error |
-| worldPhysics.angularDragK | 1.0 | 1.0 - 1.4 | Global angular damping; apply with care |
+| `controls.joystickDeadzone` | number | да | Минимальный радиус без ввода |
+| `controls.joystickSensitivity` | number | да | Масштаб чувствительности ввода |
+| `controls.joystickFollowSpeed` | number | да | Скорость смещения базы в adaptive режиме |
 
-## Test scenarios (acceptance checks)
-- 90-degree and 180-degree turns at medium and high speed: time to align heading should decrease, overshoot should reduce.
-- Zig-zag and figure-eight paths: oscillation should reduce without "stuck" feeling.
-- Small corrections near target: micro-control should feel consistent, not jittery.
-- PC mouse regression check: turn response should remain stable and not overshoot more than baseline.
+Группа assist:
 
-## Success criteria
-- Noticeably quicker alignment to input direction on touch devices.
-- Reduced lateral drift during turn transitions.
-- No significant regressions for mouse/keyboard control.
+| Параметр | Тип | Обязательно | Назначение |
+| --- | --- | --- | --- |
+| `assist.yawRateGain` | number | да | Усиление yaw-команды |
+| `assist.reactionTimeS` | number | да | Время реакции на angular velocity |
+| `assist.angularStopTimeS` | number | да | Время углового торможения |
+| `assist.angularBrakeBoostFactor` | number | да | Усиление торможения без ввода |
+| `assist.angularDeadzoneRad` | number | да | Deadzone для угла |
+| `assist.counterAccelTimeS` | number | да | Время гашения бокового дрейфа |
+| `assist.counterAccelDirectionThresholdDeg` | number | да | Порог активации *Counter-acceleration* (см. глоссарий) |
+| `assist.overspeedDampingRate` | number | да | Демпфирование при превышении лимитов |
+| `assist.velocityErrorThreshold` | number | да | Порог ошибки скорости для реакции |
+
+План диапазонов тюнинга:
+
+| Параметр | Текущее значение | Целевой диапазон | Цель |
+| --- | --- | --- | --- |
+| controls.joystickDeadzone | 0.10 | 0.05 - 0.08 | Быстрый старт поворота |
+| controls.joystickSensitivity | 1.0 | 1.1 - 1.3 | Увеличить отзывчивость |
+| controls.joystickFollowSpeed | 0.8 | 0.9 - 1.0 | Снизить ощущение лагов |
+| assist.yawRateGain | 4.0 | 4.5 - 6.0 | Быстрее поворачивать к цели |
+| assist.reactionTimeS | 0.15 | 0.10 - 0.12 | Быстрее достигать desired angVel |
+| assist.angularStopTimeS | 0.20 | 0.12 - 0.18 | Быстрее гасить колебания |
+| assist.angularBrakeBoostFactor | 1.5 | 1.6 - 2.0 | Снизить перелет при отпускании |
+| assist.angularDeadzoneRad | 0.02 | 0.01 - 0.015 | Раннее включение поворота |
+| assist.counterAccelTimeS | 0.15 | 0.10 - 0.12 | Сильнее гасить боковой занос |
+| assist.counterAccelDirectionThresholdDeg | 30 | 20 - 25 | Ранее включать counter-acceleration |
+| assist.overspeedDampingRate | 0.2 | 0.25 - 0.35 | Быстрее стабилизировать скорость |
+| assist.velocityErrorThreshold | 0.1 | 0.05 - 0.08 | Реагировать на меньшие ошибки |
+
+### 4.4 Опциональные изменения
+- [MAY] Touch-only response curve для *Virtual Joystick* (см. глоссарий), чтобы усилить микроуправление.
+- [SHOULD] Разделять параметры для touch и mouse, если это возможно без изменения протокола.
+- [MUST] Любое разделение параметров не должно влиять на ПК без явного включения.
+
+## 5. Требования к качеству
+- [MUST] Время выравнивания курса на 90/180 град. на мобильных уменьшается минимум на 20% (см. раздел 4.2).
+- [MUST] Боковой занос при поворотах снижается без ухудшения контроля на *Desktop* (см. глоссарий).
+- [SHOULD] Количество осцилляций при зигзаге не увеличивается относительно baseline.
+- [SHOULD] Результат должен быть воспроизводим на приоритетных устройствах.
+- [MAY] Дополнительные параметры могут вводиться только при наличии метрик и обратимой конфигурации.
+
+### Открытые вопросы
+Q1: Нужна ли отдельная ветка конфигурации для mobile-only controls?
+Варианты: [a) отдельный блок controlsMobile, b) флаг touchOnlyResponseCurve, c) без разделения]
+
+Q2: Можно ли увеличивать worldPhysics.angularDragK без ухудшения боевки?
+Варианты: [a) да, только для mobile, b) да, глобально, c) нет - оставить как есть]
+
+Q3: Какие метрики считать обязательными для acceptance?
+Варианты: [a) время выравнивания, b) амплитуда заноса, c) число осцилляций]
+
+Q4: Нужна ли явная модель поведенческого намерения (intent) или достаточно интерпретации move-вектора как heading?
+Варианты: [a) только heading-hold, b) heading + оценка скорости изменения пальца (turn intent), c) текущая схема без изменений]
+
+## 6. Глоссарий
+
+| Термин | Описание | Синонимы |
+| --- | --- | --- |
+| BalanceConfig | Набор параметров баланса и управления, читается из `config/balance.json` | balance config |
+| Counter-acceleration | Серверная компенсация бокового дрейфа при смене направления | counter accel |
+| Desktop | Настольные устройства с мышью и клавиатурой | PC |
+| Flight Assist | Слой управления движением, вычисляющий силы и момент по InputCommand | fly-by-wire |
+| Heading | Желаемое направление движения/курса, заданное игроком через вектор ввода | target heading |
+| InputCommand | Пакет ввода от клиента к серверу с moveX/moveY и опциональными полями | input cmd |
+| MatchServer | Сервер симуляции, применяющий физику и правила игры | game server |
+| Reaction Time | Параметр времени реакции регулятора на ошибку, используемый для вычисления требуемого ускорения | controller response time |
+| Virtual Joystick | Клиентский элемент управления для touch ввода, выдающий нормализованный вектор | joystick |
+| Yaw | Угловой поворот вокруг оси, используемый для управления направлением | heading |
