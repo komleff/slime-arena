@@ -207,7 +207,7 @@
 **Файлы:**
 - `server/src/rooms/ArenaRoom.ts` (Last Breath логика в processCombat, deathSystem, flightAssistSystem)
 - `config/balance.json` (combat.lastBreathDurationSec, lastBreathSpeedPenalty)
-- `client/src/main.ts` (строка 4389: отображение индикатора "LB")
+- `client/src/main.ts` (отрисовка: индикатор "LB" под именем игрока)
 
 ---
 

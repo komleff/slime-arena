@@ -181,7 +181,7 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 **Контекст:**
 - `getZoneForPlayer()` вызывается несколько раз в `movementSystems.ts` и `effectSystems.ts`.
-- При большом количестве игроков число проверок растёт квадратично.
+- При росте числа игроков и количества систем число проверок растёт (в среднем) линейно от `players × вызовы_на_игрока_в_тик`.
 - Зона игрока не меняется в течение тика, но проверяется многократно.
 - Типичный игрок проверяет зону 2-3 раза за тик.
 
@@ -190,10 +190,10 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 - `movementSystems.ts`: проверка зоны для модификаторов скорости (замедление на льду, слизи)
 
 **Решение:**
-- Добавить поле `currentZoneId: string | null` в `Player` (server-only, не синхронизируется).
-- В начале тика запустить `zoneCalculationSystem()`, которая однократно считает зону для каждого игрока.
-- Переписать системы для использования `player.currentZoneId` вместо вызова `getZoneForPlayer()`.
-- Опционально: кэшировать объект зоны в `player.currentZone: Zone | null`.
+- Добавить серверный кэш активной зоны (не часть Colyseus Schema, не синхронизируется клиентам).
+- В начале тика запустить `zoneCalculationSystem()`, которая однократно считает зону для каждого игрока и сохраняет в кэш.
+- Переписать системы для использования кэша вместо повторных вызовов `getZoneForPlayer()`.
+- Опционально: кэшировать не только `zoneId`, но и ссылку на объект зоны.
 
 **Польза:**
 - Сокращение числа проверок с O(players × systems) до O(players).
@@ -204,7 +204,6 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 - `server/src/rooms/systems/movementSystems.ts`
 - `server/src/rooms/systems/effectSystems.ts`
 - `server/src/rooms/ArenaRoom.ts` (порядок систем)
-- `server/src/rooms/schema/GameState.ts` (добавить server-only поле)
 
 **Оценка трудозатрат:** 1-2 часа
 
