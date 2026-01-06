@@ -3,7 +3,7 @@
 
 ## Контроль изменений
 - **last_checked_commit**: RELEASE v0.3.0 @ 7 января 2026
-- **Текущая ветка**: main
+- **Текущая ветка**: docs/mobile-controls-ab-plan
 - **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
@@ -13,6 +13,17 @@
 - **Sprint 1 Client Integration**: ЗАВЕРШЕНО
 
 ## Последние изменения (Mobile Controls & Flight Assist Tuning)
+
+### Mobile Controls A/B Plan (docs/mobile-controls-ab-plan)
+
+**Цель:** зафиксировать A/B план тюнинга мобильного управления и шаблон конфигурации для быстрого переключения.
+
+**Добавлено/обновлено:**
+- `docs/soft-launch/Sprint-Next-Mobile-Controls-Plan.md` — описаны варианты A/B, quick switching и требования к качеству.
+- `config/experiments/mobile-controls-ab.json` — шаблон параметров A/B (A: stability, B: responsiveness).
+- `README.md` — ссылки на план и AB конфиг.
+
+**Статус:** ?? Готово к PR
 
 ### Mobile Controls & Flight Assist Tuning (feat/mobile-controls-flight-assist)
 

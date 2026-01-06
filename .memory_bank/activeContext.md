@@ -6,8 +6,8 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `feat/mobile-controls-flight-assist`
-**PR:** Mobile Controls & Flight Assist Tuning
+**Текущая ветка:** `docs/mobile-controls-ab-plan`
+**PR:** Mobile Controls A/B Plan (draft)
 
 ### Фокус сессии
 
@@ -18,6 +18,11 @@
   - **[NEW] Multitouch support:** onClick → onPointerDown + pointerId для одновременного движения и способностей
   - **[NEW] Input lag fix:** Способности активируются по pointerdown вместо click
   - Ожидаемое улучшение: -20% время выравнивания курса, -20% боковой занос
+
+- **[В РАБОТЕ] Mobile Controls A/B Plan + Config:**
+  - Обновлён план в `docs/soft-launch/Sprint-Next-Mobile-Controls-Plan.md` (A/B варианты и switching)
+  - Добавлен шаблон конфигурации `config/experiments/mobile-controls-ab.json`
+  - README дополнен ссылками на план и конфиг
 
 - **Приоритет тестовых устройств:** Telegram (все платформы) > мобильные телефоны > планшеты с тач-скрином > браузеры компьютера (мышь/клавиатура) > гибридные устройства (низкий приоритет).
 - **Наблюдение:** при плавном круговом движении джойстика возможны краткие провалы отклика (слейм отстаёт и пытается повернуть в другую сторону) — требуется анализ частоты опроса, порогов и логики yaw.
