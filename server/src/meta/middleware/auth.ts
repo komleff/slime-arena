@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { timingSafeEqual } from 'crypto';
 import { AuthService, User } from '../services/AuthService';
 
 // Extend Express Request type to include user
@@ -116,7 +117,15 @@ export function requireServerToken(req: Request, res: Response, next: NextFuncti
       });
     }
 
-    if (token !== expectedToken) {
+    // Use timing-safe comparison to prevent timing attacks
+    const tokenBuffer = Buffer.from(token, 'utf8');
+    const expectedBuffer = Buffer.from(expectedToken, 'utf8');
+
+    // timingSafeEqual requires same-length buffers
+    const tokensMatch = tokenBuffer.length === expectedBuffer.length &&
+                        timingSafeEqual(tokenBuffer, expectedBuffer);
+
+    if (!tokensMatch) {
       console.warn('[ServerToken] Invalid token received');
       return res.status(401).json({
         error: 'unauthorized',
