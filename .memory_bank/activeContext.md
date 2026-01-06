@@ -16,6 +16,7 @@
   - ✅ 3.2: Созданы Stage D smoke тесты (`server/tests/meta-stage-d.test.ts`)
   - ✅ 3.3: Созданы тесты идемпотентности (включены в Stage D)
   - ✅ 3.4: Созданы k6 load тесты (`tests/load/soft-launch.js`)
+  - ✅ 3.5: AI Review Hotfix (T-01 to T-09) — исправлены 9 дефектов
   - ⏳ Ручное тестирование и валидация
 
 - **[ЗАВЕРШЕНО] Sprint 2: MatchServer → MetaServer Integration:**

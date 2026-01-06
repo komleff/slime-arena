@@ -66,6 +66,28 @@
 - `server/tests/meta-stage-c.test.ts` — X-2 fix
 - `README.md` — добавлены инструкции по тестированию
 
+**3.5: AI Review Hotfix (T-01 to T-09)**
+
+Исправлены 9 дефектов, найденных AI ревьюерами (Codex, Gemini 3 Pro, GitHub Copilot):
+
+**Stage D tests (meta-stage-d.test.ts):**
+- T-01: Удалён test 1.2 database check (/health не имеет поля database)
+- T-03: Использование crypto.randomUUID() вместо Math.random()
+- T-06: XP check проверяет >= 0
+- T-09: Idempotency test проверяет неизменность профиля после дубликата
+
+**k6 load tests (soft-launch.js):**
+- T-02: Auth Flood fix — аутентификация 1 раз на VU, не каждую итерацию
+- T-03: Детерминистичный unique ID для match results
+- T-04: Сброс auth tokens при ошибке авторизации
+- T-08: Optional chaining в handleSummary/textSummary
+
+**PowerShell runner (run-stage-d.ps1):**
+- T-05: Исправлена npm команда на `npm run dev --workspace=server`
+- T-07: Отслеживание Push-Location для безопасного Pop-Location
+
+**Коммит:** 7d16ad4
+
 ---
 
 ## Предыдущие изменения (Sprint 2: MatchServer → MetaServer Integration)
