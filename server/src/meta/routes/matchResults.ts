@@ -76,7 +76,8 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
       );
 
       // If no rows returned, match was already processed (idempotency)
-      if (insertResult.rowCount === 0) {
+      // Note: rowCount can be null in pg types, use falsy check
+      if (!insertResult.rowCount) {
         await client.query('COMMIT');
         console.log(`[MatchResults] Match ${matchSummary.matchId} already processed (idempotency)`);
         return res.json({
