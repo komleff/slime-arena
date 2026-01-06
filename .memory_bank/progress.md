@@ -2,9 +2,10 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: RELEASE v0.3.0 @ 7 января 2026
-- **Текущая ветка**: ops/backup-restore
+- **last_checked_commit**: PR #47 merged @ 7 января 2026
+- **Текущая ветка**: main
 - **Релиз игрового прототипа:** v0.3.0
+- **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО

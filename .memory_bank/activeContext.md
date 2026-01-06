@@ -6,8 +6,8 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `ops/backup-restore`
-**PR:** ops: add PostgreSQL backup/restore scripts (#47)
+**Текущая ветка:** `main`
+**Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
 
