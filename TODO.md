@@ -63,7 +63,7 @@
 
 **Этап 3.1 (Core Prototype):** ✅ 100% завершён
 
-**Этап 3.2 (Gameplay MVP):** 🏗️ В процессе
+**Этап 3.2 (Gameplay MVP):** ✅ 100% завершён
 - [x] Система классов (Hunter, Warrior, Collector)
 - [x] Способность "Выброс" (Projectile)
 - [x] Сопротивление укусам (biteResistPct)
@@ -71,6 +71,25 @@
 - [x] Система талантов
 - [x] Уровни умений и улучшения через карточки
 - [x] Динамическое масштабирование камеры по массе
+- [x] **Рефакторинг UI на Preact/Signals (v0.3.0)**
+
+**Этап 3.3 (Soft Launch Prep):** 🏗️ В процессе
+- [x] Перевод проекта на npm workspaces
+- [x] Внедрение CI/CD для Docker-контейнеров
+- [x] Глобальное обновление документации (v1.4.7)
+- [x] **Stage A+B+C MetaServer**: PostgreSQL, Redis, Auth, Profile, Wallet, Shop, Matchmaking, Analytics, A/B Tests
+- [x] **Sprint 1: Client ↔ MetaServer Integration**
+  - MetaServerClient (HTTP клиент с retry/timeout/auth)
+  - PlatformManager + Adapters (Telegram, Standalone)
+  - AuthService, ConfigService, MatchmakingService на клиенте
+  - Auth/Matchmaking signals и UI
+- [ ] **Sprint 2: MatchServer → MetaServer Integration**
+  - MatchResultService для отправки результатов матча
+  - match-results endpoint на MetaServer
+  - joinToken validation в ArenaRoom
+- [ ] **Sprint 3: Stage D Testing**
+  - Smoke-тесты полного flow
+  - Нагрузочные тесты k6 (CCU=500)
 - [ ] **TASK-16: Визуальные эффекты способностей**
   - Описание: Добавить визуальные эффекты для отсутствующих статусов и улучшить существующие эффекты способностей.
   - Критерии:

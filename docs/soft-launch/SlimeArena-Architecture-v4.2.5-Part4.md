@@ -474,7 +474,7 @@
 Запрос:
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `platformType` | string | telegram, yandex, poki, guest |
+| `platformType` | string | telegram, yandex, poki, guest, dev |
 | `platformAuthToken` | string | Токен/данные платформы |
 
 Ответ:

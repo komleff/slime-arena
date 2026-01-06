@@ -49,6 +49,10 @@ import {
     syncMatchTimer,
     type UICallbacks,
 } from "./ui/UIBridge";
+import { authService } from "./services/authService";
+import { configService } from "./services/configService";
+import { matchmakingService } from "./services/matchmakingService";
+import { resetMatchmaking } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -5201,6 +5205,10 @@ const uiCallbacks: UICallbacks = {
     onExit: () => {
         leaveRoomFromUI();
     },
+    onCancelMatchmaking: () => {
+        matchmakingService.cancelQueue();
+        resetMatchmaking();
+    },
 };
 
 const uiContainer = document.getElementById("ui-root");
@@ -5209,3 +5217,24 @@ if (!uiContainer) {
 }
 initUI(uiContainer, uiCallbacks);
 setPhase("menu");
+
+// Инициализация сервисов MetaServer (в фоне, не блокирует UI)
+(async function initializeServices() {
+    try {
+        // Инициализация AuthService (восстанавливает сессию если есть)
+        const hasSession = await authService.initialize();
+        if (hasSession) {
+            console.log("[Main] Session restored from localStorage");
+        }
+
+        // Загрузка RuntimeConfig (с кэшированием)
+        const config = await configService.loadConfig();
+        if (config) {
+            console.log(`[Main] RuntimeConfig v${config.configVersion} loaded`);
+            // TODO: Интегрировать с applyBalanceConfig когда API будет готов
+        }
+    } catch (err) {
+        console.warn("[Main] MetaServer services initialization failed:", err);
+        // Игра продолжает работать без MetaServer
+    }
+})();

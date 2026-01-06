@@ -54,6 +54,7 @@ export interface UICallbacks {
   onActivateAbility: (slot: number) => void;
   onPlayAgain: (classId: number) => void;
   onExit: () => void;
+  onCancelMatchmaking?: () => void;
 }
 
 // ========== Контейнер UI ==========
@@ -74,6 +75,7 @@ function UIRoot() {
       {phase === 'menu' && callbacks && (
         <MainMenu
           onPlay={callbacks.onPlay}
+          onCancelMatchmaking={callbacks.onCancelMatchmaking}
           isConnecting={connecting}
         />
       )}

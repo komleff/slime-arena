@@ -60,6 +60,37 @@ export interface BoostState {
   timeLeft: number;
 }
 
+// ========== Auth типы ==========
+
+export interface User {
+  id: string;
+  platformType: string;
+  platformId: string;
+  nickname: string;
+  createdAt: string;
+}
+
+export interface Profile {
+  rating: number;
+  ratingDeviation: number;
+  gamesPlayed: number;
+  gamesWon: number;
+  totalKills: number;
+  highestMass: number;
+  level: number;
+  xp: number;
+}
+
+export interface MatchAssignment {
+  matchId: string;
+  roomId: string;
+  roomHost: string;
+  roomPort: number;
+  joinToken: string;
+}
+
+export type MatchmakingStatus = 'idle' | 'searching' | 'found' | 'connecting' | 'error';
+
 // ========== Сигналы состояния ==========
 
 // Фаза игры
@@ -118,6 +149,22 @@ export const hudVisible = signal(true);
 export const isMobile = signal(false);
 export const safeAreaInsets = signal({ top: 0, bottom: 0, left: 0, right: 0 });
 
+// ========== Auth состояние ==========
+
+export const authToken = signal<string | null>(null);
+export const currentUser = signal<User | null>(null);
+export const currentProfile = signal<Profile | null>(null);
+export const isAuthenticated = signal(false);
+export const isAuthenticating = signal(false);
+export const authError = signal<string | null>(null);
+
+// ========== Matchmaking состояние ==========
+
+export const matchmakingStatus = signal<MatchmakingStatus>('idle');
+export const queuePosition = signal<number | null>(null);
+export const matchAssignment = signal<MatchAssignment | null>(null);
+export const matchmakingError = signal<string | null>(null);
+
 // ========== Вычисляемые значения ==========
 
 export const isInGame = computed(() => 
@@ -134,8 +181,16 @@ export const isPlayerDead = computed(() => {
   return (player.flags & FLAG_IS_DEAD) !== 0;
 });
 
-export const hasTalentPending = computed(() => 
+export const hasTalentPending = computed(() =>
   talentChoices.value.length > 0 && talentQueueSize.value > 0
+);
+
+export const isMatchmaking = computed(() =>
+  matchmakingStatus.value === 'searching' || matchmakingStatus.value === 'found'
+);
+
+export const canStartGame = computed(() =>
+  isAuthenticated.value && matchmakingStatus.value === 'idle'
 );
 
 export const currentPlace = computed(() => {
@@ -278,6 +333,92 @@ export function resetGameState() {
     ];
     activeBoost.value = null;
     matchResults.value = null;
+    // Сбрасываем matchmaking, но НЕ auth
+    matchmakingStatus.value = 'idle';
+    queuePosition.value = null;
+    matchAssignment.value = null;
+    matchmakingError.value = null;
+  });
+}
+
+// ========== Auth действия ==========
+
+export function setAuthState(user: User, profile: Profile, token: string) {
+  batch(() => {
+    currentUser.value = user;
+    currentProfile.value = profile;
+    authToken.value = token;
+    isAuthenticated.value = true;
+    isAuthenticating.value = false;
+    authError.value = null;
+    // Устанавливаем имя игрока из профиля
+    playerName.value = user.nickname;
+  });
+}
+
+export function clearAuthState() {
+  batch(() => {
+    currentUser.value = null;
+    currentProfile.value = null;
+    authToken.value = null;
+    isAuthenticated.value = false;
+    isAuthenticating.value = false;
+    authError.value = null;
+  });
+}
+
+export function setAuthError(error: string | null) {
+  batch(() => {
+    authError.value = error;
+    if (error !== null) {
+      isAuthenticating.value = false;
+    }
+  });
+}
+
+export function setAuthenticating(value: boolean) {
+  isAuthenticating.value = value;
+}
+
+// ========== Matchmaking действия ==========
+
+export function setMatchmakingSearching() {
+  batch(() => {
+    matchmakingStatus.value = 'searching';
+    queuePosition.value = null;
+    matchAssignment.value = null;
+    matchmakingError.value = null;
+  });
+}
+
+export function setMatchmakingPosition(position: number) {
+  queuePosition.value = position;
+}
+
+export function setMatchFound(assignment: MatchAssignment) {
+  batch(() => {
+    matchmakingStatus.value = 'found';
+    matchAssignment.value = assignment;
+  });
+}
+
+export function setMatchmakingConnecting() {
+  matchmakingStatus.value = 'connecting';
+}
+
+export function setMatchmakingError(error: string) {
+  batch(() => {
+    matchmakingStatus.value = 'error';
+    matchmakingError.value = error;
+  });
+}
+
+export function resetMatchmaking() {
+  batch(() => {
+    matchmakingStatus.value = 'idle';
+    queuePosition.value = null;
+    matchAssignment.value = null;
+    matchmakingError.value = null;
   });
 }
 
