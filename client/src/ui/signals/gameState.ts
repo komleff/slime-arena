@@ -363,6 +363,18 @@ export function resetGameState() {
   });
 }
 
+/**
+ * Сбросить флаг смерти игрока (при старте нового матча)
+ */
+export function clearPlayerDeadFlag() {
+  if (localPlayer.value) {
+    localPlayer.value = {
+      ...localPlayer.value,
+      flags: localPlayer.value.flags & ~FLAG_IS_DEAD,
+    };
+  }
+}
+
 // ========== Auth действия ==========
 
 export function setAuthState(user: User, profile: Profile, token: string) {

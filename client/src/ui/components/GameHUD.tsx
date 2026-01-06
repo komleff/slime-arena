@@ -251,6 +251,11 @@ function PlayerStats() {
           <div class="hud-xp-fill" style={{ width: `${progress}%` }}></div>
         </div>
       </div>
+      {/* Масса */}
+      <div class="hud-stat-row">
+        <span class="hud-stat-label">Масса:</span>
+        <span class="hud-stat-value">{formatMass(player.mass)} кг</span>
+      </div>
       {/* Убийства */}
       <div class="hud-stat-row">
         <span class="hud-stat-label">Убийства:</span>

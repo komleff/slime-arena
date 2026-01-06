@@ -29,6 +29,7 @@ import {
   updateAbilitySlots,
   setMatchResults,
   resetGameState,
+  clearPlayerDeadFlag,
   initMobileDetection,
 
   // Types
@@ -275,6 +276,13 @@ export function setHudVisible(visible: boolean): void {
  */
 export function resetUI(): void {
   resetGameState();
+}
+
+/**
+ * Сбросить флаг смерти (при старте нового матча)
+ */
+export function clearDeadFlag(): void {
+  clearPlayerDeadFlag();
 }
 
 /**

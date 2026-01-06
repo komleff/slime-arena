@@ -49,6 +49,7 @@ import {
     syncMatchTimer,
     syncAbilityCooldown,
     syncAbilitySlots,
+    clearDeadFlag,
     type UICallbacks,
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
@@ -3452,8 +3453,14 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         let wasInResultsPhase = false;
+        let hasPlayedThisMatch = false; // Флаг участия в текущем матче (не показывать Results новым игрокам)
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
+
+            // Устанавливаем флаг участия при входе в игровые фазы
+            if (phase === "Playing" || phase === "Waiting") {
+                hasPlayedThisMatch = true;
+            }
             if (phase !== "Results") {
                 // Сбрасываем Preact UI при выходе из Results
                 // НО: проверяем, нужен ли class-select (classId == -1)
@@ -3467,6 +3474,7 @@ async function connectToServer(playerName: string, classId: number) {
                     const needsClassSelect = !selfPlayer || !isValidClassId(selfPlayer.classId);
                     if (!needsClassSelect) {
                         // Класс уже выбран — переходим в playing
+                        clearDeadFlag(); // Сбросить isDead от предыдущего матча
                         setPhase("playing");
                     }
                     // Иначе: hudTimer установит setPhase("menu") через setClassSelectMode(true)
@@ -3484,9 +3492,11 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Вызываем showResultsUI ТОЛЬКО один раз при входе в Results
             // (не каждый тик, чтобы избежать множественных ре-рендеров)
-            // Проверяем, что игрок участвовал в матче (classId >= 0 означает выбранный класс)
+            // Проверяем, что игрок участвовал в матче:
+            // 1. classId >= 0 — выбранный класс
+            // 2. hasPlayedThisMatch — был в фазе Playing/Waiting (не только что подключился)
             const selfPlayer = room.state.players.get(room.sessionId);
-            const wasParticipant = selfPlayer && selfPlayer.classId >= 0;
+            const wasParticipant = selfPlayer && selfPlayer.classId >= 0 && hasPlayedThisMatch;
             if (!wasInResultsPhase && wasParticipant) {
                 wasInResultsPhase = true;
 
