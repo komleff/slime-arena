@@ -20,14 +20,20 @@ export interface AdGrant {
  * Implements grantId-based reward system with idempotency
  */
 export class AdsService {
-  private redis: RedisClientType;
+  private _redis: RedisClientType | null = null;
   private walletService: WalletService;
   private configService: ConfigService;
   private readonly GRANT_TTL_SECONDS = 300; // 5 minutes
   private readonly GRANT_PREFIX = 'ads:grant:';
 
+  private get redis(): RedisClientType {
+    if (!this._redis) {
+      this._redis = getRedisClient();
+    }
+    return this._redis;
+  }
+
   constructor() {
-    this.redis = getRedisClient();
     this.walletService = new WalletService();
     this.configService = new ConfigService();
   }

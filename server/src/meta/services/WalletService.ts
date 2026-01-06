@@ -42,7 +42,7 @@ export class WalletService {
    */
   async getWallet(userId: string): Promise<Wallet | null> {
     const result = await this.pool.query(
-      'SELECT user_id, soft_currency, hard_currency, updated_at FROM wallets WHERE user_id = $1',
+      'SELECT user_id, coins, gems, updated_at FROM wallets WHERE user_id = $1',
       [userId]
     );
 
@@ -53,8 +53,8 @@ export class WalletService {
     const row = result.rows[0];
     return {
       userId: row.user_id,
-      softCurrency: parseInt(row.soft_currency, 10),
-      hardCurrency: parseInt(row.hard_currency, 10),
+      softCurrency: parseInt(row.coins, 10),
+      hardCurrency: parseInt(row.gems, 10),
       updatedAt: row.updated_at,
     };
   }
@@ -98,11 +98,11 @@ export class WalletService {
       }
 
       // Update wallet
-      const column = currency === 'soft' ? 'soft_currency' : 'hard_currency';
+      const column = currency === 'soft' ? 'coins' : 'gems';
       const updateResult = await client.query(
         `UPDATE wallets SET ${column} = ${column} + $1, updated_at = NOW() 
          WHERE user_id = $2 
-         RETURNING user_id, soft_currency, hard_currency, updated_at`,
+         RETURNING user_id, coins, gems, updated_at`,
         [amount, userId]
       );
 
@@ -131,8 +131,8 @@ export class WalletService {
 
       return {
         userId: row.user_id,
-        softCurrency: parseInt(row.soft_currency, 10),
-        hardCurrency: parseInt(row.hard_currency, 10),
+        softCurrency: parseInt(row.coins, 10),
+        hardCurrency: parseInt(row.gems, 10),
         updatedAt: row.updated_at,
       };
     } catch (error) {
@@ -193,11 +193,11 @@ export class WalletService {
       }
 
       // Update wallet
-      const column = currency === 'soft' ? 'soft_currency' : 'hard_currency';
+      const column = currency === 'soft' ? 'coins' : 'gems';
       const updateResult = await client.query(
         `UPDATE wallets SET ${column} = ${column} - $1, updated_at = NOW() 
          WHERE user_id = $2 
-         RETURNING user_id, soft_currency, hard_currency, updated_at`,
+         RETURNING user_id, coins, gems, updated_at`,
         [amount, userId]
       );
 
@@ -222,8 +222,8 @@ export class WalletService {
 
       return {
         userId: row.user_id,
-        softCurrency: parseInt(row.soft_currency, 10),
-        hardCurrency: parseInt(row.hard_currency, 10),
+        softCurrency: parseInt(row.coins, 10),
+        hardCurrency: parseInt(row.gems, 10),
         updatedAt: row.updated_at,
       };
     } catch (error) {
