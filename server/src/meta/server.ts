@@ -34,9 +34,36 @@ app.use((req, res, next) => {
 });
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
+app.get('/health', async (req, res) => {
+  let dbStatus = 'disconnected';
+  let redisStatus = 'disconnected';
+
+  try {
+    const pool = await initializePostgres();
+    const result = await pool.query('SELECT 1');
+    if (result.rowCount === 1) {
+      dbStatus = 'connected';
+    }
+  } catch (err) {
+    console.error('[Health] DB check failed:', err);
+  }
+
+  try {
+    const redis = await initializeRedis();
+    const ping = await redis.ping();
+    if (ping === 'PONG') {
+      redisStatus = 'connected';
+    }
+  } catch (err) {
+    console.error('[Health] Redis check failed:', err);
+  }
+
+  const status = (dbStatus === 'connected' && redisStatus === 'connected') ? 'ok' : 'error';
+
+  res.status(status === 'ok' ? 200 : 503).json({
+    status,
+    database: dbStatus,
+    redis: redisStatus,
     timestamp: new Date().toISOString(),
     service: 'MetaServer',
   });
@@ -66,6 +93,14 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Handle JSON parse errors
+  if (err instanceof SyntaxError && 'status' in err && (err as any).status === 400 && 'body' in err) {
+    return res.status(400).json({
+      error: 'validation_error',
+      message: 'Invalid JSON body'
+    });
+  }
+
   console.error('[MetaServer] Error:', err);
   res.status(500).json({
     error: 'internal_error',

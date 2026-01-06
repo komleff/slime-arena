@@ -21,15 +21,20 @@ export interface MatchAssignment {
  * Implements simple FIFO matchmaking for Soft Launch
  */
 export class MatchmakingService {
-  private redis: RedisClientType;
+  private _redis: RedisClientType | null = null;
   private readonly QUEUE_KEY = 'matchmaking:queue';
   private readonly MATCH_PREFIX = 'matchmaking:match:';
   private readonly TIMEOUT_MS = 60000; // 60 seconds timeout
   private readonly PLAYERS_PER_MATCH = 8;
 
-  constructor() {
-    this.redis = getRedisClient();
+  private get redis(): RedisClientType {
+    if (!this._redis) {
+      this._redis = getRedisClient();
+    }
+    return this._redis;
   }
+
+  constructor() {}
 
   /**
    * Add player to matchmaking queue
