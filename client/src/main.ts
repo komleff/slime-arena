@@ -3457,8 +3457,8 @@ async function connectToServer(playerName: string, classId: number) {
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
 
-            // Устанавливаем флаг участия при входе в игровые фазы
-            if (phase === "Playing" || phase === "Waiting") {
+            // Устанавливаем флаг участия при входе в игровые фазы (Growth/Hunt/Final)
+            if (phase === "Growth" || phase === "Hunt" || phase === "Final") {
                 hasPlayedThisMatch = true;
             }
             if (phase !== "Results") {
@@ -3467,6 +3467,7 @@ async function connectToServer(playerName: string, classId: number) {
                 // Если да — не переключаем на "playing", т.к. hudTimer вызовет setClassSelectMode(true) → setPhase("menu")
                 if (wasInResultsPhase) {
                     wasInResultsPhase = false;
+                    hasPlayedThisMatch = false; // Сброс для нового матча
                     // Очистить визуальное состояние для предотвращения "призраков" между матчами
                     visualPlayers.clear();
                     visualOrbs.clear();
