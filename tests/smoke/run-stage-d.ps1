@@ -23,7 +23,8 @@ try {
     Write-Host "MetaServer is healthy" -ForegroundColor Green
 } catch {
     Write-Host "Cannot connect to MetaServer at $BaseUrl" -ForegroundColor Red
-    Write-Host "Make sure MetaServer is running: npm run meta:dev" -ForegroundColor Yellow
+    # T-05 fix: Correct npm command for starting MetaServer
+    Write-Host "Make sure MetaServer is running: npm run dev --workspace=server" -ForegroundColor Yellow
     exit 1
 }
 
@@ -65,18 +66,25 @@ Write-Host ""
 
 # Run Stage B PowerShell tests
 Write-Host "[3/3] Running Stage B PowerShell tests..." -ForegroundColor Yellow
+# T-07 fix: Track Push-Location state for safe Pop-Location
+$locationPushed = $false
 try {
     Push-Location "tests/smoke"
+    $locationPushed = $true
     & .\run-smoke-tests.ps1
     if ($LASTEXITCODE -ne 0) {
         Pop-Location
+        $locationPushed = $false
         Write-Host "Stage B tests failed" -ForegroundColor Red
         exit 1
     }
     Pop-Location
+    $locationPushed = $false
     Write-Host "Stage B tests passed" -ForegroundColor Green
 } catch {
-    Pop-Location
+    if ($locationPushed) {
+        Pop-Location
+    }
     Write-Host "Stage B tests error: $_" -ForegroundColor Red
     exit 1
 }

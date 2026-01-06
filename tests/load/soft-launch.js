@@ -58,16 +58,13 @@ export const options = {
   },
 };
 
-// Generate UUID
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+// Generate unique ID for match results (k6 doesn't have crypto.randomUUID)
+// T-03 fix: Use deterministic unique ID instead of Math.random()
+function generateUniqueId(vuId, iteration) {
+  return `${Date.now()}-${vuId}-${iteration}`;
 }
 
-// Test user context
+// Test user context (persists between iterations for a VU)
 let authToken = null;
 let userId = null;
 
@@ -84,10 +81,16 @@ export default function () {
     errorRate.add(!success);
   });
 
+  // T-02 fix: Authenticate once per VU, not every iteration
   group('2. Authentication', function () {
+    // Skip if already authenticated
+    if (authToken) {
+      return;
+    }
+
     const payload = JSON.stringify({
       platformType: 'dev',
-      platformAuthToken: `loadtest_vu${vuId}_iter${iteration}:LoadTester${vuId}`,
+      platformAuthToken: `loadtest_vu${vuId}:LoadTester${vuId}`,
     });
 
     const params = {
@@ -107,6 +110,10 @@ export default function () {
       authToken = response.json('accessToken');
       userId = response.json('userId');
       successfulAuths.add(1);
+    } else {
+      // T-04 fix: Reset tokens on auth failure
+      authToken = null;
+      userId = null;
     }
     errorRate.add(!success);
   });
@@ -188,7 +195,7 @@ export default function () {
   // Simulate match completion (every 5th iteration to reduce load)
   if (iteration % 5 === 0) {
     group('6. Submit Match Results', function () {
-      const matchId = generateUUID();
+      const matchId = generateUniqueId(vuId, iteration);
       const matchSummary = {
         matchId: matchId,
         mode: 'arena',
@@ -276,15 +283,17 @@ export function teardown(data) {
 }
 
 // Handle summary
+// T-08 fix: Add optional chaining for metrics that may be missing
 export function handleSummary(data) {
-  const passed = data.metrics.errors.values.rate < 0.01 &&
-                 data.metrics.http_req_duration.values['p(99)'] < 2000;
+  const errorRate = data.metrics?.errors?.values?.rate ?? 1;
+  const p99Latency = data.metrics?.http_req_duration?.values?.['p(99)'] ?? Infinity;
+  const passed = errorRate < 0.01 && p99Latency < 2000;
 
   console.log('\n=== Load Test Summary ===');
   console.log(`Status: ${passed ? 'PASSED' : 'FAILED'}`);
-  console.log(`Total requests: ${data.metrics.http_reqs.values.count}`);
-  console.log(`Error rate: ${(data.metrics.errors.values.rate * 100).toFixed(2)}%`);
-  console.log(`p99 latency: ${data.metrics.http_req_duration.values['p(99)'].toFixed(0)}ms`);
+  console.log(`Total requests: ${data.metrics?.http_reqs?.values?.count ?? 0}`);
+  console.log(`Error rate: ${(errorRate * 100).toFixed(2)}%`);
+  console.log(`p99 latency: ${p99Latency === Infinity ? 'N/A' : p99Latency.toFixed(0) + 'ms'}`);
 
   return {
     'stdout': textSummary(data, { indent: ' ', enableColors: true }),
@@ -293,22 +302,26 @@ export function handleSummary(data) {
 }
 
 // Text summary helper
+// T-08 fix: Add optional chaining for metrics that may be missing
 function textSummary(data, options) {
   let output = '\n=== k6 Load Test Results ===\n\n';
 
   output += 'Thresholds:\n';
-  for (const [name, threshold] of Object.entries(data.metrics)) {
-    if (threshold.thresholds) {
-      const passed = Object.values(threshold.thresholds).every(t => t.ok);
+  for (const [name, threshold] of Object.entries(data.metrics || {})) {
+    if (threshold?.thresholds) {
+      const passed = Object.values(threshold.thresholds).every(t => t?.ok);
       output += `  ${passed ? '\u2713' : '\u2717'} ${name}\n`;
     }
   }
 
+  const p99 = data.metrics?.http_req_duration?.values?.['p(99)'];
+  const errRate = data.metrics?.errors?.values?.rate;
+
   output += '\nKey Metrics:\n';
-  output += `  http_req_duration p99: ${data.metrics.http_req_duration.values['p(99)'].toFixed(0)}ms\n`;
-  output += `  errors rate: ${(data.metrics.errors.values.rate * 100).toFixed(2)}%\n`;
-  output += `  successful_auths: ${data.metrics.successful_auths?.values.count || 0}\n`;
-  output += `  successful_match_results: ${data.metrics.successful_match_results?.values.count || 0}\n`;
+  output += `  http_req_duration p99: ${p99 != null ? p99.toFixed(0) + 'ms' : 'N/A'}\n`;
+  output += `  errors rate: ${errRate != null ? (errRate * 100).toFixed(2) + '%' : 'N/A'}\n`;
+  output += `  successful_auths: ${data.metrics?.successful_auths?.values?.count ?? 0}\n`;
+  output += `  successful_match_results: ${data.metrics?.successful_match_results?.values?.count ?? 0}\n`;
 
   return output;
 }

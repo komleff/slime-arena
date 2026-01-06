@@ -41,12 +41,10 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
+import { randomUUID } from 'crypto';
+
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  return randomUUID();
 }
 
 // Auth helpers
@@ -103,11 +101,8 @@ async function runTests() {
     assert(data.status === 'ok', `Health status: ${data.status}`);
   });
 
-  await test('1.2 Database connection', async () => {
-    const response = await fetch(`${BASE_URL}/health`);
-    const data = await response.json();
-    assert(data.database === 'connected', `Database: ${data.database}`);
-  });
+  // Note: /health returns {status, timestamp, service} - no database field
+  // Database connectivity is implicitly tested by auth/profile operations
 
   // ============= Phase 2: Auth Flow =============
   console.log('\n--- Phase 2: Auth Flow ---\n');
@@ -268,6 +263,11 @@ async function runTests() {
   console.log('\n--- Phase 6: Idempotency Tests ---\n');
 
   await test('6.1 Duplicate match submission returns success', async () => {
+    // Get profile state before duplicate submission
+    const profileBefore = await fetch(`${BASE_URL}/api/v1/profile`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
     const duplicateMatchSummary = {
       matchId,
       mode: 'arena',
@@ -298,6 +298,13 @@ async function runTests() {
     assert(data.success, 'Duplicate should still return success');
     assert(data.message?.includes('already processed') || data.matchId === matchId,
       'Should indicate already processed or return matchId');
+
+    // Verify profile state unchanged after duplicate submission (T-09 fix)
+    const profileAfter = await fetch(`${BASE_URL}/api/v1/profile`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+    assert(profileBefore.xp === profileAfter.xp,
+      `XP should not change on duplicate: before=${profileBefore.xp}, after=${profileAfter.xp}`);
   });
 
   await test('6.2 Nickname idempotency with operationId', async () => {
@@ -331,8 +338,8 @@ async function runTests() {
       headers: await authHeaders(),
     });
     const data = await response.json();
-    // XP should be > 0 since we submitted a match result with this user
-    assert(typeof data.xp === 'number', 'Profile should have XP field');
+    // XP should be >= 0 since we submitted a match result with this user
+    assert(typeof data.xp === 'number' && data.xp >= 0, 'Profile should have XP field >= 0');
   });
 
   await test('7.2 Wallet balance accessible', async () => {
