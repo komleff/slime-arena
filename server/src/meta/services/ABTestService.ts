@@ -42,10 +42,16 @@ const ASSIGNMENT_CACHE_PREFIX = 'abtest:assignment:';
 const ASSIGNMENT_CACHE_TTL = 86400; // 24h
 
 export class ABTestService {
-  private pool: Pool;
+  private _pool: Pool | null = null;
 
-  constructor() {
-    this.pool = getPostgresPool();
+  /**
+   * Lazy initialization: получаем пул только при первом обращении
+   */
+  private get pool(): Pool {
+    if (!this._pool) {
+      this._pool = getPostgresPool();
+    }
+    return this._pool;
   }
 
   /**

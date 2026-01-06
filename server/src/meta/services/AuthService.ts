@@ -20,11 +20,18 @@ export interface Session {
 }
 
 export class AuthService {
-  private pool: Pool;
+  private _pool: Pool | null = null;
   private readonly SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-  constructor() {
-    this.pool = getPostgresPool();
+  /**
+   * Lazy initialization: получаем пул только при первом обращении,
+   * после того как initializePostgres() уже вызван в server.ts
+   */
+  private get pool(): Pool {
+    if (!this._pool) {
+      this._pool = getPostgresPool();
+    }
+    return this._pool;
   }
 
   /**
