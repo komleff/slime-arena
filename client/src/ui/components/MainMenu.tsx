@@ -441,16 +441,20 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
             {getPlayButtonText(authenticating, isSearching, isConnecting)}
           </button>
 
-          {isSearching && onCancelMatchmaking && (
+          {(isSearching || hasMatchmakingError) && onCancelMatchmaking && (
             <div class={`matchmaking-status ${hasMatchmakingError ? 'error' : 'searching'}`}>
               <div class="status-text">
-                {mmStatus === 'found' ? '🎮 Матч найден!' : '🔍 Поиск игры...'}
+                {hasMatchmakingError
+                  ? '❌ Ошибка поиска'
+                  : mmStatus === 'found'
+                    ? '🎮 Матч найден!'
+                    : '🔍 Поиск игры...'}
               </div>
               {mmPosition !== null && mmPosition > 0 && (
                 <div class="queue-position">Позиция в очереди: {mmPosition}</div>
               )}
               <button type="button" class="cancel-button" onClick={onCancelMatchmaking}>
-                Отмена
+                {hasMatchmakingError ? 'Закрыть' : 'Отмена'}
               </button>
             </div>
           )}

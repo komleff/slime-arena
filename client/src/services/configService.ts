@@ -104,8 +104,10 @@ interface ABTestVariant {
 // ========== Constants ==========
 
 const CONFIG_CACHE_KEY = 'runtime_config';
-const CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const CONFIG_POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
+// 5 минут: конфиг меняется редко, достаточно хранить кэш столько же
+const CONFIG_CACHE_TTL = 5 * 60 * 1000;
+// 5 минут: баланс между актуальностью конфигурации и нагрузкой на MetaServer
+const CONFIG_POLL_INTERVAL = 5 * 60 * 1000;
 
 // ========== State ==========
 

@@ -5,9 +5,28 @@
 
 // @ts-expect-error Vite env types
 const META_SERVER_URL = (import.meta.env?.VITE_META_SERVER_URL as string) || 'http://localhost:3000';
+// 10 секунд: достаточно для типичных запросов, не блокирует UI слишком долго
 const DEFAULT_TIMEOUT = 10000;
+// 3 попытки: баланс между устойчивостью к сбоям и нагрузкой на сервер
 const MAX_RETRIES = 3;
+// 1 секунда базовой задержки для exponential backoff (1s, 2s, 4s...)
 const RETRY_BASE_DELAY = 1000;
+
+/**
+ * Генерация UUID v4 с fallback для non-secure context.
+ * crypto.randomUUID() доступен только в Secure Context (HTTPS/localhost).
+ */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback: генерация UUID v4 вручную
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 interface ApiError {
   status: number;
@@ -84,7 +103,7 @@ class MetaServerClient {
    * Используется для операций, которые не должны дублироваться при повторе.
    */
   async postIdempotent<T>(path: string, body?: object): Promise<T> {
-    const operationId = crypto.randomUUID();
+    const operationId = generateUUID();
     return this.request<T>('POST', path, { ...body, operationId });
   }
 
@@ -152,16 +171,19 @@ class MetaServerClient {
     } catch (err) {
       clearTimeout(timeoutId);
 
-      // Abort (timeout)
-      if (err instanceof Error && err.name === 'AbortError') {
-        throw { status: 0, message: 'Request timeout', code: 'TIMEOUT' } as ApiError;
-      }
+      const isAbortError = err instanceof Error && err.name === 'AbortError';
+      const isNetworkError = err instanceof TypeError;
 
-      // Network error — retry
-      if (err instanceof TypeError && retryCount < MAX_RETRIES) {
+      // Timeout и Network error — retry с exponential backoff
+      if ((isAbortError || isNetworkError) && retryCount < MAX_RETRIES) {
         const delay = RETRY_BASE_DELAY * Math.pow(2, retryCount);
         await this.sleep(delay);
         return this.request<T>(method, path, body, retryCount + 1);
+      }
+
+      // Timeout после исчерпания попыток
+      if (isAbortError) {
+        throw { status: 0, message: 'Request timeout', code: 'TIMEOUT' } as ApiError;
       }
 
       throw err;

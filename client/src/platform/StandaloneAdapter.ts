@@ -51,8 +51,8 @@ export class StandaloneAdapter implements IAuthAdapter {
 
   async getCredentials(): Promise<PlatformCredentials> {
     // Формат: "userId:nickname" для DevAuthProvider на сервере
-    // Если nickname нет, используем дефолтный
-    const nickname = this.nickname || 'Player';
+    // Если nickname нет или пустой, используем дефолтный
+    const nickname = this.nickname?.trim() || 'Player';
     const platformData = `${this.userId}:${nickname}`;
 
     return {

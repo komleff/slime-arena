@@ -44,6 +44,7 @@ interface ProfileSummary {
 
 /**
  * Создаёт объект Profile с дефолтными значениями.
+ * TODO: В Sprint 2 эти значения должны приходить с сервера в ProfileSummary
  */
 function createDefaultProfile(level = 1, xp = 0): Profile {
   return {
@@ -55,6 +56,23 @@ function createDefaultProfile(level = 1, xp = 0): Profile {
     highestMass: 0,
     level,
     xp,
+  };
+}
+
+/**
+ * Создаёт объект User с заданными параметрами.
+ */
+function createUser(
+  userId: string,
+  nickname: string,
+  platformType: string
+): User {
+  return {
+    id: userId,
+    platformType,
+    platformId: userId,
+    nickname,
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -86,13 +104,11 @@ class AuthService {
         const profileSummary = await this.fetchProfile();
         if (profileSummary) {
           // Конвертируем ProfileSummary в User и Profile для signals
-          const user: User = {
-            id: profileSummary.userId,
-            platformType: platformManager.getPlatformType(),
-            platformId: profileSummary.userId,
-            nickname: profileSummary.nickname,
-            createdAt: new Date().toISOString(),
-          };
+          const user = createUser(
+            profileSummary.userId,
+            profileSummary.nickname,
+            platformManager.getPlatformType()
+          );
           const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
           setAuthState(user, profile, token);
           this.initialized = true;
@@ -127,17 +143,15 @@ class AuthService {
       // Отправляем на сервер (P0-1: platformAuthToken вместо platformData)
       const response = await metaServerClient.post<AuthResponse>('/api/v1/auth/verify', {
         platformType: credentials.platformType,
-        platformAuthToken: credentials.platformData, // Сервер ожидает это поле
+        platformAuthToken: credentials.platformData, // Сервер ожидает platformAuthToken, передаём platformData
       });
 
       // Конвертируем ответ сервера в User и Profile для signals
-      const user: User = {
-        id: response.userId,
-        platformType: credentials.platformType,
-        platformId: response.userId,
-        nickname: response.profile.nickname,
-        createdAt: new Date().toISOString(),
-      };
+      const user = createUser(
+        response.userId,
+        response.profile.nickname,
+        credentials.platformType
+      );
       const profile = createDefaultProfile();
 
       // Сохраняем токен и обновляем состояние
@@ -180,13 +194,11 @@ class AuthService {
       // Обновляем состояние
       const token = metaServerClient.getToken();
       if (token && profileSummary) {
-        const user: User = {
-          id: profileSummary.userId,
-          platformType: platformManager.getPlatformType(),
-          platformId: profileSummary.userId,
-          nickname: profileSummary.nickname,
-          createdAt: new Date().toISOString(),
-        };
+        const user = createUser(
+          profileSummary.userId,
+          profileSummary.nickname,
+          platformManager.getPlatformType()
+        );
         const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
         setAuthState(user, profile, token);
       }
