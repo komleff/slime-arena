@@ -11,13 +11,13 @@
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] Sprint 3: Stage D Testing:**
+- **[ЗАВЕРШЕНО] Sprint 3: Stage D Testing (PR #43 MERGED):**
   - ✅ 3.1: Исправлен X-2 (API mismatch в тестах — platformType/platformAuthToken)
   - ✅ 3.2: Созданы Stage D smoke тесты (`server/tests/meta-stage-d.test.ts`)
   - ✅ 3.3: Созданы тесты идемпотентности (включены в Stage D)
   - ✅ 3.4: Созданы k6 load тесты (`tests/load/soft-launch.js`)
-  - ✅ 3.5: AI Review Hotfix (T-01 to T-09) — исправлены 9 дефектов
-  - ⏳ Ручное тестирование и валидация
+  - ✅ 3.5: AI Review Hotfix (T-01 to T-09 + UUID) — 10 дефектов исправлено
+  - ✅ 3.6: Stage D Validation — 19/19 тестов пройдены
 
 - **[ЗАВЕРШЕНО] Sprint 2: MatchServer → MetaServer Integration:**
   - ✅ Sprint 2.0: Исправлен X-1 blocker (lazy initialization для всех DB сервисов)

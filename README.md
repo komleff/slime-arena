@@ -79,27 +79,38 @@ npm run test
 
 ### Stage D Integration Tests
 
-Полные интеграционные тесты (auth → config → matchmaking → match-results):
+Полные интеграционные тесты полного игрового цикла (auth → config → matchmaking → match-results).
+**Статус: ✅ 19/19 тестов пройдены** (Sprint 3 завершён).
 
 ```bash
-# Запустить MetaServer
-npm run meta:dev
+# 1. Запустить PostgreSQL и Redis
+docker-compose up postgres redis -d
 
-# В другом терминале — Stage D тесты
+# 2. Запустить MetaServer
+npm run dev --workspace=server
+
+# 3. В другом терминале — Stage D тесты (17 тестов)
 npx tsx server/tests/meta-stage-d.test.ts
 
-# Или все smoke тесты
+# Или все smoke тесты (Stage B + C + D)
 .\tests\smoke\run-stage-d.ps1
 ```
 
 ### Load Tests (k6)
 
-Нагрузочное тестирование (CCU=500, p99 < 2000ms):
+Нагрузочное тестирование для Soft Launch (CCU=500, p99 < 2000ms, errors < 1%):
 
 ```bash
 # Установить k6: https://k6.io/docs/getting-started/installation/
+
+# Smoke test (быстрая проверка)
+k6 run --vus 10 --duration 30s tests/load/soft-launch.js
+
+# Full load test (~11 минут)
 k6 run tests/load/soft-launch.js
 ```
+
+Подробная документация: [tests/load/README.md](tests/load/README.md)
 
 ## Docker
 
