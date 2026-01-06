@@ -11,8 +11,182 @@
 - **UI Refactoring**: ЗАВЕРШЕНО
 - **README Update**: ЗАВЕРШЕНО
 - **Sprint 1 Client Integration**: ЗАВЕРШЕНО
+- **Sprint 2 Server Integration**: ЗАВЕРШЕНО
+- **Sprint 3 Stage D Testing**: ЗАВЕРШЕНО (19/19 тестов)
 
-## Последние изменения (Mobile Controls & Flight Assist Tuning)
+## Последние изменения (Sprint 3: Stage D Testing)
+
+### Sprint 3: Stage D Testing (test/sprint3-stage-d-testing)
+
+**Ветка:** `test/sprint3-stage-d-testing`
+**PR:** #43
+**Статус:** 🟢 MERGED
+
+**Цель:** Комплексное тестирование полного игрового цикла перед Soft Launch.
+
+**3.1: Fix X-2 (API mismatch)**
+
+Исправлен `server/tests/meta-stage-c.test.ts`:
+- `platform` → `platformType`
+- `token` → `platformAuthToken`
+- `data.success` → `data.accessToken`
+
+**3.2: Stage D Smoke Tests**
+
+Создан `server/tests/meta-stage-d.test.ts` (18 тестов):
+- Phase 1: Infrastructure (health, DB connection)
+- Phase 2: Auth Flow (dev auth, invalid auth, profile)
+- Phase 3: Config Flow (runtime config, features)
+- Phase 4: Matchmaking Flow (join, status, cancel)
+- Phase 5: Match Results Flow (submit, invalid token, validation)
+- Phase 6: Idempotency Tests (duplicate match, operationId)
+- Phase 7: Player Stats (XP, wallet)
+- Phase 8: Error Handling (401, 400)
+
+**3.3: k6 Load Tests**
+
+Создан `tests/load/soft-launch.js`:
+- Target: CCU=500, p99 < 2000ms, errors < 1%
+- Stages: ramp up → steady state → ramp down
+- Metrics: auth_latency, config_latency, matchmaking_latency, match_results_latency
+- Custom thresholds для каждого endpoint
+
+**3.4: Test Runner**
+
+Создан `tests/smoke/run-stage-d.ps1`:
+- Запускает Stage C + Stage D + Stage B тесты последовательно
+- Проверяет доступность MetaServer перед стартом
+
+**Новые файлы (4):**
+- `server/tests/meta-stage-d.test.ts` — Stage D smoke tests
+- `tests/load/soft-launch.js` — k6 load test
+- `tests/load/README.md` — документация load тестов
+- `tests/smoke/run-stage-d.ps1` — test runner
+
+**Модифицированные файлы (2):**
+- `server/tests/meta-stage-c.test.ts` — X-2 fix
+- `README.md` — добавлены инструкции по тестированию
+
+**3.5: AI Review Hotfix (T-01 to T-09)**
+
+Исправлены 9 дефектов, найденных AI ревьюерами (Codex, Gemini 3 Pro, GitHub Copilot):
+
+**Stage D tests (meta-stage-d.test.ts):**
+- T-01: Удалён test 1.2 database check (/health не имеет поля database)
+- T-03: Использование crypto.randomUUID() вместо Math.random()
+- T-06: XP check проверяет >= 0
+- T-09: Idempotency test проверяет неизменность профиля после дубликата
+
+**k6 load tests (soft-launch.js):**
+- T-02: Auth Flood fix — аутентификация 1 раз на VU, не каждую итерацию
+- T-03: Детерминистичный unique ID для match results
+- T-04: Сброс auth tokens при ошибке авторизации
+- T-08: Optional chaining в handleSummary/textSummary
+
+**PowerShell runner (run-stage-d.ps1):**
+- T-05: Исправлена npm команда на `npm run dev --workspace=server`
+- T-07: Отслеживание Push-Location для безопасного Pop-Location
+
+**Коммит:** 7d16ad4
+
+**3.6: Stage D Validation (SDET Report)**
+
+✅ **19/19 тестов пройдены** — система готова к Soft Launch.
+
+Подтверждённые исправления:
+- S2S Безопасность: MATCH_SERVER_TOKEN защищает API результатов
+- Схема БД: SQL-запросы используют корректные колонки (coins, gems)
+- Идемпотентность: operationId и защита от дублей работают
+- Стабильность: Ленивая инициализация Redis в MatchmakingService
+- XP Логика: Валидация допускает нулевые значения для новых игроков
+
+**AI Reviewers:**
+| Ревьюер | Вердикт |
+|---------|---------|
+| Codex | ✅ PASS |
+| Opus | ✅ APPROVED |
+| Gemini 3 Pro | ✅ VERIFIED |
+| GitHub Copilot | ✅ No issues |
+
+**Коммит UUID fix:** ea27ff6
+
+---
+
+## Предыдущие изменения (Sprint 2: MatchServer → MetaServer Integration)
+
+### Sprint 2: Server Integration (feat/sprint2-matchserver-integration)
+
+**Ветка:** `feat/sprint2-matchserver-integration`
+**Статус:** 🟢 Готово к PR
+
+**Цель:** Связать MatchServer (Colyseus) с MetaServer (HTTP API) для сохранения результатов матчей.
+
+**Sprint 2.0: X-1 Blocker Fix (Critical)**
+
+Проблема: Все MetaServer сервисы вызывали `getPostgresPool()` в конструкторе, но модули импортируются до вызова `initializePostgres()`.
+
+Решение: Lazy initialization через getter:
+```typescript
+private _pool: Pool | null = null;
+private get pool(): Pool {
+  if (!this._pool) this._pool = getPostgresPool();
+  return this._pool;
+}
+```
+
+Изменённые файлы (7 сервисов):
+- `AuthService.ts`, `PlayerService.ts`, `ConfigService.ts`
+- `WalletService.ts`, `ShopService.ts`, `ABTestService.ts`, `AnalyticsService.ts`
+
+**Sprint 2.1: MatchResultService**
+
+Создан `server/src/services/MatchResultService.ts`:
+- HTTP клиент для POST /api/v1/match-results/submit
+- Retry с exponential backoff (3 попытки)
+- Server Token auth (Authorization: ServerToken <token>)
+- Timeout 10 секунд
+
+**Sprint 2.2: match-results endpoint**
+
+Создан `server/src/meta/routes/matchResults.ts`:
+- POST /api/v1/match-results/submit
+- requireServerToken middleware (MATCH_SERVER_TOKEN env)
+- Идемпотентность по matchId (UPSERT)
+- Обновление профиля игрока (XP, coins, stats)
+
+**Sprint 2.3: ArenaRoom Integration**
+
+Изменён `server/src/rooms/ArenaRoom.ts`:
+- Добавлен `matchStartedAt` timestamp
+- Добавлен `submitMatchResults()` метод
+- Вызов в `endMatch()` для отправки MatchSummary
+
+**Новые файлы (3):**
+- `server/src/services/MatchResultService.ts`
+- `server/src/meta/routes/matchResults.ts`
+- `shared/src/types.ts` — MatchSummary, PlayerResult interfaces
+
+**Модифицированные файлы (12):**
+- 7 MetaServer сервисов (lazy init)
+- `server/src/meta/middleware/auth.ts` — requireServerToken
+- `server/src/meta/server.ts` — route registration
+- `server/src/index.ts` — MatchResultService initialization
+- `server/src/rooms/ArenaRoom.ts` — integration
+
+---
+
+## Предыдущие изменения (Mobile Controls & Flight Assist Tuning)
+
+### Mobile Controls A/B Plan (docs/mobile-controls-ab-plan)
+
+**Цель:** зафиксировать A/B план тюнинга мобильного управления и шаблон конфигурации для быстрого переключения.
+
+**Добавлено/обновлено:**
+- `docs/soft-launch/Sprint-Next-Mobile-Controls-Plan.md` — описаны варианты A/B, quick switching и требования к качеству.
+- `config/experiments/mobile-controls-ab.json` — шаблон параметров A/B (A: stability, B: responsiveness).
+- `README.md` — ссылки на план и AB конфиг.
+
+**Статус:** ?? Готово к PR
 
 ### Mobile Controls A/B Plan (docs/mobile-controls-ab-plan)
 
@@ -747,12 +921,13 @@ npm run dev:meta
 - [x] Matchmaking UI в MainMenu.tsx
 - [x] Интеграция в main.ts
 
-## Открытые задачи (Sprint 2 — Server Integration)
+## Открытые задачи (Sprint 2 — Server Integration) ✅ ЗАВЕРШЕНО
 
-- [ ] MatchResultService (`server/src/services/MatchResultService.ts`)
-- [ ] match-results endpoint (`server/src/meta/routes/matchResults.ts`)
-- [ ] Интеграция в ArenaRoom.endMatch()
-- [ ] joinToken validation в ArenaRoom
+- [x] X-1 Fix: Lazy initialization для всех MetaServer сервисов
+- [x] MatchResultService (`server/src/services/MatchResultService.ts`)
+- [x] match-results endpoint (`server/src/meta/routes/matchResults.ts`)
+- [x] Интеграция в ArenaRoom.endMatch()
+- [ ] joinToken validation в ArenaRoom (отложено)
 
 ## Открытые задачи (Sprint 3 — Stage D Testing)
 
@@ -777,7 +952,7 @@ npm run dev:meta
 ### P0 — Critical
 
 - [ ] **G-1: Multitouch failure** — `forceResetJoystickForAbility` в main.ts убивает джойстик при нажатии кнопки умения. Игрок не может двигаться и использовать умения одновременно. (Gemini SDET)
-- [ ] **X-1: MetaServer не стартует** — AuthService создаётся на уровне модуля и вызывает getPostgresPool() до initializePostgres(). Блокирует Stage D тестирование. (Codex)
+- [x] **X-1: MetaServer не стартует** — ✅ ИСПРАВЛЕНО: Lazy initialization для всех 7 MetaServer сервисов (AuthService, PlayerService, ConfigService, WalletService, ShopService, ABTestService, AnalyticsService)
 
 ### P1 — High
 

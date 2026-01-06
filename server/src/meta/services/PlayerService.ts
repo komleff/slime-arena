@@ -19,10 +19,16 @@ export interface ProfileSummary extends Profile {
 }
 
 export class PlayerService {
-  private pool: Pool;
+  private _pool: Pool | null = null;
 
-  constructor() {
-    this.pool = getPostgresPool();
+  /**
+   * Lazy initialization: получаем пул только при первом обращении
+   */
+  private get pool(): Pool {
+    if (!this._pool) {
+      this._pool = getPostgresPool();
+    }
+    return this._pool;
   }
 
   async getProfile(userId: string): Promise<ProfileSummary> {

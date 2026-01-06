@@ -14,3 +14,8 @@ _ext/u2/
 legacy/
 logs/
 .claude/
+
+# Test artifacts and local logs
+local/test-logs/
+tests/load/results.json
+tests/load/results.html

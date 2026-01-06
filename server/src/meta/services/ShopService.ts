@@ -27,14 +27,32 @@ export interface PurchaseResult {
  * Integrates with RuntimeConfig for offers and WalletService for transactions
  */
 export class ShopService {
-  private pool: Pool;
-  private configService: ConfigService;
-  private walletService: WalletService;
+  private _pool: Pool | null = null;
+  private _configService: ConfigService | null = null;
+  private _walletService: WalletService | null = null;
 
-  constructor() {
-    this.pool = getPostgresPool();
-    this.configService = new ConfigService();
-    this.walletService = new WalletService();
+  /**
+   * Lazy initialization: получаем пул только при первом обращении
+   */
+  private get pool(): Pool {
+    if (!this._pool) {
+      this._pool = getPostgresPool();
+    }
+    return this._pool;
+  }
+
+  private get configService(): ConfigService {
+    if (!this._configService) {
+      this._configService = new ConfigService();
+    }
+    return this._configService;
+  }
+
+  private get walletService(): WalletService {
+    if (!this._walletService) {
+      this._walletService = new WalletService();
+    }
+    return this._walletService;
   }
 
   /**

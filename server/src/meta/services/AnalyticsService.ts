@@ -69,14 +69,23 @@ export const EventTypes = {
 export type EventType = (typeof EventTypes)[keyof typeof EventTypes];
 
 export class AnalyticsService {
-  private pool: Pool;
+  private _pool: Pool | null = null;
   private buffer: AnalyticsEvent[] = [];
   private flushTimer: NodeJS.Timeout | null = null;
   private isShuttingDown = false;
 
   constructor() {
-    this.pool = getPostgresPool();
     this.startFlushTimer();
+  }
+
+  /**
+   * Lazy initialization: получаем пул только при первом обращении
+   */
+  private get pool(): Pool {
+    if (!this._pool) {
+      this._pool = getPostgresPool();
+    }
+    return this._pool;
   }
 
   /**
