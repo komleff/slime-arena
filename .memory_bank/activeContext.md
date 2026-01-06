@@ -6,10 +6,46 @@
 **База:** main (7 января 2026)
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
-**Текущая ветка:** `feature/ui-refactoring`
-**PR:** #32 — Phase 2.7 Final Fixes завершены, готов к merge
+**Текущая ветка:** `main`
+**PR:** Все PR влиты, релиз v0.3.0 опубликован.
 
 ### Фокус сессии
+
+- **[ЗАВЕРШЕНО] Sprint 1: Client ↔ MetaServer Integration (6 января 2026):**
+
+  **Новые файлы (11):**
+  - `client/src/api/metaServerClient.ts` — HTTP клиент для MetaServer с retry, timeout, auth
+  - `client/src/platform/IAuthAdapter.ts` — Интерфейс платформенных адаптеров
+  - `client/src/platform/TelegramAdapter.ts` — Telegram Mini App адаптер
+  - `client/src/platform/StandaloneAdapter.ts` — Standalone/dev адаптер
+  - `client/src/platform/PlatformManager.ts` — Менеджер детекции платформы
+  - `client/src/platform/index.ts` — Экспорты модуля platform
+  - `client/src/services/authService.ts` — Сервис авторизации клиента
+  - `client/src/services/configService.ts` — Сервис загрузки RuntimeConfig
+  - `client/src/services/matchmakingService.ts` — Сервис matchmaking очереди
+  - `client/src/services/index.ts` — Экспорты модуля services
+
+  **Модифицированные файлы (4):**
+  - `client/src/ui/signals/gameState.ts` — Auth/matchmaking signals и actions
+  - `client/src/ui/components/MainMenu.tsx` — Matchmaking status UI
+  - `client/src/ui/UIBridge.tsx` — onCancelMatchmaking callback
+  - `client/src/main.ts` — Инициализация сервисов, интеграция matchmaking
+
+  **Ключевые решения:**
+  - JWT для joinToken (stateless валидация на MatchServer)
+  - Платформы: Telegram + Standalone (для production и dev соответственно)
+  - Синхронное начисление наград (для MVP без очереди)
+
+  **Статус:**
+  - ✅ TypeScript build passes
+  - ✅ Vite build passes
+  - ⏳ Ожидает: Sprint 2 (MatchServer → MetaServer)
+
+- **[ЗАВЕРШЕНО] Релиз v0.3.0 и закрытие Phase 2 (7 января 2026):**
+  - ✅ Актуализация `README.md` и `CHANGELOG.md`.
+  - ✅ Синхронизация версий во всех `package.json` (0.3.0).
+  - ✅ Создание Git-тега `v0.3.0` и публикация GitHub Release.
+  - ✅ Аудит и исправление технической документации (PR #33 -> PR #35).
 
 - **[ЗАВЕРШЕНО] Документация и README (7 января 2026):**
   - ✅ Главный README.md обновлён в соответствии с ТЗ v1.4.7 и Архитектурой v4.2.5.
@@ -341,13 +377,14 @@
 
 ### Следующие шаги
 
-1. **UI Refactoring (10-12 дней):**
-   - [ ] Настройка Preact + Vite в клиенте
-   - [ ] Создание ScreenManager и базовых компонентов
-   - [ ] Перенос HUD (здоровье, опыт, скиллы) на Preact
-   - [ ] Перенос меню (магазин, профиль, лидерборд)
-2. **Stage D - Тестирование (5-7 дней):**
-   - Smoke-тесты критических путей
-   - Нагрузочное тестирование (CCU=500)
+1. **Sprint 2: MatchServer → MetaServer Integration (2-3 дня):**
+   - [ ] Создать MatchResultService (`server/src/services/MatchResultService.ts`)
+   - [ ] Создать match-results endpoint (`server/src/meta/routes/matchResults.ts`)
+   - [ ] Интегрировать в ArenaRoom.endMatch()
+   - [ ] Добавить joinToken validation в ArenaRoom
+2. **Sprint 3: Stage D Testing (2-3 дня):**
+   - [ ] Smoke-тесты полного flow (auth → matchmaking → game → results)
+   - [ ] Тесты идемпотентности
+   - [ ] Нагрузочные тесты k6 (CCU=500)
 3. **Рефакторинг прототипа (Фаза 0):**
    - Типизация систем сервера, удаление дублирования mathUtils.

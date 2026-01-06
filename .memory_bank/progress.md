@@ -2,16 +2,82 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: docs/update-readme @ 7 января 2026
-- **Текущая ветка**: docs/update-readme
+- **last_checked_commit**: RELEASE v0.3.0 @ 7 января 2026
+- **Текущая ветка**: main
 - **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
-- **Stage A+B+C MetaServer**: ЗАВЕРШЕНО, merged to main (PR #31)
-- **UI Refactoring**: ЗАВЕРШЕНО, merged to main (PR #32)
+- **Stage A+B+C MetaServer**: ЗАВЕРШЕНО
+- **UI Refactoring**: ЗАВЕРШЕНО
 - **README Update**: ЗАВЕРШЕНО
+- **Sprint 1 Client Integration**: ЗАВЕРШЕНО
 
-## Последние изменения (7 января 2026)
+## Последние изменения (6 января 2026)
+
+### Sprint 1: Client ↔ MetaServer Integration (ЗАВЕРШЕНО)
+
+**Service Layer на клиенте:**
+- MetaServerClient (HTTP клиент с retry, timeout, auth headers)
+- AuthService (авторизация через MetaServer, session restore)
+- ConfigService (загрузка RuntimeConfig с кэшированием)
+- MatchmakingService (очередь matchmaking с polling)
+
+**Platform Adapters:**
+- PlatformManager (детекция платформы Telegram/Standalone)
+- TelegramAdapter (initData из window.Telegram.WebApp)
+- StandaloneAdapter (localStorage userId + nickname)
+- IAuthAdapter interface (единый контракт для платформ)
+
+**UI Integration:**
+- Auth/Matchmaking signals добавлены в gameState.ts
+- MainMenu.tsx: matchmaking status UI, cancel button
+- UIBridge.tsx: onCancelMatchmaking callback
+- main.ts: async initialization services
+
+**Новые файлы (11):**
+```
+client/src/api/
+└── metaServerClient.ts      — HTTP клиент с retry/timeout
+
+client/src/platform/
+├── IAuthAdapter.ts          — Интерфейс адаптера
+├── TelegramAdapter.ts       — Telegram Mini App
+├── StandaloneAdapter.ts     — Dev/iframe режим
+├── PlatformManager.ts       — Детекция платформы
+└── index.ts                 — Экспорты
+
+client/src/services/
+├── authService.ts           — Авторизация
+├── configService.ts         — RuntimeConfig
+├── matchmakingService.ts    — Matchmaking queue
+└── index.ts                 — Экспорты
+```
+
+**Модифицированные файлы (4):**
+- `client/src/ui/signals/gameState.ts` — 80+ новых строк (auth/matchmaking signals)
+- `client/src/ui/components/MainMenu.tsx` — matchmaking status UI
+- `client/src/ui/UIBridge.tsx` — onCancelMatchmaking callback
+- `client/src/main.ts` — async service initialization
+
+**Ключевые решения:**
+- JWT для joinToken (stateless validation на MatchServer)
+- Telegram + Standalone платформы (prod + dev)
+- Синхронное начисление наград (для MVP)
+
+**Статус:**
+- ✅ TypeScript build: PASS
+- ✅ Vite build: PASS
+- ⏳ Sprint 2: MatchServer → MetaServer Integration
+
+---
+
+## Изменения (7 января 2026)
+
+### Мильный камень: Релиз v0.3.0
+- ✅ Опубликован официальный релиз `v0.3.0` на GitHub.
+- ✅ Создан `CHANGELOG.md` с подробным описанием технологической перестройки.
+- ✅ Все подпроекты (`client`, `server`, `shared`) обновлены до версии 0.3.0.
+- ✅ Устранены ошибки в технической документации по производительности (PR #35).
 
 ### Обновление README и документации
 - ✅ Главный README.md переписан в соответствии с актуальным стеком и архитектурой.
@@ -516,9 +582,33 @@ npm run dev:meta
 - [x] ScreenManager implementation
 - [x] HUD Refactoring
 - [x] Main Menu Refactoring
-- [ ] Интеграция UIBridge в main.ts
+- [x] Интеграция UIBridge в main.ts
 - [ ] Удаление устаревшего DOM-кода
 - [ ] Тестирование на мобильных устройствах
+
+## Открытые задачи (Sprint 1 — Client Integration)
+
+- [x] MetaServerClient HTTP клиент
+- [x] PlatformManager + Adapters (Telegram, Standalone)
+- [x] AuthService (client)
+- [x] ConfigService (client)
+- [x] MatchmakingService (client)
+- [x] Auth/Matchmaking signals в gameState.ts
+- [x] Matchmaking UI в MainMenu.tsx
+- [x] Интеграция в main.ts
+
+## Открытые задачи (Sprint 2 — Server Integration)
+
+- [ ] MatchResultService (`server/src/services/MatchResultService.ts`)
+- [ ] match-results endpoint (`server/src/meta/routes/matchResults.ts`)
+- [ ] Интеграция в ArenaRoom.endMatch()
+- [ ] joinToken validation в ArenaRoom
+
+## Открытые задачи (Sprint 3 — Stage D Testing)
+
+- [ ] Smoke-тесты полного flow
+- [ ] Тесты идемпотентности
+- [ ] Нагрузочные тесты k6 (CCU=500)
 
 ## Открытые задачи (рефакторинг игрового прототипа)
 
