@@ -462,7 +462,7 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
 
         {(error || authErrorMsg || mmError) && (
           <div class="menu-error">
-            ⚠️ {error || authErrorMsg || mmError}
+            ⚠️ {[error, authErrorMsg, mmError].filter(Boolean).join(' • ')}
           </div>
         )}
       </div>

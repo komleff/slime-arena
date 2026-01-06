@@ -11,7 +11,32 @@
 
 ### Фокус сессии
 
-- **[ЗАВЕРШЕНО] Sprint 1: Client ↔ MetaServer Integration (6 января 2026):**
+
+- **[В РАБОТЕ] Sprint 2: MatchServer → MetaServer Integration (Server Side):**
+
+  **Цели:**
+  - Реализация `MatchResultService` на MetaServer.
+  - Создание endpoint `/match-results` для приема итогов матча.
+  - Интеграция отправки результатов в `ArenaRoom.endMatch()` (MatchServer).
+  - Валидация `joinToken` при подключении к комнате.
+
+  **Задачи:**
+  1. Проектирование интерфейса `MatchSummary`.
+  2. SQL-миграция для таблицы `match_results`.
+  3. Реализация серверной логики начисления наград.
+
+- **[ЗАВЕРШЕНО] Sprint 1: Client ↔ MetaServer Integration (Client Side):**
+
+  **Sprint 1.9 AI Tester Review (Текущий):**
+  - ✅ MainMenu: Отображение всех ошибок через `.filter(Boolean).join(' • ')`.
+  - ✅ PowerShell smoke tests: Проверено — синтаксис корректен (Codex false positive).
+  - ✅ Build: TypeScript и Vite проходят.
+
+  **Sprint 1.8 Final Polish (Commit fe73cd1):**
+  - ✅ Документация синхронизирована (Architecture Part 4).
+  - ✅ Устранены Magic Strings (`DEFAULT_NICKNAME`).
+  - ✅ Known Issues закрыты.
+  - ✅ Клиент полностью готов к интеграции.
 
   **Новые файлы (11):**
   - `client/src/api/metaServerClient.ts` — HTTP клиент для MetaServer с retry, timeout, auth

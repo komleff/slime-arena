@@ -12,9 +12,34 @@
 - **README Update**: ЗАВЕРШЕНО
 - **Sprint 1 Client Integration**: ЗАВЕРШЕНО
 
-## Последние изменения (6 января 2026)
+## Последние изменения (Sprint 1.9 AI Review)
 
-### Sprint 1: Client ↔ MetaServer Integration (ЗАВЕРШЕНО)
+### Sprint 1.9: AI Tester Review Fixes (ЗАВЕРШЕНО)
+
+**Статус:** ✅ Client Integration Complete
+
+**Исправления:**
+
+- **MainMenu Error Display:** Изменено `{error || authErrorMsg || mmError}` → `{[error, authErrorMsg, mmError].filter(Boolean).join(' • ')}` для отображения всех ошибок одновременно.
+- **PowerShell Smoke Tests:** Проверено — Codex сообщал о parse error на строке 214, но синтаксис корректен (UTF-8, CRLF, proper newline). Ложноположительное срабатывание.
+
+**Изменённые файлы:**
+
+- `client/src/ui/components/MainMenu.tsx` (строка 465)
+
+---
+
+### Sprint 1.8: Final Polish & Fixes (ЗАВЕРШЕНО)
+
+**Коммит:** fe73cd1
+**Статус:** ✅ Client Integration Complete
+
+**Исправления:**
+- **CD-1:** Обновлена документация Architecture Part 4 (`platformType: dev`).
+- **CD-3:** Добавлена константа `DEFAULT_NICKNAME` в `StandaloneAdapter`.
+- **Review:** Закрыты замечания Codex (Config format, UUID risks).
+
+### Sprint 1: Client ↔ MetaServer Integration (Итоги)
 
 **Service Layer на клиенте:**
 - MetaServerClient (HTTP клиент с retry, timeout, auth headers)
@@ -67,7 +92,7 @@ client/src/services/
 **Статус:**
 - ✅ TypeScript build: PASS
 - ✅ Vite build: PASS
-- ⏳ Sprint 2: MatchServer → MetaServer Integration
+- ✅ Ready for Sprint 2
 
 ---
 
