@@ -5245,6 +5245,12 @@ const uiCallbacks: UICallbacks = {
     onExit: () => {
         leaveRoomFromUI();
     },
+    onSelectClass: () => {
+        // Вернуться к выбору класса БЕЗ отключения от комнаты
+        // matchTimer продолжит обновляться с сервера, MainMenu покажет таймер
+        setPhase("menu");
+        setGameViewportLock(false);
+    },
     onCancelMatchmaking: () => {
         matchmakingService.cancelQueue();
         resetMatchmaking();

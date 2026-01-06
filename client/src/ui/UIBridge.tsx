@@ -56,6 +56,7 @@ export interface UICallbacks {
   onActivateAbility: (slot: number) => void;
   onPlayAgain: (classId: number) => void;
   onExit: () => void;
+  onSelectClass?: () => void; // Вернуться к выбору класса без отключения
   onCancelMatchmaking?: () => void;
 }
 
@@ -102,6 +103,7 @@ function UIRoot() {
         <ResultsScreen
           onPlayAgain={callbacks.onPlayAgain}
           onExit={callbacks.onExit}
+          onSelectClass={callbacks.onSelectClass}
         />
       )}
     </Fragment>
