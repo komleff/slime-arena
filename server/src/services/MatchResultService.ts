@@ -1,6 +1,8 @@
 import { MatchSummary } from '@slime-arena/shared/src/types';
 
-const MAX_RETRIES = 3;
+// Increased from 3 to 5 retries to handle longer outages
+// Total max wait: 1s + 2s + 4s + 8s + 16s = 31s before final attempt
+const MAX_RETRIES = 5;
 const INITIAL_RETRY_DELAY_MS = 1000;
 const REQUEST_TIMEOUT_MS = 10000;
 

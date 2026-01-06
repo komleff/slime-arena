@@ -50,35 +50,20 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
     try {
       await client.query('BEGIN');
 
-      // Check for idempotency - if match already exists, return success
-      // Note: match_id is the PRIMARY KEY (UUID), no separate `id` column
-      const existingMatch = await client.query(
-        'SELECT match_id FROM match_results WHERE match_id = $1',
-        [matchSummary.matchId]
-      );
-
-      if (existingMatch.rows.length > 0) {
-        await client.query('COMMIT');
-        console.log(`[MatchResults] Match ${matchSummary.matchId} already processed (idempotency)`);
-        return res.json({
-          success: true,
-          message: 'Match results already processed',
-          matchId: matchSummary.matchId,
-        });
-      }
-
       // Build summary JSONB with playerResults and matchStats
       const summary = {
         playerResults: matchSummary.playerResults,
         matchStats: matchSummary.matchStats || null,
       };
 
-      // Insert match result using existing schema columns
-      // Schema: match_id, mode, started_at, ended_at, config_version, build_version, summary
-      await client.query(
+      // Use INSERT ... ON CONFLICT DO NOTHING for race-condition-safe idempotency
+      // This handles concurrent requests atomically without SELECT→INSERT race
+      const insertResult = await client.query(
         `INSERT INTO match_results
          (match_id, mode, started_at, ended_at, config_version, build_version, summary)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (match_id) DO NOTHING
+         RETURNING match_id`,
         [
           matchSummary.matchId,
           matchSummary.mode,
@@ -89,6 +74,17 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
           JSON.stringify(summary),
         ]
       );
+
+      // If no rows returned, match was already processed (idempotency)
+      if (insertResult.rowCount === 0) {
+        await client.query('COMMIT');
+        console.log(`[MatchResults] Match ${matchSummary.matchId} already processed (idempotency)`);
+        return res.json({
+          success: true,
+          message: 'Match results already processed',
+          matchId: matchSummary.matchId,
+        });
+      }
 
       // Update authenticated players' stats (XP and coins only)
       for (const playerResult of matchSummary.playerResults) {
