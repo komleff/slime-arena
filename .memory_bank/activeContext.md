@@ -12,8 +12,10 @@
 ### Фокус сессии
 
 - **Приоритет тестовых устройств:** Telegram (все платформы) > мобильные телефоны > планшеты с тач-скрином > браузеры компьютера (мышь/клавиатура) > гибридные устройства (низкий приоритет).
+- **Новый запрос:** улучшить отзывчивость мобильного виртуального джойстика через настройку Flight Assist (предиктивное управление угловыми/боковыми ускорениями, снижение заносов и осцилляции).
+- **Документ:** добавлен план будущего спринта по мобильному управлению `docs/soft-launch/Sprint-Next-Mobile-Controls-Plan.md`.
 
-- **[В РАБОТЕ] UI Known Issues v0.3.0 Fixes:**
+- **[НА ПРОВЕРКЕ] UI Known Issues v0.3.0 Fixes (PR #37):**
 
   **Исправлено 15 issues:**
   - ✅ P0: Кнопки умений — динамические иконки, фильтрация слотов, синхронизация кулдаунов
@@ -24,7 +26,7 @@
   - ✅ P2: Новый игрок не видит Results предыдущего матча
   - ✅ P3: Safari safe-area insets для iOS
 
-  **Изменённые файлы (7):**
+  **Изменённые файлы (9):**
   - `client/src/main.ts` — syncAbilityCooldown, syncAbilitySlots, leaderboard classId
   - `client/src/ui/UIBridge.tsx` — экспорт syncAbilitySlots
   - `client/src/ui/components/AbilityButtons.tsx` — динамические иконки/слоты
@@ -32,6 +34,12 @@
   - `client/src/ui/components/ResultsScreen.tsx` — тексты, иконки, порядок, удаление класс-выбора
   - `client/src/ui/data/abilities.ts` — ABILITY_ICON_MAP маппинг
   - `client/src/ui/signals/gameState.ts` — abilitySlots signal, classId в LeaderboardEntry
+  - `activeContext.md` — обновление контекста
+  - `progress.md` — обновление прогресса
+
+  **Статус:**
+  - ✅ PR #37 создан
+  - ⏳ Ожидает ревью и слияния
 
 - **[СЛЕДУЮЩИЙ] Sprint 2: MatchServer → MetaServer Integration (Server Side):**
 

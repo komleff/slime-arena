@@ -14,10 +14,14 @@
 
 ## Последние изменения (UI Known Issues v0.3.0 Fixes)
 
-### UI Known Issues v0.3.0 Fixes (В РАБОТЕ)
+### UI Known Issues v0.3.0 Fixes (PR #37)
 
 **Ветка:** `fix/ui-known-issues-v030`
-**Статус:** ⏳ PR создаётся
+**PR:** PR #37
+**Статус:** 🟡 На проверке / Ready to Merge
+
+**Документация:**
+- Добавлен план будущего спринта по мобильному управлению `docs/soft-launch/Sprint-Next-Mobile-Controls-Plan.md`.
 
 **Исправлено 15 issues из docs/soft-launch/Slime Arena v0.3.0 Known Issues.md:**
 
@@ -45,7 +49,7 @@
 **P3: Safari safe-area:**
 - ✅ env(safe-area-inset-top/left) для HUD элементов
 
-**Изменённые файлы (7):**
+**Изменённые файлы (9):**
 - `client/src/main.ts` — syncAbilityCooldown/Slots в hudTimer, classId в leaderboard, levelIndicator disabled
 - `client/src/ui/UIBridge.tsx` — экспорт syncAbilitySlots
 - `client/src/ui/components/AbilityButtons.tsx` — динамические иконки/слоты из signal
@@ -53,6 +57,8 @@
 - `client/src/ui/components/ResultsScreen.tsx` — тексты, иконки, порядок, без класс-выбора
 - `client/src/ui/data/abilities.ts` — ABILITY_ICON_MAP, SLOT_COLORS, getAbilityIcon()
 - `client/src/ui/signals/gameState.ts` — AbilitySlots interface, abilitySlots signal, classId
+- `activeContext.md`
+- `progress.md`
 
 ---
 
@@ -656,6 +662,7 @@ npm run dev:meta
 - [x] Интеграция UIBridge в main.ts
 - [ ] Удаление устаревшего DOM-кода
 - [ ] Тестирование на мобильных устройствах
+- [ ] Настройка Flight Assist для мобильного джойстика (снижение заносов и осцилляции, улучшение отзывчивости)
 
 ## Открытые задачи (Sprint 1 — Client Integration)
 
