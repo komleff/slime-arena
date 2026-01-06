@@ -24,7 +24,11 @@ class MetaServerClient {
    */
   setToken(token: string): void {
     this.token = token;
-    localStorage.setItem('authToken', token);
+    try {
+      localStorage.setItem('authToken', token);
+    } catch (err) {
+      console.warn('[MetaServerClient] Failed to save token to localStorage:', err);
+    }
   }
 
   /**
@@ -32,7 +36,11 @@ class MetaServerClient {
    */
   clearToken(): void {
     this.token = null;
-    localStorage.removeItem('authToken');
+    try {
+      localStorage.removeItem('authToken');
+    } catch (err) {
+      console.warn('[MetaServerClient] Failed to remove token from localStorage:', err);
+    }
   }
 
   /**
@@ -40,7 +48,12 @@ class MetaServerClient {
    */
   getToken(): string | null {
     if (!this.token) {
-      this.token = localStorage.getItem('authToken');
+      try {
+        this.token = localStorage.getItem('authToken');
+      } catch (err) {
+        console.warn('[MetaServerClient] Failed to read token from localStorage:', err);
+        this.token = null;
+      }
     }
     return this.token;
   }

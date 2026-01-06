@@ -27,10 +27,10 @@ class PlatformManager {
 
     // TODO: Добавить YandexAdapter и PokiAdapter при необходимости
 
-    // Fallback: Standalone
+    // Fallback: Standalone (dev mode)
     this.adapter = new StandaloneAdapter();
-    this.detectedPlatform = 'standalone';
-    console.log('[PlatformManager] Detected platform: Standalone');
+    this.detectedPlatform = 'dev';
+    console.log('[PlatformManager] Detected platform: Standalone (dev mode)');
     return this.adapter;
   }
 
@@ -62,10 +62,10 @@ class PlatformManager {
   }
 
   /**
-   * Проверить, является ли текущая платформа Standalone.
+   * Проверить, является ли текущая платформа Standalone (dev mode).
    */
   isStandalone(): boolean {
-    return this.getPlatformType() === 'standalone';
+    return this.getPlatformType() === 'dev';
   }
 
   /**

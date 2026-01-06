@@ -26,7 +26,7 @@ export class StandaloneAdapter implements IAuthAdapter {
   }
 
   getPlatformType(): PlatformType {
-    return 'standalone';
+    return 'dev'; // DevAuthProvider на сервере ожидает 'dev'
   }
 
   isAvailable(): boolean {
@@ -36,14 +36,14 @@ export class StandaloneAdapter implements IAuthAdapter {
 
   async getCredentials(): Promise<PlatformCredentials> {
     // Формат: "userId:nickname" для DevAuthProvider на сервере
-    const platformData = this.nickname
-      ? `${this.userId}:${this.nickname}`
-      : this.userId;
+    // Если nickname нет, используем дефолтный
+    const nickname = this.nickname || 'Player';
+    const platformData = `${this.userId}:${nickname}`;
 
     return {
-      platformType: 'standalone',
+      platformType: 'dev',
       platformData,
-      nickname: this.nickname || undefined,
+      nickname,
     };
   }
 

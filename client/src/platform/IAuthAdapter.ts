@@ -3,7 +3,7 @@
  * Абстрагирует получение credentials для разных платформ.
  */
 
-export type PlatformType = 'telegram' | 'standalone' | 'yandex' | 'poki';
+export type PlatformType = 'telegram' | 'dev' | 'yandex' | 'poki';
 
 export interface PlatformCredentials {
   platformType: PlatformType;
