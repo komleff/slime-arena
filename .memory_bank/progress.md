@@ -3,7 +3,7 @@
 
 ## Контроль изменений
 - **last_checked_commit**: RELEASE v0.3.0 @ 7 января 2026
-- **Текущая ветка**: feat/sprint2-matchserver-integration
+- **Текущая ветка**: test/sprint3-stage-d-testing
 - **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
@@ -12,8 +12,63 @@
 - **README Update**: ЗАВЕРШЕНО
 - **Sprint 1 Client Integration**: ЗАВЕРШЕНО
 - **Sprint 2 Server Integration**: ЗАВЕРШЕНО
+- **Sprint 3 Stage D Testing**: В РАБОТЕ
 
-## Последние изменения (Sprint 2: MatchServer → MetaServer Integration)
+## Последние изменения (Sprint 3: Stage D Testing)
+
+### Sprint 3: Stage D Testing (test/sprint3-stage-d-testing)
+
+**Ветка:** `test/sprint3-stage-d-testing`
+**Статус:** 🟡 В работе
+
+**Цель:** Комплексное тестирование полного игрового цикла перед Soft Launch.
+
+**3.1: Fix X-2 (API mismatch)**
+
+Исправлен `server/tests/meta-stage-c.test.ts`:
+- `platform` → `platformType`
+- `token` → `platformAuthToken`
+- `data.success` → `data.accessToken`
+
+**3.2: Stage D Smoke Tests**
+
+Создан `server/tests/meta-stage-d.test.ts` (18 тестов):
+- Phase 1: Infrastructure (health, DB connection)
+- Phase 2: Auth Flow (dev auth, invalid auth, profile)
+- Phase 3: Config Flow (runtime config, features)
+- Phase 4: Matchmaking Flow (join, status, cancel)
+- Phase 5: Match Results Flow (submit, invalid token, validation)
+- Phase 6: Idempotency Tests (duplicate match, operationId)
+- Phase 7: Player Stats (XP, wallet)
+- Phase 8: Error Handling (401, 400)
+
+**3.3: k6 Load Tests**
+
+Создан `tests/load/soft-launch.js`:
+- Target: CCU=500, p99 < 2000ms, errors < 1%
+- Stages: ramp up → steady state → ramp down
+- Metrics: auth_latency, config_latency, matchmaking_latency, match_results_latency
+- Custom thresholds для каждого endpoint
+
+**3.4: Test Runner**
+
+Создан `tests/smoke/run-stage-d.ps1`:
+- Запускает Stage C + Stage D + Stage B тесты последовательно
+- Проверяет доступность MetaServer перед стартом
+
+**Новые файлы (4):**
+- `server/tests/meta-stage-d.test.ts` — Stage D smoke tests
+- `tests/load/soft-launch.js` — k6 load test
+- `tests/load/README.md` — документация load тестов
+- `tests/smoke/run-stage-d.ps1` — test runner
+
+**Модифицированные файлы (2):**
+- `server/tests/meta-stage-c.test.ts` — X-2 fix
+- `README.md` — добавлены инструкции по тестированию
+
+---
+
+## Предыдущие изменения (Sprint 2: MatchServer → MetaServer Integration)
 
 ### Sprint 2: Server Integration (feat/sprint2-matchserver-integration)
 
