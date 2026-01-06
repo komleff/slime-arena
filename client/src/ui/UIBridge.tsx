@@ -17,7 +17,7 @@ import {
   connectionError,
   hudVisible,
   MAX_ABILITY_SLOTS,
-  
+
   // Actions
   setGamePhase,
   updateLocalPlayer,
@@ -26,10 +26,12 @@ import {
   setTalentChoices,
   clearTalentChoices,
   updateAbilityCooldown,
+  updateAbilitySlots,
   setMatchResults,
   resetGameState,
+  clearPlayerDeadFlag,
   initMobileDetection,
-  
+
   // Types
   type GamePhase,
   type PlayerStats,
@@ -202,6 +204,17 @@ export function syncAbilityCooldown(slot: number, remaining: number, total: numb
 }
 
 /**
+ * Обновить слоты способностей (abilityId для каждого слота)
+ */
+export function syncAbilitySlots(
+  slot0: string | null | undefined,
+  slot1: string | null | undefined,
+  slot2: string | null | undefined
+): void {
+  updateAbilitySlots(slot0 ?? null, slot1 ?? null, slot2 ?? null);
+}
+
+/**
  * Установить активный буст
  */
 export function syncBoost(boost: BoostState | null): void {
@@ -263,6 +276,13 @@ export function setHudVisible(visible: boolean): void {
  */
 export function resetUI(): void {
   resetGameState();
+}
+
+/**
+ * Сбросить флаг смерти (при старте нового матча)
+ */
+export function clearDeadFlag(): void {
+  clearPlayerDeadFlag();
 }
 
 /**

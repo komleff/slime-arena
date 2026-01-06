@@ -13,6 +13,7 @@ import {
   activeBoost,
   showHud,
   isPlayerDead,
+  gamePhase,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -27,8 +28,8 @@ const styles = `
   }
 
   .hud-top-left {
-    top: 12px;
-    left: 12px;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
     padding: 10px 12px;
     background: rgba(0, 0, 0, 0.55);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -40,7 +41,7 @@ const styles = `
 
   .hud-top-center {
     position: fixed;
-    top: 12px;
+    top: calc(12px + env(safe-area-inset-top, 0px));
     left: 50%;
     transform: translateX(-50%);
     text-align: center;
@@ -68,8 +69,8 @@ const styles = `
 
   .hud-boost-panel {
     position: fixed;
-    top: 12px;
-    left: 260px;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: calc(260px + env(safe-area-inset-left, 0px));
     display: flex;
     align-items: center;
     gap: 8px;
@@ -103,6 +104,33 @@ const styles = `
 
   .hud-stat-value {
     font-weight: 600;
+  }
+
+  .hud-level-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .hud-level-text {
+    font-weight: 600;
+    color: #9be070;
+    min-width: 50px;
+  }
+
+  .hud-xp-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .hud-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80, #22c55e);
+    transition: width 0.3s ease;
   }
 
   .hud-leaderboard {
@@ -193,29 +221,45 @@ function formatMass(mass: number): string {
   return Math.floor(mass).toString();
 }
 
+// Пороги массы для уровней (GDD v3.3)
+const LEVEL_THRESHOLDS = [0, 100, 180, 300, 500, 800, 1200];
+
+/**
+ * Вычисляет прогресс до следующего уровня (0-100%)
+ */
+function getLevelProgress(mass: number, level: number): number {
+  const currentThreshold = LEVEL_THRESHOLDS[level] ?? LEVEL_THRESHOLDS[6] * Math.pow(1.5, level - 6);
+  const nextThreshold = LEVEL_THRESHOLDS[level + 1] ?? currentThreshold * 1.5;
+  const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+  return Math.max(0, Math.min(100, progress));
+}
+
 // ========== Компоненты ==========
 
 function PlayerStats() {
   const player = localPlayer.value;
   if (!player) return null;
 
+  const progress = getLevelProgress(player.mass, player.level);
+
   return (
     <div class="hud-stats">
+      {/* Уровень с прогресс-баром */}
+      <div class="hud-level-row">
+        <span class="hud-level-text">Ур. {player.level}</span>
+        <div class="hud-xp-bar">
+          <div class="hud-xp-fill" style={{ width: `${progress}%` }}></div>
+        </div>
+      </div>
+      {/* Масса */}
       <div class="hud-stat-row">
         <span class="hud-stat-label">Масса:</span>
         <span class="hud-stat-value">{formatMass(player.mass)} кг</span>
       </div>
-      <div class="hud-stat-row">
-        <span class="hud-stat-label">Макс:</span>
-        <span class="hud-stat-value">{formatMass(player.maxMass)} кг</span>
-      </div>
+      {/* Убийства */}
       <div class="hud-stat-row">
         <span class="hud-stat-label">Убийства:</span>
         <span class="hud-stat-value" style={{ color: '#ff4d4d' }}>{player.kills}</span>
-      </div>
-      <div class="hud-stat-row">
-        <span class="hud-stat-label">Уровень:</span>
-        <span class="hud-stat-value" style={{ color: '#ffc857' }}>{player.level}</span>
       </div>
     </div>
   );
@@ -267,7 +311,10 @@ function MatchTimer() {
 }
 
 function DeathOverlay() {
-  if (!isPlayerDead.value) return null;
+  // Показываем только если:
+  // 1. Игрок мёртв (FLAG_IS_DEAD)
+  // 2. Фаза матча = "playing" (не показываем в waiting/results)
+  if (!isPlayerDead.value || gamePhase.value !== 'playing') return null;
 
   return (
     <div class="death-overlay">

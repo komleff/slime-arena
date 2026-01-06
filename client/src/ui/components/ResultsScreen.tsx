@@ -3,7 +3,6 @@
  */
 
 // JSX runtime imported automatically via jsxImportSource
-import type { JSX } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
@@ -13,11 +12,6 @@ import {
   selectedClassId,
   resetGameState,
 } from '../signals/gameState';
-
-// Типизированный интерфейс для CSS переменных
-interface ClassButtonStyle extends JSX.CSSProperties {
-  '--class-color': string;
-}
 
 // ========== Стили ==========
 
@@ -149,33 +143,6 @@ const styles = `
     margin-top: 4px;
   }
 
-  .results-class-selection {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 10px;
-  }
-
-  .class-button {
-    padding: 12px 20px;
-    border-radius: 8px;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: transform 150ms, box-shadow 150ms;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    color: #fff;
-  }
-
-  .class-button:hover {
-    transform: scale(1.05);
-  }
-
-  .class-button.selected {
-    box-shadow: 0 0 15px currentColor;
-  }
-
   .results-timer {
     font-size: 16px;
     color: #6fd6ff;
@@ -208,6 +175,11 @@ const styles = `
     color: #fff;
   }
 
+  .results-button.play {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+  }
+
   .results-button.secondary {
     background: #ef4444;
     color: #fff;
@@ -227,10 +199,6 @@ interface ResultsScreenProps {
 export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const results = matchResults.value;
   const currentClassId = selectedClassId.value;
-
-  const handleClassSelect = useCallback((classId: number) => {
-    selectedClassId.value = classId;
-  }, []);
 
   const handlePlayAgain = useCallback(() => {
     onPlayAgain(currentClassId);
@@ -254,7 +222,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
         
         {winner && (
           <div class="results-winner">
-            Победитель: {winner}
+            🏆 Победитель: {winner}
           </div>
         )}
 
@@ -263,7 +231,9 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           {finalLeaderboard.map((entry) => (
             <div key={entry.place} class={`results-entry ${entry.isLocal ? 'is-local' : ''}`}>
               <span class="results-place">{entry.place}.</span>
-              <span class="results-name">{entry.name}</span>
+              <span class="results-name">
+                {CLASSES_DATA[entry.classId ?? 0]?.icon ?? '?'} {entry.name}
+              </span>
               <div class="results-stats">
                 <span class="results-stat mass">{Math.floor(entry.mass)} кг</span>
                 <span class="results-stat kills">{entry.kills} 💀</span>
@@ -272,9 +242,19 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           ))}
         </div>
 
-        {/* Личная статистика */}
+        {/* Личная статистика: Класс → Уровень → Масса → Убийств */}
         {personalStats && (
           <div class="results-personal">
+            <div class="results-personal-stat">
+              <div class="results-personal-value">
+                {CLASSES_DATA[personalStats.classId]?.icon ?? '?'} {CLASSES_DATA[personalStats.classId]?.name ?? 'Неизвестно'}
+              </div>
+              <div class="results-personal-label">Класс</div>
+            </div>
+            <div class="results-personal-stat">
+              <div class="results-personal-value">{personalStats.level}</div>
+              <div class="results-personal-label">Уровень</div>
+            </div>
             <div class="results-personal-stat">
               <div class="results-personal-value">{Math.floor(personalStats.maxMass)}</div>
               <div class="results-personal-label">Макс. масса</div>
@@ -283,47 +263,22 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
               <div class="results-personal-value">{personalStats.kills}</div>
               <div class="results-personal-label">Убийства</div>
             </div>
-            <div class="results-personal-stat">
-              <div class="results-personal-value">{personalStats.level}</div>
-              <div class="results-personal-label">Уровень</div>
-            </div>
           </div>
         )}
-
-        {/* Выбор класса */}
-        <div class="results-class-selection">
-          {CLASSES_DATA.map(cls => {
-            const buttonStyle: ClassButtonStyle = {
-              '--class-color': cls.color,
-              background: currentClassId === cls.id ? 'var(--class-color)' : 'rgba(255, 255, 255, 0.05)',
-              borderColor: 'var(--class-color)',
-            };
-            return (
-              <button
-                key={cls.id}
-                class={`class-button ${currentClassId === cls.id ? 'selected' : ''}`}
-                style={buttonStyle}
-                onClick={() => handleClassSelect(cls.id)}
-              >
-                {cls.icon} {cls.name}
-              </button>
-            );
-          })}
-        </div>
 
         {/* Кнопки */}
         <div class="results-buttons">
           <button
-            class="results-button primary"
+            class={`results-button ${matchTimer.value.timeLeft > 0 ? 'primary' : 'play'}`}
             onClick={handlePlayAgain}
             disabled={matchTimer.value.timeLeft > 0}
           >
             {matchTimer.value.timeLeft > 0
               ? `⏳ ${Math.ceil(matchTimer.value.timeLeft)} сек`
-              : '🔄 Играть снова'}
+              : '▶️ Играть'}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
-            Выйти в меню
+            Выбрать другой класс
           </button>
         </div>
       </div>
