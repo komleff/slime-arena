@@ -7,18 +7,19 @@
 **Релиз:** v0.3.0
 **GDD версия:** 3.3.2
 **Текущая ветка:** `ops/backup-restore`
-**PR:** ops: add PostgreSQL backup/restore scripts (#44)
+**PR:** ops: add PostgreSQL backup/restore scripts (#47)
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] Sprint 4: Backup/Restore Implementation:**
+- **[ЗАВЕРШЕНО] Sprint 4: Backup/Restore Implementation:**
   - ✅ 4.1: Создан `scripts/backup.ps1` — Windows backup (pg_dump)
   - ✅ 4.2: Создан `scripts/backup.sh` — Linux/macOS backup
   - ✅ 4.3: Создан `scripts/restore.ps1` — Windows restore (pg_restore)
   - ✅ 4.4: Создан `scripts/restore.sh` — Linux/macOS restore
   - ✅ 4.5: Создана документация `docs/operations/backup-restore.md`
   - ✅ 4.6: Обновлён `.gitignore` (backups/*.dump)
-  - ⏳ Проверка восстановления на stage
+  - ✅ Проверка восстановления на stage: **19/19 тестов пройдены после restore**
+  - ✅ Нагрузочное тестирование: **CCU 500 (87k requests, 0% errors)**
 
 - **[ЗАВЕРШЕНО] Sprint 3: Stage D Testing (PR #43 MERGED):**
   - ✅ 3.1: Исправлен X-2 (API mismatch в тестах — platformType/platformAuthToken)
