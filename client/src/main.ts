@@ -4897,51 +4897,65 @@ async function connectToServer(playerName: string, classId: number) {
 
         // Принудительный сброс джойстика перед активацией умения
         // Решает проблему гонки событий click/pointerup на мобильных
-        const forceResetJoystickForAbility = (slot: number) => {
+        const forceResetJoystickForAbility = (slot: number, triggerPointerId?: number) => {
             const wasActive = joystickState.active;
             if (wasActive) {
+                // Если указан ID пальца и он отличается от пальца джойстика — это мультитач.
+                // Не сбрасываем джойстик, позволяем двигаться и стрелять одновременно.
+                if (triggerPointerId !== undefined && joystickState.pointerId !== triggerPointerId) {
+                    return;
+                }
+
                 detachJoystickPointerListeners();
                 resetJoystick();
-                logJoystick("force-reset-for-ability", { slot });
+                logJoystick("force-reset-for-ability", { slot, triggerPointerId });
+                
+                // Сбрасываем lastSentInput только если реально сбросили джойстик
+                lastSentInput = { x: 0, y: 0 };
+                // Сбрасываем mouseState для защиты от compatibility mouse events на touch
+                mouseState.active = false;
             }
-            // Сбрасываем lastSentInput чтобы ability отправился с нулевым движением
-            lastSentInput = { x: 0, y: 0 };
-            // Сбрасываем mouseState для защиты от compatibility mouse events на touch
-            mouseState.active = false;
         };
         
         // Обработчик кнопки способности
-        const onAbilityButtonClick = () => {
-            logJoystick("ability-click", { slot: 0 });
-            forceResetJoystickForAbility(0);
+        const onAbilityButtonDown = (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            logJoystick("ability-pointerdown", { slot: 0, pointerId: e.pointerId });
+            forceResetJoystickForAbility(0, e.pointerId);
             globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0, abilitySlot: 0 });
+            // Используем lastSentInput, чтобы сохранить движение при мультитаче
+            room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
         };
-        abilityButton.addEventListener("click", onAbilityButtonClick);
+        abilityButton.addEventListener("pointerdown", onAbilityButtonDown);
         abilityButton.addEventListener("pointerdown", (event) => {
             event.stopPropagation();
         });
         
         // Обработчик кнопки Выброса (Projectile)
-        const onProjectileButtonClick = () => {
-            logJoystick("ability-click", { slot: 1 });
-            forceResetJoystickForAbility(1);
+        const onProjectileButtonDown = (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            logJoystick("ability-pointerdown", { slot: 1, pointerId: e.pointerId });
+            forceResetJoystickForAbility(1, e.pointerId);
             globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0, abilitySlot: 1 });
+            room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
         };
-        projectileButton.addEventListener("click", onProjectileButtonClick);
+        projectileButton.addEventListener("pointerdown", onProjectileButtonDown);
         projectileButton.addEventListener("pointerdown", (event) => {
             event.stopPropagation();
         });
         
         // Обработчик кнопки Slot 2
-        const onSlot2ButtonClick = () => {
-            logJoystick("ability-click", { slot: 2 });
-            forceResetJoystickForAbility(2);
+        const onSlot2ButtonDown = (e: PointerEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            logJoystick("ability-pointerdown", { slot: 2, pointerId: e.pointerId });
+            forceResetJoystickForAbility(2, e.pointerId);
             globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0, abilitySlot: 2 });
+            room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
         };
-        slot2Button.addEventListener("click", onSlot2ButtonClick);
+        slot2Button.addEventListener("pointerdown", onSlot2ButtonDown);
         slot2Button.addEventListener("pointerdown", (event) => {
             event.stopPropagation();
         });
@@ -5116,9 +5130,9 @@ async function connectToServer(playerName: string, classId: number) {
             window.removeEventListener("focus", onFocus);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
-            abilityButton.removeEventListener("click", onAbilityButtonClick);
-            projectileButton.removeEventListener("click", onProjectileButtonClick);
-            slot2Button.removeEventListener("click", onSlot2ButtonClick);
+            abilityButton.removeEventListener("pointerdown", onAbilityButtonDown);
+            projectileButton.removeEventListener("pointerdown", onProjectileButtonDown);
+            slot2Button.removeEventListener("pointerdown", onSlot2ButtonDown);
             
             // Hide HUD elements
             hud.style.display = "none";
@@ -5179,8 +5193,10 @@ function sendTalentChoiceFromUI(index: number): void {
 
 // Helper function to activate ability through activeRoom
 // Использует единый globalInputSeq для совместимости с game loop
-// Сохраняет текущее направление движения (lastSentInput) вместо сброса
-function activateAbilityFromUI(slot: number): void {
+// Сохраняет текущее направление движения (lastSentInput) для multitouch поддержки
+// pointerId принимается для совместимости с UI, но не используется здесь -
+// сброс джойстика обрабатывается отдельно в canvas-обработчиках внутри connectToServer
+function activateAbilityFromUI(slot: number, _pointerId?: number): void {
     if (!activeRoom) return;
     globalInputSeq += 1;
     activeRoom.send("input", {
@@ -5216,8 +5232,8 @@ const uiCallbacks: UICallbacks = {
     onSelectTalent: (_talentId: string, index: number) => {
         sendTalentChoiceFromUI(index);
     },
-    onActivateAbility: (slot: number) => {
-        activateAbilityFromUI(slot);
+    onActivateAbility: (slot: number, pointerId: number) => {
+        activateAbilityFromUI(slot, pointerId);
     },
     onPlayAgain: (classId: number) => {
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения

@@ -11,10 +11,12 @@
 
 ### Фокус сессии
 
-- **[ЗАВЕРШЕНО] Mobile Controls & Flight Assist Tuning:**
+- **[ЗАВЕРШЕНО] Mobile Controls & Flight Assist Tuning (PR #39):**
   - Настроены параметры Virtual Joystick (deadzone, sensitivity, followSpeed)
   - Настроены параметры Flight Assist для всех 4 классов (yaw, counter-acceleration, angular braking)
   - Увеличен глобальный angularDragK для лучшего гашения угловых колебаний
+  - **[NEW] Multitouch support:** onClick → onPointerDown + pointerId для одновременного движения и способностей
+  - **[NEW] Input lag fix:** Способности активируются по pointerdown вместо click
   - Ожидаемое улучшение: -20% время выравнивания курса, -20% боковой занос
 
 - **Приоритет тестовых устройств:** Telegram (все платформы) > мобильные телефоны > планшеты с тач-скрином > браузеры компьютера (мышь/клавиатура) > гибридные устройства (низкий приоритет).

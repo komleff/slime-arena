@@ -48,13 +48,28 @@
 |----------|------|-------|--------|
 | angularDragK | 1.0 | 1.3 | Лучше гашение угловых колебаний |
 
+**Multitouch & Input Lag Fix (G-1, G-2 из техдолга):**
+
+| Изменение | Было | Стало | Эффект |
+|-----------|------|-------|--------|
+| AbilityButtons event | onClick | onPointerDown | Мгновенная активация (без ожидания pointerup) |
+| onActivateAbility signature | (slot: number) | (slot: number, pointerId: number) | Поддержка multitouch |
+| forceResetJoystickForAbility | Всегда сбрасывает | Проверяет pointerId | Движение и способности разными пальцами |
+| lastSentInput при способности | Сбрасывается в 0 | Сохраняется | Продолжение движения при использовании способности |
+
 **Ожидаемые результаты:**
 - Время выравнивания курса 90°: -20%
 - Время выравнивания курса 180°: -15%
 - Амплитуда бокового заноса: -20%
+- Multitouch: движение + способность одновременно
+- Input lag: мгновенная активация способностей
 
-**Изменённые файлы (1):**
+**Изменённые файлы (5):**
 - `config/balance.json` — все параметры controls, slimeConfigs.*.assist, worldPhysics
+- `client/src/ui/components/AbilityButtons.tsx` — onClick → onPointerDown, pointerId
+- `client/src/ui/UIBridge.tsx` — UICallbacks.onActivateAbility signature
+- `client/src/main.ts` — forceResetJoystickForAbility multitouch, pointerdown handlers
+- `README.md` — раздел "Мобильное управление"
 
 ---
 
