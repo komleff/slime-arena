@@ -212,5 +212,5 @@ class MatchmakingService {
   }
 }
 
-// Singleton instance
+// Экземпляр-синглтон
 export const matchmakingService = new MatchmakingService();

@@ -13,16 +13,31 @@ export class StandaloneAdapter implements IAuthAdapter {
   private nickname: string | null;
 
   constructor() {
-    // Загружаем или генерируем userId
-    let storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID);
+    // Загружаем или генерируем userId (с защитой от incognito/iframe)
+    let storedUserId: string | null = null;
+    try {
+      storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID);
+    } catch (err) {
+      console.warn('[StandaloneAdapter] localStorage недоступен:', err);
+    }
+
     if (!storedUserId) {
       storedUserId = this.generateUserId();
-      localStorage.setItem(STORAGE_KEY_USER_ID, storedUserId);
+      try {
+        localStorage.setItem(STORAGE_KEY_USER_ID, storedUserId);
+      } catch (err) {
+        console.warn('[StandaloneAdapter] Не удалось сохранить userId:', err);
+      }
     }
     this.userId = storedUserId;
 
     // Загружаем nickname
-    this.nickname = localStorage.getItem(STORAGE_KEY_NICKNAME);
+    try {
+      this.nickname = localStorage.getItem(STORAGE_KEY_NICKNAME);
+    } catch (err) {
+      console.warn('[StandaloneAdapter] Не удалось загрузить nickname:', err);
+      this.nickname = null;
+    }
   }
 
   getPlatformType(): PlatformType {
@@ -56,7 +71,11 @@ export class StandaloneAdapter implements IAuthAdapter {
    */
   setNickname(nickname: string): void {
     this.nickname = nickname;
-    localStorage.setItem(STORAGE_KEY_NICKNAME, nickname);
+    try {
+      localStorage.setItem(STORAGE_KEY_NICKNAME, nickname);
+    } catch (err) {
+      console.warn('[StandaloneAdapter] Не удалось сохранить nickname:', err);
+    }
   }
 
   /**
@@ -80,10 +99,18 @@ export class StandaloneAdapter implements IAuthAdapter {
    * Сбросить данные пользователя (для тестирования).
    */
   reset(): void {
-    localStorage.removeItem(STORAGE_KEY_USER_ID);
-    localStorage.removeItem(STORAGE_KEY_NICKNAME);
+    try {
+      localStorage.removeItem(STORAGE_KEY_USER_ID);
+      localStorage.removeItem(STORAGE_KEY_NICKNAME);
+    } catch (err) {
+      console.warn('[StandaloneAdapter] Не удалось очистить localStorage:', err);
+    }
     this.userId = this.generateUserId();
-    localStorage.setItem(STORAGE_KEY_USER_ID, this.userId);
+    try {
+      localStorage.setItem(STORAGE_KEY_USER_ID, this.userId);
+    } catch (err) {
+      console.warn('[StandaloneAdapter] Не удалось сохранить новый userId:', err);
+    }
     this.nickname = null;
   }
 }

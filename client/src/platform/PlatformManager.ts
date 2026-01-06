@@ -89,5 +89,5 @@ class PlatformManager {
   }
 }
 
-// Singleton instance
+// Экземпляр-синглтон
 export const platformManager = new PlatformManager();

@@ -80,6 +80,15 @@ class MetaServerClient {
   }
 
   /**
+   * POST-запрос с operationId для идемпотентности.
+   * Используется для операций, которые не должны дублироваться при повторе.
+   */
+  async postIdempotent<T>(path: string, body?: object): Promise<T> {
+    const operationId = crypto.randomUUID();
+    return this.request<T>('POST', path, { ...body, operationId });
+  }
+
+  /**
    * Основной метод для HTTP-запросов с retry логикой.
    */
   private async request<T>(
@@ -186,6 +195,6 @@ class MetaServerClient {
   }
 }
 
-// Singleton instance
+// Экземпляр-синглтон
 export const metaServerClient = new MetaServerClient();
 export type { ApiError };

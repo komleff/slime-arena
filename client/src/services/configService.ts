@@ -293,5 +293,5 @@ class ConfigService {
   }
 }
 
-// Singleton instance
+// Экземпляр-синглтон
 export const configService = new ConfigService();

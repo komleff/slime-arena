@@ -42,6 +42,22 @@ interface ProfileSummary {
   };
 }
 
+/**
+ * Создаёт объект Profile с дефолтными значениями.
+ */
+function createDefaultProfile(level = 1, xp = 0): Profile {
+  return {
+    rating: 1500,
+    ratingDeviation: 350,
+    gamesPlayed: 0,
+    gamesWon: 0,
+    totalKills: 0,
+    highestMass: 0,
+    level,
+    xp,
+  };
+}
+
 class AuthService {
   private initialized = false;
 
@@ -72,21 +88,12 @@ class AuthService {
           // Конвертируем ProfileSummary в User и Profile для signals
           const user: User = {
             id: profileSummary.userId,
-            platformType: 'dev',
+            platformType: platformManager.getPlatformType(),
             platformId: profileSummary.userId,
             nickname: profileSummary.nickname,
             createdAt: new Date().toISOString(),
           };
-          const profile: Profile = {
-            rating: 1500,
-            ratingDeviation: 350,
-            gamesPlayed: 0,
-            gamesWon: 0,
-            totalKills: 0,
-            highestMass: 0,
-            level: profileSummary.level,
-            xp: profileSummary.xp,
-          };
+          const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
           setAuthState(user, profile, token);
           this.initialized = true;
           console.log('[AuthService] Session restored');
@@ -131,16 +138,7 @@ class AuthService {
         nickname: response.profile.nickname,
         createdAt: new Date().toISOString(),
       };
-      const profile: Profile = {
-        rating: 1500,
-        ratingDeviation: 350,
-        gamesPlayed: 0,
-        gamesWon: 0,
-        totalKills: 0,
-        highestMass: 0,
-        level: 1,
-        xp: 0,
-      };
+      const profile = createDefaultProfile();
 
       // Сохраняем токен и обновляем состояние
       metaServerClient.setToken(response.accessToken);
@@ -175,7 +173,7 @@ class AuthService {
    */
   async updateNickname(nickname: string): Promise<boolean> {
     try {
-      const profileSummary = await metaServerClient.post<ProfileSummary>('/api/v1/profile/nickname', {
+      const profileSummary = await metaServerClient.postIdempotent<ProfileSummary>('/api/v1/profile/nickname', {
         nickname,
       });
 
@@ -184,21 +182,12 @@ class AuthService {
       if (token && profileSummary) {
         const user: User = {
           id: profileSummary.userId,
-          platformType: 'dev',
+          platformType: platformManager.getPlatformType(),
           platformId: profileSummary.userId,
           nickname: profileSummary.nickname,
           createdAt: new Date().toISOString(),
         };
-        const profile: Profile = {
-          rating: 1500,
-          ratingDeviation: 350,
-          gamesPlayed: 0,
-          gamesWon: 0,
-          totalKills: 0,
-          highestMass: 0,
-          level: profileSummary.level,
-          xp: profileSummary.xp,
-        };
+        const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
         setAuthState(user, profile, token);
       }
 
@@ -242,5 +231,5 @@ class AuthService {
   }
 }
 
-// Singleton instance
+// Экземпляр-синглтон
 export const authService = new AuthService();
