@@ -12,6 +12,13 @@ import {
   playerName,
   selectedClassId,
   connectionError,
+  isAuthenticated,
+  isAuthenticating,
+  authError,
+  currentUser,
+  matchmakingStatus,
+  queuePosition,
+  matchmakingError,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -219,22 +226,112 @@ const styles = `
   .menu-footer a:hover {
     text-decoration: underline;
   }
+
+  .menu-auth-status {
+    font-size: 12px;
+    color: #6fd6ff;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .menu-auth-status.error {
+    color: #f87171;
+  }
+
+  .matchmaking-status {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(96, 165, 250, 0.1);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .matchmaking-status.searching {
+    animation: pulse 2s infinite;
+  }
+
+  .matchmaking-status.error {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+  }
+
+  .matchmaking-status .status-text {
+    font-size: 14px;
+    color: #60a5fa;
+  }
+
+  .matchmaking-status .queue-position {
+    font-size: 12px;
+    color: #8aa4c8;
+    margin-top: 4px;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .cancel-button {
+    margin-top: 8px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid #4a6080;
+    border-radius: 6px;
+    color: #8aa4c8;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .cancel-button:hover {
+    border-color: #f87171;
+    color: #f87171;
+  }
 `;
 
 const STYLES_ID = 'main-menu-styles';
 injectStyles(STYLES_ID, styles);
 
+// ========== Helpers ==========
+
+function getPlayButtonText(authenticating: boolean, isSearching: boolean, isConnecting: boolean): string {
+  if (authenticating) return '⏳ Авторизация...';
+  if (isSearching) return '🔍 Поиск...';
+  if (isConnecting) return '⏳ Подключение...';
+  return '▶ Играть';
+}
+
 // ========== Компонент ==========
 
 interface MainMenuProps {
   onPlay: (name: string, classId: number) => void;
+  onCancelMatchmaking?: () => void;
   isConnecting?: boolean;
 }
 
-export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
+export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: MainMenuProps) {
   const [name, setName] = useState(playerName.value || '');
   const [classId, setClassId] = useState(selectedClassId.value);
   const error = connectionError.value;
+
+  // Auth state (используются в будущих версиях)
+  const _authenticated = isAuthenticated.value;
+  const authenticating = isAuthenticating.value;
+  const authErrorMsg = authError.value;
+  const _user = currentUser.value;
+  void _authenticated; // suppress unused warning
+  void _user; // suppress unused warning
+
+  // Matchmaking state
+  const mmStatus = matchmakingStatus.value;
+  const mmPosition = queuePosition.value;
+  const mmError = matchmakingError.value;
+
+  const isSearching = mmStatus === 'searching' || mmStatus === 'found';
+  const hasMatchmakingError = mmStatus === 'error';
+  const isLoading = isConnecting || authenticating || isSearching;
 
   // Сохраняем начальное имя при mount для отслеживания изменений
   const initialNameRef = useRef(playerName.value);
@@ -339,15 +436,29 @@ export function MainMenu({ onPlay, isConnecting = false }: MainMenuProps) {
           <button
             class="play-button"
             onClick={handlePlay}
-            disabled={!name.trim() || isConnecting}
+            disabled={!name.trim() || isLoading}
           >
-            {isConnecting ? '⏳ Подключение...' : '▶ Играть'}
+            {getPlayButtonText(authenticating, isSearching, isConnecting)}
           </button>
+
+          {isSearching && onCancelMatchmaking && (
+            <div class={`matchmaking-status ${hasMatchmakingError ? 'error' : 'searching'}`}>
+              <div class="status-text">
+                {mmStatus === 'found' ? '🎮 Матч найден!' : '🔍 Поиск игры...'}
+              </div>
+              {mmPosition !== null && mmPosition > 0 && (
+                <div class="queue-position">Позиция в очереди: {mmPosition}</div>
+              )}
+              <button type="button" class="cancel-button" onClick={onCancelMatchmaking}>
+                Отмена
+              </button>
+            </div>
+          )}
         </div>
 
-        {error && (
+        {(error || authErrorMsg || mmError) && (
           <div class="menu-error">
-            ⚠️ {error}
+            ⚠️ {error || authErrorMsg || mmError}
           </div>
         )}
       </div>

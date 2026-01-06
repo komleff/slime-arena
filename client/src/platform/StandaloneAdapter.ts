@@ -1,0 +1,89 @@
+/**
+ * Адаптер авторизации для Standalone режима (dev, iframe).
+ * Использует localStorage для хранения userId и nickname.
+ */
+
+import type { IAuthAdapter, PlatformCredentials, PlatformType } from './IAuthAdapter';
+
+const STORAGE_KEY_USER_ID = 'standalone_user_id';
+const STORAGE_KEY_NICKNAME = 'standalone_nickname';
+
+export class StandaloneAdapter implements IAuthAdapter {
+  private userId: string;
+  private nickname: string | null;
+
+  constructor() {
+    // Загружаем или генерируем userId
+    let storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID);
+    if (!storedUserId) {
+      storedUserId = this.generateUserId();
+      localStorage.setItem(STORAGE_KEY_USER_ID, storedUserId);
+    }
+    this.userId = storedUserId;
+
+    // Загружаем nickname
+    this.nickname = localStorage.getItem(STORAGE_KEY_NICKNAME);
+  }
+
+  getPlatformType(): PlatformType {
+    return 'standalone';
+  }
+
+  isAvailable(): boolean {
+    // Standalone всегда доступен как fallback
+    return true;
+  }
+
+  async getCredentials(): Promise<PlatformCredentials> {
+    // Формат: "userId:nickname" для DevAuthProvider на сервере
+    const platformData = this.nickname
+      ? `${this.userId}:${this.nickname}`
+      : this.userId;
+
+    return {
+      platformType: 'standalone',
+      platformData,
+      nickname: this.nickname || undefined,
+    };
+  }
+
+  getNickname(): string | null {
+    return this.nickname;
+  }
+
+  /**
+   * Установить nickname (сохраняется в localStorage).
+   */
+  setNickname(nickname: string): void {
+    this.nickname = nickname;
+    localStorage.setItem(STORAGE_KEY_NICKNAME, nickname);
+  }
+
+  /**
+   * Получить userId.
+   */
+  getUserId(): string {
+    return this.userId;
+  }
+
+  /**
+   * Сгенерировать уникальный userId.
+   */
+  private generateUserId(): string {
+    // Формат: standalone_<timestamp>_<random>
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `standalone_${timestamp}_${random}`;
+  }
+
+  /**
+   * Сбросить данные пользователя (для тестирования).
+   */
+  reset(): void {
+    localStorage.removeItem(STORAGE_KEY_USER_ID);
+    localStorage.removeItem(STORAGE_KEY_NICKNAME);
+    this.userId = this.generateUserId();
+    localStorage.setItem(STORAGE_KEY_USER_ID, this.userId);
+    this.nickname = null;
+  }
+}
