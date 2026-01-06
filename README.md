@@ -112,6 +112,22 @@ k6 run tests/load/soft-launch.js
 
 Подробная документация: [tests/load/README.md](tests/load/README.md)
 
+### Backup & Restore
+
+Резервное копирование и восстановление PostgreSQL:
+
+```bash
+# Windows
+.\scripts\backup.ps1
+.\scripts\restore.ps1 -BackupFile "backups\slime_arena_YYYYMMDD_HHMMSS.dump"
+
+# Linux/macOS
+./scripts/backup.sh
+./scripts/restore.sh backups/slime_arena_YYYYMMDD_HHMMSS.dump
+```
+
+Подробная документация: [docs/operations/backup-restore.md](docs/operations/backup-restore.md)
+
 ## Docker
 
 Актуальные образы v0.3.0 доступны в GitHub Container Registry:

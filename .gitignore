@@ -19,3 +19,7 @@ logs/
 local/test-logs/
 tests/load/results.json
 tests/load/results.html
+
+# Database backups (contain sensitive data)
+backups/*.dump
+backups/*.sql

@@ -3,7 +3,7 @@
 
 ## Контроль изменений
 - **last_checked_commit**: RELEASE v0.3.0 @ 7 января 2026
-- **Текущая ветка**: docs/mobile-controls-ab-plan
+- **Текущая ветка**: ops/backup-restore
 - **Релиз игрового прототипа:** v0.3.0
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
@@ -13,8 +13,66 @@
 - **Sprint 1 Client Integration**: ЗАВЕРШЕНО
 - **Sprint 2 Server Integration**: ЗАВЕРШЕНО
 - **Sprint 3 Stage D Testing**: ЗАВЕРШЕНО (19/19 тестов)
+- **Sprint 4 Backup/Restore**: В РАБОТЕ
 
-## Последние изменения (Sprint 3: Stage D Testing)
+## Последние изменения (Sprint 4: Backup/Restore)
+
+### Sprint 4: Backup/Restore (ops/backup-restore)
+
+**Ветка:** `ops/backup-restore`
+**PR:** #44
+**Статус:** 🟡 В РАБОТЕ
+
+**Цель:** Создать скрипты резервного копирования и восстановления PostgreSQL — критический блокер для Soft Launch.
+
+**4.1-4.4: Скрипты backup/restore**
+
+Созданы 4 скрипта:
+- `scripts/backup.ps1` — Windows backup (pg_dump --format=custom)
+- `scripts/backup.sh` — Linux/macOS backup
+- `scripts/restore.ps1` — Windows restore (pg_restore --clean --if-exists)
+- `scripts/restore.sh` — Linux/macOS restore
+
+Функциональность:
+- Автоматическая загрузка переменных из `.env`
+- Custom format для сжатия и параллельного restore
+- Checksum (SHA256) для верификации
+- Подтверждение перед restore
+
+**4.5: Документация**
+
+Создан `docs/operations/backup-restore.md`:
+- Установка PostgreSQL client tools
+- Переменные окружения
+- Ручное backup/restore
+- Автоматизация (cron/Task Scheduler)
+- Хранение и ротация backup
+- Troubleshooting
+
+**4.6: .gitignore**
+
+Добавлено:
+```
+# Database backups (contain sensitive data)
+backups/*.dump
+backups/*.sql
+```
+
+**Новые файлы (6):**
+- `scripts/backup.ps1`
+- `scripts/backup.sh`
+- `scripts/restore.ps1`
+- `scripts/restore.sh`
+- `docs/operations/backup-restore.md`
+- `backups/.gitkeep`
+
+**Модифицированные файлы (2):**
+- `.gitignore` — добавлены backups/*.dump
+- `README.md` — секция Backup & Restore
+
+---
+
+## Предыдущие изменения (Sprint 3: Stage D Testing)
 
 ### Sprint 3: Stage D Testing (test/sprint3-stage-d-testing)
 
