@@ -3,9 +3,10 @@
 
 ## Контроль изменений
 - **last_checked_commit**: main @ 7 января 2026
-- **Текущая ветка**: `main`
-- **Релиз игрового прототипа:** v0.3.1
+- **Текущая ветка**: `docker/monolith-v0.3.3`
+- **Релиз игрового прототипа:** v0.3.3
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
+- **Sprint 5: Docker Monolith**: В РАБОТЕ
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО
@@ -17,7 +18,55 @@
 - **Sprint 4 Backup/Restore**: ЗАВЕРШЕНО
 - **v0.3.1 Docker Infra & Release**: ЗАВЕРШЕНО
 
-## Последние изменения (v0.3.1)
+## Последние изменения (v0.3.3)
+
+### Sprint 5: Docker Monolith Build v0.3.3 — В РАБОТЕ
+
+**Ветка:** `docker/monolith-v0.3.3`
+**Статус:** 🟡 В работе
+
+**Цель:** Собрать и опубликовать монолитный Docker-образ v0.3.3, содержащий MetaServer, MatchServer и Client в одном контейнере.
+
+**Выявленные проблемы (6):**
+- D-01 (P0): Рассинхронизация версий — ✅ ИСПРАВЛЕНО
+- D-02 (P0): Монолит НЕ публикуется в CI/CD — ✅ ИСПРАВЛЕНО
+- D-03 (P1): Отсутствует .dockerignore — ✅ ИСПРАВЛЕНО
+- D-04 (P1): Dockerfile в dev mode — ✅ ИСПРАВЛЕНО
+- D-05 (P2): Нет HEALTHCHECK — ✅ ИСПРАВЛЕНО
+- D-06 (P2): server.Dockerfile не expose 3000 — ✅ ИСПРАВЛЕНО (в monolith)
+
+**Выполненные задачи:**
+- ✅ Синхронизация версий: все package.json обновлены до 0.3.3
+- ✅ Создан `.dockerignore` с исключениями для Docker build
+- ✅ Обновлён `docker/monolith.Dockerfile` с multi-stage production build
+- ✅ Обновлён `docker/docker-compose.monolith.yml` для production
+- ✅ Обновлён `.github/workflows/publish-containers.yml` с monolith image
+- ✅ Исправлен Vite env types (`client/src/vite-env.d.ts`)
+- ✅ TypeScript build проходит
+
+**Новые файлы (2):**
+- `.dockerignore` — исключения для Docker build
+- `client/src/vite-env.d.ts` — Vite environment types
+
+**Модифицированные файлы (7):**
+- `package.json` — version 0.3.3
+- `client/package.json` — version 0.3.3
+- `server/package.json` — version 0.3.3
+- `shared/package.json` — version 0.3.3
+- `docker/monolith.Dockerfile` — multi-stage production build
+- `docker/docker-compose.monolith.yml` — production config
+- `.github/workflows/publish-containers.yml` — +monolith image
+- `client/src/api/metaServerClient.ts` — removed @ts-expect-error
+
+**Ожидаемый результат:**
+- Образ `ghcr.io/komleff/slime-arena-monolith:v0.3.3`
+- Все три сервиса в одном контейнере
+- HEALTHCHECK для MetaServer
+- Production-ready сборка
+
+---
+
+## Предыдущие изменения (v0.3.1)
 
 ### v0.3.1: Инфраструктура и стабильность — РЕЛИЗ
 

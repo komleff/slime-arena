@@ -115,7 +115,7 @@ npx tsx server/tests/meta-stage-d.test.ts
 docker-compose -f docker/docker-compose.yml up -d
 ```
 
-### Доступные сервисы v0.3.1:
+### Доступные сервисы v0.3.3:
 - **Client**: [http://localhost:5174](http://localhost:5174) (Контейнер: `slime-arena-client`)
 - **MetaServer**: [http://localhost:3000](http://localhost:3000) (Контейнер: `slime-arena-meta-server`)
 - **MatchServer**: [ws://localhost:2567](ws://localhost:2567) (Контейнер: `slime-arena-match-server`)
@@ -156,9 +156,28 @@ k6 run tests/load/soft-launch.js
 
 ## Docker
 
-Актуальные образы v0.3.1 доступны в GitHub Container Registry:
-- `ghcr.io/komleff/slime-arena-server:v0.3.1`
-- `ghcr.io/komleff/slime-arena-client:v0.3.1`
+Актуальные образы v0.3.3 доступны в GitHub Container Registry:
+
+### Монолит (рекомендуется для быстрого старта)
+
+Один контейнер с MetaServer, MatchServer и Client:
+
+```bash
+# Запуск монолита с PostgreSQL и Redis
+docker-compose -f docker/docker-compose.monolith.yml up -d
+
+# Сервисы:
+# - MetaServer: http://localhost:3000
+# - MatchServer: ws://localhost:2567
+# - Client: http://localhost:5174
+```
+
+Образ: `ghcr.io/komleff/slime-arena-monolith:v0.3.3`
+
+### Отдельные образы
+
+- `ghcr.io/komleff/slime-arena-server:v0.3.3`
+- `ghcr.io/komleff/slime-arena-client:v0.3.3`
 
 ## Журнал изменений
 

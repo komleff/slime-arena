@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Manual version tag (e.g. 0.2.2)'
+        description: 'Manual version tag (e.g. 0.3.3)'
         required: false
         default: ''
 
@@ -21,6 +21,7 @@ env:
   GHCR_REGISTRY: ghcr.io
   IMAGE_NAME_SERVER: slime-arena-server
   IMAGE_NAME_CLIENT: slime-arena-client
+  IMAGE_NAME_MONOLITH: slime-arena-monolith
 
 jobs:
   publish:
@@ -43,24 +44,14 @@ jobs:
           username: ${{ secrets.CR_PAT != '' && github.repository_owner || github.actor }}
           password: ${{ secrets.CR_PAT != '' && secrets.CR_PAT || github.token }}
 
+      # -------------------------------------------------------------------------
+      # Server Image
+      # -------------------------------------------------------------------------
       - name: Extract metadata (server)
         id: meta-server
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_SERVER }}
-          tags: |
-            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Extract metadata (client)
-        id: meta-client
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_CLIENT }}
           tags: |
             type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
             type=ref,event=branch
@@ -81,6 +72,22 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # -------------------------------------------------------------------------
+      # Client Image
+      # -------------------------------------------------------------------------
+      - name: Extract metadata (client)
+        id: meta-client
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_CLIENT }}
+          tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push client
         id: build-client
         uses: docker/build-push-action@v5
@@ -93,14 +100,53 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # -------------------------------------------------------------------------
+      # Monolith Image (MetaServer + MatchServer + Client in one container)
+      # -------------------------------------------------------------------------
+      - name: Extract metadata (monolith)
+        id: meta-monolith
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_MONOLITH }}
+          tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push monolith
+        id: build-monolith
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/monolith.Dockerfile
+          push: true
+          tags: ${{ steps.meta-monolith.outputs.tags }}
+          labels: ${{ steps.meta-monolith.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -------------------------------------------------------------------------
+      # Build Summary
+      # -------------------------------------------------------------------------
       - name: Print build summary
         run: |
           {
             echo "=== Docker Build Summary ==="
             echo "Commit: ${{ github.sha }}"
             echo "Registry: ${{ env.GHCR_REGISTRY }}"
-            echo "Server tags: ${{ steps.meta-server.outputs.tags }}"
-            echo "Server digest: ${{ steps.build-server.outputs.digest }}"
-            echo "Client tags: ${{ steps.meta-client.outputs.tags }}"
-            echo "Client digest: ${{ steps.build-client.outputs.digest }}"
+            echo ""
+            echo "--- Server ---"
+            echo "Tags: ${{ steps.meta-server.outputs.tags }}"
+            echo "Digest: ${{ steps.build-server.outputs.digest }}"
+            echo ""
+            echo "--- Client ---"
+            echo "Tags: ${{ steps.meta-client.outputs.tags }}"
+            echo "Digest: ${{ steps.build-client.outputs.digest }}"
+            echo ""
+            echo "--- Monolith ---"
+            echo "Tags: ${{ steps.meta-monolith.outputs.tags }}"
+            echo "Digest: ${{ steps.build-monolith.outputs.digest }}"
           } | tee -a "$GITHUB_STEP_SUMMARY"

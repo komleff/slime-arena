@@ -3,7 +3,6 @@
  * Автоматически добавляет Authorization header и обрабатывает ошибки.
  */
 
-// @ts-expect-error Vite env types
 const getMetaServerUrl = () => {
   if (import.meta.env?.VITE_META_SERVER_URL) {
     return import.meta.env.VITE_META_SERVER_URL as string;
