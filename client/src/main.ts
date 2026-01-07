@@ -420,102 +420,7 @@ const rarityNames: Record<number, string> = {
     2: "Эпический",
 };
 
-// Results overlay для фазы Results
-const resultsOverlay = document.createElement("div");
-resultsOverlay.style.position = "fixed";
-resultsOverlay.style.inset = "0";
-resultsOverlay.style.display = "none";
-resultsOverlay.style.flexDirection = "column";
-resultsOverlay.style.alignItems = "center";
-resultsOverlay.style.justifyContent = "center";
-resultsOverlay.style.background = "rgba(10, 15, 30, 0.92)";
-resultsOverlay.style.zIndex = "1000";
-resultsOverlay.style.fontFamily = "\"IBM Plex Mono\", monospace";
-resultsOverlay.style.color = "#e6f3ff";
-
-const resultsContent = document.createElement("div");
-resultsContent.style.textAlign = "center";
-resultsContent.style.maxWidth = "600px";
-resultsContent.style.width = "90%";
-resultsContent.style.padding = "20px";
-resultsContent.style.display = "flex";
-resultsContent.style.flexDirection = "column";
-resultsContent.style.gap = "16px";
-
-const resultsTitle = document.createElement("h1");
-resultsTitle.style.fontSize = "32px";
-resultsTitle.style.margin = "0";
-resultsTitle.style.color = "#ffc857";
-resultsTitle.style.textShadow = "0 0 20px rgba(255, 200, 87, 0.5)";
-
-const resultsWinner = document.createElement("div");
-resultsWinner.style.fontSize = "24px";
-resultsWinner.style.color = "#9be070";
-
-const resultsLeaderboard = document.createElement("div");
-resultsLeaderboard.style.textAlign = "left";
-resultsLeaderboard.style.background = "rgba(0, 0, 0, 0.3)";
-resultsLeaderboard.style.borderRadius = "8px";
-resultsLeaderboard.style.padding = "15px";
-resultsLeaderboard.style.maxHeight = "200px";
-resultsLeaderboard.style.overflowY = "auto";
-
-const resultsPersonalStats = document.createElement("div");
-resultsPersonalStats.style.display = "flex";
-resultsPersonalStats.style.justifyContent = "space-around";
-resultsPersonalStats.style.background = "rgba(255, 255, 255, 0.05)";
-resultsPersonalStats.style.borderRadius = "8px";
-resultsPersonalStats.style.padding = "12px";
-resultsPersonalStats.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-
-const resultsClassSelection = document.createElement("div");
-resultsClassSelection.style.display = "flex";
-resultsClassSelection.style.gap = "10px";
-resultsClassSelection.style.justifyContent = "center";
-resultsClassSelection.style.marginTop = "10px";
-
-const resultsTimer = document.createElement("div");
-resultsTimer.style.fontSize = "16px";
-resultsTimer.style.color = "#6fd6ff";
-
-const resultsExitButton = document.createElement("button");
-resultsExitButton.textContent = "Выйти в меню";
-resultsExitButton.style.padding = "10px 20px";
-resultsExitButton.style.background = "#ef4444";
-resultsExitButton.style.border = "none";
-resultsExitButton.style.borderRadius = "8px";
-resultsExitButton.style.color = "white";
-resultsExitButton.style.cursor = "pointer";
-resultsExitButton.style.fontSize = "14px";
-resultsExitButton.style.marginTop = "10px";
-resultsExitButton.onclick = () => window.location.reload();
-
-resultsContent.appendChild(resultsTitle);
-resultsContent.appendChild(resultsWinner);
-resultsContent.appendChild(resultsLeaderboard);
-resultsContent.appendChild(resultsPersonalStats);
-resultsContent.appendChild(resultsClassSelection);
-resultsContent.appendChild(resultsTimer);
-resultsContent.appendChild(resultsExitButton);
-resultsOverlay.appendChild(resultsContent);
-document.body.appendChild(resultsOverlay);
-
-// Class Selection Buttons for Results Screen
-// Используем classesData (определён ниже) для единого источника данных о классах
-const resultsClassButtons: HTMLButtonElement[] = [];
-
-function syncResultsClassButtons() {
-    resultsClassButtons.forEach((btn) => {
-        const classId = Number(btn.dataset.classId);
-        const clsData = classesData.find((c) => c.id === classId);
-        if (!clsData) return;
-        const isSelected = classId === selectedClassId;
-        btn.style.background = isSelected ? clsData.color : "rgba(255, 255, 255, 0.05)";
-        btn.style.transform = isSelected ? "scale(1.05)" : "scale(1)";
-    });
-}
-
-// Кнопки создаются после определения classesData (см. initResultsClassButtons)
+// Results overlay removed — using Preact ResultsScreen
 
 const { layer: joystickLayer, base: joystickBase, knob: joystickKnob } = createJoystickElements();
 document.body.appendChild(joystickLayer);
@@ -1184,298 +1089,16 @@ function getDisplayName(name: string, classId: number, isRebel: boolean): string
 }
 
 // ============================================
-// JOIN SCREEN - экран выбора перед входом в игру
+// GAME STATE VARIABLES (previously in JOIN SCREEN)
 // ============================================
-
-const joinScreen = document.createElement("div");
-joinScreen.style.position = "fixed";
-joinScreen.style.inset = "0";
-joinScreen.style.display = "none"; // Hidden - using Preact MainMenu
-joinScreen.style.flexDirection = "column";
-joinScreen.style.alignItems = "center";
-joinScreen.style.justifyContent = "center";
-joinScreen.style.background = "linear-gradient(160deg, #0a0e14, #151c28)";
-joinScreen.style.zIndex = "2000";
-joinScreen.style.fontFamily = "\"IBM Plex Mono\", monospace";
-joinScreen.style.color = "#e6f3ff";
-joinScreen.style.padding = "20px";
-
-const joinTitle = document.createElement("h1");
-joinTitle.textContent = "🟢 Slime Arena";
-joinTitle.style.fontSize = "clamp(28px, 6vw, 42px)";
-joinTitle.style.marginBottom = "8px";
-joinTitle.style.color = "#9be070";
-joinTitle.style.textShadow = "0 0 20px rgba(155, 224, 112, 0.4)";
-
-const joinSubtitle = document.createElement("div");
-joinSubtitle.textContent = "Выбери класс и вперёд!";
-joinSubtitle.style.fontSize = "14px";
-joinSubtitle.style.color = "#9fb5cc";
-joinSubtitle.style.marginBottom = "24px";
-
-// Контейнер для имени
-const nameContainer = document.createElement("div");
-nameContainer.style.display = "flex";
-nameContainer.style.gap = "8px";
-nameContainer.style.marginBottom = "20px";
-nameContainer.style.width = "min(320px, 90vw)";
-
-const nameInput = document.createElement("input");
-nameInput.type = "text";
-nameInput.placeholder = "Твоё имя...";
-nameInput.maxLength = 24;
-nameInput.style.flex = "1";
-nameInput.style.padding = "12px 14px";
-nameInput.style.fontSize = "15px";
-nameInput.style.background = "#111b2a";
-nameInput.style.border = "1px solid #2d4a6d";
-nameInput.style.borderRadius = "10px";
-nameInput.style.color = "#e6f3ff";
-nameInput.style.outline = "none";
-nameInput.value = generateRandomName();
-
-const randomNameBtn = document.createElement("button");
-randomNameBtn.type = "button";
-randomNameBtn.textContent = "🎲";
-randomNameBtn.style.padding = "12px 16px";
-randomNameBtn.style.fontSize = "18px";
-randomNameBtn.style.background = "#1b2c45";
-randomNameBtn.style.border = "1px solid #2d4a6d";
-randomNameBtn.style.borderRadius = "10px";
-randomNameBtn.style.cursor = "pointer";
-randomNameBtn.style.transition = "background 150ms";
-randomNameBtn.addEventListener("mouseenter", () => { randomNameBtn.style.background = "#2a3f5f"; });
-randomNameBtn.addEventListener("mouseleave", () => { randomNameBtn.style.background = "#1b2c45"; });
-randomNameBtn.addEventListener("click", () => {
-    nameInput.value = generateRandomName();
-});
-
-nameContainer.appendChild(nameInput);
-nameContainer.appendChild(randomNameBtn);
-
-// Карточки классов
-const classesData = [
-    { 
-        id: 0, 
-        name: "Охотник", 
-        emoji: "🏹",
-        desc: "+15% скорость", 
-        ability: "Рывок",
-        color: "#4ade80"
-    },
-    { 
-        id: 1, 
-        name: "Воин", 
-        emoji: "⚔️",
-        desc: "−15% потерь при укусах, +10% урон", 
-        ability: "Щит",
-        color: "#f87171"
-    },
-    { 
-        id: 2, 
-        name: "Собиратель", 
-        emoji: "🧲",
-        desc: "+25% радиус сбора", 
-        ability: "Притяжение",
-        color: "#60a5fa"
-    },
-];
-
-// Инициализация кнопок выбора класса на экране результатов
-function initResultsClassButtons() {
-    classesData.forEach(cls => {
-        const btn = document.createElement("button");
-        btn.style.display = "flex";
-        btn.style.flexDirection = "column";
-        btn.style.alignItems = "center";
-        btn.style.gap = "4px";
-        btn.style.padding = "12px";
-        btn.style.background = "rgba(255, 255, 255, 0.05)";
-        btn.style.border = `2px solid ${cls.color}`;
-        btn.style.borderRadius = "12px";
-        btn.style.color = "#fff";
-        btn.style.cursor = "pointer";
-        btn.style.width = "100px";
-        btn.style.transition = "all 0.2s";
-        btn.dataset.classId = String(cls.id);
-
-        const icon = document.createElement("span");
-        icon.textContent = cls.emoji;
-        icon.style.fontSize = "24px";
-        
-        const name = document.createElement("span");
-        name.textContent = cls.name;
-        name.style.fontSize = "12px";
-        name.style.fontWeight = "bold";
-
-        btn.appendChild(icon);
-        btn.appendChild(name);
-
-        btn.onclick = () => {
-            selectedClassId = cls.id;
-            syncClassCards();
-            syncResultsClassButtons();
-            updatePlayButton();
-        };
-
-        resultsClassSelection.appendChild(btn);
-        resultsClassButtons.push(btn);
-    });
-}
-
-// Вызываем после определения classesData
-initResultsClassButtons();
 
 let selectedClassId = -1;  // -1 = класс не выбран
 let activeRoom: any = null;
 let globalInputSeq = 0; // Единый монотонный счётчик для всех input команд
 let lastSentInput = { x: 0, y: 0 }; // Последнее отправленное направление движения
 
-const classCardsContainer = document.createElement("div");
-classCardsContainer.style.display = "flex";
-classCardsContainer.style.gap = "12px";
-classCardsContainer.style.marginBottom = "24px";
-classCardsContainer.style.flexWrap = "wrap";
-classCardsContainer.style.justifyContent = "center";
-
-const classCards: HTMLButtonElement[] = [];
-
-function syncClassCards() {
-    classCards.forEach((c, i) => {
-        const clsData = classesData[i];
-        const isSelected = i === selectedClassId;
-        c.style.background = isSelected ? "#1b2c45" : "#111b2a";
-        c.style.border = isSelected ? `2px solid ${clsData.color}` : "2px solid #2d4a6d";
-        c.style.transform = isSelected ? "scale(1.05)" : "scale(1)";
-    });
-}
-
-for (const cls of classesData) {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.style.width = "min(140px, 28vw)";
-    card.style.padding = "16px 12px";
-    card.style.background = cls.id === selectedClassId ? "#1b2c45" : "#111b2a";
-    card.style.border = cls.id === selectedClassId ? `2px solid ${cls.color}` : "2px solid #2d4a6d";
-    card.style.borderRadius = "14px";
-    card.style.cursor = "pointer";
-    card.style.transition = "transform 150ms, background 150ms, border 150ms";
-    card.style.display = "flex";
-    card.style.flexDirection = "column";
-    card.style.alignItems = "center";
-    card.style.gap = "8px";
-    card.dataset.classId = String(cls.id);
-
-    const emoji = document.createElement("div");
-    emoji.textContent = cls.emoji;
-    emoji.style.fontSize = "32px";
-
-    const name = document.createElement("div");
-    name.textContent = cls.name;
-    name.style.fontSize = "15px";
-    name.style.fontWeight = "600";
-    name.style.color = cls.color;
-
-    const desc = document.createElement("div");
-    desc.textContent = cls.desc;
-    desc.style.fontSize = "11px";
-    desc.style.color = "#9fb5cc";
-
-    const ability = document.createElement("div");
-    ability.textContent = `⚡ ${cls.ability}`;
-    ability.style.fontSize = "11px";
-    ability.style.color = "#6fd6ff";
-    ability.style.marginTop = "4px";
-
-    card.appendChild(emoji);
-    card.appendChild(name);
-    card.appendChild(desc);
-    card.appendChild(ability);
-
-    card.addEventListener("mouseenter", () => {
-        if (cls.id !== selectedClassId) {
-            card.style.background = "#182538";
-        }
-    });
-    card.addEventListener("mouseleave", () => {
-        if (cls.id !== selectedClassId) {
-            card.style.background = "#111b2a";
-        }
-    });
-    card.addEventListener("click", () => {
-        selectedClassId = cls.id;
-        syncClassCards();
-        syncResultsClassButtons();
-        updatePlayButton();
-    });
-
-    classCardsContainer.appendChild(card);
-    classCards.push(card);
-}
-
-// Кнопка "Играть"
-const playButton = document.createElement("button");
-playButton.type = "button";
-playButton.textContent = "ВЫБЕРИТЕ КЛАСС";
-playButton.style.padding = "16px 48px";
-playButton.style.fontSize = "18px";
-playButton.style.fontWeight = "700";
-playButton.style.background = "linear-gradient(135deg, #6b7280, #4b5563)";
-playButton.style.border = "none";
-playButton.style.borderRadius = "12px";
-playButton.style.color = "#9ca3af";
-playButton.style.cursor = "not-allowed";
-playButton.style.transition = "transform 150ms, box-shadow 150ms, background 300ms";
-playButton.style.boxShadow = "0 8px 24px rgba(107, 114, 128, 0.2)";
-playButton.disabled = true;
-
-// Функция обновления состояния кнопки Play
-const updatePlayButton = () => {
-    if (selectedClassId >= 0 && selectedClassId <= 2) {
-        playButton.textContent = "▶ ИГРАТЬ";
-        playButton.style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
-        playButton.style.color = "#0a0e14";
-        playButton.style.cursor = "pointer";
-        playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
-        playButton.disabled = false;
-    } else {
-        playButton.textContent = "ВЫБЕРИТЕ КЛАСС";
-        playButton.style.background = "linear-gradient(135deg, #6b7280, #4b5563)";
-        playButton.style.color = "#9ca3af";
-        playButton.style.cursor = "not-allowed";
-        playButton.style.boxShadow = "0 8px 24px rgba(107, 114, 128, 0.2)";
-        playButton.disabled = true;
-    }
-};
-
-playButton.addEventListener("mouseenter", () => {
-    if (!playButton.disabled) {
-        playButton.style.transform = "scale(1.05)";
-        playButton.style.boxShadow = "0 12px 32px rgba(74, 222, 128, 0.4)";
-    }
-});
-playButton.addEventListener("mouseleave", () => {
-    playButton.style.transform = "scale(1)";
-    if (!playButton.disabled) {
-        playButton.style.boxShadow = "0 8px 24px rgba(74, 222, 128, 0.3)";
-    }
-});
-
-// Собираем экран
-joinScreen.appendChild(joinTitle);
-joinScreen.appendChild(joinSubtitle);
-joinScreen.appendChild(nameContainer);
-joinScreen.appendChild(classCardsContainer);
-joinScreen.appendChild(playButton);
-document.body.appendChild(joinScreen);
-
-// Скрываем canvas и HUD до входа в игру
+// Скрываем canvas до входа в игру (Preact MainMenu показывается первым)
 canvas.style.display = "none";
-hud.style.display = "none";
-
-// ============================================
-// END JOIN SCREEN
-// ============================================
 
 let balanceConfig: BalanceConfig = DEFAULT_BALANCE_CONFIG;
 let worldWidth = balanceConfig.worldPhysics.widthM ?? balanceConfig.world.mapSize;
@@ -2697,9 +2320,7 @@ async function connectToServer(playerName: string, classId: number) {
         
         const resetClassSelectionUi = () => {
             selectedClassId = -1;
-            syncClassCards();
-            syncResultsClassButtons();
-            updatePlayButton();
+            // Legacy UI functions removed — Preact handles UI state via signals
         };
 
         const isValidClassId = (value: unknown) => {
@@ -2714,10 +2335,6 @@ async function connectToServer(playerName: string, classId: number) {
             if (enabled) {
                 if (!isValidClassId(selectedClassId)) {
                     resetClassSelectionUi();
-                } else {
-                    syncClassCards();
-                    syncResultsClassButtons();
-                    updatePlayButton();
                 }
 
                 // В режиме выбора класса отключаем управление и возвращаем UI выбора
@@ -2730,21 +2347,8 @@ async function connectToServer(playerName: string, classId: number) {
                 detachJoystickPointerListeners();
                 resetJoystick();
 
-                // Имя не меняем без переподключения
-                nameInput.disabled = true;
-                randomNameBtn.disabled = true;
-
                 canvas.style.display = "none";
-                hud.style.display = "none";
-                abilityButton.style.display = "none";
-                projectileButton.style.display = "none";
-                slot2Button.style.display = "none";
-                abilityCardModal.style.display = "none";
-                levelIndicator.style.display = "none";
-                talentModal.style.display = "none";
-                resultsOverlay.style.display = "none";
-                topCenterHud.style.display = "none";
-                // Legacy joinScreen скрыт, используем Preact MainMenu
+                // Preact MainMenu handles menu UI
                 setPhase("menu");
                 setGameViewportLock(false);
                 return;
@@ -2753,15 +2357,7 @@ async function connectToServer(playerName: string, classId: number) {
             // При выключении режима выбора класса — переключить Preact UI на playing
             setPhase("playing");
 
-            nameInput.disabled = false;
-            randomNameBtn.disabled = false;
-
-            joinScreen.style.display = "none";
             canvas.style.display = "block";
-            // Legacy HUD скрыт — используем Preact GameHUD
-            hud.style.display = "none";
-            topCenterHud.style.display = "none";
-            // Legacy кнопки способностей скрыты — используем Preact AbilityButtons
             setGameViewportLock(true);
             try {
                 (document.activeElement as HTMLElement | null)?.blur?.();
@@ -2770,11 +2366,6 @@ async function connectToServer(playerName: string, classId: number) {
                 // ignore focus errors
             }
             hasFocus = true;
-
-            // Иконка способности берётся из актуального classId игрока
-            const p = room.state.players.get(room.sessionId);
-            const cid = p?.classId ?? 0;
-            abilityButtonIcon.textContent = abilityIcons[cid] ?? "⚡";
         };
 
         const refreshTalentModal = () => {
@@ -5083,9 +4674,7 @@ async function connectToServer(playerName: string, classId: number) {
             if (phase !== "Results" && selfPlayer) {
                 if (!isValidClassId(selfPlayer.classId)) {
                     // Между матчами класс сбрасывается на сервере - возвращаем экран выбора
-                    if (!nameInput.disabled) {
-                        nameInput.value = String(selfPlayer.name ?? nameInput.value);
-                    }
+                    // Preact MainMenu handles name via signals
                     setClassSelectMode(true);
                 } else {
                     setClassSelectMode(false);
@@ -5161,18 +4750,7 @@ async function connectToServer(playerName: string, classId: number) {
     }
 }
 
-// Обработчик кнопки "Играть"
-playButton.addEventListener("click", () => {
-    if (playButton.disabled || selectedClassId < 0 || selectedClassId > 2) {
-        return; // Класс не выбран
-    }
-    if (activeRoom) {
-        activeRoom.send("selectClass", { classId: selectedClassId });
-        return;
-    }
-    const name = nameInput.value.trim() || generateRandomName();
-    connectToServer(name, selectedClassId);
-});
+// Legacy playButton removed — Preact MainMenu calls onPlay via UIBridge callbacks
 
 // ========== UIBridge Integration ==========
 
