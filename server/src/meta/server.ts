@@ -17,8 +17,8 @@ import analyticsRoutes from './routes/analytics';
 import matchResultsRoutes from './routes/matchResults';
 
 const app = express();
-const PORT = process.env.META_PORT || 3000;
-const HOST = process.env.META_HOST || '0.0.0.0';
+const port = Number(process.env.META_PORT || 3000);
+const host = process.env.META_HOST || '0.0.0.0';
 
 // Middleware
 app.use(cors());
@@ -124,8 +124,8 @@ async function start() {
     PaymentProviderFactory.initialize();
 
     // Start server
-    app.listen(Number(PORT), HOST, () => {
-      console.log(`[MetaServer] Listening on http://${HOST}:${PORT}`);
+    app.listen(port, host, () => {
+      console.log(`[MetaServer] Listening on http://${host}:${port}`);
       console.log(`[MetaServer] Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`[MetaServer] Available platforms: ${AuthProviderFactory.getAvailablePlatforms().join(', ')}`);
       console.log(`[MetaServer] Available payment providers: ${PaymentProviderFactory.getAvailableProviders().join(', ') || 'none'}`);
