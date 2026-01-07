@@ -12,6 +12,7 @@ RUN npm ci
 
 COPY server ./server
 COPY shared ./shared
+COPY config ./config
 
 RUN npm run build --workspace=shared
 
