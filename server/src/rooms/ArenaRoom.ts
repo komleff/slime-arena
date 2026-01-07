@@ -46,6 +46,7 @@ import {
     SlimeConfig,
     generateUniqueName,
     TalentConfig,
+    ClassTalentConfig,
     BoostType,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
@@ -378,8 +379,8 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private applyMapSizeConfig() {
-        const mapSizes = this.balance.world.mapSizes ?? [];
-        const validSizes = mapSizes.filter((size) => Number.isFinite(size) && size > 0);
+        const mapSizes = this.balance.world.mapSizes ?? [] as number[];
+        const validSizes = mapSizes.filter((size: number) => Number.isFinite(size) && size > 0);
         if (validSizes.length === 0) return;
 
         const chosen = validSizes[Math.floor(this.rng.next() * validSizes.length)];
@@ -1873,7 +1874,7 @@ export class ArenaRoom extends Room<GameState> {
         const className = this.getClassName(player.classId);
         const classTalents = talents.classTalents[className];
         if (classTalents) {
-            for (const [id, config] of Object.entries(classTalents)) {
+            for (const [id, config] of Object.entries(classTalents) as [string, ClassTalentConfig][]) {
                 if (config.requirement) {
                     const hasRequirement =
                         player.abilitySlot0 === config.requirement ||
@@ -2496,7 +2497,7 @@ export class ArenaRoom extends Room<GameState> {
                 startedAt: this.matchStartedAt || new Date().toISOString(),
                 endedAt: new Date().toISOString(),
                 configVersion: "1.0.0", // TODO: получить из RuntimeConfig
-                buildVersion: "0.3.0", // TODO: получить из package.json
+                buildVersion: "0.3.1", // TODO: получить из package.json
                 playerResults,
                 matchStats: {
                     totalKills: playerResults.reduce((sum, p) => sum + p.killCount, 0),
@@ -3180,10 +3181,7 @@ export class ArenaRoom extends Room<GameState> {
         const usedAbilities = new Set([player.abilitySlot0, player.abilitySlot1, player.abilitySlot2]);
         
         // Фильтруем доступные умения (которых ещё нет у игрока)
-        const available = pool.filter(ab => !usedAbilities.has(ab));
-        if (available.length === 0) return;
-        
-        // Выбираем 3 случайных (или меньше если не хватает)
+        const available = pool.filter((ab: string) => !usedAbilities.has(ab));
         const shuffled = [...available];
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(this.rng.next() * (i + 1));
@@ -3322,7 +3320,7 @@ export class ArenaRoom extends Room<GameState> {
         if (talents.common[talentId]) return talents.common[talentId];
         if (talents.rare[talentId]) return talents.rare[talentId];
         if (talents.epic[talentId]) return talents.epic[talentId];
-        for (const classPool of Object.values(talents.classTalents)) {
+        for (const classPool of Object.values(talents.classTalents) as Record<string, ClassTalentConfig>[]) {
             if (classPool[talentId]) return classPool[talentId];
         }
         return null;
@@ -3680,7 +3678,7 @@ export class ArenaRoom extends Room<GameState> {
         // Добавляем классовые таланты (GDD 7.3.4)
         const classTalentConfigs = talents.classTalents[className];
         if (classTalentConfigs) {
-            for (const [id, config] of Object.entries(classTalentConfigs)) {
+            for (const [id, config] of Object.entries(classTalentConfigs) as [string, ClassTalentConfig][]) {
                 const rarity = config.rarity === "epic" ? 2 : 1;
                 if (checkTalentAvailable(id, config, rarity)) {
                     classTalentsAvailable.push({ id, rarity, category: config.category, kind: "talent" });
@@ -3746,10 +3744,10 @@ export class ArenaRoom extends Room<GameState> {
                 pool = allAvailable;
             }
 
-            const candidates = pool.filter(t => {
-                if (selected.some(s => s.id === t.id)) return false;
+            const candidates = pool.filter((t: any) => {
+                if (selected.some((s: any) => s.id === t.id)) return false;
                 if (t.category && usedEffects.has(t.category)) {
-                    const sameCategory = selected.filter(s => s.category === t.category).length;
+                    const sameCategory = selected.filter((s: any) => s.category === t.category).length;
                     if (sameCategory >= 2) return false;
                 }
                 return true;
@@ -3757,7 +3755,7 @@ export class ArenaRoom extends Room<GameState> {
 
             let chosen: { id: string; rarity: number; category?: string; kind: "talent" } | null = null;
             if (candidates.length === 0) {
-                const remaining = allAvailable.filter(t => !selected.some(s => s.id === t.id));
+                const remaining = allAvailable.filter((t: any) => !selected.some((s: any) => s.id === t.id));
                 if (remaining.length === 0) return false;
                 const idx = Math.floor(this.rng.next() * remaining.length);
                 chosen = remaining[idx];

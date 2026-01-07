@@ -4,9 +4,10 @@
 
 -- Drop old ab_tests table and create new structure
 DROP TABLE IF EXISTS ab_tests CASCADE;
+DROP TABLE IF EXISTS ab_test_conversions CASCADE;
 
 -- A/B Tests table (test definitions)
-CREATE TABLE ab_tests (
+CREATE TABLE IF NOT EXISTS ab_tests (
     test_id VARCHAR(100) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -19,10 +20,10 @@ CREATE TABLE ab_tests (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_ab_tests_state ON ab_tests(state);
+CREATE INDEX IF NOT EXISTS idx_ab_tests_state ON ab_tests(state);
 
 -- A/B Test Conversions table (tracking)
-CREATE TABLE ab_test_conversions (
+CREATE TABLE IF NOT EXISTS ab_test_conversions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     test_id VARCHAR(100) NOT NULL REFERENCES ab_tests(test_id) ON DELETE CASCADE,
     variant_id VARCHAR(100) NOT NULL,
@@ -32,11 +33,11 @@ CREATE TABLE ab_test_conversions (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_ab_test_conversions_test ON ab_test_conversions(test_id, variant_id);
-CREATE INDEX idx_ab_test_conversions_user ON ab_test_conversions(user_id, test_id);
+CREATE INDEX IF NOT EXISTS idx_ab_test_conversions_test ON ab_test_conversions(test_id, variant_id);
+CREATE INDEX IF NOT EXISTS idx_ab_test_conversions_user ON ab_test_conversions(user_id, test_id);
 
 -- Analytics events table
-CREATE TABLE analytics_events (
+CREATE TABLE IF NOT EXISTS analytics_events (
     event_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     event_type VARCHAR(100) NOT NULL,
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -47,9 +48,9 @@ CREATE TABLE analytics_events (
     client_version VARCHAR(50)
 );
 
-CREATE INDEX idx_analytics_events_type ON analytics_events(event_type, timestamp DESC);
-CREATE INDEX idx_analytics_events_user ON analytics_events(user_id, timestamp DESC);
-CREATE INDEX idx_analytics_events_time ON analytics_events(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_time ON analytics_events(timestamp DESC);
 
 -- Update purchase_receipts table to new structure
 ALTER TABLE purchase_receipts 
@@ -67,11 +68,13 @@ ALTER TABLE purchase_receipts
     ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP,
     ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
 
--- Rename provider to platform if exists
+-- Rename provider to platform if exists and platform column DOES NOT exist
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns 
-               WHERE table_name = 'purchase_receipts' AND column_name = 'provider') THEN
+               WHERE table_name = 'purchase_receipts' AND column_name = 'provider') 
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns 
+               WHERE table_name = 'purchase_receipts' AND column_name = 'platform') THEN
         ALTER TABLE purchase_receipts RENAME COLUMN provider TO platform;
     END IF;
 END $$;
@@ -94,5 +97,6 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_purchase_receipts_status ON purchase_receipts(status, created_at DESC);
 
 -- Trigger for updated_at on ab_tests
+DROP TRIGGER IF EXISTS update_ab_tests_updated_at ON ab_tests;
 CREATE TRIGGER update_ab_tests_updated_at BEFORE UPDATE ON ab_tests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -1,4 +1,4 @@
-version: '3.8'
+name: slime-arena
 
 services:
   postgres:
@@ -31,7 +31,33 @@ services:
       timeout: 3s
       retries: 5
 
-  server:
+  meta-server:
+    container_name: slime-arena-meta-server
+    image: ghcr.io/komleff/slime-arena-server:v0.3.1
+    build:
+      context: ..
+      dockerfile: docker/server.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://slime:slime_dev_password@postgres:5432/slime_arena
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+    command: ["npm", "run", "dev:meta", "--workspace=server"]
+    volumes:
+      - ../server:/app/server
+      - ../shared:/app/shared
+      - ../config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  match-server:
+    container_name: slime-arena-match-server
+    image: ghcr.io/komleff/slime-arena-server:v0.3.1
     build:
       context: ..
       dockerfile: docker/server.Dockerfile
@@ -41,16 +67,18 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://slime:slime_dev_password@postgres:5432/slime_arena
       - REDIS_URL=redis://redis:6379
+      - META_SERVER_URL=http://meta-server:3000
+      - MATCH_SERVER_TOKEN=dev-server-token
     volumes:
       - ../server:/app/server
       - ../shared:/app/shared
+      - ../config:/app/config
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - meta-server
 
   client:
+    container_name: slime-arena-client
+    image: ghcr.io/komleff/slime-arena-client:v0.3.1
     build:
       context: ..
       dockerfile: docker/client.Dockerfile

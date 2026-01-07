@@ -4,7 +4,18 @@
  */
 
 // @ts-expect-error Vite env types
-const META_SERVER_URL = (import.meta.env?.VITE_META_SERVER_URL as string) || 'http://localhost:3000';
+const getMetaServerUrl = () => {
+  if (import.meta.env?.VITE_META_SERVER_URL) {
+    return import.meta.env.VITE_META_SERVER_URL as string;
+  }
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+    return `${protocol}://${window.location.hostname}:3000`;
+  }
+  return 'http://localhost:3000';
+};
+
+const META_SERVER_URL = getMetaServerUrl();
 // 10 секунд: достаточно для типичных запросов, не блокирует UI слишком долго
 const DEFAULT_TIMEOUT = 10000;
 // 3 попытки: баланс между устойчивостью к сбоям и нагрузкой на сервер

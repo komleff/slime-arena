@@ -13,6 +13,8 @@ RUN npm ci
 COPY server ./server
 COPY shared ./shared
 
+RUN npm run build --workspace=shared
+
 EXPOSE 2567
 
 CMD ["npm", "run", "dev", "--workspace=server"]

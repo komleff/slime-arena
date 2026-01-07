@@ -6,7 +6,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     platform_type VARCHAR(50) NOT NULL,
     platform_id VARCHAR(255) NOT NULL,
@@ -22,10 +22,10 @@ CREATE TABLE users (
     CONSTRAINT unique_platform_user UNIQUE (platform_type, platform_id)
 );
 
-CREATE INDEX idx_users_platform ON users(platform_type, platform_id);
+CREATE INDEX IF NOT EXISTS idx_users_platform ON users(platform_type, platform_id);
 
 -- Sessions table
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(255) NOT NULL,
@@ -36,11 +36,11 @@ CREATE TABLE sessions (
     user_agent VARCHAR(255)
 );
 
-CREATE INDEX idx_sessions_user_id ON sessions(user_id, created_at DESC);
-CREATE INDEX idx_sessions_token_hash ON sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash);
 
 -- Profiles table
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     level INT DEFAULT 1,
     xp INT DEFAULT 0,
@@ -50,7 +50,7 @@ CREATE TABLE profiles (
 );
 
 -- Wallets table
-CREATE TABLE wallets (
+CREATE TABLE IF NOT EXISTS wallets (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     coins BIGINT DEFAULT 0,
     gems BIGINT DEFAULT 0,
@@ -58,7 +58,7 @@ CREATE TABLE wallets (
 );
 
 -- Unlocked items table
-CREATE TABLE unlocked_items (
+CREATE TABLE IF NOT EXISTS unlocked_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     item_id VARCHAR(100) NOT NULL,
@@ -69,10 +69,10 @@ CREATE TABLE unlocked_items (
     CONSTRAINT unique_user_item UNIQUE (user_id, item_id)
 );
 
-CREATE INDEX idx_unlocked_items_user ON unlocked_items(user_id, item_type);
+CREATE INDEX IF NOT EXISTS idx_unlocked_items_user ON unlocked_items(user_id, item_type);
 
 -- Transactions table (for idempotency)
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     operation_id VARCHAR(100) NOT NULL,
@@ -83,10 +83,10 @@ CREATE TABLE transactions (
     CONSTRAINT unique_user_operation UNIQUE (user_id, operation_id)
 );
 
-CREATE INDEX idx_transactions_user ON transactions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id, created_at DESC);
 
 -- Player ratings table (Glicko-2)
-CREATE TABLE player_ratings (
+CREATE TABLE IF NOT EXISTS player_ratings (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     mode VARCHAR(50) NOT NULL,
     season_id VARCHAR(50) NOT NULL,
@@ -97,10 +97,10 @@ CREATE TABLE player_ratings (
     PRIMARY KEY (user_id, mode, season_id)
 );
 
-CREATE INDEX idx_ratings_leaderboard ON player_ratings(season_id, mode, rating DESC);
+CREATE INDEX IF NOT EXISTS idx_ratings_leaderboard ON player_ratings(season_id, mode, rating DESC);
 
 -- Match results table
-CREATE TABLE match_results (
+CREATE TABLE IF NOT EXISTS match_results (
     match_id UUID PRIMARY KEY,
     mode VARCHAR(50) NOT NULL,
     started_at TIMESTAMP NOT NULL,
@@ -110,10 +110,10 @@ CREATE TABLE match_results (
     summary JSONB NOT NULL
 );
 
-CREATE INDEX idx_match_results_time ON match_results(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_match_results_time ON match_results(started_at DESC);
 
 -- Battle pass progress table
-CREATE TABLE battlepass_progress (
+CREATE TABLE IF NOT EXISTS battlepass_progress (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     season_id VARCHAR(50) NOT NULL,
     level INT DEFAULT 0,
@@ -125,7 +125,7 @@ CREATE TABLE battlepass_progress (
 );
 
 -- Mission progress table
-CREATE TABLE mission_progress (
+CREATE TABLE IF NOT EXISTS mission_progress (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     season_id VARCHAR(50) NOT NULL,
     mission_id VARCHAR(100) NOT NULL,
@@ -136,7 +136,7 @@ CREATE TABLE mission_progress (
 );
 
 -- Achievements table
-CREATE TABLE achievements (
+CREATE TABLE IF NOT EXISTS achievements (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     achievement_id VARCHAR(100) NOT NULL,
     state VARCHAR(20) DEFAULT 'locked', -- locked, unlocked, claimed
@@ -147,7 +147,7 @@ CREATE TABLE achievements (
 );
 
 -- Daily rewards table
-CREATE TABLE daily_rewards (
+CREATE TABLE IF NOT EXISTS daily_rewards (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     streak INT DEFAULT 0,
     last_claimed_at TIMESTAMP,
@@ -156,7 +156,7 @@ CREATE TABLE daily_rewards (
 );
 
 -- Purchase receipts table (for real money transactions)
-CREATE TABLE purchase_receipts (
+CREATE TABLE IF NOT EXISTS purchase_receipts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     operation_id VARCHAR(100) NOT NULL,
@@ -169,10 +169,10 @@ CREATE TABLE purchase_receipts (
     CONSTRAINT unique_user_purchase_operation UNIQUE (user_id, operation_id)
 );
 
-CREATE INDEX idx_purchase_receipts_user ON purchase_receipts(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_purchase_receipts_user ON purchase_receipts(user_id, created_at DESC);
 
 -- Social invites table
-CREATE TABLE social_invites (
+CREATE TABLE IF NOT EXISTS social_invites (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     platform VARCHAR(50) NOT NULL,
@@ -182,10 +182,10 @@ CREATE TABLE social_invites (
     CONSTRAINT unique_platform_invite UNIQUE (platform, invite_code)
 );
 
-CREATE INDEX idx_social_invites_user ON social_invites(user_id);
+CREATE INDEX IF NOT EXISTS idx_social_invites_user ON social_invites(user_id);
 
 -- A/B tests table
-CREATE TABLE ab_tests (
+CREATE TABLE IF NOT EXISTS ab_tests (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     test_id VARCHAR(100) NOT NULL,
     variant_id VARCHAR(100) NOT NULL,
@@ -194,7 +194,7 @@ CREATE TABLE ab_tests (
 );
 
 -- Configs table (for storing RuntimeConfig versions)
-CREATE TABLE configs (
+CREATE TABLE IF NOT EXISTS configs (
     config_version VARCHAR(50) PRIMARY KEY,
     state VARCHAR(20) NOT NULL, -- draft, active, archived
     checksum VARCHAR(100) NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE configs (
 );
 
 -- Audit log table
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     actor_user_id UUID,
     action VARCHAR(100) NOT NULL,
@@ -214,8 +214,8 @@ CREATE TABLE audit_log (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_audit_log_time ON audit_log(created_at DESC);
-CREATE INDEX idx_audit_log_actor ON audit_log(actor_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_time ON audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_user_id, created_at DESC);
 
 -- Insert default config version
 INSERT INTO configs (config_version, state, checksum, payload, activated_at) 
@@ -228,7 +228,7 @@ VALUES (
         "features": {"paymentsEnabled": false, "adsRewardEnabled": true, "matchmakingEnabled": true}
     }'::jsonb,
     NOW()
-);
+) ON CONFLICT (config_version) DO NOTHING;
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -240,11 +240,14 @@ END;
 $$ language 'plpgsql';
 
 -- Add triggers for updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_wallets_updated_at ON wallets;
 CREATE TRIGGER update_wallets_updated_at BEFORE UPDATE ON wallets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

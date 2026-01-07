@@ -489,7 +489,7 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
       </div>
 
       <div class="menu-footer">
-        Slime Arena v0.3.0 • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
+        Slime Arena v0.3.1 • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
   );

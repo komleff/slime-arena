@@ -1,11 +1,11 @@
 {
   "name": "@slime-arena/server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node-dev --respawn src/index.ts",
-    "dev:meta": "ts-node-dev --respawn src/meta/server.ts",
+    "dev": "ts-node-dev -r tsconfig-paths/register --respawn src/index.ts",
+    "dev:meta": "ts-node-dev -r tsconfig-paths/register --respawn src/meta/server.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "start:meta": "node dist/meta/server.js",
@@ -28,6 +28,7 @@
     "@types/express": "^4.17.0",
     "@types/cors": "^2.8.12",
     "@types/pg": "^8.10.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "tsconfig-paths": "^4.2.0"
   }
 }

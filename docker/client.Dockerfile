@@ -13,6 +13,8 @@ RUN npm ci
 COPY client ./client
 COPY shared ./shared
 
+RUN npm run build --workspace=shared
+
 EXPOSE 5174
 
 CMD ["npm", "run", "dev", "--workspace=client"]

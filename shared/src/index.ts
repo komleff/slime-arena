@@ -1,5 +1,5 @@
-export type { Vector2, MatchPhaseId, InputCommand } from "./types.js";
-export { MATCH_PHASES } from "./types.js";
+export type { Vector2, MatchPhaseId, InputCommand } from "./types";
+export { MATCH_PHASES } from "./types";
 export type {
     BalanceConfig,
     ResolvedBalanceConfig,
@@ -10,14 +10,15 @@ export type {
     ClientNetSmoothingConfig,
     MassCurveConfig,
     TalentConfig,
+    ClassTalentConfig,
     BoostConfig,
     BoostType,
     MapSizeConfig,
     ObstacleConfig,
     SafeZoneConfig,
     ZonesConfig,
-} from "./config.js";
-export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config.js";
+} from "./config";
+export { DEFAULT_BALANCE_CONFIG, resolveBalanceConfig } from "./config";
 export {
     getSlimeDamage,
     getSlimeRadius,
@@ -27,7 +28,7 @@ export {
     getSlimeRadiusFromConfig,
     getSlimeInertia,
     scaleSlimeValue,
-} from "./formulas.js";
+} from "./formulas";
 export {
     FLAG_RESPAWN_SHIELD,
     FLAG_ABILITY_SHIELD,
@@ -48,8 +49,8 @@ export {
     ZONE_TYPE_TURBO,
     OBSTACLE_TYPE_PILLAR,
     OBSTACLE_TYPE_SPIKES,
-} from "./constants.js";
-export type { SlimeSprite } from "./sprites.js";
+} from "./constants";
+export type { SlimeSprite } from "./sprites";
 export {
     SLIME_SPRITES,
     SPRITE_SIZE,
@@ -57,13 +58,13 @@ export {
     loadSprite,
     loadClassSprites,
     getPlayerSprite,
-} from "./sprites.js";
+} from "./sprites";
 export {
     generateName,
     generateUniqueName,
     generateRandomName,
     getNameCombinationsCount,
-} from "./nameGenerator.js";
+} from "./nameGenerator";
 export {
     clamp,
     lerp,
@@ -73,4 +74,4 @@ export {
     radToDeg,
     distance,
     distanceSq,
-} from "./mathUtils.js";
+} from "./mathUtils";

@@ -1,4 +1,4 @@
-import { BalanceConfig, SlimeConfig, MassCurveConfig } from "./config.js";
+import { BalanceConfig, SlimeConfig, MassCurveConfig } from "./config";
 
 export function getSlimeDamage(mass: number, formulas: BalanceConfig["formulas"]): number {
     return formulas.damage.base + formulas.damage.scale * Math.log(1 + mass / formulas.damage.divisor);

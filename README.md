@@ -106,6 +106,22 @@ npx tsx server/tests/meta-stage-d.test.ts
 .\tests\smoke\run-stage-d.ps1
 ```
 
+## Запуск в Docker (Stable Release)
+
+Для быстрого запуска всего окружения используйте Docker Compose:
+
+```bash
+# Из корня проекта
+docker-compose -f docker/docker-compose.yml up -d
+```
+
+### Доступные сервисы v0.3.1:
+- **Client**: [http://localhost:5174](http://localhost:5174) (Контейнер: `slime-arena-client`)
+- **MetaServer**: [http://localhost:3000](http://localhost:3000) (Контейнер: `slime-arena-meta-server`)
+- **MatchServer**: [ws://localhost:2567](ws://localhost:2567) (Контейнер: `slime-arena-match-server`)
+- **PostgreSQL**: [localhost:5432](localhost:5432) (Контейнер: `slime-arena-postgres`)
+- **Redis**: [localhost:6379](localhost:6379) (Контейнер: `slime-arena-redis`)
+
 ### Load Tests (k6)
 
 Нагрузочное тестирование для Soft Launch (CCU=500, p99 < 2000ms, errors < 1%):
@@ -140,9 +156,9 @@ k6 run tests/load/soft-launch.js
 
 ## Docker
 
-Актуальные образы v0.3.0 доступны в GitHub Container Registry:
-- `ghcr.io/komleff/slime-arena-server:v0.3.0`
-- `ghcr.io/komleff/slime-arena-client:v0.3.0`
+Актуальные образы v0.3.1 доступны в GitHub Container Registry:
+- `ghcr.io/komleff/slime-arena-server:v0.3.1`
+- `ghcr.io/komleff/slime-arena-client:v0.3.1`
 
 ## Журнал изменений
 

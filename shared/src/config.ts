@@ -1,4 +1,4 @@
-import { MatchPhaseId, MATCH_PHASES } from "./types.js";
+import { MatchPhaseId, MATCH_PHASES } from "./types";
 
 export interface FormulaConfig {
     base: number;

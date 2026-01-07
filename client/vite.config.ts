@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig({
   server: {
@@ -9,7 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       'react': 'preact/compat',
-      'react-dom': 'preact/compat'
+      'react-dom': 'preact/compat',
+      '@slime-arena/shared': path.resolve(__dirname, '../shared/src/index')
     }
   }
 })
