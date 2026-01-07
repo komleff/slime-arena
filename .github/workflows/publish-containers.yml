@@ -21,7 +21,8 @@ env:
   GHCR_REGISTRY: ghcr.io
   IMAGE_NAME_SERVER: slime-arena-server
   IMAGE_NAME_CLIENT: slime-arena-client
-  IMAGE_NAME_MONOLITH: slime-arena-monolith
+  IMAGE_NAME_APP: slime-arena-app
+  IMAGE_NAME_DB: slime-arena-db
   IMAGE_NAME_MONOLITH_FULL: slime-arena-monolith-full
 
 jobs:
@@ -102,13 +103,13 @@ jobs:
           cache-to: type=gha,mode=max
 
       # -------------------------------------------------------------------------
-      # Monolith Image (MetaServer + MatchServer + Client in one container)
+      # App Image (MetaServer + MatchServer + Client)
       # -------------------------------------------------------------------------
-      - name: Extract metadata (monolith)
-        id: meta-monolith
+      - name: Extract metadata (app)
+        id: meta-app
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_MONOLITH }}
+          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_APP }}
           tags: |
             type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
             type=ref,event=branch
@@ -117,15 +118,43 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push monolith
-        id: build-monolith
+      - name: Build and push app
+        id: build-app
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./docker/monolith.Dockerfile
+          file: ./docker/app.Dockerfile
           push: true
-          tags: ${{ steps.meta-monolith.outputs.tags }}
-          labels: ${{ steps.meta-monolith.outputs.labels }}
+          tags: ${{ steps.meta-app.outputs.tags }}
+          labels: ${{ steps.meta-app.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -------------------------------------------------------------------------
+      # DB Image (PostgreSQL + Redis)
+      # -------------------------------------------------------------------------
+      - name: Extract metadata (db)
+        id: meta-db
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_DB }}
+          tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push db
+        id: build-db
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/db.Dockerfile
+          push: true
+          tags: ${{ steps.meta-db.outputs.tags }}
+          labels: ${{ steps.meta-db.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -175,11 +204,15 @@ jobs:
             echo "Tags: ${{ steps.meta-client.outputs.tags }}"
             echo "Digest: ${{ steps.build-client.outputs.digest }}"
             echo ""
-            echo "--- Monolith ---"
-            echo "Tags: ${{ steps.meta-monolith.outputs.tags }}"
-            echo "Digest: ${{ steps.build-monolith.outputs.digest }}"
+            echo "--- App (MetaServer + MatchServer + Client) ---"
+            echo "Tags: ${{ steps.meta-app.outputs.tags }}"
+            echo "Digest: ${{ steps.build-app.outputs.digest }}"
             echo ""
-            echo "--- Monolith Full (PostgreSQL + Redis) ---"
+            echo "--- DB (PostgreSQL + Redis) ---"
+            echo "Tags: ${{ steps.meta-db.outputs.tags }}"
+            echo "Digest: ${{ steps.build-db.outputs.digest }}"
+            echo ""
+            echo "--- Monolith Full (All-in-One) ---"
             echo "Tags: ${{ steps.meta-monolith-full.outputs.tags }}"
             echo "Digest: ${{ steps.build-monolith-full.outputs.digest }}"
           } | tee -a "$GITHUB_STEP_SUMMARY"

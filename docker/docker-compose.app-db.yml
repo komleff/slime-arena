@@ -1,0 +1,58 @@
+# =============================================================================
+# Slime Arena App + DB - Docker Compose
+# Two containers: App (MetaServer + MatchServer + Client) + DB (PostgreSQL + Redis)
+# Version: 0.3.3
+# =============================================================================
+
+name: slime-arena
+
+services:
+  # ---------------------------------------------------------------------------
+  # Database Container
+  # Contains: PostgreSQL + Redis
+  # ---------------------------------------------------------------------------
+  db:
+    image: ghcr.io/komleff/slime-arena-db:${VERSION:-0.3.3}
+    container_name: slime-arena-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-slime}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-slime_dev_password}
+      - POSTGRES_DB=${POSTGRES_DB:-slime_arena}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - redisdata:/var/lib/redis
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Application Container
+  # Contains: MetaServer + MatchServer + Client
+  # ---------------------------------------------------------------------------
+  app:
+    image: ghcr.io/komleff/slime-arena-app:${VERSION:-0.3.3}
+    container_name: slime-arena-app
+    ports:
+      - "3000:3000"   # MetaServer (HTTP API)
+      - "2567:2567"   # MatchServer (WebSocket/Colyseus)
+      - "5174:5174"   # Client (static files)
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-slime}:${POSTGRES_PASSWORD:-slime_dev_password}@db:5432/${POSTGRES_DB:-slime_arena}
+      - REDIS_URL=redis://db:6379
+      - META_SERVER_URL=http://localhost:3000
+      - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    name: slime-arena-pgdata
+  redisdata:
+    name: slime-arena-redisdata
