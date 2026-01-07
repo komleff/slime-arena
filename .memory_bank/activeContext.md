@@ -3,20 +3,22 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** fix/v0.3.1-docker-infra (7 января 2026)
+**База:** main (7 января 2026)
 **Релиз:** v0.3.1
 **GDD версия:** 3.3.2
-**Текущая ветка:** `fix/v0.3.1-docker-infra`
+**Текущая ветка:** `main`
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] v0.3.1: Docker Infrastructure & TS Fixes:**
-  - ✅ Исправление ошибок компиляции TypeScript в `ArenaRoom.ts` (strict mode, implicit any).
-  - ✅ Решение проблемы импорта `@slime-arena/shared` в Docker через предварительную сборку.
-  - ✅ Стандартизация имен контейнеров (`slime-arena-server`, `slime-arena-client`).
-  - ✅ Фиксация порта `5174` для клиентского контейнера.
-  - ✅ Интеграция `tsconfig-paths` для корректной работы маппинга путей в dev-режиме внутри Docker.
+- **[ЗАВЕРШЕНО] v0.3.1: Docker Infrastructure & Stability Release:**
+  - ✅ Релиз v0.3.1 опубликован на GitHub.
+  - ✅ Docker-образы v0.3.1 опубликованы в GHCR.
+  - ✅ Разделение MetaServer и MatchServer в Docker Compose.
+  - ✅ Универсальное определение IP-адреса для доступа в локальной сети.
+  - ✅ Исправление ошибок компиляции TypeScript в `ArenaRoom.ts` (strict mode).
+  - ✅ Исправление путей импорта в `shared` для совместимости с CommonJS/ESM.
+  - ✅ Идемпотентные миграции БД для стабильного перезапуска контейнеров.
 
 - **[ЗАВЕРШЕНО] Sprint 4: Backup/Restore Implementation (PR #47 MERGED):**
   - ✅ 4.1: Создан `scripts/backup.ps1` — Windows backup (pg_dump)
