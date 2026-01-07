@@ -49,13 +49,14 @@ import {
     syncMatchTimer,
     syncAbilityCooldown,
     syncAbilitySlots,
+    syncBoost,
     clearDeadFlag,
     type UICallbacks,
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, matchResults } from "./ui/signals/gameState";
+import { resetMatchmaking, matchResults, selectedClassId as selectedClassIdSignal } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -106,85 +107,7 @@ document.addEventListener("gesturestart", preventGestureZoom, { passive: false }
 document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
 document.addEventListener("gestureend", preventGestureZoom, { passive: false });
 
-const hud = document.createElement("div");
-hud.style.position = "fixed";
-hud.style.top = "12px";
-hud.style.left = "12px";
-hud.style.padding = "10px 12px";
-hud.style.background = "rgba(0, 0, 0, 0.55)";
-hud.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-hud.style.borderRadius = "10px";
-hud.style.fontSize = "13px";
-hud.style.lineHeight = "1.4";
-hud.style.color = "#e6f3ff";
-hud.style.pointerEvents = "none";
-hud.style.minWidth = "220px";
-hud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
-hud.style.display = "none"; // Hidden - using Preact GameHUD
-root.appendChild(hud);
-
-const boostPanel = document.createElement("div");
-boostPanel.style.position = "fixed";
-boostPanel.style.top = "12px";
-boostPanel.style.left = "260px";
-boostPanel.style.display = "none";
-boostPanel.style.alignItems = "center";
-boostPanel.style.gap = "8px";
-boostPanel.style.padding = "6px 10px";
-boostPanel.style.background = "rgba(0, 0, 0, 0.55)";
-boostPanel.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-boostPanel.style.borderRadius = "12px";
-boostPanel.style.fontSize = "12px";
-boostPanel.style.color = "#e6f3ff";
-boostPanel.style.pointerEvents = "none";
-boostPanel.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
-root.appendChild(boostPanel);
-
-const boostIcon = document.createElement("div");
-boostIcon.style.width = "26px";
-boostIcon.style.height = "26px";
-boostIcon.style.borderRadius = "50%";
-boostIcon.style.display = "flex";
-boostIcon.style.alignItems = "center";
-boostIcon.style.justifyContent = "center";
-boostIcon.style.fontWeight = "700";
-boostIcon.style.color = "#0b0f14";
-boostPanel.appendChild(boostIcon);
-
-const boostText = document.createElement("div");
-boostText.style.display = "flex";
-boostText.style.flexDirection = "column";
-boostText.style.gap = "2px";
-boostPanel.appendChild(boostText);
-
-const topCenterHud = document.createElement("div");
-topCenterHud.style.position = "fixed";
-topCenterHud.style.top = "12px";
-topCenterHud.style.left = "50%";
-topCenterHud.style.transform = "translateX(-50%)";
-topCenterHud.style.textAlign = "center";
-topCenterHud.style.color = "#e6f3ff";
-topCenterHud.style.fontFamily = "\"IBM Plex Mono\", \"Courier New\", monospace";
-topCenterHud.style.pointerEvents = "none";
-topCenterHud.style.display = "none";
-topCenterHud.style.flexDirection = "column";
-topCenterHud.style.alignItems = "center";
-topCenterHud.style.gap = "4px";
-topCenterHud.style.textShadow = "0 2px 4px rgba(0,0,0,0.8)";
-root.appendChild(topCenterHud);
-
-const matchTimer = document.createElement("div");
-matchTimer.style.fontSize = "24px";
-matchTimer.style.fontWeight = "bold";
-matchTimer.style.color = "#fff";
-topCenterHud.appendChild(matchTimer);
-
-const killCounter = document.createElement("div");
-killCounter.style.fontSize = "16px";
-killCounter.style.color = "#ff4d4d";
-killCounter.style.fontWeight = "bold";
-killCounter.style.display = "none"; // Hidden by default
-topCenterHud.appendChild(killCounter);
+// Legacy HUD elements (boostPanel, topCenterHud, matchTimer, killCounter) удалены — используется Preact GameHUD
 
 const canvas = document.createElement("canvas");
 canvas.style.width = "100%";
@@ -425,321 +348,8 @@ const rarityNames: Record<number, string> = {
 const { layer: joystickLayer, base: joystickBase, knob: joystickKnob } = createJoystickElements();
 document.body.appendChild(joystickLayer);
 
-const applyMobileTouchGuard = (btn: HTMLButtonElement) => {
-    btn.style.touchAction = "manipulation";
-    btn.style.webkitUserSelect = "none";
-    btn.style.userSelect = "none";
-    btn.style.setProperty("-webkit-touch-callout", "none");
-    btn.addEventListener("dblclick", (event) => event.preventDefault());
-};
-
-// ============================================
-// ABILITY BUTTON - кнопка способности класса
-// ============================================
-
-const abilityButton = document.createElement("button");
-abilityButton.type = "button";
-abilityButton.style.position = "fixed";
-abilityButton.style.right = "20px";
-abilityButton.style.bottom = "20px";
-abilityButton.style.width = "70px";
-abilityButton.style.height = "70px";
-abilityButton.style.borderRadius = "50%";
-abilityButton.style.background = "linear-gradient(135deg, #2d4a6d, #1b2c45)";
-abilityButton.style.border = "3px solid #4a90c2";
-abilityButton.style.color = "#e6f3ff";
-abilityButton.style.fontSize = "28px";
-abilityButton.style.cursor = "pointer";
-abilityButton.style.zIndex = "50";
-abilityButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
-abilityButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
-abilityButton.style.display = "none"; // Скрыта до входа в игру
-abilityButton.title = "1";
-
-// Span для иконки способности (чтобы не использовать textContent и не удалять детей)
-const abilityButtonIcon = document.createElement("span");
-abilityButtonIcon.style.fontSize = "28px";
-abilityButtonIcon.style.pointerEvents = "none";
-abilityButtonIcon.style.zIndex = "1";
-abilityButton.appendChild(abilityButtonIcon);
-
-// Подпись с цифрой на кнопке
-const abilityButtonLabel = document.createElement("span");
-abilityButtonLabel.textContent = "1";
-abilityButtonLabel.style.position = "absolute";
-abilityButtonLabel.style.bottom = "2px";
-abilityButtonLabel.style.right = "6px";
-abilityButtonLabel.style.fontSize = "16px";
-abilityButtonLabel.style.fontWeight = "bold";
-abilityButtonLabel.style.color = "#fff";
-abilityButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
-abilityButtonLabel.style.pointerEvents = "none";
-abilityButton.appendChild(abilityButtonLabel);
-
-// Тёмный оверлей кулдауна
-const abilityButtonCooldown = document.createElement("div");
-abilityButtonCooldown.style.position = "absolute";
-abilityButtonCooldown.style.inset = "0";
-abilityButtonCooldown.style.borderRadius = "50%";
-abilityButtonCooldown.style.background = "rgba(0, 0, 0, 0.8)";
-abilityButtonCooldown.style.pointerEvents = "none";
-abilityButtonCooldown.style.display = "none";
-abilityButton.appendChild(abilityButtonCooldown);
-
-// Яркая полоска прогресса восстановления (SVG дуга)
-const abilityButtonProgress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-abilityButtonProgress.setAttribute("viewBox", "0 0 100 100");
-abilityButtonProgress.style.position = "absolute";
-abilityButtonProgress.style.inset = "0";
-abilityButtonProgress.style.width = "100%";
-abilityButtonProgress.style.height = "100%";
-abilityButtonProgress.style.transform = "rotate(-90deg)";
-abilityButtonProgress.style.pointerEvents = "none";
-
-const abilityProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-abilityProgressCircle.setAttribute("cx", "50");
-abilityProgressCircle.setAttribute("cy", "50");
-abilityProgressCircle.setAttribute("r", "45");
-abilityProgressCircle.setAttribute("fill", "none");
-abilityProgressCircle.setAttribute("stroke", "#4fc3f7");
-abilityProgressCircle.setAttribute("stroke-width", "6");
-abilityProgressCircle.setAttribute("stroke-linecap", "round");
-abilityProgressCircle.setAttribute("stroke-dasharray", "283"); // 2 * PI * 45
-abilityProgressCircle.setAttribute("stroke-dashoffset", "283");
-abilityProgressCircle.style.filter = "drop-shadow(0 0 4px #4fc3f7)";
-abilityButtonProgress.appendChild(abilityProgressCircle);
-abilityButton.appendChild(abilityButtonProgress);
-
-// Текст таймера кулдауна
-const abilityButtonTimer = document.createElement("span");
-abilityButtonTimer.style.position = "absolute";
-abilityButtonTimer.style.top = "50%";
-abilityButtonTimer.style.left = "50%";
-abilityButtonTimer.style.transform = "translate(-50%, -50%)";
-abilityButtonTimer.style.fontSize = "18px";
-abilityButtonTimer.style.fontWeight = "bold";
-abilityButtonTimer.style.color = "#fff";
-abilityButtonTimer.style.textShadow = "0 0 4px #000";
-abilityButtonTimer.style.pointerEvents = "none";
-abilityButtonTimer.style.display = "none";
-abilityButton.appendChild(abilityButtonTimer);
-
-applyMobileTouchGuard(abilityButton);
-
-document.body.appendChild(abilityButton);
-
-const abilityCooldownUi: CooldownUi = {
-    button: abilityButton,
-    overlay: abilityButtonCooldown,
-    timer: abilityButtonTimer,
-    progressCircle: abilityProgressCircle,
-    baseShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
-    baseBorder: "3px solid #4a90c2",
-    readyShadow: "0 0 15px 5px rgba(100, 220, 255, 0.7), inset 0 0 15px rgba(100, 220, 255, 0.3)",
-    readyBorder: "3px solid #64dcff",
-};
-
-// === Кнопка Выброса (Projectile) - Slot 1, клавиша 2 ===
-const projectileButton = document.createElement("button");
-projectileButton.type = "button";
-projectileButton.style.position = "fixed";
-projectileButton.style.right = "100px"; // Слева от кнопки способности класса
-projectileButton.style.bottom = "20px";
-projectileButton.style.width = "60px";
-projectileButton.style.height = "60px";
-projectileButton.style.borderRadius = "50%";
-projectileButton.style.background = "linear-gradient(135deg, #4a2d6d, #2b1b45)";
-projectileButton.style.border = "3px solid #9a4ac2";
-projectileButton.style.color = "#f3e6ff";
-projectileButton.style.fontSize = "24px";
-projectileButton.style.cursor = "pointer";
-projectileButton.style.zIndex = "50";
-projectileButton.style.transition = "transform 150ms, background 150ms, opacity 150ms";
-projectileButton.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
-projectileButton.style.display = "none";
-projectileButton.title = "2";
-
-const projectileButtonIcon = document.createElement("span");
-projectileButtonIcon.textContent = "💥";
-projectileButtonIcon.style.fontSize = "24px";
-projectileButtonIcon.style.pointerEvents = "none";
-projectileButton.appendChild(projectileButtonIcon);
-
-const projectileButtonLabel = document.createElement("span");
-projectileButtonLabel.textContent = "2";
-projectileButtonLabel.style.position = "absolute";
-projectileButtonLabel.style.bottom = "2px";
-projectileButtonLabel.style.right = "4px";
-projectileButtonLabel.style.fontSize = "14px";
-projectileButtonLabel.style.fontWeight = "bold";
-projectileButtonLabel.style.color = "#fff";
-projectileButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
-projectileButtonLabel.style.pointerEvents = "none";
-projectileButton.appendChild(projectileButtonLabel);
-
-// Тёмный оверлей кулдауна для Projectile
-const projectileCooldown = document.createElement("div");
-projectileCooldown.style.position = "absolute";
-projectileCooldown.style.inset = "0";
-projectileCooldown.style.borderRadius = "50%";
-projectileCooldown.style.background = "rgba(0, 0, 0, 0.8)";
-projectileCooldown.style.pointerEvents = "none";
-projectileCooldown.style.display = "none";
-projectileButton.appendChild(projectileCooldown);
-
-// SVG прогресс для Projectile
-const projectileProgress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-projectileProgress.setAttribute("viewBox", "0 0 100 100");
-projectileProgress.style.position = "absolute";
-projectileProgress.style.inset = "0";
-projectileProgress.style.width = "100%";
-projectileProgress.style.height = "100%";
-projectileProgress.style.transform = "rotate(-90deg)";
-projectileProgress.style.pointerEvents = "none";
-
-const projectileProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-projectileProgressCircle.setAttribute("cx", "50");
-projectileProgressCircle.setAttribute("cy", "50");
-projectileProgressCircle.setAttribute("r", "45");
-projectileProgressCircle.setAttribute("fill", "none");
-projectileProgressCircle.setAttribute("stroke", "#c74ff7");
-projectileProgressCircle.setAttribute("stroke-width", "6");
-projectileProgressCircle.setAttribute("stroke-linecap", "round");
-projectileProgressCircle.setAttribute("stroke-dasharray", "283");
-projectileProgressCircle.setAttribute("stroke-dashoffset", "283");
-projectileProgressCircle.style.filter = "drop-shadow(0 0 4px #c74ff7)";
-projectileProgress.appendChild(projectileProgressCircle);
-projectileButton.appendChild(projectileProgress);
-
-const projectileTimer = document.createElement("span");
-projectileTimer.style.position = "absolute";
-projectileTimer.style.top = "50%";
-projectileTimer.style.left = "50%";
-projectileTimer.style.transform = "translate(-50%, -50%)";
-projectileTimer.style.fontSize = "14px";
-projectileTimer.style.fontWeight = "bold";
-projectileTimer.style.color = "#fff";
-projectileTimer.style.textShadow = "0 0 4px #000";
-projectileTimer.style.pointerEvents = "none";
-projectileTimer.style.display = "none";
-projectileButton.appendChild(projectileTimer);
-
-applyMobileTouchGuard(projectileButton);
-
-document.body.appendChild(projectileButton);
-
-const projectileCooldownUi: CooldownUi = {
-    button: projectileButton,
-    overlay: projectileCooldown,
-    timer: projectileTimer,
-    progressCircle: projectileProgressCircle,
-    baseShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
-    baseBorder: "3px solid #9a4ac2",
-    readyShadow: "0 0 12px 4px rgba(199, 79, 247, 0.6), inset 0 0 12px rgba(199, 79, 247, 0.3)",
-    readyBorder: "3px solid #c74ff7",
-};
-
-// ============================================
-// SLOT 2 BUTTON - кнопка умения слота 2 (клавиша 3)
-// ============================================
-const slot2Button = document.createElement("button");
-slot2Button.type = "button";
-slot2Button.style.position = "fixed";
-slot2Button.style.right = "170px";
-slot2Button.style.bottom = "20px";
-slot2Button.style.width = "60px";
-slot2Button.style.height = "60px";
-slot2Button.style.borderRadius = "50%";
-slot2Button.style.background = "linear-gradient(135deg, #2d6d4a, #1b452c)";
-slot2Button.style.border = "3px solid #4ac27a";
-slot2Button.style.color = "#e6fff3";
-slot2Button.style.fontSize = "24px";
-slot2Button.style.cursor = "pointer";
-slot2Button.style.zIndex = "50";
-slot2Button.style.transition = "transform 150ms, background 150ms, opacity 150ms";
-slot2Button.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.4)";
-slot2Button.style.display = "none";
-slot2Button.title = "3";
-
-const slot2ButtonIcon = document.createElement("span");
-slot2ButtonIcon.textContent = "🔒";
-slot2ButtonIcon.style.fontSize = "24px";
-slot2ButtonIcon.style.pointerEvents = "none";
-slot2Button.appendChild(slot2ButtonIcon);
-
-const slot2ButtonLabel = document.createElement("span");
-slot2ButtonLabel.textContent = "3";
-slot2ButtonLabel.style.position = "absolute";
-slot2ButtonLabel.style.bottom = "2px";
-slot2ButtonLabel.style.right = "4px";
-slot2ButtonLabel.style.fontSize = "14px";
-slot2ButtonLabel.style.fontWeight = "bold";
-slot2ButtonLabel.style.color = "#fff";
-slot2ButtonLabel.style.textShadow = "0 0 4px #000, 0 0 8px #000";
-slot2ButtonLabel.style.pointerEvents = "none";
-slot2Button.appendChild(slot2ButtonLabel);
-
-// Тёмный оверлей кулдауна для Slot 2
-const slot2Cooldown = document.createElement("div");
-slot2Cooldown.style.position = "absolute";
-slot2Cooldown.style.inset = "0";
-slot2Cooldown.style.borderRadius = "50%";
-slot2Cooldown.style.background = "rgba(0, 0, 0, 0.8)";
-slot2Cooldown.style.pointerEvents = "none";
-slot2Cooldown.style.display = "none";
-slot2Button.appendChild(slot2Cooldown);
-
-// SVG прогресс для Slot 2
-const slot2Progress = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-slot2Progress.setAttribute("viewBox", "0 0 100 100");
-slot2Progress.style.position = "absolute";
-slot2Progress.style.inset = "0";
-slot2Progress.style.width = "100%";
-slot2Progress.style.height = "100%";
-slot2Progress.style.transform = "rotate(-90deg)";
-slot2Progress.style.pointerEvents = "none";
-
-const slot2ProgressCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-slot2ProgressCircle.setAttribute("cx", "50");
-slot2ProgressCircle.setAttribute("cy", "50");
-slot2ProgressCircle.setAttribute("r", "45");
-slot2ProgressCircle.setAttribute("fill", "none");
-slot2ProgressCircle.setAttribute("stroke", "#4ac27a");
-slot2ProgressCircle.setAttribute("stroke-width", "6");
-slot2ProgressCircle.setAttribute("stroke-linecap", "round");
-slot2ProgressCircle.setAttribute("stroke-dasharray", "283");
-slot2ProgressCircle.setAttribute("stroke-dashoffset", "283");
-slot2ProgressCircle.style.filter = "drop-shadow(0 0 4px #4ac27a)";
-slot2Progress.appendChild(slot2ProgressCircle);
-slot2Button.appendChild(slot2Progress);
-
-const slot2Timer = document.createElement("span");
-slot2Timer.style.position = "absolute";
-slot2Timer.style.top = "50%";
-slot2Timer.style.left = "50%";
-slot2Timer.style.transform = "translate(-50%, -50%)";
-slot2Timer.style.fontSize = "14px";
-slot2Timer.style.fontWeight = "bold";
-slot2Timer.style.color = "#fff";
-slot2Timer.style.textShadow = "0 0 4px #000";
-slot2Timer.style.pointerEvents = "none";
-slot2Timer.style.display = "none";
-slot2Button.appendChild(slot2Timer);
-
-applyMobileTouchGuard(slot2Button);
-
-document.body.appendChild(slot2Button);
-
-const slot2CooldownUi: CooldownUi = {
-    button: slot2Button,
-    overlay: slot2Cooldown,
-    timer: slot2Timer,
-    progressCircle: slot2ProgressCircle,
-    baseShadow: "0 6px 20px rgba(0, 0, 0, 0.4)",
-    baseBorder: "3px solid #4ac27a",
-    readyShadow: "0 0 12px 4px rgba(120, 255, 190, 0.6), inset 0 0 12px rgba(120, 255, 190, 0.3)",
-    readyBorder: "3px solid #4ac27a",
-};
+// Legacy ability buttons и applyMobileTouchGuard удалены
+// Все кнопки способностей теперь в Preact AbilityButtons.tsx
 
 // ============================================
 // ABILITY CARD UI - карточка выбора умения
@@ -905,47 +515,6 @@ abilityCardModal.appendChild(abilityCardHint);
 
 document.body.appendChild(abilityCardModal);
 
-// Индикатор уровня
-const levelIndicator = document.createElement("div");
-levelIndicator.style.position = "fixed";
-levelIndicator.style.right = "20px";
-levelIndicator.style.top = "12px";
-levelIndicator.style.padding = "8px 14px";
-levelIndicator.style.background = "rgba(0, 0, 0, 0.55)";
-levelIndicator.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-levelIndicator.style.borderRadius = "10px";
-levelIndicator.style.display = "none";
-levelIndicator.style.zIndex = "50";
-levelIndicator.style.flexDirection = "column";
-levelIndicator.style.gap = "4px";
-levelIndicator.style.minWidth = "140px";
-
-const levelText = document.createElement("div");
-levelText.style.fontSize = "14px";
-levelText.style.color = "#e6f3ff";
-levelText.style.fontFamily = "\"IBM Plex Mono\", monospace";
-levelText.style.fontWeight = "bold";
-levelText.style.display = "flex";
-levelText.style.justifyContent = "space-between";
-levelIndicator.appendChild(levelText);
-
-const levelBarContainer = document.createElement("div");
-levelBarContainer.style.width = "100%";
-levelBarContainer.style.height = "6px";
-levelBarContainer.style.background = "rgba(255, 255, 255, 0.1)";
-levelBarContainer.style.borderRadius = "3px";
-levelBarContainer.style.overflow = "hidden";
-levelIndicator.appendChild(levelBarContainer);
-
-const levelBarFill = document.createElement("div");
-levelBarFill.style.width = "0%";
-levelBarFill.style.height = "100%";
-levelBarFill.style.background = "linear-gradient(90deg, #4ade80, #22c55e)";
-levelBarFill.style.transition = "width 0.3s ease";
-levelBarContainer.appendChild(levelBarFill);
-
-document.body.appendChild(levelIndicator);
-
 // Индикатор очереди карточек
 const queueIndicator = document.createElement("div");
 queueIndicator.style.position = "fixed";
@@ -974,112 +543,14 @@ styleSheet.textContent = `
 `;
 document.head.appendChild(styleSheet);
 
-// Иконки способностей по классам
-const abilityIcons: Record<number, string> = {
-    0: "⚡", // Hunter - Dash
-    1: "🛡️", // Warrior - Shield
-    2: "🧲", // Collector - Pull
-};
-
-// Иконки классов для отображения у имени
+// Иконки классов для отображения у имени (abilityIcons удалены — в Preact)
 const classIcons: Record<number, string> = {
     0: "🏹", // Hunter
     1: "⚔️", // Warrior
     2: "🧲", // Collector
 };
 
-type CooldownUi = {
-    button: HTMLButtonElement;
-    overlay: HTMLDivElement;
-    timer: HTMLSpanElement;
-    progressCircle: SVGCircleElement;
-    baseShadow: string;
-    baseBorder: string;
-    readyShadow: string;
-    readyBorder: string;
-};
-
-// Длительность кулдауна способности по id (секунды)
-function getAbilityCooldownSecById(abilityId: string | null | undefined, classId?: number): number {
-    if (!abilityId) {
-        switch (classId) {
-            case 0: return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
-            case 1: return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
-            case 2: return balanceConfig.abilities?.slow?.cooldownSec ?? 6;
-            default: return 5;
-        }
-    }
-
-    switch (abilityId) {
-        case "dash":
-            return balanceConfig.abilities?.dash?.cooldownSec ?? 5;
-        case "shield":
-            return balanceConfig.abilities?.shield?.cooldownSec ?? 8;
-        case "slow":
-            return balanceConfig.abilities?.slow?.cooldownSec ?? 6;
-        case "projectile":
-            return balanceConfig.abilities?.projectile?.cooldownSec ?? 4;
-        case "pull":
-            return balanceConfig.abilities?.magnet?.cooldownSec ?? 8;
-        case "spit":
-            return balanceConfig.abilities?.spit?.cooldownSec ?? 5;
-        case "bomb":
-            return balanceConfig.abilities?.bomb?.cooldownSec ?? 6;
-        case "push":
-            return balanceConfig.abilities?.push?.cooldownSec ?? 6;
-        case "mine":
-            return balanceConfig.abilities?.mine?.cooldownSec ?? 10;
-        default:
-            return 5;
-    }
-}
-
-function updateCooldownUi(
-    ui: CooldownUi,
-    options: {
-        abilityId?: string;
-        classId?: number;
-        cooldownStartTick?: number;
-        cooldownEndTick?: number;
-        serverTick: number;
-        tickRate: number;
-    }
-) {
-    const startTick = Number.isFinite(options.cooldownStartTick) ? Number(options.cooldownStartTick) : 0;
-    const endTick = Number.isFinite(options.cooldownEndTick) ? Number(options.cooldownEndTick) : 0;
-    const hasAbility = Boolean(options.abilityId);
-
-    if (!hasAbility || endTick <= options.serverTick || endTick <= 0 || endTick <= startTick) {
-        ui.overlay.style.display = "none";
-        ui.timer.style.display = "none";
-        ui.progressCircle.setAttribute("stroke-dashoffset", "0");
-        ui.button.style.opacity = "1";
-        ui.button.style.boxShadow = hasAbility ? ui.readyShadow : ui.baseShadow;
-        ui.button.style.border = hasAbility ? ui.readyBorder : ui.baseBorder;
-        return;
-    }
-
-    const ticksRemaining = endTick - options.serverTick;
-    let totalTicks = endTick - startTick;
-    if (!Number.isFinite(totalTicks) || totalTicks <= 0) {
-        const totalSec = getAbilityCooldownSecById(options.abilityId, options.classId);
-        totalTicks = totalSec * options.tickRate;
-    }
-    totalTicks = Math.max(1, totalTicks);
-    const progress = 1 - Math.min(1, ticksRemaining / totalTicks); // 0 = начало кд, 1 = готово
-
-    ui.overlay.style.display = "block";
-    ui.button.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.5)";
-    ui.button.style.border = "3px solid #333";
-
-    const circumference = 283;
-    const offset = circumference * (1 - progress);
-    ui.progressCircle.setAttribute("stroke-dashoffset", String(offset));
-
-    ui.timer.textContent = (ticksRemaining / options.tickRate).toFixed(1);
-    ui.timer.style.display = "block";
-    ui.button.style.opacity = "1";
-}
+// Legacy CooldownUi, getAbilityCooldownSecById, updateCooldownUi удалены — кулдауны через Preact
 
 // Функция для получения отображаемого имени с иконкой класса
 // Если игрок - Король (Rebel), показываем корону вместо класса
@@ -1092,7 +563,6 @@ function getDisplayName(name: string, classId: number, isRebel: boolean): string
 // GAME STATE VARIABLES (previously in JOIN SCREEN)
 // ============================================
 
-let selectedClassId = -1;  // -1 = класс не выбран
 let activeRoom: any = null;
 let globalInputSeq = 0; // Единый монотонный счётчик для всех input команд
 let lastSentInput = { x: 0, y: 0 }; // Последнее отправленное направление движения
@@ -2254,12 +1724,9 @@ async function connectToServer(playerName: string, classId: number) {
         // ignore focus errors
     }
     
-    // Legacy кнопки способностей скрыты — используем Preact AbilityButtons
-    // abilityButton, projectileButton, slot2Button остаются display: "none"
-    abilityButtonIcon.textContent = abilityIcons[classId] ?? "⚡";
+    // Legacy ability buttons удалены — используем Preact AbilityButtons
 
-    hud.textContent = "Подключение к серверу...";
-
+    // Connection status показывается в Preact MainMenu (isConnecting state)
     const env = import.meta as { env?: { BASE_URL?: string; VITE_WS_URL?: string } };
     const isHttps = window.location.protocol === "https:";
     const protocol = isHttps ? "wss" : "ws";
@@ -2285,7 +1752,6 @@ async function connectToServer(playerName: string, classId: number) {
             // Переключаем Preact UI на фазу "playing" ПОСЛЕ успешного подключения
             setPhase("playing");
             setConnecting(false);
-            hud.textContent = "Подключено к серверу";
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
                 applyBalanceConfig(config);
@@ -2319,8 +1785,8 @@ async function connectToServer(playerName: string, classId: number) {
         captureSnapshot(room.state);
         
         const resetClassSelectionUi = () => {
-            selectedClassId = -1;
-            // Legacy UI functions removed — Preact handles UI state via signals
+            // Сброс состояния класса в Preact signal
+            selectedClassIdSignal.value = -1; // -1 = класс не выбран
         };
 
         const isValidClassId = (value: unknown) => {
@@ -2333,7 +1799,8 @@ async function connectToServer(playerName: string, classId: number) {
             classSelectMode = enabled;
 
             if (enabled) {
-                if (!isValidClassId(selectedClassId)) {
+                // Используем signal вместо локальной переменной для синхронизации с Preact MainMenu
+                if (!isValidClassId(selectedClassIdSignal.value)) {
                     resetClassSelectionUi();
                 }
 
@@ -2775,19 +2242,7 @@ async function connectToServer(playerName: string, classId: number) {
 
         const updateHud = () => {
             cleanupPendingChestRewards();
-            // Update Top Center HUD (Timer & Kills)
-            const timeRem = room.state.timeRemaining ?? 0;
-            const minutes = Math.floor(timeRem / 60);
-            const seconds = Math.floor(timeRem % 60);
-            matchTimer.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-            const hudPlayer = renderStateForHud?.players.get(room.sessionId) ?? localPlayer;
-            if (hudPlayer && hudPlayer.killCount !== undefined && hudPlayer.killCount > 0) {
-                killCounter.style.display = "block";
-                killCounter.textContent = `☠ ${hudPlayer.killCount}`;
-            } else {
-                killCounter.style.display = "none";
-            }
+            // Timer и kills теперь синхронизируются через syncMatchTimer/syncPlayerState в Preact GameHUD
 
             const statePlayer = room.state.players.get(room.sessionId);
             if (statePlayer) {
@@ -2820,23 +2275,9 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
 
-            // Update Left HUD (Debug info + Mass)
-            const lines: string[] = [];
-            // lines.push(`Фаза: ${room.state.phase}`);
-            // lines.push(`Время: ${(room.state.timeRemaining ?? 0).toFixed(1)}с`); // Moved to center
-            lines.push(`Игроки: ${playersCount}`);
-            lines.push(`Орбы: ${orbsCount}/${balanceConfig.orbs.maxCount}`);
-            lines.push(`Сундуки: ${chestsCount}/${balanceConfig.chests.maxCount}`);
-            lines.push(`Hot Zones: ${hotZonesCount}`);
-            
+            // Синхронизация boost через Preact
+            const hudPlayer = renderStateForHud?.players.get(room.sessionId) ?? localPlayer;
             if (hudPlayer) {
-                lines.push(
-                    `Моя масса: ${hudPlayer.mass.toFixed(0)} кг`
-                );
-                // Kill count moved to center
-                if (hudPlayer.talentsAvailable > 0) {
-                    lines.push(`Таланты: ${hudPlayer.talentsAvailable}`);
-                }
                 const boostType = String((hudPlayer as any).boostType ?? "");
                 if (boostType) {
                     const boostEndTick = Number((hudPlayer as any).boostEndTick ?? 0);
@@ -2846,54 +2287,22 @@ async function connectToServer(playerName: string, classId: number) {
                     const boostName = boostLabels[boostType] ?? boostType;
                     const iconText = boostIcons[boostType] ?? "!";
                     const iconColor = boostColors[boostType] ?? "#94a3b8";
+                    const isChargeBased = boostType === "guard" || boostType === "greed";
 
-                    boostIcon.textContent = iconText;
-                    boostIcon.style.background = iconColor;
-
-                    boostText.innerHTML = "";
-                    const nameLine = document.createElement("div");
-                    nameLine.textContent = boostName;
-                    boostText.appendChild(nameLine);
-
-                    const detailLine = document.createElement("div");
-                    if (boostType === "guard" || boostType === "greed") {
-                        detailLine.textContent = `Заряды: ${Math.max(0, boostCharges)}`;
-                    } else if (Number.isFinite(remainingSec) && remainingSec > 0) {
-                        detailLine.textContent = `Осталось: ${remainingSec.toFixed(1)}с`;
-                    } else {
-                        detailLine.textContent = "Осталось: 0.0с";
-                    }
-                    detailLine.style.color = "#9fb5cc";
-                    boostText.appendChild(detailLine);
-
-                    boostPanel.style.display = "flex";
+                    syncBoost({
+                        active: true,
+                        type: boostName,
+                        icon: iconText,
+                        color: iconColor,
+                        timeLeft: isChargeBased ? boostCharges : Math.max(0, remainingSec),
+                        isChargeBased,
+                    });
                 } else {
-                    boostPanel.style.display = "none";
+                    syncBoost(null);
                 }
             } else {
-                boostPanel.style.display = "none";
+                syncBoost(null);
             }
-            if (room.state.leaderboard && room.state.leaderboard.length > 0) {
-                lines.push("Лидеры:");
-                for (let i = 0; i < Math.min(5, room.state.leaderboard.length); i += 1) {
-                    const playerId = room.state.leaderboard[i];
-                    const pl = room.state.players.get(playerId);
-                    if (pl) {
-                        const isKing = (pl.flags & FLAG_IS_REBEL) !== 0;
-                        const crown = isKing ? "👑 " : "";
-                        const isSelf = playerId === room.sessionId;
-                        const selfMark = isSelf ? " ◀" : "";
-                        lines.push(`${i + 1}. ${crown}${pl.name} - ${pl.mass.toFixed(0)}${selfMark}`);
-                    }
-                }
-            }
-            hud.textContent = lines.join("\n");
-        };
-        
-        // Обновление индикатора уровня
-        // Legacy level indicator отключен — UI уровня перенесён в Preact HUD
-        const updateLevelIndicator = () => {
-            levelIndicator.style.display = "none";
         };
 
         const updateQueueIndicator = () => {
@@ -2992,57 +2401,6 @@ async function connectToServer(playerName: string, classId: number) {
             }
         };
         
-        // Обновление кнопки слота 2 (legacy — скрыта, используем Preact AbilityButtons)
-        const updateSlot2Button = () => {
-            return; // Legacy кнопка скрыта
-            const player = room.state.players.get(room.sessionId);
-            if (!player) {
-                slot2Button.style.display = "none";
-                return;
-            }
-            
-            const abilityId = player.abilitySlot2;
-            if (!abilityId) {
-                // Слот не разблокирован или пуст
-                const level = player.level ?? 1;
-                if (level < 5) {
-                    slot2Button.style.display = "none";
-                } else {
-                    slot2Button.style.display = "flex";
-                    slot2ButtonIcon.textContent = "🔒";
-                }
-                return;
-            }
-            
-            slot2Button.style.display = "flex";
-            const info = abilityNames[abilityId] ?? { icon: "❓" };
-            slot2ButtonIcon.textContent = info.icon;
-        };
-        
-        // Обновление иконки кнопки Slot 1 (legacy — скрыта, используем Preact AbilityButtons)
-        const updateSlot1Button = () => {
-            return; // Legacy кнопка скрыта
-            const player = room.state.players.get(room.sessionId);
-            if (!player) return;
-            
-            const abilityId = player.abilitySlot1;
-            if (!abilityId) {
-                // Пока слот пуст - скрываем или показываем projectile по умолчанию
-                const level = player.level ?? 1;
-                if (level < 3) {
-                    projectileButton.style.display = "none";
-                } else {
-                    projectileButton.style.display = "flex";
-                    projectileButtonIcon.textContent = "🔒";
-                }
-                return;
-            }
-            
-            projectileButton.style.display = "flex";
-            const info = abilityNames[abilityId] ?? { icon: "💥" };
-            projectileButtonIcon.textContent = info.icon;
-        };
-
         let wasInResultsPhase = false;
         let hasPlayedThisMatch = false; // Флаг участия в текущем матче (не показывать Results новым игрокам)
         const updateResultsOverlay = () => {
@@ -4071,33 +3429,7 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
 
-            // Обновление индикаторов кулдауна
-            const tickRate = balanceConfig.server?.tickRate ?? 30;
-            const serverTick = room.state.serverTick ?? 0;
-            updateCooldownUi(abilityCooldownUi, {
-                abilityId: localPlayer?.abilitySlot0,
-                classId: localPlayer?.classId,
-                cooldownStartTick: localPlayer?.abilityCooldownStartTick0,
-                cooldownEndTick: localPlayer?.abilityCooldownEndTick0,
-                serverTick,
-                tickRate,
-            });
-            updateCooldownUi(projectileCooldownUi, {
-                abilityId: localPlayer?.abilitySlot1,
-                classId: localPlayer?.classId,
-                cooldownStartTick: localPlayer?.abilityCooldownStartTick1,
-                cooldownEndTick: localPlayer?.abilityCooldownEndTick1,
-                serverTick,
-                tickRate,
-            });
-            updateCooldownUi(slot2CooldownUi, {
-                abilityId: localPlayer?.abilitySlot2,
-                classId: localPlayer?.classId,
-                cooldownStartTick: localPlayer?.abilityCooldownStartTick2,
-                cooldownEndTick: localPlayer?.abilityCooldownEndTick2,
-                serverTick,
-                tickRate,
-            });
+            // Legacy updateCooldownUi удалён — кулдауны обновляются через Preact syncAbilityCooldown
 
             // Отрисовка эффектов вспышки (в мировых координатах)
             const nowMs = performance.now();
@@ -4486,61 +3818,8 @@ async function connectToServer(playerName: string, classId: number) {
             mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
         };
 
-        // Принудительный сброс джойстика перед активацией умения
-        // Решает проблему гонки событий click/pointerup на мобильных
-        const forceResetJoystickForAbility = (slot: number, triggerPointerId?: number) => {
-            const wasActive = joystickState.active;
-            if (wasActive) {
-                // Если указан ID пальца и он отличается от пальца джойстика — это мультитач.
-                // Не сбрасываем джойстик, позволяем двигаться и стрелять одновременно.
-                if (triggerPointerId !== undefined && joystickState.pointerId !== triggerPointerId) {
-                    return;
-                }
-
-                detachJoystickPointerListeners();
-                resetJoystick();
-                logJoystick("force-reset-for-ability", { slot, triggerPointerId });
-                
-                // Сбрасываем lastSentInput только если реально сбросили джойстик
-                lastSentInput = { x: 0, y: 0 };
-                // Сбрасываем mouseState для защиты от compatibility mouse events на touch
-                mouseState.active = false;
-            }
-        };
-        
-        // Обработчик кнопки способности
-        const onAbilityButtonDown = (e: PointerEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            logJoystick("ability-pointerdown", { slot: 0, pointerId: e.pointerId });
-            forceResetJoystickForAbility(0, e.pointerId);
-            globalInputSeq += 1;
-            // Используем lastSentInput, чтобы сохранить движение при мультитаче
-            room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
-        };
-        abilityButton.addEventListener("pointerdown", onAbilityButtonDown);
-
-        // Обработчик кнопки Выброса (Projectile)
-        const onProjectileButtonDown = (e: PointerEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            logJoystick("ability-pointerdown", { slot: 1, pointerId: e.pointerId });
-            forceResetJoystickForAbility(1, e.pointerId);
-            globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
-        };
-        projectileButton.addEventListener("pointerdown", onProjectileButtonDown);
-
-        // Обработчик кнопки Slot 2
-        const onSlot2ButtonDown = (e: PointerEvent) => {
-            e.preventDefault();
-            e.stopPropagation();
-            logJoystick("ability-pointerdown", { slot: 2, pointerId: e.pointerId });
-            forceResetJoystickForAbility(2, e.pointerId);
-            globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
-        };
-        slot2Button.addEventListener("pointerdown", onSlot2ButtonDown);
+        // Legacy forceResetJoystickForAbility и ability button handlers удалены
+        // Preact AbilityButtons использует activateAbilityFromUI напрямую
 
         // Обработчики кнопок карточки умений
         const onAbilityCardChoice = (choiceIndex: number) => {
@@ -4567,21 +3846,15 @@ async function connectToServer(playerName: string, classId: number) {
         updateHud();
         updateResultsOverlay();
         refreshTalentModal();
-        updateLevelIndicator();
         updateAbilityCardUI();
-        updateSlot1Button();
-        updateSlot2Button();
         render();
 
         const hudTimer = setInterval(() => {
             updateHud();
             updateResultsOverlay();
             refreshTalentModal();
-            updateLevelIndicator();
             updateQueueIndicator();
             updateAbilityCardUI();
-            updateSlot1Button();
-            updateSlot2Button();
 
             // Синхронизация Preact UI с игровым состоянием
             const selfPlayer = room.state.players.get(room.sessionId);
@@ -4710,26 +3983,16 @@ async function connectToServer(playerName: string, classId: number) {
             window.removeEventListener("focus", onFocus);
             window.removeEventListener("blur", onBlur);
             document.removeEventListener("visibilitychange", onVisibilityChange);
-            abilityButton.removeEventListener("pointerdown", onAbilityButtonDown);
-            projectileButton.removeEventListener("pointerdown", onProjectileButtonDown);
-            slot2Button.removeEventListener("pointerdown", onSlot2ButtonDown);
-            
+            // Legacy ability button listeners удалены
+
             // Hide HUD elements
-            hud.style.display = "none";
-            topCenterHud.style.display = "none";
             queueIndicator.style.display = "none";
-            levelIndicator.style.display = "none";
-            
+
             activeRoom = null;
-            
+
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
-            hud.style.display = "none";
-            abilityButton.style.display = "none";
-            projectileButton.style.display = "none";
-            slot2Button.style.display = "none";
             abilityCardModal.style.display = "none";
-            levelIndicator.style.display = "none";
             // Сбрасываем индикатор подключения и переходим в меню
             setConnecting(false);
             setPhase("menu");
@@ -4737,12 +4000,9 @@ async function connectToServer(playerName: string, classId: number) {
             setGameViewportLock(false);
         });
     } catch (e) {
-        hud.textContent = `Ошибка подключения: ${e}`;
-        console.error(e);
+        console.error("Ошибка подключения:", e);
         // Вернём экран выбора при ошибке
         canvas.style.display = "none";
-        hud.style.display = "none";
-        topCenterHud.style.display = "none";
         // Сбрасываем индикатор подключения и возвращаем в меню
         setConnecting(false);
         setPhase("menu");

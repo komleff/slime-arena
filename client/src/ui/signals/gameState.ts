@@ -59,6 +59,7 @@ export interface BoostState {
   icon: string;
   color: string;
   timeLeft: number;
+  isChargeBased?: boolean; // true для guard/greed (заряды вместо секунд)
 }
 
 // ========== Auth типы ==========
@@ -113,7 +114,7 @@ export const MAX_ABILITY_SLOTS = 3;
 
 // Игрок
 export const localPlayer = signal<PlayerStats | null>(null);
-export const selectedClassId = signal(0);
+export const selectedClassId = signal(-1); // -1 = класс не выбран
 export const playerName = signal('');
 
 // Матч

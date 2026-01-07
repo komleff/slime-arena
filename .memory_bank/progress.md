@@ -43,9 +43,10 @@
 - `client/src/ui/components/GameHUD.tsx` — заменил legacy HUD
 - `client/src/ui/components/AbilityButtons.tsx` — заменил legacy кнопки способностей
 
-**Модифицированные файлы (3):**
+**Модифицированные файлы (4):**
 
-- `client/src/main.ts` — удалено 429 строк legacy кода
+- `client/src/main.ts` — удалено 773+ строк legacy кода (R2 cleanup)
+- `client/src/ui/signals/gameState.ts` — selectedClassId = -1, BoostState.isChargeBased
 - `.memory_bank/activeContext.md` — обновлён контекст
 - `.memory_bank/progress.md` — добавлен Sprint 7
 

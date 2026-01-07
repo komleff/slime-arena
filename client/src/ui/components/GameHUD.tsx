@@ -286,6 +286,11 @@ function BoostPanel() {
   const boost = activeBoost.value;
   if (!boost || !boost.active) return null;
 
+  // Для charge-based бустов (guard/greed) показываем заряды, иначе секунды
+  const displayValue = boost.isChargeBased
+    ? `×${Math.max(0, Math.floor(boost.timeLeft))}`
+    : `${Math.ceil(boost.timeLeft)}с`;
+
   return (
     <div class="hud-boost-panel">
       <div class="boost-icon" style={{ background: boost.color, color: '#0b0f14' }}>
@@ -293,7 +298,7 @@ function BoostPanel() {
       </div>
       <div>
         <div style={{ fontWeight: 600 }}>{boost.type}</div>
-        <div style={{ color: '#8aa4c8' }}>{Math.ceil(boost.timeLeft)}с</div>
+        <div style={{ color: '#8aa4c8' }}>{displayValue}</div>
       </div>
     </div>
   );
