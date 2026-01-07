@@ -1,0 +1,62 @@
+name: slime-arena-monolith
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: slime-arena-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=slime_arena
+      - POSTGRES_USER=slime
+      - POSTGRES_PASSWORD=slime_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slime -d slime_arena"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: slime-arena-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  monolith:
+    image: ghcr.io/komleff/slime-arena-monolith:v0.3.1
+    container_name: slime-arena-monolith
+    ports:
+      - "3000:3000"  # Meta API
+      - "2567:2567"  # Match Server
+      - "5174:5174"  # Client (Vite Dev)
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://slime:slime_dev_password@postgres:5432/slime_arena
+      - REDIS_URL=redis://redis:6379
+      - META_SERVER_URL=http://localhost:3000
+      - MATCH_SERVER_TOKEN=dev-server-token
+      - PORT=2567
+    volumes:
+      # Optional: Mount source code for hot reload (dev mode)
+      - ./server:/app/server
+      - ./client:/app/client
+      - ./shared:/app/shared
+      - ./config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
