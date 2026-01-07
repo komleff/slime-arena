@@ -22,6 +22,7 @@ env:
   IMAGE_NAME_SERVER: slime-arena-server
   IMAGE_NAME_CLIENT: slime-arena-client
   IMAGE_NAME_MONOLITH: slime-arena-monolith
+  IMAGE_NAME_MONOLITH_FULL: slime-arena-monolith-full
 
 jobs:
   publish:
@@ -129,6 +130,34 @@ jobs:
           cache-to: type=gha,mode=max
 
       # -------------------------------------------------------------------------
+      # Monolith Full Image (PostgreSQL + Redis + Application in one container)
+      # -------------------------------------------------------------------------
+      - name: Extract metadata (monolith-full)
+        id: meta-monolith-full
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_MONOLITH_FULL }}
+          tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push monolith-full
+        id: build-monolith-full
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/monolith-full.Dockerfile
+          push: true
+          tags: ${{ steps.meta-monolith-full.outputs.tags }}
+          labels: ${{ steps.meta-monolith-full.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -------------------------------------------------------------------------
       # Build Summary
       # -------------------------------------------------------------------------
       - name: Print build summary
@@ -149,4 +178,8 @@ jobs:
             echo "--- Monolith ---"
             echo "Tags: ${{ steps.meta-monolith.outputs.tags }}"
             echo "Digest: ${{ steps.build-monolith.outputs.digest }}"
+            echo ""
+            echo "--- Monolith Full (PostgreSQL + Redis) ---"
+            echo "Tags: ${{ steps.meta-monolith-full.outputs.tags }}"
+            echo "Digest: ${{ steps.build-monolith-full.outputs.digest }}"
           } | tee -a "$GITHUB_STEP_SUMMARY"

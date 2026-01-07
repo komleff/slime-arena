@@ -1,0 +1,33 @@
+# =============================================================================
+# Slime Arena Monolith Full - Docker Compose
+# All-in-One deployment: PostgreSQL + Redis + Application in single container
+# Version: 0.3.3
+# =============================================================================
+
+name: slime-arena-full
+
+services:
+  # ---------------------------------------------------------------------------
+  # Slime Arena Monolith Full
+  # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client
+  # ---------------------------------------------------------------------------
+  monolith:
+    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-v0.3.3}
+    container_name: slime-arena-monolith-full
+    ports:
+      - "3000:3000"   # MetaServer (HTTP API)
+      - "2567:2567"   # MatchServer (WebSocket/Colyseus)
+      - "5174:5174"   # Client (static files)
+    volumes:
+      # Data persistence
+      - pgdata:/var/lib/postgresql/data
+      - redisdata:/var/lib/redis
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    name: slime-arena-pgdata
+  redisdata:
+    name: slime-arena-redisdata
