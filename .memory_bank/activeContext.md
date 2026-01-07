@@ -4,12 +4,26 @@
 
 ## Текущее состояние
 **База:** main (7 января 2026)
-**Релиз:** v0.3.1
+**Релиз:** v0.3.3
 **GDD версия:** 3.3.2
-**Текущая ветка:** `main`
+**Текущая ветка:** `docker/monolith-v0.3.3`
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
+
+- **[ЗАВЕРШЕНО] Sprint 5: Docker Monolith Build v0.3.3:**
+  - ✅ 5.1: Синхронизация версий (D-01) — все package.json обновлены до 0.3.3
+  - ✅ 5.2: Создан .dockerignore для оптимизации сборки
+  - ✅ 5.3: Обновлён monolith.Dockerfile (multi-stage production build, HEALTHCHECK)
+  - ✅ 5.4: Обновлён docker-compose.monolith.yml (production-ready)
+  - ✅ 5.5: Обновлён CI/CD workflow (publish-containers.yml + monolith)
+  - ✅ 5.6: Исправлен Vite env types (vite-env.d.ts, убран @ts-expect-error)
+  - ✅ 5.7: TypeScript build проходит
+  - ✅ 5.8: Исправлен ESM/CommonJS module mismatch (shared → CommonJS)
+  - ✅ 5.9: Исправлены пути к серверным entry points в Dockerfile
+  - ✅ 5.10: Исправлен путь к config/balance.json (копия в server/dist/config)
+  - ✅ 5.11: Локальное тестирование — все 3 сервиса работают, HEALTHCHECK passed
+  - ⏳ 5.12: PR merge, tag v0.3.3, GHCR release
 
 - **[ЗАВЕРШЕНО] v0.3.1: Docker Infrastructure & Stability Release:**
   - ✅ Релиз v0.3.1 опубликован на GitHub.
