@@ -11,7 +11,7 @@
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] Sprint 5: Docker Monolith Build v0.3.3:**
+- **[ЗАВЕРШЕНО] Sprint 5: Docker Monolith Build v0.3.3:**
   - ✅ 5.1: Синхронизация версий (D-01) — все package.json обновлены до 0.3.3
   - ✅ 5.2: Создан .dockerignore для оптимизации сборки
   - ✅ 5.3: Обновлён monolith.Dockerfile (multi-stage production build, HEALTHCHECK)
@@ -19,7 +19,11 @@
   - ✅ 5.5: Обновлён CI/CD workflow (publish-containers.yml + monolith)
   - ✅ 5.6: Исправлен Vite env types (vite-env.d.ts, убран @ts-expect-error)
   - ✅ 5.7: TypeScript build проходит
-  - ⏳ 5.8: PR, merge, tag v0.3.3, release
+  - ✅ 5.8: Исправлен ESM/CommonJS module mismatch (shared → CommonJS)
+  - ✅ 5.9: Исправлены пути к серверным entry points в Dockerfile
+  - ✅ 5.10: Исправлен путь к config/balance.json (копия в server/dist/config)
+  - ✅ 5.11: Локальное тестирование — все 3 сервиса работают, HEALTHCHECK passed
+  - ⏳ 5.12: PR merge, tag v0.3.3, GHCR release
 
 - **[ЗАВЕРШЕНО] v0.3.1: Docker Infrastructure & Stability Release:**
   - ✅ Релиз v0.3.1 опубликован на GitHub.

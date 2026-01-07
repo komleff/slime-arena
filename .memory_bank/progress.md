@@ -6,7 +6,7 @@
 - **Текущая ветка**: `docker/monolith-v0.3.3`
 - **Релиз игрового прототипа:** v0.3.3
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
-- **Sprint 5: Docker Monolith**: В РАБОТЕ
+- **Sprint 5: Docker Monolith**: ЗАВЕРШЕНО (локально протестировано)
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО
@@ -20,20 +20,24 @@
 
 ## Последние изменения (v0.3.3)
 
-### Sprint 5: Docker Monolith Build v0.3.3 — В РАБОТЕ
+### Sprint 5: Docker Monolith Build v0.3.3 — ЗАВЕРШЕНО
 
 **Ветка:** `docker/monolith-v0.3.3`
-**Статус:** 🟡 В работе
+**PR:** #48
+**Статус:** 🟢 ЗАВЕРШЕНО (локально протестировано)
 
 **Цель:** Собрать и опубликовать монолитный Docker-образ v0.3.3, содержащий MetaServer, MatchServer и Client в одном контейнере.
 
-**Выявленные проблемы (6):**
+**Выявленные проблемы (9):**
 - D-01 (P0): Рассинхронизация версий — ✅ ИСПРАВЛЕНО
 - D-02 (P0): Монолит НЕ публикуется в CI/CD — ✅ ИСПРАВЛЕНО
 - D-03 (P1): Отсутствует .dockerignore — ✅ ИСПРАВЛЕНО
 - D-04 (P1): Dockerfile в dev mode — ✅ ИСПРАВЛЕНО
 - D-05 (P2): Нет HEALTHCHECK — ✅ ИСПРАВЛЕНО
 - D-06 (P2): server.Dockerfile не expose 3000 — ✅ ИСПРАВЛЕНО (в monolith)
+- D-07 (P0): ESM/CommonJS module mismatch — ✅ ИСПРАВЛЕНО (shared → CommonJS)
+- D-08 (P0): Неверные пути entry points — ✅ ИСПРАВЛЕНО (server/dist/server/src/...)
+- D-09 (P0): Config не найден — ✅ ИСПРАВЛЕНО (копия в server/dist/config)
 
 **Выполненные задачи:**
 - ✅ Синхронизация версий: все package.json обновлены до 0.3.3
@@ -43,22 +47,40 @@
 - ✅ Обновлён `.github/workflows/publish-containers.yml` с monolith image
 - ✅ Исправлен Vite env types (`client/src/vite-env.d.ts`)
 - ✅ TypeScript build проходит
+- ✅ Исправлен ESM/CommonJS module mismatch (shared/tsconfig.json → CommonJS)
+- ✅ Исправлены пути к серверным entry points в Dockerfile CMD
+- ✅ Добавлено копирование config в server/dist/config (для loadBalanceConfig.ts)
+- ✅ Локальное тестирование: все 3 сервиса работают
+- ✅ HEALTHCHECK проходит
 
 **Новые файлы (2):**
 - `.dockerignore` — исключения для Docker build
 - `client/src/vite-env.d.ts` — Vite environment types
 
-**Модифицированные файлы (7):**
+**Модифицированные файлы (10):**
 - `package.json` — version 0.3.3
 - `client/package.json` — version 0.3.3
 - `server/package.json` — version 0.3.3
 - `shared/package.json` — version 0.3.3
-- `docker/monolith.Dockerfile` — multi-stage production build
+- `shared/tsconfig.json` — module: ESNext → CommonJS
+- `docker/monolith.Dockerfile` — multi-stage build, fixed paths, config copy
 - `docker/docker-compose.monolith.yml` — production config
 - `.github/workflows/publish-containers.yml` — +monolith image
 - `client/src/api/metaServerClient.ts` — removed @ts-expect-error
+- `client/src/ui/components/MainMenu.tsx` — version display v0.3.3
 
-**Ожидаемый результат:**
+**Результат локального тестирования:**
+
+```text
+NAMES                  STATUS                        PORTS
+slime-arena-monolith   Up About a minute (healthy)   3000, 2567, 5174
+```
+
+- MetaServer (port 3000): `{"status":"ok","database":"connected","redis":"connected"}`
+- MatchServer (port 2567): Colyseus listening
+- Client (port 5174): HTML served
+
+**Ожидаемый релиз:**
 - Образ `ghcr.io/komleff/slime-arena-monolith:v0.3.3`
 - Все три сервиса в одном контейнере
 - HEALTHCHECK для MetaServer

@@ -174,6 +174,36 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 
 Образ: `ghcr.io/komleff/slime-arena-monolith:v0.3.3`
 
+### Удалённое развёртывание
+
+Клиент автоматически определяет адрес сервера из URL страницы (`window.location.hostname`).
+При развёртывании на удалённом сервере никаких дополнительных настроек не требуется:
+
+```bash
+# На удалённом сервере (например, 192.168.1.100)
+docker-compose -f docker/docker-compose.monolith.yml up -d
+
+# Доступ из браузера:
+# - http://192.168.1.100:5174 (игра)
+# - http://192.168.1.100:3000/health (API health check)
+# - ws://192.168.1.100:2567 (WebSocket автоматически)
+```
+
+**Переменные окружения для production:**
+
+| Переменная             | Описание                        | По умолчанию           |
+| ---------------------- | ------------------------------- | ---------------------- |
+| `POSTGRES_PASSWORD`    | Пароль PostgreSQL               | `slime_dev_password`   |
+| `MATCH_SERVER_TOKEN`   | Токен для server-to-server auth | `dev-server-token`     |
+| `VERSION`              | Версия образа                   | `v0.3.3`               |
+
+```bash
+# Пример с кастомными credentials
+POSTGRES_PASSWORD=secure_password_123 \
+MATCH_SERVER_TOKEN=prod-token-xyz \
+docker-compose -f docker/docker-compose.monolith.yml up -d
+```
+
 ### Отдельные образы
 
 - `ghcr.io/komleff/slime-arena-server:v0.3.3`
