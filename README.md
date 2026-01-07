@@ -195,6 +195,8 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 | ---------------------- | ------------------------------- | ---------------------- |
 | `POSTGRES_PASSWORD`    | Пароль PostgreSQL               | `slime_dev_password`   |
 | `MATCH_SERVER_TOKEN`   | Токен для server-to-server auth | `dev-server-token`     |
+| `META_HOST`            | Адрес привязки MetaServer       | `0.0.0.0`              |
+| `HOST`                 | Адрес привязки MatchServer      | `0.0.0.0`              |
 | `VERSION`              | Версия образа                   | `v0.3.3`               |
 
 ```bash
