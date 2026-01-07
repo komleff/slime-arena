@@ -61,8 +61,12 @@ COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
 
-# Copy configuration files
+# Copy configuration files to root (for meta server)
 COPY --from=builder /app/config ./config
+
+# Copy config to server/dist/config (loadBalanceConfig.ts expects it relative to dist)
+# Path: server/dist/server/src/config/../../../config = server/dist/config
+COPY --from=builder /app/config ./server/dist/config
 
 # Copy shared package.json for workspace resolution
 COPY --from=builder /app/shared/package.json ./shared/
@@ -88,6 +92,6 @@ CMD ["concurrently", \
     "--kill-others-on-fail", \
     "--names", "META,MATCH,CLIENT", \
     "--prefix-colors", "blue.bold,magenta.bold,green.bold", \
-    "node server/dist/meta/server.js", \
-    "node server/dist/index.js", \
+    "node server/dist/server/src/meta/server.js", \
+    "node server/dist/server/src/index.js", \
     "serve -s client/dist -l 5174 --no-clipboard"]
