@@ -37,6 +37,8 @@ import {
     updateJoystickVisual as updateJoystickVisualModule,
     setJoystickVisible as setJoystickVisibleModule,
     updateJoystickSize,
+    // InputManager готов для использования, интеграция в следующем этапе
+    // см. client/src/input/InputManager.ts
 } from "./input";
 import {
     initUI,
