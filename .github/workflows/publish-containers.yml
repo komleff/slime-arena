@@ -19,8 +19,6 @@ permissions:
 
 env:
   GHCR_REGISTRY: ghcr.io
-  IMAGE_NAME_SERVER: slime-arena-server
-  IMAGE_NAME_CLIENT: slime-arena-client
   IMAGE_NAME_APP: slime-arena-app
   IMAGE_NAME_DB: slime-arena-db
   IMAGE_NAME_MONOLITH_FULL: slime-arena-monolith-full
@@ -48,64 +46,6 @@ jobs:
           registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ secrets.CR_PAT != '' && github.repository_owner || github.actor }}
           password: ${{ secrets.CR_PAT != '' && secrets.CR_PAT || github.token }}
-
-      # -------------------------------------------------------------------------
-      # Server Image
-      # -------------------------------------------------------------------------
-      - name: Extract metadata (server)
-        id: meta-server
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_SERVER }}
-          tags: |
-            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push server
-        id: build-server
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./docker/server.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-server.outputs.tags }}
-          labels: ${{ steps.meta-server.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # -------------------------------------------------------------------------
-      # Client Image
-      # -------------------------------------------------------------------------
-      - name: Extract metadata (client)
-        id: meta-client
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.GHCR_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_CLIENT }}
-          tags: |
-            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.version != '' }}
-            type=ref,event=branch
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push client
-        id: build-client
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./docker/client.Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta-client.outputs.tags }}
-          labels: ${{ steps.meta-client.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # -------------------------------------------------------------------------
       # App Image (MetaServer + MatchServer + Client)
@@ -203,14 +143,6 @@ jobs:
             echo "=== Docker Build Summary ==="
             echo "Commit: ${{ github.sha }}"
             echo "Registry: ${{ env.GHCR_REGISTRY }}"
-            echo ""
-            echo "--- Server ---"
-            echo "Tags: ${{ steps.meta-server.outputs.tags }}"
-            echo "Digest: ${{ steps.build-server.outputs.digest }}"
-            echo ""
-            echo "--- Client ---"
-            echo "Tags: ${{ steps.meta-client.outputs.tags }}"
-            echo "Digest: ${{ steps.build-client.outputs.digest }}"
             echo ""
             echo "--- App (MetaServer + MatchServer + Client) ---"
             echo "Tags: ${{ steps.meta-app.outputs.tags }}"
