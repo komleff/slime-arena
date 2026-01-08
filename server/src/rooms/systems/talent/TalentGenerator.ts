@@ -8,7 +8,7 @@
 import { Player, TalentCard } from "../../schema/GameState";
 import { TalentConfig, ClassTalentConfig } from "@slime-arena/shared";
 import { Rng } from "../../../utils/rng";
-import { getTalentConfig, TalentBalanceConfig } from "./TalentModifierCalculator";
+import { TalentBalanceConfig } from "./TalentModifierCalculator";
 
 export interface TalentGeneratorConfig {
     cardChoiceTimeoutSec: number;
