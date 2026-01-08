@@ -31,14 +31,12 @@ import {
     type JoystickConfig,
     createJoystickState,
     createJoystickConfig,
-    resetJoystick as resetJoystickState,
-    updateJoystickFromPointer as updateJoystickFromPointerModule,
     createJoystickElements,
     updateJoystickVisual as updateJoystickVisualModule,
-    setJoystickVisible as setJoystickVisibleModule,
     updateJoystickSize,
-    // InputManager готов для использования, интеграция в следующем этапе
-    // см. client/src/input/InputManager.ts
+    InputManager,
+    type InputManagerDeps,
+    type InputCallbacks,
 } from "./input";
 import {
     initUI,
@@ -602,10 +600,8 @@ const spikeRenderConfig = {
     centerSymbol: "⚠",
 };
 
-const keyState = { up: false, down: false, left: false, right: false };
 const camera = { x: 0, y: 0 };
 const desiredView = { width: 800, height: 800 }; // Увеличено в 2 раза для лучшего обзора
-let hasFocus = true;
 let cameraZoom = 1;
 let cameraZoomTarget = 1;
 let lastZoomUpdateMs = 0;
@@ -616,15 +612,6 @@ let isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 window.matchMedia("(pointer: coarse)").addEventListener("change", (e) => {
     isCoarsePointer = e.matches;
 });
-
-// Состояние управления мышью (agar.io style)
-const mouseState = {
-    active: false,
-    screenX: 0,
-    screenY: 0,
-    moveX: 0,
-    moveY: 0,
-};
 
 const joystickState: JoystickState = createJoystickState();
 let joystickConfig: JoystickConfig = createJoystickConfig(
@@ -638,8 +625,6 @@ let joystickFixedBase = { x: joystickConfig.radius + 24, y: window.innerHeight -
 const joystickLeftZoneRatio = 1;
 const joystickLandscapeRatio = 1;
 const joystickDebugEnabled = new URLSearchParams(window.location.search).get("debugJoystick") === "1";
-const joystickDebugMoveThrottleMs = 80;
-let lastJoystickMoveLogMs = 0;
 
 const getJoystickDebugState = () => ({
     active: joystickState.active,
@@ -666,13 +651,6 @@ const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
     console.log(`[joystick] ${label}`, { t: now, ...payload, ...state });
 };
 
-const logJoystickMove = (clientX: number, clientY: number) => {
-    if (!joystickDebugEnabled) return;
-    const now = performance.now();
-    if (now - lastJoystickMoveLogMs < joystickDebugMoveThrottleMs) return;
-    lastJoystickMoveLogMs = now;
-    logJoystick("pointermove", { clientX, clientY });
-};
 const slimeSpriteNames = [
     "slime-angrybird.png",
     "slime-astronaut.png",
@@ -768,36 +746,6 @@ const updateJoystickConfig = () => {
             height: Math.round(rect.height),
         },
     });
-};
-
-const setJoystickVisible = (visible: boolean) => {
-    setJoystickVisibleModule(visible, joystickBase, joystickKnob);
-};
-
-const updateJoystickVisual = () => {
-    updateJoystickVisualModule(joystickState, joystickBase, joystickKnob);
-};
-
-const resetJoystick = () => {
-    resetJoystickState(joystickState);
-    setJoystickVisible(false);
-    logJoystick("reset");
-};
-
-const updateJoystickFromPointer = (clientX: number, clientY: number) => {
-    const rect = canvas.getBoundingClientRect();
-    const { baseShifted, baseClamped } = updateJoystickFromPointerModule(
-        joystickState,
-        joystickConfig,
-        clientX,
-        clientY,
-        rect
-    );
-    updateJoystickVisual();
-    if (baseShifted || baseClamped) {
-        logJoystick("baseAdjust", { baseShifted, baseClamped, clientX, clientY });
-    }
-    logJoystickMove(clientX, clientY);
 };
 
 // No top exclusion while HUD/abilities are not implemented.
@@ -1809,14 +1757,8 @@ async function connectToServer(playerName: string, classId: number) {
                 }
 
                 // В режиме выбора класса отключаем управление и возвращаем UI выбора
-                hasFocus = false;
-                keyState.up = keyState.down = keyState.left = keyState.right = false;
-                mouseState.active = false;
-                mouseState.moveX = 0;
-                mouseState.moveY = 0;
-                sendStopInput();
-                detachJoystickPointerListeners();
-                resetJoystick();
+                inputManagerCallbacks.onSendStopInput();
+                inputManager.resetJoystick();
 
                 canvas.style.display = "none";
                 // Preact MainMenu handles menu UI
@@ -1836,7 +1778,6 @@ async function connectToServer(playerName: string, classId: number) {
             } catch {
                 // ignore focus errors
             }
-            hasFocus = true;
         };
 
         const refreshTalentModal = () => {
@@ -2003,6 +1944,44 @@ async function connectToServer(playerName: string, classId: number) {
         const sendAbilityCardChoice = (choiceIndex: number) => {
             room.send("cardChoice", { choice: choiceIndex });
         };
+
+        // Создаём InputManager для централизованного управления вводом
+        const inputManagerDeps: InputManagerDeps = {
+            canvas,
+            joystickState,
+            joystickConfig,
+            joystickBase,
+            joystickKnob,
+            joystickFixedBase,
+            getJoystickActivationGate,
+            isCoarsePointer: () => isCoarsePointer,
+        };
+
+        const inputManagerCallbacks: InputCallbacks = {
+            onSendInput: (moveX: number, moveY: number, abilitySlot?: number) => {
+                globalInputSeq += 1;
+                if (abilitySlot !== undefined) {
+                    room.send("input", { seq: globalInputSeq, moveX, moveY, abilitySlot });
+                } else {
+                    room.send("input", { seq: globalInputSeq, moveX, moveY });
+                }
+            },
+            onSendStopInput: () => {
+                lastSentInput = { x: 0, y: 0 };
+                globalInputSeq += 1;
+                room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0 });
+            },
+            onTalentChoice: sendTalentChoice,
+            onAbilityCardChoice: sendAbilityCardChoice,
+            getPlayerPendingCards: () => ({
+                hasTalentCard: !!(localPlayer?.pendingTalentCard?.option0),
+                hasAbilityCard: !!(localPlayer?.pendingAbilityCard?.option0),
+            }),
+            isClassSelectMode: () => classSelectMode,
+        };
+
+        const inputManager = new InputManager(inputManagerDeps, inputManagerCallbacks);
+        inputManager.attach();
 
         // Клик по кнопкам выбора таланта
         for (let i = 0; i < talentButtonElements.length; i++) {
@@ -2504,71 +2483,6 @@ async function connectToServer(playerName: string, classId: number) {
             }
         };
 
-        // Обновление управления мышью: вычисляем направление от слайма к курсору
-        const updateMouseControl = () => {
-            if (!mouseState.active || !localPlayer) return;
-            
-            const cw = canvas.width;
-            const ch = canvas.height;
-            const baseScale = Math.min(cw / desiredView.width, ch / desiredView.height);
-            const scale = baseScale * cameraZoom;
-            
-            // Позиция слайма на экране (используем сглаженные координаты, как и камера)
-            const playerScreen = worldToScreen(smoothedPlayerX, smoothedPlayerY, scale, camera.x, camera.y, cw, ch);
-            
-            // Позиция курсора относительно слайма на экране
-            const dx = mouseState.screenX - playerScreen.x;
-            const dy = mouseState.screenY - playerScreen.y;
-            
-            // Расстояние от слайма (в пикселях)
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            // Мёртвая зона в центре (из конфига)
-            const deadzone = balanceConfig.controls.mouseDeadzone;
-            if (dist < deadzone) {
-                mouseState.moveX = 0;
-                mouseState.moveY = 0;
-                return;
-            }
-            
-            // Нормализуем направление
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // Интенсивность зависит от расстояния (линейно до maxDist из конфига)
-            const maxDist = balanceConfig.controls.mouseMaxDist;
-            const intensity = Math.min(1, (dist - deadzone) / (maxDist - deadzone));
-            
-            mouseState.moveX = nx * intensity;
-            mouseState.moveY = ny * intensity;
-        };
-
-        const computeMoveInput = () => {
-            // Приоритет: джойстик > мышь > клавиатура
-            if (joystickState.active) {
-                return { x: joystickState.moveX, y: -joystickState.moveY };
-            }
-            if (mouseState.active) {
-                updateMouseControl();
-                return { x: mouseState.moveX, y: -mouseState.moveY };
-            }
-            let x = 0;
-            let y = 0;
-            if (keyState.left) x -= 1;
-            if (keyState.right) x += 1;
-            if (keyState.up) y -= 1;
-            if (keyState.down) y += 1;
-            const len = Math.hypot(x, y);
-            if (len > 1e-6) {
-                x /= len;
-                y /= len;
-            } else {
-                x = 0;
-                y = 0;
-            }
-            return { x, y: -y };
-        };
-
         // lastSentInput теперь на уровне модуля для доступа из activateAbilityFromUI
         lastSentInput = { x: 0, y: 0 }; // Сброс при новом подключении
         let isRendering = true;
@@ -2576,13 +2490,14 @@ async function connectToServer(playerName: string, classId: number) {
 
         const inputIntervalMs = Math.max(16, Math.round(1000 / balanceConfig.server.tickRate));
         const inputTimer = setInterval(() => {
-            if (!hasFocus) return;
+            if (!inputManager.hasFocus) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
-            const { x, y } = computeMoveInput();
+            const { x, y } = inputManager.getMovementInput();
             const changed = Math.abs(x - lastSentInput.x) > 1e-3 || Math.abs(y - lastSentInput.y) > 1e-3;
             if (!changed) return;
             lastSentInput = { x, y };
+            inputManager.setLastSentInput(x, y);
             globalInputSeq += 1;
             room.send("input", { seq: globalInputSeq, moveX: x, moveY: y });
         }, inputIntervalMs);
@@ -2836,6 +2751,10 @@ async function connectToServer(playerName: string, classId: number) {
             // Камера всегда центрирована на игроке (стиль Agar.io)
             camera.x = clampX;
             camera.y = clampY;
+
+            // Обновляем направление мыши относительно позиции игрока на экране
+            const playerScreen = worldToScreen(smoothedPlayerX, smoothedPlayerY, scale, camera.x, camera.y, cw, ch);
+            inputManager.updateMouseDirection(playerScreen.x, playerScreen.y);
 
             canvasCtx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
@@ -3512,340 +3431,15 @@ async function connectToServer(playerName: string, classId: number) {
             rafId = requestAnimationFrame(render);
         };
 
-        const sendStopInput = () => {
-            lastSentInput = { x: 0, y: 0 };
-            globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0 });
-        };
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (document.visibilityState !== "visible") return;
-            if (!document.hasFocus()) return;
-            if (event.ctrlKey || event.metaKey || event.altKey) return;
-            if (event.repeat) return;
-            if (classSelectMode) return;
-            const key = event.key.toLowerCase();
-            hasFocus = true;
-            
-            // Способность активируется клавишей 1 (slot 0 - классовая способность)
-            if (key === "1") {
-                globalInputSeq += 1;
-                room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 0 });
-                event.preventDefault();
-                return;
-            }
-            
-            // Выброс активируется клавишей 2 (slot 1)
-            if (key === "2") {
-                globalInputSeq += 1;
-                room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 1 });
-                event.preventDefault();
-                return;
-            }
-            
-            // Slot 2 активируется клавишей 3
-            if (key === "3") {
-                globalInputSeq += 1;
-                room.send("input", { seq: globalInputSeq, moveX: lastSentInput.x, moveY: lastSentInput.y, abilitySlot: 2 });
-                event.preventDefault();
-                return;
-            }
-            
-            // Выбор из карточки умений или талантов клавишами 7/8/9
-            if (key === "7" || key === "8" || key === "9") {
-                const choiceIndex = parseInt(key) - 7; // 7->0, 8->1, 9->2
-                
-                // Проверяем, что открыто: карточка умений или талантов
-                const player = room.state.players.get(room.sessionId);
-                const hasAbilityCard = player?.pendingAbilityCard && player.pendingAbilityCard.option0;
-                const hasTalentCard = player?.pendingTalentCard && player.pendingTalentCard.option0;
-                
-                if (hasTalentCard) {
-                    // Отправляем выбор таланта
-                    sendTalentChoice(choiceIndex);
-                } else if (hasAbilityCard) {
-                    // Отправляем выбор умения
-                    sendAbilityCardChoice(choiceIndex);
-                }
-                
-                event.preventDefault();
-                return;
-            }
-            
-            switch (key) {
-                case "arrowup":
-                case "w":
-                    keyState.up = true;
-                    break;
-                case "arrowdown":
-                case "s":
-                    keyState.down = true;
-                    break;
-                case "arrowleft":
-                case "a":
-                    keyState.left = true;
-                    break;
-                case "arrowright":
-                case "d":
-                    keyState.right = true;
-                    break;
-                default:
-                    return;
-            }
-            event.preventDefault();
-        };
-
-        const onKeyUp = (event: KeyboardEvent) => {
-            switch (event.key.toLowerCase()) {
-                case "arrowup":
-                case "w":
-                    keyState.up = false;
-                    break;
-                case "arrowdown":
-                case "s":
-                    keyState.down = false;
-                    break;
-                case "arrowleft":
-                case "a":
-                    keyState.left = false;
-                    break;
-                case "arrowright":
-                case "d":
-                    keyState.right = false;
-                    break;
-                default:
-                    return;
-            }
-            event.preventDefault();
-        };
-
-        let joystickPointerListenersAttached = false;
-
-        const attachJoystickPointerListeners = () => {
-            if (joystickPointerListenersAttached) return;
-            window.addEventListener("pointermove", onPointerMove, { passive: false });
-            window.addEventListener("pointerup", onPointerUp, { passive: false });
-            window.addEventListener("pointercancel", onPointerCancel, { passive: false });
-            joystickPointerListenersAttached = true;
-        };
-
-        const detachJoystickPointerListeners = () => {
-            if (!joystickPointerListenersAttached) return;
-            window.removeEventListener("pointermove", onPointerMove);
-            window.removeEventListener("pointerup", onPointerUp);
-            window.removeEventListener("pointercancel", onPointerCancel);
-            joystickPointerListenersAttached = false;
-        };
-
-        const onPointerDown = (event: PointerEvent) => {
-            // Кэшируем результат matchMedia
-            const isCoarse = isCoarsePointer;
-            const isTouchPointer = event.pointerType === "touch" || event.pointerType === "pen";
-            const isMousePointer = event.pointerType === "mouse";
-            logJoystick("pointerdown", {
-                clientX: event.clientX,
-                clientY: event.clientY,
-                pointerId: event.pointerId,
-                pointerType: event.pointerType,
-                isCoarse,
-            });
-            
-            // Мышь не активирует джойстик — управление мышью: курсор задаёт направление
-            if (isMousePointer) {
-                logJoystick("pointerdown-skip", { reason: "mouse" });
-                return;
-            }
-            
-            if (!isTouchPointer && !isCoarse) {
-                logJoystick("pointerdown-skip", { reason: "not-touch-or-coarse" });
-                return;
-            }
-            if (joystickState.active) {
-                logJoystick("pointerdown-skip", { reason: "already-active" });
-                return;
-            }
-            
-            const gate = getJoystickActivationGate();
-            if (event.clientX > gate.maxX) {
-                logJoystick("pointerdown-skip", { reason: "gate-maxX", maxX: gate.maxX });
-                return;
-            }
-            if (event.clientY < gate.minY) {
-                logJoystick("pointerdown-skip", { reason: "gate-minY", minY: gate.minY });
-                return;
-            }
-            
-            event.preventDefault();
-            hasFocus = true;
-            joystickState.active = true;
-            joystickState.pointerId = event.pointerId;
-            joystickState.pointerType = event.pointerType;
-            attachJoystickPointerListeners();
-            if (joystickConfig.mode === "fixed") {
-                joystickState.baseX = joystickFixedBase.x;
-                joystickState.baseY = joystickFixedBase.y;
-            } else {
-                joystickState.baseX = event.clientX;
-                joystickState.baseY = event.clientY;
-            }
-            joystickState.knobX = joystickState.baseX;
-            joystickState.knobY = joystickState.baseY;
-            setJoystickVisible(true);
-            updateJoystickFromPointer(event.clientX, event.clientY);
-            logJoystick("pointerdown-activate", { clientX: event.clientX, clientY: event.clientY });
-            try {
-                canvas.setPointerCapture(event.pointerId);
-            } catch {
-                // ignore pointer capture errors
-            }
-        };
-
-        const onPointerMove = (event: PointerEvent) => {
-            if (!joystickState.active) {
-                return;
-            }
-            if (event.pointerId !== joystickState.pointerId) {
-                return;
-            }
-            event.preventDefault();
-            updateJoystickFromPointer(event.clientX, event.clientY);
-        };
-
-        const onPointerUp = (event: PointerEvent) => {
-            if (!joystickState.active) {
-                logJoystick("pointerup-skip", { reason: "inactive", pointerId: event.pointerId });
-                return;
-            }
-            if (event.pointerId !== joystickState.pointerId) {
-                logJoystick("pointerup-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
-                return;
-            }
-            event.preventDefault();
-            detachJoystickPointerListeners();
-            resetJoystick();
-            if (canvas.hasPointerCapture(event.pointerId)) {
-                try {
-                    canvas.releasePointerCapture(event.pointerId);
-                } catch {
-                    // ignore release errors
-                }
-            }
-            logJoystick("pointerup", { clientX: event.clientX, clientY: event.clientY });
-            if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
-                sendStopInput();
-            }
-        };
-
-        const onPointerCancel = (event: PointerEvent) => {
-            if (!joystickState.active) {
-                logJoystick("pointercancel-skip", { reason: "inactive", pointerId: event.pointerId });
-                return;
-            }
-            if (event.pointerId !== joystickState.pointerId) {
-                logJoystick("pointercancel-skip", { reason: "pointer-id-mismatch", pointerId: event.pointerId });
-                return;
-            }
-            event.preventDefault();
-            detachJoystickPointerListeners();
-            resetJoystick();
-            if (canvas.hasPointerCapture(event.pointerId)) {
-                try {
-                    canvas.releasePointerCapture(event.pointerId);
-                } catch {
-                    // ignore release errors
-                }
-            }
-            logJoystick("pointercancel", { clientX: event.clientX, clientY: event.clientY });
-            if (!keyState.up && !keyState.down && !keyState.left && !keyState.right) {
-                sendStopInput();
-            }
-        };
-
-        const onBlur = () => {
-            hasFocus = false;
-            keyState.up = keyState.down = keyState.left = keyState.right = false;
-            mouseState.active = false;
-            mouseState.moveX = 0;
-            mouseState.moveY = 0;
-            sendStopInput();
-            detachJoystickPointerListeners();
-            resetJoystick();
-            logJoystick("blur");
-        };
-        
-        const onFocus = () => {
-            if (classSelectMode) return;
-            hasFocus = true;
-        };
-
-        const onVisibilityChange = () => {
-            if (document.visibilityState === "hidden") {
-                hasFocus = false;
-                keyState.up = keyState.down = keyState.left = keyState.right = false;
-                mouseState.active = false;
-                mouseState.moveX = 0;
-                mouseState.moveY = 0;
-                sendStopInput();
-                detachJoystickPointerListeners();
-                resetJoystick();
-                logJoystick("visibility-hidden");
-            } else {
-                hasFocus = true;
-                logJoystick("visibility-visible");
-            }
-        };
-
-        // Управление мышью для ПК (agar.io style)
-        // Приоритет: touch/joystick > mouse
-        const onMouseMove = (event: MouseEvent) => {
-            // Игнорируем mouse события на touch-устройствах (compatibility events)
-            if (isCoarsePointer) return;
-            // Не активируем если уже активен джойстик (touch имеет приоритет)
-            if (joystickState.active) return;
-            if (classSelectMode) return;
-            
-            hasFocus = true;
-            mouseState.active = true;
-            mouseState.screenX = event.clientX;
-            mouseState.screenY = event.clientY;
-        };
-
-        const onMouseLeave = (event: MouseEvent) => {
-            // Игнорируем mouse события на touch-устройствах (compatibility events)
-            if (isCoarsePointer) return;
-            if (document.visibilityState !== "visible") return;
-            if (!document.hasFocus()) return;
-            if (classSelectMode) return;
-            const rect = canvas.getBoundingClientRect();
-            mouseState.active = true;
-            mouseState.screenX = clamp(event.clientX, rect.left + 1, rect.right - 1);
-            mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
-        };
-
-        // Legacy forceResetJoystickForAbility и ability button handlers удалены
-        // Preact AbilityButtons использует activateAbilityFromUI напрямую
-
-        // Обработчики кнопок карточки умений
-        const onAbilityCardChoice = (choiceIndex: number) => {
-            sendAbilityCardChoice(choiceIndex);
-        };
+        // Обработчики кнопок карточки умений (legacy DOM buttons)
         for (let i = 0; i < abilityCardBtns.length; i++) {
             const btn = abilityCardBtns[i];
             btn.addEventListener("pointerdown", (event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                onAbilityCardChoice(i);
+                sendAbilityCardChoice(i);
             });
         }
-
-        window.addEventListener("keydown", onKeyDown);
-        window.addEventListener("keyup", onKeyUp);
-        canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
-        canvas.addEventListener("mousemove", onMouseMove, { passive: true });
-        canvas.addEventListener("mouseleave", onMouseLeave, { passive: true });
-        window.addEventListener("focus", onFocus);
-        window.addEventListener("blur", onBlur);
-        document.addEventListener("visibilitychange", onVisibilityChange);
 
         updateHud();
         updateResultsOverlay();
@@ -3966,7 +3560,7 @@ async function connectToServer(playerName: string, classId: number) {
             if (rafId !== null) {
                 cancelAnimationFrame(rafId);
             }
-            detachJoystickPointerListeners();
+            inputManager.detach();
             resetSnapshotBuffer();
 
             // Очистка визуальных сущностей для предотвращения "призраков"
@@ -3978,16 +3572,6 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Сброс направления движения для предотвращения "фантомного движения" после респауна
             lastSentInput = { x: 0, y: 0 };
-
-            window.removeEventListener("keydown", onKeyDown);
-            window.removeEventListener("keyup", onKeyUp);
-            canvas.removeEventListener("pointerdown", onPointerDown);
-            canvas.removeEventListener("mousemove", onMouseMove);
-            canvas.removeEventListener("mouseleave", onMouseLeave);
-            window.removeEventListener("focus", onFocus);
-            window.removeEventListener("blur", onBlur);
-            document.removeEventListener("visibilitychange", onVisibilityChange);
-            // Legacy ability button listeners удалены
 
             // Hide HUD elements
             queueIndicator.style.display = "none";
