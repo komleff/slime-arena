@@ -1,0 +1,38 @@
+node_modules/
+dist/
+*.log
+.pytest_cache/
+
+# Build outputs
+client/dist/
+server/dist/
+shared/dist/
+
+# Logs and temporary files
+logs/
+local/test-logs/
+tests/load/results.json
+tests/load/results.html
+
+# Legacy code
+legacy/
+
+# Database backups (contain sensitive data)
+backups/*.dump
+backups/*.sql
+
+# IDE and editor files
+.vscode/
+.claude/
+.DS_Store
+.env
+
+# Obsidian workspace files (but keep .md files for indexing)
+.obsidian/workspace.json
+.obsidian/workspace
+
+# Other
+.u2/
+_ext/u2/
+
+# Но оставь docs/, README.md, Obsidian-ноты (.md файлы)
