@@ -63,12 +63,28 @@ router.get('/status', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId!;
 
+    // First, check if user has been assigned to a match
+    const matchId = await matchmakingService.getUserMatchId(userId);
+    if (matchId) {
+      // User has been assigned to a match - return assignment with joinToken
+      const assignment = await matchmakingService.getPlayerAssignment(matchId, userId);
+      if (assignment) {
+        return res.json({
+          inQueue: false,
+          matched: true,
+          assignment,
+        });
+      }
+    }
+
+    // Otherwise, check queue status
     const inQueue = await matchmakingService.isInQueue(userId);
     const position = inQueue ? await matchmakingService.getQueuePosition(userId) : -1;
     const stats = await matchmakingService.getQueueStats();
 
     res.json({
       inQueue,
+      matched: false,
       queuePosition: position,
       queueStats: stats,
     });

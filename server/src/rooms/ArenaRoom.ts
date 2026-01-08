@@ -83,6 +83,7 @@ import {
 } from "./helpers/arenaGeneration";
 import { getMatchResultService } from "../services/MatchResultService";
 import { MatchSummary, PlayerResult } from "@slime-arena/shared/src/types";
+import { joinTokenService, JoinTokenPayload } from "../meta/services/JoinTokenService";
 
 type ContactZone = "mouth" | "tail" | "side";
 
@@ -289,6 +290,41 @@ export class ArenaRoom extends Room<GameState> {
 
         this.spawnInitialOrbs();
         console.log("ArenaRoom created!");
+    }
+
+    /**
+     * Authenticate client before allowing join
+     * Validates joinToken JWT if provided, or allows dev mode connections
+     */
+    async onAuth(client: Client, options: { joinToken?: string; name?: string; classId?: number }): Promise<JoinTokenPayload | boolean> {
+        // Dev mode: allow connections without token if JOIN_TOKEN_REQUIRED is not set
+        const requireToken = process.env.JOIN_TOKEN_REQUIRED === "true" || process.env.JOIN_TOKEN_REQUIRED === "1";
+
+        if (!options.joinToken) {
+            if (requireToken) {
+                console.warn(`[ArenaRoom] Client ${client.sessionId} rejected: no joinToken provided`);
+                throw new Error("Authentication required: joinToken missing");
+            }
+            // Dev mode - allow without token
+            console.log(`[ArenaRoom] Client ${client.sessionId} joined without token (dev mode)`);
+            return true;
+        }
+
+        try {
+            // Verify the joinToken
+            const payload = joinTokenService.verifyToken(options.joinToken);
+
+            // Optionally verify roomId matches (if room has a specific ID)
+            // For now, we trust the token payload
+
+            console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${payload.userId} for match ${payload.matchId}`);
+
+            // Return the payload - it will be available in onJoin via client.auth
+            return payload;
+        } catch (error: any) {
+            console.warn(`[ArenaRoom] Client ${client.sessionId} auth failed: ${error.message}`);
+            throw new Error(`Authentication failed: ${error.message}`);
+        }
     }
 
     onJoin(client: Client, options: { name?: string; classId?: number } = {}) {
