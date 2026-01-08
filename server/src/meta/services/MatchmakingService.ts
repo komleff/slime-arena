@@ -1,5 +1,6 @@
 import { getRedisClient } from '../../db/pool';
 import { RedisClientType } from 'redis';
+import { joinTokenService } from './JoinTokenService';
 
 export interface MatchmakingRequest {
   userId: string;
@@ -14,6 +15,13 @@ export interface MatchAssignment {
   roomPort: number;
   matchId: string;
   players: Array<{ userId: string; nickname: string }>;
+  /** JWT token for joining the match (per-player) */
+  joinToken?: string;
+}
+
+export interface PlayerMatchAssignment extends MatchAssignment {
+  /** JWT token for this specific player */
+  joinToken: string;
 }
 
 /**
@@ -24,6 +32,7 @@ export class MatchmakingService {
   private _redis: RedisClientType | null = null;
   private readonly QUEUE_KEY = 'matchmaking:queue';
   private readonly MATCH_PREFIX = 'matchmaking:match:';
+  private readonly USER_MATCH_PREFIX = 'matchmaking:user:'; // Maps userId -> matchId
   private readonly TIMEOUT_MS = 60000; // 60 seconds timeout
   private readonly PLAYERS_PER_MATCH = 8;
 
@@ -174,6 +183,18 @@ export class MatchmakingService {
     const roomPort = parseInt(process.env.MATCH_SERVER_PORT || '2567', 10);
     const roomId = `arena_${matchId}`;
 
+    // Generate joinToken for each player and store mapping
+    const playerTokens: Record<string, string> = {};
+    for (const player of players) {
+      const token = joinTokenService.generateToken(
+        player.userId,
+        matchId,
+        roomId,
+        player.nickname
+      );
+      playerTokens[player.userId] = token;
+    }
+
     const assignment: MatchAssignment = {
       roomId,
       roomHost,
@@ -182,16 +203,106 @@ export class MatchmakingService {
       players: players.map((p) => ({ userId: p.userId, nickname: p.nickname })),
     };
 
-    // Store match assignment in Redis (TTL 5 minutes)
+    // Use same TTL as token expiration for consistency
+    const ttlSeconds = joinTokenService.getExpiresInSeconds();
+
+    // Store match assignment in Redis
     await this.redis.setEx(
       `${this.MATCH_PREFIX}${matchId}`,
-      300, // 5 minutes
+      ttlSeconds,
       JSON.stringify(assignment)
     );
+
+    // Store player tokens separately
+    await this.redis.setEx(
+      `${this.MATCH_PREFIX}${matchId}:tokens`,
+      ttlSeconds,
+      JSON.stringify(playerTokens)
+    );
+
+    // Store user-to-match mapping for each player
+    for (const player of players) {
+      await this.redis.setEx(
+        `${this.USER_MATCH_PREFIX}${player.userId}`,
+        ttlSeconds,
+        matchId
+      );
+    }
 
     console.log(`[Matchmaking] Created match ${matchId} with ${players.length} players`);
 
     return assignment;
+  }
+
+  /**
+   * Get matchId assigned to a user (if any)
+   */
+  async getUserMatchId(userId: string): Promise<string | null> {
+    return await this.redis.get(`${this.USER_MATCH_PREFIX}${userId}`);
+  }
+
+  /**
+   * Clear user's match assignment (when they join the room)
+   */
+  async clearUserMatchAssignment(userId: string): Promise<void> {
+    await this.redis.del(`${this.USER_MATCH_PREFIX}${userId}`);
+  }
+
+  /**
+   * Generate a fallback token for a player (when original token expired/missing)
+   */
+  private generateFallbackToken(
+    userId: string,
+    matchId: string,
+    assignment: MatchAssignment
+  ): string {
+    const player = assignment.players.find((p) => p.userId === userId);
+    if (!player) {
+      throw new Error(`Player ${userId} not found in match ${matchId}`);
+    }
+    return joinTokenService.generateToken(
+      userId,
+      matchId,
+      assignment.roomId,
+      player.nickname
+    );
+  }
+
+  /**
+   * Get player-specific match assignment with their joinToken
+   */
+  async getPlayerAssignment(matchId: string, userId: string): Promise<PlayerMatchAssignment | null> {
+    const assignment = await this.getMatchAssignment(matchId);
+    if (!assignment) {
+      return null;
+    }
+
+    // Check if user is part of this match
+    const isPlayer = assignment.players.some((p) => p.userId === userId);
+    if (!isPlayer) {
+      return null;
+    }
+
+    // Get the player's token
+    const tokensData = await this.redis.get(`${this.MATCH_PREFIX}${matchId}:tokens`);
+    if (!tokensData) {
+      // Tokens expired or not found - generate a new one
+      console.warn(`[Matchmaking] Tokens not found for match ${matchId}, generating new one`);
+      const token = this.generateFallbackToken(userId, matchId, assignment);
+      return { ...assignment, joinToken: token };
+    }
+
+    const playerTokens: Record<string, string> = JSON.parse(tokensData);
+    const joinToken = playerTokens[userId];
+
+    if (!joinToken) {
+      // Token not found for this user - generate a new one
+      console.warn(`[Matchmaking] Token not found for user ${userId} in match ${matchId}`);
+      const token = this.generateFallbackToken(userId, matchId, assignment);
+      return { ...assignment, joinToken: token };
+    }
+
+    return { ...assignment, joinToken };
   }
 
   /**

@@ -11,6 +11,17 @@
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] Sprint 8: joinToken JWT Validation (PR #52):**
+  - ✅ 8.1: JoinTokenService — генерация и верификация JWT токенов
+  - ✅ 8.2: ArenaRoom.onAuth() — валидация joinToken перед подключением
+  - ✅ 8.3: verifyTokenForRoom() — проверка соответствия roomId
+  - ✅ 8.4: Fail-fast в production без секрета (JOIN_TOKEN_SECRET)
+  - ✅ 8.5: TTL sync между токенами и match assignments
+  - ✅ 8.6: POST /matchmaking/joined — очистка assignment после подключения
+  - ✅ 8.7: maskUserId() — защита PII в логах
+  - ✅ 8.8: AI Review — 4 раунда (Opus, Codex, Gemini, Copilot)
+  - ✅ 8.9: Все P1/P2 замечания исправлены
+
 - **[ЗАВЕРШЕНО] Sprint 7: Legacy DOM Cleanup (PR #50 MERGED):**
   - ✅ 7.1: Удалён Join Screen (~280 строк) — Preact MainMenu
   - ✅ 7.2: Удалён Results overlay (~100 строк) — Preact ResultsScreen

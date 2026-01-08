@@ -330,6 +330,141 @@ async function runTests() {
     assert(data2.nickname === newNickname, 'Idempotent request should return original result');
   });
 
+  await test('6.3 Ads claim idempotency', async () => {
+    // Get balance before
+    const balanceBefore = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
+    // Generate ad grant
+    const grantResponse = await fetch(`${BASE_URL}/api/v1/ads/grant`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ adPlacement: 'match_end' }),
+    });
+
+    // Skip test if ads not configured
+    if (grantResponse.status === 400 || grantResponse.status === 500) {
+      console.log('  (skipped - ads not configured in RuntimeConfig)');
+      return;
+    }
+
+    const grantData = await grantResponse.json();
+    assert(grantData.grantId, 'Should receive grantId');
+
+    const operationId = `ads-claim-${Date.now()}`;
+
+    // First claim
+    const claim1 = await fetch(`${BASE_URL}/api/v1/ads/claim`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ grantId: grantData.grantId, operationId }),
+    });
+    const claimData1 = await claim1.json();
+    assert(claimData1.success, 'First claim should succeed');
+
+    // Get balance after first claim
+    const balanceAfterFirst = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
+    // Verify balance increased after first claim
+    assert(
+      balanceAfterFirst.softCurrency > balanceBefore.softCurrency,
+      `Balance should increase after first claim: ${balanceBefore.softCurrency} -> ${balanceAfterFirst.softCurrency}`
+    );
+
+    // Duplicate claim with same operationId
+    const claim2 = await fetch(`${BASE_URL}/api/v1/ads/claim`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ grantId: grantData.grantId, operationId }),
+    });
+    const claimData2 = await claim2.json();
+    assert(claimData2.success, 'Duplicate claim should also return success');
+
+    // Get balance after duplicate claim
+    const balanceAfterDup = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
+    // Balance should not change on duplicate
+    assert(
+      balanceAfterFirst.softCurrency === balanceAfterDup.softCurrency,
+      `Soft currency should not change on duplicate: ${balanceAfterFirst.softCurrency} vs ${balanceAfterDup.softCurrency}`
+    );
+  });
+
+  await test('6.4 Shop purchase idempotency', async () => {
+    // Get shop offers
+    const offersResponse = await fetch(`${BASE_URL}/api/v1/shop/offers`, {
+      headers: await authHeaders(),
+    });
+    const offersData = await offersResponse.json();
+
+    // Skip test if no offers available
+    if (!offersData.offers || offersData.offers.length === 0) {
+      console.log('  (skipped - no shop offers configured)');
+      return;
+    }
+
+    // Find a cheap offer to test (or first available)
+    const testOffer = offersData.offers.find((o: any) => o.price <= 100) || offersData.offers[0];
+    const operationId = `shop-purchase-${Date.now()}`;
+
+    // Get balance before
+    const balanceBefore = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
+    // First purchase
+    const purchase1 = await fetch(`${BASE_URL}/api/v1/shop/purchase`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ offerId: testOffer.id, operationId }),
+    });
+    const purchaseData1 = await purchase1.json();
+
+    // Skip if insufficient balance
+    if (purchase1.status === 400 && purchaseData1.error === 'insufficient_balance') {
+      console.log('  (skipped - insufficient balance for test purchase)');
+      return;
+    }
+
+    assert(purchaseData1.success !== false, `First purchase failed: ${purchaseData1.error || purchaseData1.message}`);
+
+    // Get balance after first purchase
+    const balanceAfterFirst = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
+    // Verify balance decreased after first purchase
+    assert(
+      balanceAfterFirst.softCurrency < balanceBefore.softCurrency,
+      `Balance should decrease after first purchase: ${balanceBefore.softCurrency} -> ${balanceAfterFirst.softCurrency}`
+    );
+
+    // Duplicate purchase with same operationId
+    const purchase2 = await fetch(`${BASE_URL}/api/v1/shop/purchase`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ offerId: testOffer.id, operationId }),
+    });
+    const purchaseData2 = await purchase2.json();
+    assert(purchaseData2.success !== false, 'Duplicate purchase should also succeed (idempotent)');
+
+    // Get balance after duplicate
+    const balanceAfterDup = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
+      headers: await authHeaders(),
+    }).then(r => r.json());
+
+    // Balance should not change on duplicate (already deducted)
+    assert(
+      balanceAfterFirst.softCurrency === balanceAfterDup.softCurrency,
+      `Balance should not change on duplicate: ${balanceAfterFirst.softCurrency} vs ${balanceAfterDup.softCurrency}`
+    );
+  });
+
   // ============= Phase 7: Player Stats Update =============
   console.log('\n--- Phase 7: Player Stats ---\n');
 

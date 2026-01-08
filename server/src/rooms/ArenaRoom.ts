@@ -83,6 +83,7 @@ import {
 } from "./helpers/arenaGeneration";
 import { getMatchResultService } from "../services/MatchResultService";
 import { MatchSummary, PlayerResult } from "@slime-arena/shared/src/types";
+import { joinTokenService, JoinTokenPayload } from "../meta/services/JoinTokenService";
 
 type ContactZone = "mouth" | "tail" | "side";
 
@@ -291,11 +292,53 @@ export class ArenaRoom extends Room<GameState> {
         console.log("ArenaRoom created!");
     }
 
+    /**
+     * Authenticate client before allowing join
+     * Validates joinToken JWT if provided, or allows dev mode connections
+     */
+    async onAuth(client: Client, options: { joinToken?: string; name?: string; classId?: number }): Promise<JoinTokenPayload | boolean> {
+        // Dev mode: allow connections without token if JOIN_TOKEN_REQUIRED is not set
+        const requireToken = process.env.JOIN_TOKEN_REQUIRED === "true" || process.env.JOIN_TOKEN_REQUIRED === "1";
+
+        if (!options.joinToken) {
+            if (requireToken) {
+                console.warn(`[ArenaRoom] Client ${client.sessionId} rejected: no joinToken provided`);
+                throw new Error("Authentication required: joinToken missing");
+            }
+            // Dev mode - allow without token
+            console.log(`[ArenaRoom] Client ${client.sessionId} joined without token (dev mode)`);
+            return true;
+        }
+
+        try {
+            // Verify the joinToken and check it's valid for this room
+            const payload = joinTokenService.verifyTokenForRoom(options.joinToken, this.roomId);
+
+            const maskedUserId = joinTokenService.maskUserId(payload.userId);
+            console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${maskedUserId} for match ${payload.matchId}`);
+
+            // Return the payload - it will be available in onJoin via client.auth
+            return payload;
+        } catch (error: any) {
+            console.warn(`[ArenaRoom] Client ${client.sessionId} auth failed: ${error.message}`);
+            throw new Error(`Authentication failed: ${error.message}`);
+        }
+    }
+
     onJoin(client: Client, options: { name?: string; classId?: number } = {}) {
         const player = new Player();
         player.id = client.sessionId;
-        // Генерируем юмористическое имя если не указано
-        if (options.name && options.name.trim().length > 0) {
+
+        // If client authenticated with token, use nickname from payload (trusted source)
+        const authPayload = client.auth as JoinTokenPayload | boolean;
+        const tokenNickname = authPayload && typeof authPayload === 'object' && authPayload.nickname
+            ? authPayload.nickname
+            : null;
+
+        // Priority: token nickname > options.name > generated name
+        if (tokenNickname) {
+            player.name = tokenNickname.trim().slice(0, 24);
+        } else if (options.name && options.name.trim().length > 0) {
             player.name = options.name.trim().slice(0, 24);
         } else {
             // Собираем существующие имена для проверки уникальности
