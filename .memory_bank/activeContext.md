@@ -23,8 +23,13 @@
   - ✅ 11.3: InputManager module created (558 строк)
   - ✅ 11.4: TalentSystem module created
 
-- **[В ОЧЕРЕДИ] Sprint 11.3: InputManager Integration:**
-  - 🔄 slime-arena-38q — main.ts refactoring (4137 строк)
+- **[НА MERGE] Sprint 11.3: InputManager Integration (PR #58):**
+  - ✅ slime-arena-38q — main.ts refactoring (−416 строк)
+  - ✅ InputManager интегрирован в main.ts
+  - ✅ Удалены: keyState, mouseState, hasFocus, computeMoveInput, event handlers
+  - ✅ Добавлены: mouseDeadzone/mouseMaxDist в deps, resetInputState() method
+  - ✅ Исправлен приоритет ввода: joystick > mouse > keyboard (agar.io style)
+  - ✅ Copilot Review: 2 раунда, все замечания исправлены
 
 - **[ЗАВЕРШЕНО] PR #55: levelThresholds fallback fix (MERGED):**
   - ✅ setLevelThresholds merge logic (сохраняет переданные + дополняет из defaults)
@@ -37,6 +42,12 @@
   - ✅ 10.3: PR #54 merged, review fixes в commit 7804a12
   - ✅ 10.4: Убраны `as any` в ArenaRoom.ts (P3)
   - ✅ 10.5: Runtime config через сигнал levelThresholds (P2)
+
+- **[BACKLOG] A/B Testing System (Epic slime-arena-5qa):**
+  - 📋 ТЗ: docs/soft-launch/TZ-ABTesting-ClaudeOpus-v1.3.md
+  - 📋 Зависимые: slime-arena-4p4 (match integration), slime-arena-1wl (metrics)
+  - ❌ slime-arena-g5s закрыт как дубль (покрыт в ТЗ Фаза 2)
+  - Фазы: MVP → Расширение → Масштабирование
 
 - **[ЗАВЕРШЕНО] Sprint 9: Architect Analysis (Soft Launch Readiness):**
   - ✅ Анализ SlimeArena-SoftLaunch-Plan-v1.0.5.md
