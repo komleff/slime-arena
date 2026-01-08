@@ -116,7 +116,7 @@ npx tsx server/tests/meta-stage-d.test.ts
 docker-compose -f docker/docker-compose.yml up -d
 ```
 
-### Доступные сервисы v0.3.3:
+### Доступные сервисы v0.4.0:
 - **Client**: [http://localhost:5174](http://localhost:5174) (Контейнер: `slime-arena-client`)
 - **MetaServer**: [http://localhost:3000](http://localhost:3000) (Контейнер: `slime-arena-meta-server`)
 - **MatchServer**: [ws://localhost:2567](ws://localhost:2567) (Контейнер: `slime-arena-match-server`)
@@ -157,7 +157,7 @@ k6 run tests/load/soft-launch.js
 
 ## Docker
 
-Актуальные образы v0.3.3 доступны в GitHub Container Registry:
+Актуальные образы v0.4.0 доступны в GitHub Container Registry:
 
 ### Монолит (рекомендуется для быстрого старта)
 
@@ -173,7 +173,7 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 # - Client: http://localhost:5174
 ```
 
-Образ: `ghcr.io/komleff/slime-arena-monolith:v0.3.3`
+Образ: `ghcr.io/komleff/slime-arena-monolith:v0.4.0`
 
 ### Удалённое развёртывание
 
@@ -198,7 +198,7 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 | `MATCH_SERVER_TOKEN`   | Токен для server-to-server auth | `dev-server-token`     |
 | `META_HOST`            | Адрес привязки MetaServer       | `0.0.0.0`              |
 | `HOST`                 | Адрес привязки MatchServer      | `0.0.0.0`              |
-| `VERSION`              | Версия образа                   | `v0.3.3`               |
+| `VERSION`              | Версия образа                   | `v0.4.0`               |
 
 ```bash
 # Пример с кастомными credentials
@@ -207,7 +207,7 @@ MATCH_SERVER_TOKEN=prod-token-xyz \
 docker-compose -f docker/docker-compose.monolith.yml up -d
 ```
 
-### Образы v0.3.4
+### Образы v0.4.0
 
 | Образ | Описание |
 |-------|----------|

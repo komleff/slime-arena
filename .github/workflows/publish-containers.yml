@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Manual version tag (e.g. 0.3.3)'
+        description: 'Manual version tag (e.g. 0.4.0)'
         required: false
         default: ''
 
