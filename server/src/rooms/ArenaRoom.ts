@@ -321,7 +321,8 @@ export class ArenaRoom extends Room<GameState> {
                 throw new Error(`Token not valid for this room`);
             }
 
-            console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${payload.userId} for match ${payload.matchId}`);
+            const maskedUserId = payload.userId?.length > 4 ? `${payload.userId.slice(0, 4)}***` : '***';
+            console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${maskedUserId} for match ${payload.matchId}`);
 
             // Return the payload - it will be available in onJoin via client.auth
             return payload;

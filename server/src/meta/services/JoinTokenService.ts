@@ -57,6 +57,14 @@ export class JoinTokenService {
   }
 
   /**
+   * Mask userId for logging (privacy protection)
+   */
+  private maskUserId(userId: string): string {
+    if (!userId || userId.length <= 4) return '***';
+    return `${userId.slice(0, 4)}***`;
+  }
+
+  /**
    * Generate a join token for a player
    */
   generateToken(userId: string, matchId: string, roomId: string, nickname: string): string {
@@ -72,7 +80,7 @@ export class JoinTokenService {
       algorithm: 'HS256',
     });
 
-    console.log(`[JoinTokenService] Generated token for user ${userId} -> match ${matchId}`);
+    console.log(`[JoinTokenService] Generated token for user ${this.maskUserId(userId)} -> match ${matchId}`);
 
     return token;
   }

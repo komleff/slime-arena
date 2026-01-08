@@ -368,6 +368,12 @@ async function runTests() {
       headers: await authHeaders(),
     }).then(r => r.json());
 
+    // Verify balance increased after first claim
+    assert(
+      balanceAfterFirst.softCurrency > balanceBefore.softCurrency,
+      `Balance should increase after first claim: ${balanceBefore.softCurrency} -> ${balanceAfterFirst.softCurrency}`
+    );
+
     // Duplicate claim with same operationId
     const claim2 = await fetch(`${BASE_URL}/api/v1/ads/claim`, {
       method: 'POST',
@@ -431,6 +437,12 @@ async function runTests() {
     const balanceAfterFirst = await fetch(`${BASE_URL}/api/v1/wallet/balance`, {
       headers: await authHeaders(),
     }).then(r => r.json());
+
+    // Verify balance decreased after first purchase
+    assert(
+      balanceAfterFirst.softCurrency < balanceBefore.softCurrency,
+      `Balance should decrease after first purchase: ${balanceBefore.softCurrency} -> ${balanceAfterFirst.softCurrency}`
+    );
 
     // Duplicate purchase with same operationId
     const purchase2 = await fetch(`${BASE_URL}/api/v1/shop/purchase`, {
