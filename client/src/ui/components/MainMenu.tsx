@@ -362,6 +362,12 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
       playerName.value = newName;
       initialNameRef.current = newName;
     }
+    // Если класс не выбран (-1), выбираем случайный
+    if (selectedClassId.value < 0) {
+      const randomClass = Math.floor(Math.random() * CLASSES_DATA.length);
+      setClassId(randomClass);
+      selectedClassId.value = randomClass;
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNameChange = useCallback((e: JSX.TargetedEvent<HTMLInputElement>) => {

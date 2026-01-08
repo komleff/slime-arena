@@ -6,18 +6,24 @@
 **База:** main (8 января 2026)
 **Релиз:** v0.3.3
 **GDD версия:** 3.3.2
-**Текущая ветка:** `fix/lan-mobile-access`
+**Текущая ветка:** `refactor/remove-legacy-dom`
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] Sprint 6: LAN Mobile Access Fix:**
+- **[В РАБОТЕ] Sprint 7: Legacy DOM Cleanup:**
+  - ✅ 7.1: Удалён Join Screen (~280 строк) — Preact MainMenu
+  - ✅ 7.2: Удалён Results overlay (~100 строк) — Preact ResultsScreen
+  - ✅ 7.3: Удалены legacy функции (syncClassCards, syncResultsClassButtons, updatePlayButton)
+  - ✅ 7.4: Упрощён setClassSelectMode — убраны legacy DOM манипуляции
+  - ✅ 7.5: TypeScript компиляция проходит
+  - ⏳ 7.6: Commit, push, PR
+
+- **[ЗАВЕРШЕНО] Sprint 6: LAN Mobile Access Fix (PR #49 MERGED):**
   - ✅ 6.1: Диагностика P0 бага — мобильные устройства в LAN не подключаются
   - ✅ 6.2: Корневая причина: MetaServer не указывал host при `app.listen(PORT)`
   - ✅ 6.3: Исправлен `server/src/meta/server.ts` — добавлен `HOST = '0.0.0.0'`
   - ✅ 6.4: Обновлён README.md — добавлены переменные `META_HOST` и `HOST`
-  - ⏳ 6.5: Обновление memory bank
-  - ⏳ 6.6: Commit, push, PR
 
 - **[ЗАВЕРШЕНО] Sprint 5: Docker Monolith Build v0.3.3:**
   - ✅ 5.1: Синхронизация версий (D-01) — все package.json обновлены до 0.3.3

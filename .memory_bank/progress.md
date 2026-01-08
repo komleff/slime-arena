@@ -3,11 +3,12 @@
 
 ## Контроль изменений
 - **last_checked_commit**: main @ 8 января 2026
-- **Текущая ветка**: `fix/lan-mobile-access`
+- **Текущая ветка**: `refactor/remove-legacy-dom`
 - **Релиз игрового прототипа:** v0.3.3
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
-- **Sprint 6: LAN Mobile Access Fix**: В РАБОТЕ
-- **Sprint 5: Docker Monolith**: ЗАВЕРШЕНО (локально протестировано)
+- **Sprint 7: Legacy DOM Cleanup**: В РАБОТЕ
+- **Sprint 6: LAN Mobile Access Fix**: ЗАВЕРШЕНО (PR #49)
+- **Sprint 5: Docker Monolith**: ЗАВЕРШЕНО (v0.3.3)
 - **GDD версия**: v3.3.2
 - **Документация Soft Launch**: v1.5.6
 - **Stage A+B+C MetaServer**: ЗАВЕРШЕНО
@@ -19,12 +20,43 @@
 - **Sprint 4 Backup/Restore**: ЗАВЕРШЕНО
 - **v0.3.1 Docker Infra & Release**: ЗАВЕРШЕНО
 
-## Последние изменения (Sprint 6)
+## Последние изменения (Sprint 7)
 
-### Sprint 6: LAN Mobile Access Fix — В РАБОТЕ
+### Sprint 7: Legacy DOM Cleanup — В РАБОТЕ
+
+**Ветка:** `refactor/remove-legacy-dom`
+**Статус:** 🟡 В РАБОТЕ (PR ожидается)
+
+**Цель:** Удалить legacy DOM код из main.ts, который был заменён на Preact компоненты.
+
+**Что удалено (429 строк):**
+
+- **Join Screen** (~280 строк): joinScreen, joinTitle, joinSubtitle, nameContainer, nameInput, randomNameBtn, classesData, classCardsContainer, classCards, playButton
+- **Results overlay** (~100 строк): resultsOverlay, resultsContent, resultsTitle, resultsWinner, resultsLeaderboard, resultsPersonalStats, resultsClassSelection, resultsTimer, resultsExitButton
+- **Legacy функции**: syncClassCards, syncResultsClassButtons, updatePlayButton, initResultsClassButtons
+- **Legacy DOM манипуляции** в setClassSelectMode и других местах
+
+**Preact замены (уже существуют):**
+
+- `client/src/ui/components/MainMenu.tsx` — заменил Join Screen
+- `client/src/ui/components/ResultsScreen.tsx` — заменил Results overlay
+- `client/src/ui/components/GameHUD.tsx` — заменил legacy HUD
+- `client/src/ui/components/AbilityButtons.tsx` — заменил legacy кнопки способностей
+
+**Модифицированные файлы (4):**
+
+- `client/src/main.ts` — удалено 773+ строк legacy кода (R2 cleanup)
+- `client/src/ui/signals/gameState.ts` — selectedClassId = -1, BoostState.isChargeBased
+- `.memory_bank/activeContext.md` — обновлён контекст
+- `.memory_bank/progress.md` — добавлен Sprint 7
+
+---
+
+### Sprint 6: LAN Mobile Access Fix — ЗАВЕРШЕНО
 
 **Ветка:** `fix/lan-mobile-access`
-**Статус:** 🟡 В РАБОТЕ (PR ожидается)
+**PR:** #49
+**Статус:** 🟢 ЗАВЕРШЕНО (merged)
 
 **Цель:** Исправить P0 баг — мобильные устройства в локальной сети не могут подключиться к серверу.
 
@@ -36,16 +68,9 @@
 
 **Исправление:**
 
-- Добавлена переменная `HOST = process.env.META_HOST || '0.0.0.0'`
-- Изменён вызов на `app.listen(Number(PORT), HOST, () => {...})`
-- Обновлено логирование: `Listening on http://${HOST}:${PORT}`
-
-**Модифицированные файлы (4):**
-
-- `server/src/meta/server.ts` — добавлен HOST, исправлен listen()
-- `README.md` — добавлены переменные META_HOST и HOST в таблицу
-- `.memory_bank/activeContext.md` — обновлён контекст
-- `.memory_bank/progress.md` — добавлен Sprint 6
+- Добавлена переменная `host = process.env.META_HOST || '0.0.0.0'`
+- Изменён вызов на `app.listen(port, host, () => {...})`
+- Обновлено логирование: `Listening on http://${host}:${port}`
 
 ---
 
