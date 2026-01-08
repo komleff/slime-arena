@@ -59,7 +59,7 @@ export class JoinTokenService {
   /**
    * Mask userId for logging (privacy protection)
    */
-  private maskUserId(userId: string): string {
+  maskUserId(userId: string): string {
     if (!userId || userId.length <= 4) return '***';
     return `${userId.slice(0, 4)}***`;
   }

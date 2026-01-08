@@ -311,17 +311,10 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         try {
-            // Verify the joinToken
-            const payload = joinTokenService.verifyToken(options.joinToken);
+            // Verify the joinToken and check it's valid for this room
+            const payload = joinTokenService.verifyTokenForRoom(options.joinToken, this.roomId);
 
-            // Verify matchId corresponds to this room (roomId format: arena_{matchId})
-            const expectedRoomId = `arena_${payload.matchId}`;
-            if (this.roomId !== expectedRoomId) {
-                console.warn(`[ArenaRoom] Token roomId mismatch: expected ${this.roomId}, got ${expectedRoomId}`);
-                throw new Error(`Token not valid for this room`);
-            }
-
-            const maskedUserId = payload.userId?.length > 4 ? `${payload.userId.slice(0, 4)}***` : '***';
+            const maskedUserId = joinTokenService.maskUserId(payload.userId);
             console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${maskedUserId} for match ${payload.matchId}`);
 
             // Return the payload - it will be available in onJoin via client.auth
@@ -338,7 +331,7 @@ export class ArenaRoom extends Room<GameState> {
 
         // If client authenticated with token, use nickname from payload (trusted source)
         const authPayload = client.auth as JoinTokenPayload | boolean;
-        const tokenNickname = typeof authPayload === 'object' && authPayload?.nickname
+        const tokenNickname = authPayload && typeof authPayload === 'object' && authPayload.nickname
             ? authPayload.nickname
             : null;
 
