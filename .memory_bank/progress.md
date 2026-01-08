@@ -1214,13 +1214,13 @@ npm run dev:meta
 
 - [x] **G-2: Input lag для умений** — ✅ ИСПРАВЛЕНО (PR feat/mobile-controls-flight-assist): onClick → onPointerDown
 - [ ] **G-3: HUD frequency mismatch** — GameHUD рендерит 10 Hz, но hudTimer обновляет данные 5 Hz. Половина рендеров вхолостую. (Gemini SDET)
-- [ ] **G-4: Hardcoded LEVEL_THRESHOLDS** — Таблица опыта захардкожена в GameHUD.tsx вместо чтения из balanceConfig. (Gemini SDET)
+- [x] **G-4: Hardcoded LEVEL_THRESHOLDS** — ✅ ИСПРАВЛЕНО (Sprint 10, PR #54): GameHUD использует сигнал levelThresholds
 - [x] **X-2: meta-stage-c.test API mismatch** — ✅ ИСПРАВЛЕНО (Sprint 3)
 
 ### P2 — Medium
 
 - [ ] **X-4: Telegram doc wrong port** — В `Тестирование Telegram Mini App.md` указан порт 5173 вместо 5174. (Codex)
-- [ ] **X-5: Name change not applied** — При возврате в меню без disconnect изменение имени не применяется (onPlay отправляет только selectClass). (Codex)
+- [x] **X-5: Name change not applied** — ✅ ИСПРАВЛЕНО (Sprint 10, PR #54): selectClass теперь передаёт name
 
 ### Low Priority (от AI Review Round 4)
 
