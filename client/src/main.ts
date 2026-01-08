@@ -1955,6 +1955,8 @@ async function connectToServer(playerName: string, classId: number) {
             joystickFixedBase,
             getJoystickActivationGate,
             isCoarsePointer: () => isCoarsePointer,
+            mouseDeadzone: balanceConfig.controls.mouseDeadzone,
+            mouseMaxDist: balanceConfig.controls.mouseMaxDist,
         };
 
         const inputManagerCallbacks: InputCallbacks = {
