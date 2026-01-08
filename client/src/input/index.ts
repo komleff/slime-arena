@@ -14,3 +14,11 @@ export {
     setJoystickVisible,
     updateJoystickSize,
 } from "./joystick";
+
+export {
+    InputManager,
+    type KeyState,
+    type MouseState,
+    type InputManagerDeps,
+    type InputCallbacks,
+} from "./InputManager";
