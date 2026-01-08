@@ -1,10 +1,10 @@
 /**
  * HUD компонент — игровой интерфейс во время матча
- * Оптимизирован: обновления throttled до 10 Hz
+ * Обновления через Preact Signals (реактивные)
  */
 
 import { Fragment } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import {
   localPlayer,
@@ -355,17 +355,10 @@ function DeathOverlay() {
 // ========== Главный компонент HUD ==========
 
 export function GameHUD() {
-  // Throttled обновления (10 Hz) через setInterval для точного throttling
-  const [, forceUpdate] = useState(0);
-
+  // Preact Signals автоматически триггерят перерендер при изменении
+  // Убран forceUpdate — signals реактивны (fix slime-arena-foh)
   useEffect(() => {
     injectStyles(STYLES_ID, styles);
-
-    const intervalId = window.setInterval(() => {
-      forceUpdate(n => n + 1);
-    }, 100); // 10 Hz
-
-    return () => clearInterval(intervalId);
   }, []);
 
   if (!showHud.value) return null;
