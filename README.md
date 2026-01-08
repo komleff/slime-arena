@@ -207,10 +207,13 @@ MATCH_SERVER_TOKEN=prod-token-xyz \
 docker-compose -f docker/docker-compose.monolith.yml up -d
 ```
 
-### Отдельные образы
+### Образы v0.3.4
 
-- `ghcr.io/komleff/slime-arena-server:v0.3.3`
-- `ghcr.io/komleff/slime-arena-client:v0.3.3`
+| Образ | Описание |
+|-------|----------|
+| `ghcr.io/komleff/slime-arena-app` | MetaServer + MatchServer + Client |
+| `ghcr.io/komleff/slime-arena-db` | PostgreSQL + Redis |
+| `ghcr.io/komleff/slime-arena-monolith-full` | Всё в одном (для тестов) |
 
 ### Apple Silicon (M1/M2/M3/M4)
 
