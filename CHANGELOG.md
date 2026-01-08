@@ -1,5 +1,30 @@
 # Журнал изменений
 
+## v0.3.6 — TalentSystem Integration (9 января 2026)
+
+Интеграция TalentSystem модуля в ArenaRoom с удалением дублирующего кода.
+
+### 🛠 Изменено
+
+- **ArenaRoom.ts** (slime-arena-eg7):
+  - `recalculateTalentModifiers()` → делегация в модуль (~220 строк удалено)
+  - `generateTalentCard()` → делегация в модуль (~220 строк удалено)
+  - Добавлен адаптер `getTalentBalanceConfig()`
+  - Удалены дубли: `getTalentConfig`, `buildAbilityUpgradeId`, `parseAbilityUpgradeId`
+
+### 📊 Метрики
+
+- **ArenaRoom.ts:** 4132 → 3714 строк (−418)
+- **Тесты:** determinism, orb-bite, arena-generation ✅
+
+### 📦 Файлы
+
+**Изменённые (1):**
+
+- `server/src/rooms/ArenaRoom.ts` — интеграция TalentSystem модуля
+
+---
+
 ## v0.3.5 — Tech Debt Refactoring (9 января 2026)
 
 Извлечение модулей InputManager и TalentSystem, оптимизация HUD.

@@ -4,20 +4,27 @@
 
 ## Текущее состояние
 **База:** main (9 января 2026)
-**Релиз:** v0.3.5
+**Релиз:** v0.3.6
 **GDD версия:** 3.3.2
 **Текущая ветка:** main
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] Sprint 11.2: TalentSystem Integration (PR #57 MERGED):**
+  - ✅ slime-arena-eg7 — ArenaRoom refactoring (−418 строк)
+  - ✅ recalculateTalentModifiers → делегация в модуль
+  - ✅ generateTalentCard → делегация в модуль
+  - ✅ Удалены дубли: getTalentConfig, buildAbilityUpgradeId, parseAbilityUpgradeId
+
 - **[ЗАВЕРШЕНО] Sprint 11: Tech Debt Refactoring (PR #56 MERGED):**
   - ✅ 11.1: slime-arena-dm5 — Daemon hooks (auto-commit, auto-push)
   - ✅ 11.2: slime-arena-foh — HUD frequency sync (убран forceUpdate)
-  - ✅ 11.3: InputManager module created (558 строк, интеграция отложена)
-  - ✅ 11.4: TalentSystem module created (интеграция отложена)
-  - 🔄 slime-arena-38q — main.ts refactoring IN_PROGRESS
-  - 🔄 slime-arena-eg7 — ArenaRoom refactoring IN_PROGRESS
+  - ✅ 11.3: InputManager module created (558 строк)
+  - ✅ 11.4: TalentSystem module created
+
+- **[В ОЧЕРЕДИ] Sprint 11.3: InputManager Integration:**
+  - 🔄 slime-arena-38q — main.ts refactoring (4137 строк)
 
 - **[ЗАВЕРШЕНО] PR #55: levelThresholds fallback fix (MERGED):**
   - ✅ setLevelThresholds merge logic (сохраняет переданные + дополняет из defaults)
