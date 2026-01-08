@@ -116,7 +116,7 @@ npx tsx server/tests/meta-stage-d.test.ts
 docker-compose -f docker/docker-compose.yml up -d
 ```
 
-### Доступные сервисы v0.3.3:
+### Доступные сервисы v0.4.0:
 - **Client**: [http://localhost:5174](http://localhost:5174) (Контейнер: `slime-arena-client`)
 - **MetaServer**: [http://localhost:3000](http://localhost:3000) (Контейнер: `slime-arena-meta-server`)
 - **MatchServer**: [ws://localhost:2567](ws://localhost:2567) (Контейнер: `slime-arena-match-server`)
@@ -157,7 +157,7 @@ k6 run tests/load/soft-launch.js
 
 ## Docker
 
-Актуальные образы v0.3.3 доступны в GitHub Container Registry:
+Актуальные образы v0.4.0 доступны в GitHub Container Registry:
 
 ### Монолит (рекомендуется для быстрого старта)
 
@@ -173,7 +173,7 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 # - Client: http://localhost:5174
 ```
 
-Образ: `ghcr.io/komleff/slime-arena-monolith:v0.3.3`
+Образ: `ghcr.io/komleff/slime-arena-monolith:v0.4.0`
 
 ### Удалённое развёртывание
 
@@ -198,7 +198,7 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 | `MATCH_SERVER_TOKEN`   | Токен для server-to-server auth | `dev-server-token`     |
 | `META_HOST`            | Адрес привязки MetaServer       | `0.0.0.0`              |
 | `HOST`                 | Адрес привязки MatchServer      | `0.0.0.0`              |
-| `VERSION`              | Версия образа                   | `v0.3.3`               |
+| `VERSION`              | Версия образа                   | `v0.4.0`               |
 
 ```bash
 # Пример с кастомными credentials
@@ -207,10 +207,37 @@ MATCH_SERVER_TOKEN=prod-token-xyz \
 docker-compose -f docker/docker-compose.monolith.yml up -d
 ```
 
-### Отдельные образы
+### Образы v0.4.0
 
-- `ghcr.io/komleff/slime-arena-server:v0.3.3`
-- `ghcr.io/komleff/slime-arena-client:v0.3.3`
+| Образ | Описание |
+|-------|----------|
+| `ghcr.io/komleff/slime-arena-app` | MetaServer + MatchServer + Client |
+| `ghcr.io/komleff/slime-arena-db` | PostgreSQL + Redis |
+| `ghcr.io/komleff/slime-arena-monolith-full` | Всё в одном (для тестов) |
+
+### Apple Silicon (M1/M2/M3/M4)
+
+Docker-образы поддерживают обе архитектуры:
+
+- `linux/amd64` (Intel, AMD, cloud servers)
+- `linux/arm64` (Apple Silicon, AWS Graviton)
+
+Образы автоматически выбирают правильную архитектуру:
+
+```bash
+docker pull ghcr.io/komleff/slime-arena-monolith-full:latest
+docker-compose -f docker/docker-compose.monolith-full.yml up -d
+```
+
+Для явного указания архитектуры:
+
+```bash
+# ARM64 (Apple Silicon — нативная скорость)
+docker pull --platform linux/arm64 ghcr.io/komleff/slime-arena-monolith-full:latest
+
+# AMD64 (Intel/AMD, эмуляция на M1-M4 через Rosetta 2)
+docker pull --platform linux/amd64 ghcr.io/komleff/slime-arena-monolith-full:latest
+```
 
 ## Журнал изменений
 

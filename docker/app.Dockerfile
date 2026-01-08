@@ -1,14 +1,14 @@
 # =============================================================================
 # Slime Arena Monolith Container
 # Multi-stage production build for MetaServer + MatchServer + Client
-# Version: 0.3.3
+# Version: 0.4.0
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # Stage 1: Builder
 # Install dependencies and build all packages
 # -----------------------------------------------------------------------------
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -42,7 +42,7 @@ RUN npm run build --workspace=shared && \
 # Stage 2: Runtime
 # Minimal production image
 # -----------------------------------------------------------------------------
-FROM node:18-alpine AS runtime
+FROM node:20-alpine AS runtime
 
 WORKDIR /app
 

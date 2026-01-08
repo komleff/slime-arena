@@ -1,5 +1,30 @@
 # Журнал изменений
 
+## v0.4.0 — Multi-Platform Docker (9 января 2026)
+
+Docker-контейнеры теперь поддерживают ARM64 (Apple Silicon) и AMD64.
+
+### ✨ Добавлено
+
+- **Multi-platform build** — образы собираются для `linux/amd64` и `linux/arm64`
+- **Apple Silicon support** — нативная работа на M1/M2/M3/M4
+- **AWS Graviton support** — ARM64 cloud instances
+
+### 🛠 Изменено
+
+- **Node.js 18 → 20** — обновление до LTS версии
+- **3 образа вместо 5** — удалены legacy `server` и `client`
+  - `slime-arena-app` — MetaServer + MatchServer + Client
+  - `slime-arena-db` — PostgreSQL + Redis
+  - `slime-arena-monolith-full` — всё в одном
+
+### ⚙️ Инфраструктура
+
+- QEMU для кросс-компиляции в GitHub Actions
+- `JOIN_TOKEN_SECRET` добавлен в docker-compose
+
+---
+
 ## v0.3.6 — TalentSystem Integration (9 января 2026)
 
 Интеграция TalentSystem модуля в ArenaRoom с удалением дублирующего кода.

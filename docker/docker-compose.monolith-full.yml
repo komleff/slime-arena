@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena Monolith Full - Docker Compose
 # All-in-One deployment: PostgreSQL + Redis + Application in single container
-# Version: 0.3.3
+# Version: 0.4.0
 # =============================================================================
 
 name: slime-arena-full
@@ -12,7 +12,7 @@ services:
   # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client
   # ---------------------------------------------------------------------------
   monolith:
-    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.3.3}
+    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.4.0}
     container_name: slime-arena-monolith-full
     ports:
       - "3000:3000"   # MetaServer (HTTP API)
@@ -24,6 +24,8 @@ services:
       - redisdata:/var/lib/redis
     environment:
       - NODE_ENV=production
+      - JOIN_TOKEN_SECRET=${JOIN_TOKEN_SECRET:-dev-jwt-secret-change-in-prod}
+      - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
     restart: unless-stopped
 
 volumes:
