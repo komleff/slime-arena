@@ -467,15 +467,15 @@ export function resetMatchmaking() {
  * Обновить пороги уровней из runtime конфигурации.
  * Вызывается из main.ts при получении balanceConfig с сервера.
  *
- * Инвариант: массив должен содержать минимум 6 элементов для корректного
- * расчёта прогресса уровней 1-6+. При недостатке используются дефолты.
+ * Merge: сохраняем переданные пороги и дополняем недостающие из дефолтов.
+ * Это обеспечивает согласованность client/server при коротком массиве.
  */
 export function setLevelThresholds(thresholds: number[]) {
   const defaults = DEFAULT_BALANCE_CONFIG.slime.levelThresholds;
-  // Гарантируем минимум 6 порогов для корректного fallback в getLevelProgress
-  const safeThresholds = thresholds.length >= 6 ? thresholds : defaults;
+  // Merge: используем переданные значения, дополняем недостающие из defaults
+  const merged = defaults.map((def, i) => thresholds[i] ?? def);
   // Добавляем 0 в начало для расчёта прогресса уровня 1
-  levelThresholds.value = [0, ...safeThresholds];
+  levelThresholds.value = [0, ...merged];
 }
 
 // ========== Инициализация ==========

@@ -224,12 +224,35 @@ function formatMass(mass: number): string {
 
 /**
  * Вычисляет прогресс до следующего уровня (0-100%)
- * Использует levelThresholds сигнал для поддержки runtime config updates
+ * Использует levelThresholds сигнал для поддержки runtime config updates.
+ *
+ * thresholds[0] = 0 (добавляется в setLevelThresholds)
+ * thresholds[1..6] = пороги из config (100, 180, 300, 500, 800, 1200)
+ * Для уровней выше 6 — экстраполяция *1.5
  */
 function getLevelProgress(mass: number, level: number): number {
   const thresholds = levelThresholds.value;
-  const currentThreshold = thresholds[level] ?? thresholds[6] * Math.pow(1.5, level - 6);
-  const nextThreshold = thresholds[level + 1] ?? currentThreshold * 1.5;
+
+  // Защита от пустого конфига (до получения balance с сервера)
+  if (!thresholds || thresholds.length === 0) return 0;
+
+  const lastIdx = thresholds.length - 1;
+  const lastThreshold = thresholds[lastIdx];
+
+  // Получить порог для уровня (level 1 → index 1, level 6 → index 6)
+  const getThreshold = (lvl: number): number => {
+    if (lvl <= 0) return 0;
+    if (lvl <= lastIdx) return thresholds[lvl];
+    // Экстраполяция для уровней выше чем есть в конфиге
+    return lastThreshold * Math.pow(1.5, lvl - lastIdx);
+  };
+
+  const currentThreshold = getThreshold(level);
+  const nextThreshold = getThreshold(level + 1);
+
+  // Защита от деления на ноль
+  if (nextThreshold <= currentThreshold) return 100;
+
   const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
   return Math.max(0, Math.min(100, progress));
 }
