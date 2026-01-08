@@ -314,8 +314,12 @@ export class ArenaRoom extends Room<GameState> {
             // Verify the joinToken
             const payload = joinTokenService.verifyToken(options.joinToken);
 
-            // Optionally verify roomId matches (if room has a specific ID)
-            // For now, we trust the token payload
+            // Verify matchId corresponds to this room (roomId format: arena_{matchId})
+            const expectedRoomId = `arena_${payload.matchId}`;
+            if (this.roomId !== expectedRoomId) {
+                console.warn(`[ArenaRoom] Token roomId mismatch: expected ${this.roomId}, got ${expectedRoomId}`);
+                throw new Error(`Token not valid for this room`);
+            }
 
             console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${payload.userId} for match ${payload.matchId}`);
 
@@ -330,8 +334,17 @@ export class ArenaRoom extends Room<GameState> {
     onJoin(client: Client, options: { name?: string; classId?: number } = {}) {
         const player = new Player();
         player.id = client.sessionId;
-        // Генерируем юмористическое имя если не указано
-        if (options.name && options.name.trim().length > 0) {
+
+        // If client authenticated with token, use nickname from payload (trusted source)
+        const authPayload = client.auth as JoinTokenPayload | boolean;
+        const tokenNickname = typeof authPayload === 'object' && authPayload?.nickname
+            ? authPayload.nickname
+            : null;
+
+        // Priority: token nickname > options.name > generated name
+        if (tokenNickname) {
+            player.name = tokenNickname.trim().slice(0, 24);
+        } else if (options.name && options.name.trim().length > 0) {
             player.name = options.name.trim().slice(0, 24);
         } else {
             // Собираем существующие имена для проверки уникальности

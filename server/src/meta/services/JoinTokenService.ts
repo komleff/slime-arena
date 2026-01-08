@@ -26,15 +26,34 @@ export class JoinTokenService {
   private readonly expiresInSeconds: number;
 
   constructor() {
+    const hasCustomSecret = !!(process.env.JOIN_TOKEN_SECRET || process.env.JWT_SECRET);
+    const isTokenRequired = process.env.JOIN_TOKEN_REQUIRED === 'true' || process.env.JOIN_TOKEN_REQUIRED === '1';
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Fail-fast: refuse to start if tokens are required but no secret is configured
+    if ((isTokenRequired || isProduction) && !hasCustomSecret) {
+      throw new Error(
+        '[JoinTokenService] FATAL: JOIN_TOKEN_SECRET must be set when JOIN_TOKEN_REQUIRED=true or in production!'
+      );
+    }
+
     // Get secret from environment or use default for development
     this.secret = process.env.JOIN_TOKEN_SECRET || process.env.JWT_SECRET || 'slime-arena-dev-secret';
 
-    // Token validity period (default: 5 minutes)
-    this.expiresInSeconds = parseInt(process.env.JOIN_TOKEN_EXPIRES || '300', 10);
+    // Token validity period (default: 5 minutes) with validation
+    const parsedExpires = parseInt(process.env.JOIN_TOKEN_EXPIRES || '300', 10);
+    this.expiresInSeconds = Number.isFinite(parsedExpires) && parsedExpires > 0 ? parsedExpires : 300;
 
-    if (!process.env.JOIN_TOKEN_SECRET && !process.env.JWT_SECRET) {
+    if (!hasCustomSecret) {
       console.warn('[JoinTokenService] WARNING: Using default secret. Set JOIN_TOKEN_SECRET in production!');
     }
+  }
+
+  /**
+   * Get token expiration time in seconds (for syncing TTLs)
+   */
+  getExpiresInSeconds(): number {
+    return this.expiresInSeconds;
   }
 
   /**

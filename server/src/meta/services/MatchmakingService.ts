@@ -203,25 +203,28 @@ export class MatchmakingService {
       players: players.map((p) => ({ userId: p.userId, nickname: p.nickname })),
     };
 
-    // Store match assignment in Redis (TTL 5 minutes)
+    // Use same TTL as token expiration for consistency
+    const ttlSeconds = joinTokenService.getExpiresInSeconds();
+
+    // Store match assignment in Redis
     await this.redis.setEx(
       `${this.MATCH_PREFIX}${matchId}`,
-      300, // 5 minutes
+      ttlSeconds,
       JSON.stringify(assignment)
     );
 
-    // Store player tokens separately (TTL 5 minutes)
+    // Store player tokens separately
     await this.redis.setEx(
       `${this.MATCH_PREFIX}${matchId}:tokens`,
-      300, // 5 minutes
+      ttlSeconds,
       JSON.stringify(playerTokens)
     );
 
-    // Store user-to-match mapping for each player (TTL 5 minutes)
+    // Store user-to-match mapping for each player
     for (const player of players) {
       await this.redis.setEx(
         `${this.USER_MATCH_PREFIX}${player.userId}`,
-        300, // 5 minutes
+        ttlSeconds,
         matchId
       );
     }
@@ -246,6 +249,26 @@ export class MatchmakingService {
   }
 
   /**
+   * Generate a fallback token for a player (when original token expired/missing)
+   */
+  private generateFallbackToken(
+    userId: string,
+    matchId: string,
+    assignment: MatchAssignment
+  ): string {
+    const player = assignment.players.find((p) => p.userId === userId);
+    if (!player) {
+      throw new Error(`Player ${userId} not found in match ${matchId}`);
+    }
+    return joinTokenService.generateToken(
+      userId,
+      matchId,
+      assignment.roomId,
+      player.nickname
+    );
+  }
+
+  /**
    * Get player-specific match assignment with their joinToken
    */
   async getPlayerAssignment(matchId: string, userId: string): Promise<PlayerMatchAssignment | null> {
@@ -265,13 +288,7 @@ export class MatchmakingService {
     if (!tokensData) {
       // Tokens expired or not found - generate a new one
       console.warn(`[Matchmaking] Tokens not found for match ${matchId}, generating new one`);
-      const player = assignment.players.find((p) => p.userId === userId);
-      const token = joinTokenService.generateToken(
-        userId,
-        matchId,
-        assignment.roomId,
-        player?.nickname || 'Player'
-      );
+      const token = this.generateFallbackToken(userId, matchId, assignment);
       return { ...assignment, joinToken: token };
     }
 
@@ -281,13 +298,7 @@ export class MatchmakingService {
     if (!joinToken) {
       // Token not found for this user - generate a new one
       console.warn(`[Matchmaking] Token not found for user ${userId} in match ${matchId}`);
-      const player = assignment.players.find((p) => p.userId === userId);
-      const token = joinTokenService.generateToken(
-        userId,
-        matchId,
-        assignment.roomId,
-        player?.nickname || 'Player'
-      );
+      const token = this.generateFallbackToken(userId, matchId, assignment);
       return { ...assignment, joinToken: token };
     }
 
