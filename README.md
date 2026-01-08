@@ -212,6 +212,30 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 - `ghcr.io/komleff/slime-arena-server:v0.3.3`
 - `ghcr.io/komleff/slime-arena-client:v0.3.3`
 
+### Apple Silicon (M1/M2/M3/M4)
+
+Docker-образы поддерживают обе архитектуры:
+
+- `linux/amd64` (Intel, AMD, cloud servers)
+- `linux/arm64` (Apple Silicon, AWS Graviton)
+
+Образы автоматически выбирают правильную архитектуру:
+
+```bash
+docker pull ghcr.io/komleff/slime-arena-monolith-full:latest
+docker-compose -f docker/docker-compose.monolith-full.yml up -d
+```
+
+Для явного указания архитектуры:
+
+```bash
+# ARM64 (Apple Silicon — нативная скорость)
+docker pull --platform linux/arm64 ghcr.io/komleff/slime-arena-monolith-full:latest
+
+# AMD64 (Intel/AMD, эмуляция на M1-M4 через Rosetta 2)
+docker pull --platform linux/amd64 ghcr.io/komleff/slime-arena-monolith-full:latest
+```
+
 ## Журнал изменений
 
 Полная история изменений доступна в файле [CHANGELOG.md](CHANGELOG.md).
