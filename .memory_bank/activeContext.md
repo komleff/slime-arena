@@ -6,15 +6,20 @@
 **База:** main (8 января 2026)
 **Релиз:** v0.3.4
 **GDD версия:** 3.3.2
-**Текущая ветка:** sprint-10/pre-launch-fixes
+**Текущая ветка:** fix/level-thresholds-fallback
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] Sprint 10: Pre-Launch Fixes:**
-  - ✅ 10.1: slime-arena-8yz — имя обновляется при replay (onPlay → selectClass с name)
-  - ✅ 10.2: slime-arena-6hn — LEVEL_THRESHOLDS из balance.json (GameHUD использует конфиг)
-  - ⏳ 10.3: PR, merge
+- **[В РАБОТЕ] PR #55: levelThresholds fallback fix:**
+  - ⏳ Ожидает ревью и merge
+
+- **[ЗАВЕРШЕНО] Sprint 10: Pre-Launch Fixes (PR #54 + commit 7804a12):**
+  - ✅ 10.1: slime-arena-8yz — имя обновляется при replay (CLOSED)
+  - ✅ 10.2: slime-arena-6hn — LEVEL_THRESHOLDS из balance.json (CLOSED)
+  - ✅ 10.3: PR #54 merged, review fixes в commit 7804a12
+  - ✅ 10.4: Убраны `as any` в ArenaRoom.ts (P3)
+  - ✅ 10.5: Runtime config через сигнал levelThresholds (P2)
 
 - **[ЗАВЕРШЕНО] Sprint 9: Architect Analysis (Soft Launch Readiness):**
   - ✅ Анализ SlimeArena-SoftLaunch-Plan-v1.0.5.md
