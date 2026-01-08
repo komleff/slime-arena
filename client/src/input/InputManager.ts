@@ -41,6 +41,8 @@ export interface InputManagerDeps {
     joystickFixedBase: { x: number; y: number };
     getJoystickActivationGate: () => { maxX: number; minY: number };
     isCoarsePointer: () => boolean;
+    mouseDeadzone: number;
+    mouseMaxDist: number;
 }
 
 export interface InputCallbacks {
@@ -143,9 +145,14 @@ export class InputManager {
     getMovementInput(): { x: number; y: number } {
         const { joystickState } = this.deps;
 
-        // Приоритет: joystick > keyboard > mouse
+        // Приоритет: joystick > mouse > keyboard (agar.io style)
         if (joystickState.active) {
             return { x: joystickState.moveX, y: -joystickState.moveY };
+        }
+
+        // Mouse (приоритет над клавиатурой для agar.io style)
+        if (this.mouseState.active) {
+            return { x: this.mouseState.moveX, y: this.mouseState.moveY };
         }
 
         // Keyboard
@@ -160,28 +167,33 @@ export class InputManager {
             return { x: kx / len, y: ky / len };
         }
 
-        // Mouse
-        if (this.mouseState.active) {
-            return { x: this.mouseState.moveX, y: this.mouseState.moveY };
-        }
-
         return { x: 0, y: 0 };
     }
 
     updateMouseDirection(playerScreenX: number, playerScreenY: number): void {
         if (!this.mouseState.active) return;
 
+        const { mouseDeadzone, mouseMaxDist } = this.deps;
         const dx = this.mouseState.screenX - playerScreenX;
         const dy = playerScreenY - this.mouseState.screenY; // Y инвертирован
         const dist = Math.hypot(dx, dy);
 
-        if (dist > 1) {
-            this.mouseState.moveX = dx / dist;
-            this.mouseState.moveY = dy / dist;
-        } else {
+        // Мёртвая зона в центре
+        if (dist < mouseDeadzone) {
             this.mouseState.moveX = 0;
             this.mouseState.moveY = 0;
+            return;
         }
+
+        // Нормализуем направление
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Интенсивность зависит от расстояния (линейно до maxDist)
+        const intensity = clamp((dist - mouseDeadzone) / (mouseMaxDist - mouseDeadzone), 0, 1);
+
+        this.mouseState.moveX = nx * intensity;
+        this.mouseState.moveY = ny * intensity;
     }
 
     setLastSentInput(x: number, y: number): void {
@@ -201,6 +213,15 @@ export class InputManager {
 
     hasKeyboardInput(): boolean {
         return this.keyState.up || this.keyState.down || this.keyState.left || this.keyState.right;
+    }
+
+    resetInputState(): void {
+        this._hasFocus = false;
+        this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
+        this.mouseState.active = false;
+        this.mouseState.moveX = 0;
+        this.mouseState.moveY = 0;
+        this.lastSentInput = { x: 0, y: 0 };
     }
 
     // ========== Keyboard Handlers ==========
