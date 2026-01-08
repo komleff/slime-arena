@@ -6,13 +6,15 @@
 **База:** main (8 января 2026)
 **Релиз:** v0.3.4
 **GDD версия:** 3.3.2
-**Текущая ветка:** fix/level-thresholds-fallback
+**Текущая ветка:** main
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] PR #55: levelThresholds fallback fix:**
-  - ⏳ Ожидает ревью и merge
+- **[ЗАВЕРШЕНО] PR #55: levelThresholds fallback fix (MERGED):**
+  - ✅ setLevelThresholds merge logic (сохраняет переданные + дополняет из defaults)
+  - ✅ getLevelProgress защита от пустого конфига и экстраполяция
+  - ✅ Сохранение массивов длиннее defaults (Copilot suggestion)
 
 - **[ЗАВЕРШЕНО] Sprint 10: Pre-Launch Fixes (PR #54 + commit 7804a12):**
   - ✅ 10.1: slime-arena-8yz — имя обновляется при replay (CLOSED)
