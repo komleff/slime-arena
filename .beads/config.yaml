@@ -44,6 +44,12 @@
 # If not set, bd sync will require you to run 'bd config set sync.branch <branch>'.
 sync-branch: "beads-sync"
 
+# Daemon auto-sync settings
+# auto-commit: коммит изменений в beads-sync ветку автоматически
+# auto-push: пуш изменений на remote автоматически
+auto-commit: true
+auto-push: true
+
 # Multi-repo configuration (experimental - bd-307)
 # Allows hydrating from multiple repositories and routing writes to the correct JSONL
 # repos:
