@@ -180,13 +180,13 @@ export class ArenaRoom extends Room<GameState> {
             const needsClass = !(Number.isInteger(currentClassId) && currentClassId >= 0 && currentClassId <= 2);
             if (!needsClass) return;
 
-            const rawClassId = Number((data as any)?.classId);
+            const rawClassId = Number(data?.classId);
             if (!Number.isInteger(rawClassId) || rawClassId < 0 || rawClassId > 2) return;
 
             player.classId = rawClassId;
 
             // Обновляем имя игрока, если передано (для replay между матчами)
-            const newName = (data as any)?.name;
+            const newName = data?.name;
             if (typeof newName === "string" && newName.trim().length > 0) {
                 player.name = newName.trim().slice(0, 24);
             }

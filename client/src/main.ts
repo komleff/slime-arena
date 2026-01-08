@@ -56,7 +56,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, matchResults, selectedClassId as selectedClassIdSignal } from "./ui/signals/gameState";
+import { resetMatchmaking, matchResults, selectedClassId as selectedClassIdSignal, setLevelThresholds } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -726,6 +726,8 @@ const applyBalanceConfig = (config: BalanceConfig) => {
     chestRadius = config.chests.radius;
     hotZoneRadius = config.hotZones.radius;
     collectorRadiusMult = config.classes.collector.radiusMult;
+    // Обновляем пороги уровней в UI для runtime config support
+    setLevelThresholds(config.slime.levelThresholds);
     camera.x = Math.min(Math.max(camera.x, -worldWidth / 2), worldWidth / 2);
     camera.y = Math.min(Math.max(camera.y, -worldHeight / 2), worldHeight / 2);
     const cameraConfig = balanceConfig.camera ?? DEFAULT_BALANCE_CONFIG.camera;

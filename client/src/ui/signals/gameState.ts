@@ -4,7 +4,7 @@
  */
 
 import { signal, computed, batch } from '@preact/signals';
-import { FLAG_IS_DEAD } from '@slime-arena/shared';
+import { FLAG_IS_DEAD, DEFAULT_BALANCE_CONFIG } from '@slime-arena/shared';
 
 // ========== Типы ==========
 
@@ -166,6 +166,10 @@ export const matchResults = signal<{
 export const hudVisible = signal(true);
 export const isMobile = signal(false);
 export const safeAreaInsets = signal({ top: 0, bottom: 0, left: 0, right: 0 });
+
+// Конфигурация баланса (пороги уровней для HUD)
+// Обновляется через setLevelThresholds при получении runtime config
+export const levelThresholds = signal<number[]>([0, ...DEFAULT_BALANCE_CONFIG.slime.levelThresholds]);
 
 // ========== Auth состояние ==========
 
@@ -455,6 +459,17 @@ export function resetMatchmaking() {
     matchAssignment.value = null;
     matchmakingError.value = null;
   });
+}
+
+// ========== Конфигурация баланса ==========
+
+/**
+ * Обновить пороги уровней из runtime конфигурации.
+ * Вызывается из main.ts при получении balanceConfig с сервера.
+ */
+export function setLevelThresholds(thresholds: number[]) {
+  // Добавляем 0 в начало для расчёта прогресса уровня 1
+  levelThresholds.value = [0, ...thresholds];
 }
 
 // ========== Инициализация ==========
