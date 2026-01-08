@@ -12,6 +12,7 @@
 | Stage D Integration Tests | 19/19 passed |
 | Load Test (k6) | CCU 500, 87k requests, 0% errors |
 | Backup/Restore | Verified (data integrity confirmed) |
+| joinToken Security | ✅ JWT validation в ArenaRoom.onAuth() |
 
 ## Технологический стек
 

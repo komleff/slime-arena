@@ -6,6 +6,7 @@
 - **Текущая ветка**: `main`
 - **Релиз игрового прототипа:** v0.3.4
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
+- **Sprint 8: joinToken Validation**: ✅ ЗАВЕРШЕНО (PR #52)
 - **Sprint 7: Legacy DOM Cleanup**: ✅ ЗАВЕРШЕНО (PR #50)
 - **Sprint 6: LAN Mobile Access Fix**: ЗАВЕРШЕНО (PR #49)
 - **Sprint 5: Docker Monolith**: ЗАВЕРШЕНО (v0.3.3)
@@ -20,7 +21,53 @@
 - **Sprint 4 Backup/Restore**: ЗАВЕРШЕНО
 - **v0.3.1 Docker Infra & Release**: ЗАВЕРШЕНО
 
-## Последние изменения (Sprint 7)
+## Последние изменения (Sprint 8)
+
+### Sprint 8: joinToken JWT Validation — ЗАВЕРШЕНО
+
+**Ветка:** `sprint8/stage-d-testing`
+**PR:** #52
+**Статус:** 🟢 ЗАВЕРШЕНО (готов к merge)
+
+**Цель:** Реализовать JWT-based валидацию joinToken в ArenaRoom для безопасного подключения клиентов к матчам.
+
+**Новые файлы (1):**
+- `server/src/meta/services/JoinTokenService.ts` — JWT генерация и верификация
+
+**Модифицированные файлы (4):**
+- `server/src/rooms/ArenaRoom.ts` — onAuth() с JWT валидацией, использование nickname из token
+- `server/src/meta/services/MatchmakingService.ts` — TTL sync, generateFallbackToken()
+- `server/src/meta/routes/matchmaking.ts` — POST /joined endpoint
+- `server/tests/meta-stage-d.test.ts` — balance assertions в idempotency тестах
+
+**Security Features:**
+- ✅ JWT HS256 подпись с секретом из env (JOIN_TOKEN_SECRET)
+- ✅ Fail-fast в production без секрета
+- ✅ verifyTokenForRoom() — проверка roomId соответствия
+- ✅ Token expiration (default 5 минут)
+- ✅ maskUserId() — защита PII в логах
+
+**API Changes:**
+- `POST /api/v1/matchmaking/joined` — очистка userId→matchId после успешного подключения
+
+**AI Review (4 ревьювера, все P1/P2 исправлены):**
+
+| Ревьювер | Статус |
+|----------|--------|
+| Claude Opus | ✅ APPROVED |
+| Codex | ✅ PASS |
+| Gemini | ✅ APPROVED |
+| GitHub Copilot | ✅ 19 comments resolved |
+
+**Коммиты:**
+- `29b1a71` — fix(security): address joinToken validation vulnerabilities
+- `c415ea1` — fix: address remaining P3 review issues
+- `5107b19` — feat(matchmaking): add POST /joined endpoint to clear assignment
+- `83508ac` — refactor: DRY improvements based on Copilot review
+
+---
+
+## Предыдущие изменения (Sprint 7)
 
 ### Sprint 7: Legacy DOM Cleanup — ЗАВЕРШЕНО
 
