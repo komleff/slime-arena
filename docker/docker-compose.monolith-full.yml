@@ -24,6 +24,8 @@ services:
       - redisdata:/var/lib/redis
     environment:
       - NODE_ENV=production
+      - JOIN_TOKEN_SECRET=${JOIN_TOKEN_SECRET:-dev-jwt-secret-change-in-prod}
+      - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
     restart: unless-stopped
 
 volumes:

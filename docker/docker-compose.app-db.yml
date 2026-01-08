@@ -46,6 +46,7 @@ services:
       - REDIS_URL=redis://db:6379
       - META_SERVER_URL=http://localhost:3000
       - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
+      - JOIN_TOKEN_SECRET=${JOIN_TOKEN_SECRET:-dev-jwt-secret-change-in-prod}
     depends_on:
       db:
         condition: service_healthy
