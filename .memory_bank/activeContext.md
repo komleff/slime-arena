@@ -6,10 +6,21 @@
 **База:** main (8 января 2026)
 **Релиз:** v0.3.4
 **GDD версия:** 3.3.2
-**Текущая ветка:** main
+**Текущая ветка:** sprint-10/pre-launch-fixes
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
+
+- **[В РАБОТЕ] Sprint 10: Pre-Launch Fixes:**
+  - ✅ 10.1: slime-arena-8yz — имя обновляется при replay (onPlay → selectClass с name)
+  - ✅ 10.2: slime-arena-6hn — LEVEL_THRESHOLDS из balance.json (GameHUD использует конфиг)
+  - ⏳ 10.3: PR, merge
+
+- **[ЗАВЕРШЕНО] Sprint 9: Architect Analysis (Soft Launch Readiness):**
+  - ✅ Анализ SlimeArena-SoftLaunch-Plan-v1.0.5.md
+  - ✅ 6/6 обязательных критериев выполнено
+  - ✅ Создано 3 A/B Mobile Controls задачи для post-launch
+  - ❌ Beads MCP Server (blocked: нет /plugin команд в Claude Code)
 
 - **[ЗАВЕРШЕНО] Sprint 8: joinToken JWT Validation (PR #52):**
   - ✅ 8.1: JoinTokenService — генерация и верификация JWT токенов

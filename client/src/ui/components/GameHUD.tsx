@@ -5,6 +5,7 @@
 
 import { Fragment } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { DEFAULT_BALANCE_CONFIG } from '@slime-arena/shared';
 import { injectStyles } from '../utils/injectStyles';
 import {
   localPlayer,
@@ -221,8 +222,9 @@ function formatMass(mass: number): string {
   return Math.floor(mass).toString();
 }
 
-// Пороги массы для уровней (GDD v3.3)
-const LEVEL_THRESHOLDS = [0, 100, 180, 300, 500, 800, 1200];
+// Пороги массы для уровней из конфига (GDD v3.3)
+// Добавляем 0 в начало для расчёта прогресса уровня 1
+const LEVEL_THRESHOLDS = [0, ...DEFAULT_BALANCE_CONFIG.slime.levelThresholds];
 
 /**
  * Вычисляет прогресс до следующего уровня (0-100%)
