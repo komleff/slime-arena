@@ -1,5 +1,36 @@
 # Журнал изменений
 
+## v0.3.4 — Legacy DOM Cleanup (8 января 2026)
+
+Масштабный рефакторинг клиента: удалён legacy DOM код, заменённый Preact компонентами.
+
+### 🧹 Удалено (−1119 строк)
+
+- **HUD elements:** boostPanel, topCenterHud, matchTimer, killCounter → GameHUD.tsx
+- **Level indicator:** levelIndicator, updateLevelIndicator → GameHUD.tsx
+- **Empty stubs:** updateSlot1Button, updateSlot2Button
+- **Local variable:** selectedClassId (заменён на signal)
+
+### ✨ Улучшено
+
+- **BoostPanel:** Отображает заряды (×N) для guard/greed, секунды для остальных
+- **MainMenu:** Auto-select random class при первом mount
+- **selectedClassId:** Унифицирован на -1 (signal + local sync)
+- **syncBoost:** Добавлено поле isChargeBased
+
+### 📦 Файлы
+
+**Изменённые (6):**
+
+- `client/src/main.ts` — −1060 строк legacy DOM
+- `client/src/ui/signals/gameState.ts` — selectedClassId = -1, BoostState.isChargeBased
+- `client/src/ui/components/GameHUD.tsx` — charge-based boost display
+- `client/src/ui/components/MainMenu.tsx` — auto-select random class
+- `.memory_bank/activeContext.md` — sprint context
+- `.memory_bank/progress.md` — sprint progress
+
+---
+
 ## v0.3.3 — Production-Ready Monolith (7 января 2026)
 
 Финальный релиз монолитного контейнера для Soft Launch. Исправлены критические ошибки сборки и runtime, выявленные при локальном тестировании.

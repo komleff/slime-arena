@@ -3,10 +3,10 @@
 
 ## Контроль изменений
 - **last_checked_commit**: main @ 8 января 2026
-- **Текущая ветка**: `refactor/remove-legacy-dom`
-- **Релиз игрового прототипа:** v0.3.3
+- **Текущая ветка**: `main`
+- **Релиз игрового прототипа:** v0.3.4
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
-- **Sprint 7: Legacy DOM Cleanup**: В РАБОТЕ
+- **Sprint 7: Legacy DOM Cleanup**: ✅ ЗАВЕРШЕНО (PR #50)
 - **Sprint 6: LAN Mobile Access Fix**: ЗАВЕРШЕНО (PR #49)
 - **Sprint 5: Docker Monolith**: ЗАВЕРШЕНО (v0.3.3)
 - **GDD версия**: v3.3.2
@@ -22,33 +22,49 @@
 
 ## Последние изменения (Sprint 7)
 
-### Sprint 7: Legacy DOM Cleanup — В РАБОТЕ
+### Sprint 7: Legacy DOM Cleanup — ЗАВЕРШЕНО
 
-**Ветка:** `refactor/remove-legacy-dom`
-**Статус:** 🟡 В РАБОТЕ (PR ожидается)
+**Ветка:** `refactor/remove-legacy-dom` → merged to `main`
+**PR:** #50
+**Статус:** 🟢 ЗАВЕРШЕНО (merged via squash)
 
 **Цель:** Удалить legacy DOM код из main.ts, который был заменён на Preact компоненты.
 
-**Что удалено (429 строк):**
+**Что удалено (−1119 строк):**
 
 - **Join Screen** (~280 строк): joinScreen, joinTitle, joinSubtitle, nameContainer, nameInput, randomNameBtn, classesData, classCardsContainer, classCards, playButton
 - **Results overlay** (~100 строк): resultsOverlay, resultsContent, resultsTitle, resultsWinner, resultsLeaderboard, resultsPersonalStats, resultsClassSelection, resultsTimer, resultsExitButton
+- **HUD elements:** boostPanel, topCenterHud, matchTimer, killCounter
+- **Level indicator:** levelIndicator, updateLevelIndicator
+- **Empty stubs:** updateSlot1Button, updateSlot2Button
+- **Local variable:** selectedClassId (заменён на signal)
 - **Legacy функции**: syncClassCards, syncResultsClassButtons, updatePlayButton, initResultsClassButtons
 - **Legacy DOM манипуляции** в setClassSelectMode и других местах
 
 **Preact замены (уже существуют):**
 
-- `client/src/ui/components/MainMenu.tsx` — заменил Join Screen
+- `client/src/ui/components/MainMenu.tsx` — заменил Join Screen, auto-select random class
 - `client/src/ui/components/ResultsScreen.tsx` — заменил Results overlay
-- `client/src/ui/components/GameHUD.tsx` — заменил legacy HUD
+- `client/src/ui/components/GameHUD.tsx` — заменил legacy HUD, BoostPanel с isChargeBased
 - `client/src/ui/components/AbilityButtons.tsx` — заменил legacy кнопки способностей
 
-**Модифицированные файлы (4):**
+**Модифицированные файлы (6):**
 
-- `client/src/main.ts` — удалено 773+ строк legacy кода (R2 cleanup)
+- `client/src/main.ts` — удалено 1060+ строк legacy кода
 - `client/src/ui/signals/gameState.ts` — selectedClassId = -1, BoostState.isChargeBased
+- `client/src/ui/components/MainMenu.tsx` — auto-select random class при mount
+- `client/src/ui/components/GameHUD.tsx` — BoostPanel с поддержкой isChargeBased (заряды vs секунды)
 - `.memory_bank/activeContext.md` — обновлён контекст
 - `.memory_bank/progress.md` — добавлен Sprint 7
+
+**AI Review (4 раунда):**
+
+| Раунд | Ревьюеры | Статус |
+|-------|----------|--------|
+| R1 | Gemini, Opus, Copilot, Codex | 4 issues → fixed |
+| R2 | Gemini, Opus, Copilot, Codex | 5 issues → fixed |
+| R3 | Gemini, Opus, Copilot, Codex | 4 issues → fixed |
+| R4 | Gemini, Opus, Copilot, Codex | ✅ APPROVED |
 
 ---
 
@@ -1099,7 +1115,7 @@ npm run dev:meta
 - [x] HUD Refactoring
 - [x] Main Menu Refactoring
 - [x] Интеграция UIBridge в main.ts
-- [ ] Удаление устаревшего DOM-кода
+- [x] Удаление устаревшего DOM-кода (PR #50, −1119 строк)
 - [ ] Тестирование на мобильных устройствах
 - [ ] Настройка Flight Assist для мобильного джойстика (снижение заносов и осцилляции, улучшение отзывчивости)
 
@@ -1140,21 +1156,25 @@ npm run dev:meta
 
 ## Технический долг (AI Review Findings — 6 января 2026)
 
-Выявлено при review PR #39. Это pre-existing issues, не связанные с изменениями PR.
+Выявлено при review PR #39, #50. Это pre-existing issues, не связанные с изменениями PR.
 
 ### P0 — Critical
 
-- [ ] **G-1: Multitouch failure** — `forceResetJoystickForAbility` в main.ts убивает джойстик при нажатии кнопки умения. Игрок не может двигаться и использовать умения одновременно. (Gemini SDET)
-- [x] **X-1: MetaServer не стартует** — ✅ ИСПРАВЛЕНО: Lazy initialization для всех 7 MetaServer сервисов (AuthService, PlayerService, ConfigService, WalletService, ShopService, ABTestService, AnalyticsService)
+- [x] **G-1: Multitouch failure** — ✅ ИСПРАВЛЕНО (PR feat/mobile-controls-flight-assist): onClick → onPointerDown, pointerId проверка
+- [x] **X-1: MetaServer не стартует** — ✅ ИСПРАВЛЕНО: Lazy initialization для всех 7 MetaServer сервисов
 
 ### P1 — High
 
-- [ ] **G-2: Input lag для умений** — Активация способностей по `click` (после pointerup) вместо `pointerdown`. В динамичном бою ощущается как лаг. (Gemini SDET)
+- [x] **G-2: Input lag для умений** — ✅ ИСПРАВЛЕНО (PR feat/mobile-controls-flight-assist): onClick → onPointerDown
 - [ ] **G-3: HUD frequency mismatch** — GameHUD рендерит 10 Hz, но hudTimer обновляет данные 5 Hz. Половина рендеров вхолостую. (Gemini SDET)
 - [ ] **G-4: Hardcoded LEVEL_THRESHOLDS** — Таблица опыта захардкожена в GameHUD.tsx вместо чтения из balanceConfig. (Gemini SDET)
-- [ ] **X-2: meta-stage-c.test API mismatch** — Smoke-тесты используют другие имена полей чем реальный API auth.ts. (Codex)
+- [x] **X-2: meta-stage-c.test API mismatch** — ✅ ИСПРАВЛЕНО (Sprint 3)
 
 ### P2 — Medium
 
 - [ ] **X-4: Telegram doc wrong port** — В `Тестирование Telegram Mini App.md` указан порт 5173 вместо 5174. (Codex)
 - [ ] **X-5: Name change not applied** — При возврате в меню без disconnect изменение имени не применяется (onPlay отправляет только selectClass). (Codex)
+
+### Low Priority (от AI Review Round 4)
+
+- [ ] **R4-2: Race condition при быстром клике** — classId может быть -1 если useEffect не успел выполниться при молниеносном клике Play. Крайне низкий риск.
