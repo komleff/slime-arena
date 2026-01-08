@@ -56,6 +56,30 @@ router.post('/cancel', authMiddleware, async (req, res) => {
 });
 
 /**
+ * POST /api/v1/matchmaking/joined
+ * Notify that user has successfully joined the match room
+ * Clears the user's match assignment from Redis (no longer needed for polling)
+ */
+router.post('/joined', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId!;
+
+    await matchmakingService.clearUserMatchAssignment(userId);
+
+    res.json({
+      success: true,
+      message: 'Match assignment cleared',
+    });
+  } catch (error: any) {
+    console.error('[Matchmaking] Joined notification error:', error);
+    res.status(500).json({
+      error: 'matchmaking_error',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * GET /api/v1/matchmaking/status
  * Get matchmaking status for current user
  */
