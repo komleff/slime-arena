@@ -4049,9 +4049,9 @@ function leaveRoomFromUI(): void {
 // Initialize Preact UI
 const uiCallbacks: UICallbacks = {
     onPlay: (name: string, classId: number) => {
-        // Если уже подключены к комнате (между матчами), отправить selectClass
+        // Если уже подключены к комнате (между матчами), отправить selectClass с именем
         if (activeRoom) {
-            activeRoom.send("selectClass", { classId });
+            activeRoom.send("selectClass", { classId, name });
             setPhase("waiting");
             return;
         }

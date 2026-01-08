@@ -171,7 +171,7 @@ export class ArenaRoom extends Room<GameState> {
         this.state.timeRemaining = this.balance.match.durationSec;
         this.generateArena();
 
-        this.onMessage("selectClass", (client, data: { classId?: unknown }) => {
+        this.onMessage("selectClass", (client, data: { classId?: unknown; name?: unknown }) => {
             const player = this.state.players.get(client.sessionId);
             if (!player) return;
             if (this.isMatchEnded || this.state.phase === "Results") return;
@@ -184,6 +184,12 @@ export class ArenaRoom extends Room<GameState> {
             if (!Number.isInteger(rawClassId) || rawClassId < 0 || rawClassId > 2) return;
 
             player.classId = rawClassId;
+
+            // Обновляем имя игрока, если передано (для replay между матчами)
+            const newName = (data as any)?.name;
+            if (typeof newName === "string" && newName.trim().length > 0) {
+                player.name = newName.trim().slice(0, 24);
+            }
 
             const classAbilities = ["dash", "shield", "pull"];
             player.abilitySlot0 = classAbilities[player.classId] || "dash";
