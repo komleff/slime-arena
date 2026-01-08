@@ -1,5 +1,51 @@
 # Журнал изменений
 
+## v0.3.5 — Tech Debt Refactoring (9 января 2026)
+
+Извлечение модулей InputManager и TalentSystem, оптимизация HUD.
+
+### ✨ Добавлено
+
+- **InputManager** (`client/src/input/InputManager.ts`, 558 строк):
+  - Централизованное управление вводом (keyboard, pointer, mouse)
+  - Dependency Injection через интерфейсы
+  - Debug режим через URL параметр `?debugJoystick=1`
+
+- **TalentSystem** (`server/src/rooms/systems/talent/`):
+  - `TalentModifierCalculator.ts` — пересчёт модификаторов игрока
+  - `TalentGenerator.ts` — генерация карточек талантов
+  - Детерминизм через Rng injection
+
+### 🛠 Исправлено
+
+- **HUD frequency sync** (slime-arena-foh):
+  - Удалён избыточный forceUpdate/setInterval
+  - Preact Signals обеспечивают реактивность
+
+### ⚙️ Инфраструктура
+
+- **Beads daemon** (slime-arena-dm5):
+  - Включены auto-commit и auto-push
+  - `.beads/config.yaml` обновлён
+
+### 📦 Файлы
+
+**Новые (4):**
+
+- `client/src/input/InputManager.ts`
+- `server/src/rooms/systems/talent/TalentGenerator.ts`
+- `server/src/rooms/systems/talent/TalentModifierCalculator.ts`
+- `server/src/rooms/systems/talent/index.ts`
+
+**Изменённые (4):**
+
+- `client/src/input/index.ts` — экспорт InputManager
+- `client/src/ui/components/GameHUD.tsx` — убран forceUpdate
+- `client/src/main.ts` — комментарий о InputManager
+- `.beads/config.yaml` — auto-commit, auto-push
+
+---
+
 ## v0.3.4 — Legacy DOM Cleanup (8 января 2026)
 
 Масштабный рефакторинг клиента: удалён legacy DOM код, заменённый Preact компонентами.
