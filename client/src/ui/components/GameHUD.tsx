@@ -355,7 +355,7 @@ function DeathOverlay() {
 // ========== Главный компонент HUD ==========
 
 export function GameHUD() {
-  // Preact Signals автоматически триггерят перерендер при изменении
+  // Preact Signals автоматически вызывают перерендер при изменении
   // Убран forceUpdate — signals реактивны (fix slime-arena-foh)
   useEffect(() => {
     injectStyles(STYLES_ID, styles);
