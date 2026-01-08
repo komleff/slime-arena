@@ -93,6 +93,10 @@
 
 ### 1. **Workflow между агентами**
 
+`Architect → [создаёт задачи] → Developer → [выполняет] → Reviewer → [проверяет] → Session Manager → [синхронизирует]
+                ↑                                                         ↓
+                └────────────────── [обнаружил scope creep] ──────────────┘`
+
 ### 2. **Специфика Slime Arena**
 
 Добавлены критичные правила проекта:
@@ -104,7 +108,23 @@
 
 ### 3. **Практические примеры**
 
+`✅ Правильно`
+`const damage = this.rng.nextFloat() * config.combat.maxDamage;`
+
+`❌ Неправильно`
+
+`const damage = Math.random() * 100;`
+
 ### 4. **Landing the Plane Protocol**
+
+`# КРИТИЧНО: Работа НЕ завершена пока git push не выполнен!
+git status
+git add .
+git commit -m "..."
+bd sync
+git pull --rebase
+git push  # ← ОБЯЗАТЕЛЬНО
+git status  # должно быть "up to date"`
 
 ### 5. **Чеклисты для каждой роли**
 
@@ -120,12 +140,20 @@
 ### Для Claude в разных ролях
 
 **1. Архитектор (декомпозиция задач):**
+`Ты Architect. Прочитай AGENT_ROLES.md секция "1️⃣ Architect".
+Задача: декомпозировать Stage D Testing на подзадачи.`
 
 **2. Разработчик (написание кода):**
+`Ты Developer. Прочитай AGENT_ROLES.md секция "2️⃣ Developer".
+Задача: реализуй slime-arena-qxj (joinToken validation).`
 
 **3. Ревьювер (проверка кода):**
+`Ты Reviewer. Прочитай AGENT_ROLES.md секция "3️⃣ Reviewer".
+Задача: проверь PR #XX на соответствие требованиям.`
 
 **4. Завершение сессии:**
+`Ты Session Manager. Прочитай AGENT_ROLES.md секция "4️⃣ Session Manager".
+Задача: выполни Landing the Plane protocol.`
 
 ------
 
