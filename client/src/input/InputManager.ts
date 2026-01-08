@@ -215,6 +215,15 @@ export class InputManager {
         return this.keyState.up || this.keyState.down || this.keyState.left || this.keyState.right;
     }
 
+    resetInputState(): void {
+        this._hasFocus = false;
+        this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
+        this.mouseState.active = false;
+        this.mouseState.moveX = 0;
+        this.mouseState.moveY = 0;
+        this.lastSentInput = { x: 0, y: 0 };
+    }
+
     // ========== Keyboard Handlers ==========
 
     private onKeyDown(event: KeyboardEvent): void {

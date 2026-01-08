@@ -1757,8 +1757,9 @@ async function connectToServer(playerName: string, classId: number) {
                 }
 
                 // В режиме выбора класса отключаем управление и возвращаем UI выбора
-                inputManagerCallbacks.onSendStopInput();
+                inputManager.resetInputState();
                 inputManager.resetJoystick();
+                inputManagerCallbacks.onSendStopInput();
 
                 canvas.style.display = "none";
                 // Preact MainMenu handles menu UI
@@ -1961,6 +1962,7 @@ async function connectToServer(playerName: string, classId: number) {
 
         const inputManagerCallbacks: InputCallbacks = {
             onSendInput: (moveX: number, moveY: number, abilitySlot?: number) => {
+                lastSentInput = { x: moveX, y: moveY };
                 globalInputSeq += 1;
                 if (abilitySlot !== undefined) {
                     room.send("input", { seq: globalInputSeq, moveX, moveY, abilitySlot });
