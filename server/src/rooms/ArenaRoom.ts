@@ -75,6 +75,15 @@ import { rebelSystem } from "./systems/rebelSystem";
 import { safeZoneSystem } from "./systems/safeZoneSystem";
 import { talentCardSystem } from "./systems/talentCardSystem";
 import {
+    recalculateTalentModifiers as recalculateTalentModifiersModule,
+    generateTalentCard as generateTalentCardModule,
+    getTalentConfig as getTalentConfigModule,
+    parseAbilityUpgradeId as parseAbilityUpgradeIdModule,
+    type TalentBalanceConfig,
+    type TalentGeneratorConfig,
+    type TalentGeneratorDeps,
+} from "./systems/talent";
+import {
     generateObstacleSeeds,
     generateSafeZoneSeeds,
     generateZoneSeeds,
@@ -3307,7 +3316,7 @@ export class ArenaRoom extends Room<GameState> {
             return;
         }
 
-        const upgrade = this.parseAbilityUpgradeId(chosen);
+        const upgrade = parseAbilityUpgradeIdModule(chosen);
         if (upgrade) {
             this.applyAbilityUpgrade(player, upgrade.abilityId, upgrade.level);
         } else {
@@ -3335,7 +3344,8 @@ export class ArenaRoom extends Room<GameState> {
         }
         
         // Получаем конфиг таланта
-        const talentConfig = this.getTalentConfig(talentId);
+        const className = this.getClassName(player.classId);
+        const talentConfig = getTalentConfigModule(talentId, this.getTalentBalanceConfig(), className);
         if (!talentConfig) return;
         const beforeLevel = existingTalent?.level ?? 0;
         
@@ -3360,21 +3370,20 @@ export class ArenaRoom extends Room<GameState> {
         // Пересчитываем модификаторы
         this.recalculateTalentModifiers(player);
     }
-    
+
     /**
-     * Получает конфиг таланта по ID
+     * Создаёт TalentBalanceConfig из текущего balance.talents
      */
-    private getTalentConfig(talentId: string): TalentConfig | null {
+    private getTalentBalanceConfig(): TalentBalanceConfig {
         const talents = this.balance.talents;
-        if (talents.common[talentId]) return talents.common[talentId];
-        if (talents.rare[talentId]) return talents.rare[talentId];
-        if (talents.epic[talentId]) return talents.epic[talentId];
-        for (const classPool of Object.values(talents.classTalents) as Record<string, ClassTalentConfig>[]) {
-            if (classPool[talentId]) return classPool[talentId];
-        }
-        return null;
+        return {
+            common: talents.common,
+            rare: talents.rare,
+            epic: talents.epic,
+            classTalents: talents.classTalents,
+        };
     }
-    
+
     /**
      * Определяет редкость таланта (0=common, 1=rare, 2=epic)
      */
@@ -3391,225 +3400,12 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Пересчитывает все модификаторы игрока на основе его талантов
+     * Пересчитывает все модификаторы игрока на основе его талантов.
+     * Делегирует в модуль talent/TalentModifierCalculator.
      */
     private recalculateTalentModifiers(player: Player) {
-        // Сбрасываем модификаторы
-        player.mod_speedLimitBonus = 0;
-        player.mod_turnBonus = 0;
-        player.mod_biteDamageBonus = 0;
-        player.mod_damageBonus = 0;
-        player.mod_damageTakenBonus = 0;
-        player.mod_orbMassBonus = 0;
-        player.mod_abilityCostReduction = 0;
-        player.mod_cooldownReduction = 0;
-        player.mod_allDamageReduction = 0;
-        player.mod_thrustForwardBonus = 0;
-        player.mod_thrustReverseBonus = 0;
-        player.mod_thrustLateralBonus = 0;
-        player.mod_killMassBonus = 0;
-        player.mod_respawnMass = 100;  // Default
-        player.mod_dashDistanceBonus = 0;
-        player.mod_vacuumRadius = 0;
-        player.mod_vacuumSpeed = 0;
-        player.mod_poisonDamagePctPerSec = 0;
-        player.mod_poisonDurationSec = 0;
-        player.mod_frostSlowPct = 0;
-        player.mod_frostDurationSec = 0;
-        player.mod_vampireSideGainPct = 0;
-        player.mod_vampireTailGainPct = 0;
-        player.mod_projectileRicochet = 0;
-        player.mod_projectilePiercingDamagePct = 0;
-        player.mod_projectilePiercingHits = 0;
-        player.mod_lightningSpeedBonus = 0;
-        player.mod_lightningStunSec = 0;
-        player.mod_doubleAbilityWindowSec = 0;
-        player.mod_doubleAbilitySecondCostMult = 1;
-        player.mod_deathExplosionRadiusM = 0;
-        player.mod_deathExplosionDamagePct = 0;
-        player.mod_leviathanRadiusMul = 1;
-        player.mod_leviathanMouthMul = 1;
-        player.mod_invisibleDurationSec = 0;
-        player.mod_deathNeedlesCount = 0;
-        player.mod_deathNeedlesDamagePct = 0;
-        player.mod_toxicPoolBonus = 1;
-        player.biteResistPct = 0;
-        
-        // New class talent modifiers
-        player.mod_thornsDamage = 0;
-        player.mod_ambushDamage = 0;
-        player.mod_parasiteMass = 0;
-        player.mod_magnetRadius = 0;
-        player.mod_magnetSpeed = 0;
-        
-        // Применяем каждый талант
-        for (const talent of player.talents) {
-            const config = this.getTalentConfig(talent.id);
-            if (!config) continue;
-            
-            const level = talent.level;
-            const values = config.values;
-            
-            // Получаем значение для текущего уровня
-            let value: number | number[] = 0;
-            if (Array.isArray(values)) {
-                if (level <= values.length) {
-                    value = values[level - 1];
-                }
-            } else {
-                value = values;
-            }
-            
-            // Применяем эффект
-            switch (config.effect) {
-                case "speedLimitBonus":
-                    player.mod_speedLimitBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "turnBonus":
-                    player.mod_turnBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "biteDamageBonus":
-                    player.mod_biteDamageBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "orbMassBonus":
-                    player.mod_orbMassBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "biteResistBonus":
-                    player.biteResistPct += typeof value === "number" ? value : 0;
-                    break;
-                case "abilityCostReduction":
-                    player.mod_abilityCostReduction += typeof value === "number" ? value : 0;
-                    break;
-                case "cooldownReduction":
-                    player.mod_cooldownReduction += typeof value === "number" ? value : 0;
-                    break;
-                case "allDamageReduction":
-                    player.mod_allDamageReduction += typeof value === "number" ? value : 0;
-                    break;
-                case "thrustForwardBonus":
-                    player.mod_thrustForwardBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "thrustReverseBonus":
-                    player.mod_thrustReverseBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "thrustLateralBonus":
-                    player.mod_thrustLateralBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "killMassBonus":
-                    player.mod_killMassBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "respawnMass":
-                    player.mod_respawnMass = typeof value === "number" ? value : 100;
-                    break;
-                case "aggressorDual":
-                    player.mod_damageBonus += typeof value === "number" ? value : 0;
-                    player.mod_damageTakenBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "allThrustBonus":
-                    // motor: +25% ко всем двигателям
-                    const motorBonus = typeof value === "number" ? value : 0;
-                    player.mod_thrustForwardBonus += motorBonus;
-                    player.mod_thrustReverseBonus += motorBonus;
-                    player.mod_thrustLateralBonus += motorBonus;
-                    break;
-                case "poisonOnBite":
-                    if (Array.isArray(value)) {
-                        player.mod_poisonDamagePctPerSec = Number(value[0] ?? 0);
-                        player.mod_poisonDurationSec = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "frostOnBite":
-                    if (Array.isArray(value)) {
-                        player.mod_frostSlowPct = Number(value[0] ?? 0);
-                        player.mod_frostDurationSec = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "vampireBite":
-                    if (Array.isArray(value)) {
-                        player.mod_vampireSideGainPct = Number(value[0] ?? 0);
-                        player.mod_vampireTailGainPct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "vacuumOrbs":
-                    if (Array.isArray(value)) {
-                        player.mod_vacuumRadius = Number(value[0] ?? 0);
-                        player.mod_vacuumSpeed = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "projectileRicochet":
-                    player.mod_projectileRicochet = typeof value === "number" ? value : 0;
-                    break;
-                case "projectilePiercing":
-                    if (Array.isArray(value)) {
-                        const extraHits = Math.max(0, Number(value[0] ?? 0));
-                        player.mod_projectilePiercingHits = 1 + extraHits;
-                        player.mod_projectilePiercingDamagePct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "dashDistanceBonus":
-                    player.mod_dashDistanceBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "deathNeedles":
-                    if (Array.isArray(value)) {
-                        player.mod_deathNeedlesCount = Math.max(0, Math.round(Number(value[0] ?? 0)));
-                        player.mod_deathNeedlesDamagePct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "toxicPoolBonus":
-                    player.mod_toxicPoolBonus = typeof value === "number" ? value : 1;
-                    break;
-                case "lightningSpeed":
-                    if (Array.isArray(value)) {
-                        player.mod_lightningSpeedBonus = Number(value[0] ?? 0);
-                        player.mod_lightningStunSec = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "doubleAbility":
-                    if (Array.isArray(value)) {
-                        player.mod_doubleAbilityWindowSec = Number(value[0] ?? 0);
-                        player.mod_doubleAbilitySecondCostMult = Number(value[1] ?? 1);
-                    }
-                    break;
-                case "deathExplosion":
-                    if (Array.isArray(value)) {
-                        player.mod_deathExplosionRadiusM = Number(value[0] ?? 0);
-                        player.mod_deathExplosionDamagePct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "leviathanSize":
-                    if (Array.isArray(value)) {
-                        player.mod_leviathanRadiusMul = Number(value[0] ?? 1);
-                        player.mod_leviathanMouthMul = Number(value[1] ?? 1);
-                    }
-                    break;
-                case "invisibleAfterDash":
-                    player.mod_invisibleDurationSec = typeof value === "number" ? value : 0;
-                    break;
-                // Class talent effects
-                case "thornsDamage":
-                    // Warrior: отражает % урона при получении укуса
-                    player.mod_thornsDamage = typeof value === "number" ? value : 0;
-                    break;
-                case "ambushDamage":
-                    // Hunter: бонусный урон из невидимости/засады
-                    player.mod_ambushDamage = typeof value === "number" ? value : 0;
-                    break;
-                case "parasiteMass":
-                    // Collector: при нанесении урона крадёт часть массы
-                    player.mod_parasiteMass = typeof value === "number" ? value : 0;
-                    break;
-                case "magnetOrbs":
-                    // Collector: притягивает орбы (аналог vacuum но слабее)
-                    if (Array.isArray(value)) {
-                        player.mod_magnetRadius = Number(value[0] ?? 0);
-                        player.mod_magnetSpeed = Number(value[1] ?? 0);
-                    }
-                    break;
-            }
-        }
-        
-        // Применяем cap на biteResistPct (max 50%)
-        player.biteResistPct = Math.min(player.biteResistPct, 0.5);
+        const balance = this.getTalentBalanceConfig();
+        recalculateTalentModifiersModule(player, balance, this.getClassName.bind(this));
     }
     
     /**
@@ -3620,20 +3416,6 @@ export class ArenaRoom extends Room<GameState> {
         if (classId === 1) return "warrior";
         if (classId === 2) return "collector";
         return "hunter";
-    }
-
-    private buildAbilityUpgradeId(abilityId: string, level: number): string {
-        return `ability:${abilityId}:${level}`;
-    }
-
-    private parseAbilityUpgradeId(value: string): { abilityId: string; level: number } | null {
-        if (!value || !value.startsWith("ability:")) return null;
-        const parts = value.split(":");
-        if (parts.length < 3) return null;
-        const abilityId = parts[1] || "";
-        const level = Number(parts[2]);
-        if (!abilityId || !Number.isInteger(level)) return null;
-        return { abilityId, level };
     }
 
     private getAbilitySlotIndex(player: Player, abilityId: string): number {
@@ -3658,227 +3440,27 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Генерирует карточку выбора таланта для игрока (GDD v3.3 7.2-7.3)
+     * Генерирует карточку выбора таланта для игрока (GDD v3.3 7.2-7.3).
+     * Делегирует в модуль talent/TalentGenerator.
      */
     private generateTalentCard(player: Player) {
-        const talents = this.balance.talents;
-        const timeoutTicks = this.secondsToTicks(talents.cardChoiceTimeoutSec);
-        const className = this.getClassName(player.classId);
-        const hasAllSlots = !!(player.abilitySlot0 && player.abilitySlot1 && player.abilitySlot2);
-        
-        // Получаем веса редкостей по уровню игрока (GDD 7.2.1)
-        const levelKey = player.level >= 7 ? "7" : String(player.level);
-        const rarityWeights = talents.talentRarityByLevel[levelKey] || talents.talentRarityByLevel["2"];
-        
-        // Собираем доступные таланты по редкостям
-        const availableByRarity: { common: { id: string; rarity: number; category?: string; kind: "talent" }[]; rare: { id: string; rarity: number; category?: string; kind: "talent" }[]; epic: { id: string; rarity: number; category?: string; kind: "talent" }[] } = {
-            common: [],
-            rare: [],
-            epic: [],
-        };
-        
-        // Собираем классовые таланты
-        const classTalentsAvailable: { id: string; rarity: number; category?: string; kind: "talent" }[] = [];
-        
-        const checkTalentAvailable = (id: string, config: TalentConfig, rarity: number): boolean => {
-            // Проверяем требование
-            if (config.requirement) {
-                const hasRequirement = 
-                    player.abilitySlot0 === config.requirement ||
-                    player.abilitySlot1 === config.requirement ||
-                    player.abilitySlot2 === config.requirement;
-                if (!hasRequirement) return false;
-            }
-            
-            // Проверяем не на макс. уровне ли уже
-            let currentLevel = 0;
-            for (const t of player.talents) {
-                if (t.id === id) {
-                    currentLevel = t.level;
-                    break;
-                }
-            }
-            
-            return currentLevel < config.maxLevel;
-        };
-        
-        // Добавляем общие таланты
-        for (const id of talents.talentPool.common) {
-            const config = talents.common[id];
-            if (config && checkTalentAvailable(id, config, 0)) {
-                availableByRarity.common.push({ id, rarity: 0, category: config.category, kind: "talent" });
-            }
-        }
-        
-        for (const id of talents.talentPool.rare) {
-            const config = talents.rare[id];
-            if (config && checkTalentAvailable(id, config, 1)) {
-                availableByRarity.rare.push({ id, rarity: 1, category: config.category, kind: "talent" });
-            }
-        }
-        
-        for (const id of talents.talentPool.epic) {
-            const config = talents.epic[id];
-            if (config && checkTalentAvailable(id, config, 2)) {
-                availableByRarity.epic.push({ id, rarity: 2, category: config.category, kind: "talent" });
-            }
-        }
-        
-        // Добавляем классовые таланты (GDD 7.3.4)
-        const classTalentConfigs = talents.classTalents[className];
-        if (classTalentConfigs) {
-            for (const [id, config] of Object.entries(classTalentConfigs) as [string, ClassTalentConfig][]) {
-                const rarity = config.rarity === "epic" ? 2 : 1;
-                if (checkTalentAvailable(id, config, rarity)) {
-                    classTalentsAvailable.push({ id, rarity, category: config.category, kind: "talent" });
-                    // Также добавляем в общий пул по редкости
-                    if (rarity === 1) {
-                        availableByRarity.rare.push({ id, rarity, category: config.category, kind: "talent" });
-                    } else {
-                        availableByRarity.epic.push({ id, rarity, category: config.category, kind: "talent" });
-                    }
-                }
-            }
-        }
-
-        const abilityUpgrades: { id: string; rarity: number; kind: "upgrade"; abilityId: string; level: number }[] = [];
-        if (hasAllSlots) {
-            const slots = [
-                { abilityId: player.abilitySlot0, level: this.getAbilityLevelForSlot(player, 0) },
-                { abilityId: player.abilitySlot1, level: this.getAbilityLevelForSlot(player, 1) },
-                { abilityId: player.abilitySlot2, level: this.getAbilityLevelForSlot(player, 2) },
-            ];
-            for (const slot of slots) {
-                if (!slot.abilityId || slot.level <= 0) continue;
-                if (slot.level >= 3) continue;
-                const nextLevel = slot.level + 1;
-                abilityUpgrades.push({
-                    id: this.buildAbilityUpgradeId(slot.abilityId, nextLevel),
-                    rarity: 0,
-                    kind: "upgrade",
-                    abilityId: slot.abilityId,
-                    level: nextLevel,
-                });
-            }
-        }
-        
-        const allAvailable = [...availableByRarity.common, ...availableByRarity.rare, ...availableByRarity.epic];
-        if (allAvailable.length === 0 && abilityUpgrades.length === 0) return;
-        
-        // Выбираем 3 карточки: минимум 1 талант, остальные 2 - талант или улучшение
-        const selected: { id: string; rarity: number; category?: string; kind: "talent" | "upgrade" }[] = [];
-        const usedEffects = new Set<string>();
-        const hasTalents = allAvailable.length > 0;
-
-        const pickTalent = (): boolean => {
-            if (allAvailable.length === 0) return false;
-            const roll = this.rng.next() * 100;
-            let targetRarity: number;
-            if (roll < rarityWeights.common) {
-                targetRarity = 0;
-            } else if (roll < rarityWeights.common + rarityWeights.rare) {
-                targetRarity = 1;
-            } else {
-                targetRarity = 2;
-            }
-
-            let pool: { id: string; rarity: number; category?: string; kind: "talent" }[];
-            if (targetRarity === 2 && availableByRarity.epic.length > 0) {
-                pool = availableByRarity.epic;
-            } else if (targetRarity >= 1 && availableByRarity.rare.length > 0) {
-                pool = availableByRarity.rare;
-            } else if (availableByRarity.common.length > 0) {
-                pool = availableByRarity.common;
-            } else {
-                pool = allAvailable;
-            }
-
-            const candidates = pool.filter((t: any) => {
-                if (selected.some((s: any) => s.id === t.id)) return false;
-                if (t.category && usedEffects.has(t.category)) {
-                    const sameCategory = selected.filter((s: any) => s.category === t.category).length;
-                    if (sameCategory >= 2) return false;
-                }
-                return true;
-            });
-
-            let chosen: { id: string; rarity: number; category?: string; kind: "talent" } | null = null;
-            if (candidates.length === 0) {
-                const remaining = allAvailable.filter((t: any) => !selected.some((s: any) => s.id === t.id));
-                if (remaining.length === 0) return false;
-                const idx = Math.floor(this.rng.next() * remaining.length);
-                chosen = remaining[idx];
-            } else {
-                const idx = Math.floor(this.rng.next() * candidates.length);
-                chosen = candidates[idx];
-            }
-
-            if (!chosen) return false;
-            selected.push(chosen);
-            if (chosen.category) usedEffects.add(chosen.category);
-            return true;
+        const talentConfig: TalentGeneratorConfig = {
+            cardChoiceTimeoutSec: this.balance.talents.cardChoiceTimeoutSec,
+            talentRarityByLevel: this.balance.talents.talentRarityByLevel,
+            talentPool: this.balance.talents.talentPool,
+            abilityUpgradeChance: this.balance.talents.abilityUpgradeChance,
         };
 
-        const pickUpgrade = (): boolean => {
-            if (abilityUpgrades.length === 0) return false;
-            const idx = Math.floor(this.rng.next() * abilityUpgrades.length);
-            const chosen = abilityUpgrades.splice(idx, 1)[0];
-            if (!chosen || selected.some(s => s.id === chosen.id)) return false;
-            selected.push(chosen);
-            return true;
+        const deps: TalentGeneratorDeps = {
+            rng: this.rng,
+            currentTick: this.tick,
+            secondsToTicks: this.secondsToTicks.bind(this),
+            getClassName: this.getClassName.bind(this),
+            getAbilityLevelForSlot: this.getAbilityLevelForSlot.bind(this),
+            clamp: this.clamp.bind(this),
         };
-        
-        if (hasTalents) {
-            if (classTalentsAvailable.length > 0) {
-                const idx = Math.floor(this.rng.next() * classTalentsAvailable.length);
-                const classTalent = classTalentsAvailable[idx];
-                selected.push(classTalent);
-                if (classTalent.category) usedEffects.add(classTalent.category);
-            } else {
-                pickTalent();
-            }
-        }
 
-        const upgradeChance = this.clamp(
-            this.balance.talents.abilityUpgradeChance ?? 0.5,
-            0,
-            1
-        );
-
-        while (selected.length < 3) {
-            const canPickUpgrade = abilityUpgrades.length > 0;
-            const canPickTalent = allAvailable.length > 0;
-            if (!canPickUpgrade && !canPickTalent) break;
-
-            const needsTalent = hasTalents && !selected.some(s => s.kind === "talent");
-            let pickUpgradeFirst = false;
-            if (needsTalent) {
-                pickUpgradeFirst = false;
-            } else if (canPickUpgrade && canPickTalent) {
-                pickUpgradeFirst = this.rng.next() < upgradeChance;
-            } else {
-                pickUpgradeFirst = canPickUpgrade;
-            }
-
-            if (pickUpgradeFirst) {
-                if (!pickUpgrade() && !pickTalent()) break;
-            } else {
-                if (!pickTalent() && !pickUpgrade()) break;
-            }
-        }
-        
-        if (selected.length === 0) return;
-        
-        const card = new TalentCard();
-        card.option0 = selected[0]?.id || "";
-        card.option1 = selected[1]?.id || "";
-        card.option2 = selected[2]?.id || "";
-        card.rarity0 = selected[0]?.rarity ?? 0;
-        card.rarity1 = selected[1]?.rarity ?? 0;
-        card.rarity2 = selected[2]?.rarity ?? 0;
-        card.expiresAtTick = this.tick + timeoutTicks;
-        
-        player.pendingTalentCard = card;
+        generateTalentCardModule(player, talentConfig, this.getTalentBalanceConfig(), deps);
     }
     
     /**
@@ -3914,12 +3496,12 @@ export class ArenaRoom extends Room<GameState> {
             const talentId = options[i];
             if (!talentId) continue;
 
-            if (this.parseAbilityUpgradeId(talentId)) {
+            if (parseAbilityUpgradeIdModule(talentId)) {
                 continue;
             }
             
             // Получаем категорию таланта
-            const talentConfig = this.getTalentConfig(talentId);
+            const talentConfig = getTalentConfigModule(talentId, this.getTalentBalanceConfig(), className);
             if (!talentConfig) continue;
             
             hasTalentOption = true;
