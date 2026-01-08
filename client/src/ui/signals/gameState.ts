@@ -473,7 +473,10 @@ export function resetMatchmaking() {
 export function setLevelThresholds(thresholds: number[]) {
   const defaults = DEFAULT_BALANCE_CONFIG.slime.levelThresholds;
   // Merge: используем переданные значения, дополняем недостающие из defaults
-  const merged = defaults.map((def, i) => thresholds[i] ?? def);
+  // Если thresholds длиннее defaults - сохраняем все значения из thresholds
+  const merged = thresholds.length >= defaults.length
+    ? thresholds
+    : [...thresholds, ...defaults.slice(thresholds.length)];
   // Добавляем 0 в начало для расчёта прогресса уровня 1
   levelThresholds.value = [0, ...merged];
 }
