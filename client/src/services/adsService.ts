@@ -1,6 +1,6 @@
 /**
  * Сервис рекламы.
- * Оркестрирует полный цикл показа: grant → show → claim.
+ * Оркестрирует полный цикл показа: grant (разрешение) → show (показ) → claim (запрос награды).
  */
 
 import { metaServerClient } from '../api/metaServerClient';
@@ -9,7 +9,7 @@ import { configService } from './configService';
 import type { AdPlacement } from '../platform/IAdsProvider';
 
 /**
- * Ответ сервера на /ads/grant
+ * Ответ сервера на /ads/grant (разрешение)
  */
 interface GrantResponse {
   grantId: string;
@@ -17,7 +17,7 @@ interface GrantResponse {
 }
 
 /**
- * Ответ сервера на /ads/claim
+ * Ответ сервера на /ads/claim (запрос награды)
  */
 interface ClaimResponse {
   success: boolean;
@@ -63,7 +63,7 @@ class AdsService {
   }
 
   /**
-   * Получить текущий grantId (для отладки).
+   * Получить текущий grantId (идентификатор разрешения) для отладки.
    */
   getCurrentGrantId(): string | null {
     return this._currentGrantId;
@@ -95,8 +95,8 @@ class AdsService {
   }
 
   /**
-   * Показать рекламу и получить награду.
-   * Полный цикл: grant → show → claim
+   * Показать рекламу и получить награду (reward).
+   * Полный цикл: grant (разрешение) → show (показ) → claim (запрос награды)
    */
   async showAndClaim(placement: AdPlacement): Promise<AdsShowResult> {
     if (!this.isAvailable()) {
@@ -113,7 +113,7 @@ class AdsService {
     }
 
     try {
-      // Шаг 1: Запрос grantId с сервера
+      // Шаг 1: Запрос grantId (идентификатор разрешения) с сервера
       this.currentState = 'requesting_grant';
       const grantId = await this.requestGrant(placement);
       this._currentGrantId = grantId;
@@ -137,7 +137,7 @@ class AdsService {
         }
       }
 
-      // Шаг 3: Claim награды на сервере
+      // Шаг 3: Claim (запрос награды) на сервере
       this.currentState = 'claiming_reward';
       const reward = await this.claimReward(grantId, adResult.providerPayload);
 
@@ -178,7 +178,7 @@ class AdsService {
   }
 
   /**
-   * Запросить grantId с сервера.
+   * Запросить grantId (идентификатор разрешения) с сервера.
    */
   private async requestGrant(placement: AdPlacement): Promise<string> {
     const response = await metaServerClient.post<GrantResponse>('/api/v1/ads/grant', {
@@ -186,15 +186,15 @@ class AdsService {
     });
 
     if (!response.grantId) {
-      throw new Error('Сервер не вернул grantId');
+      throw new Error('Сервер не вернул grantId (идентификатор разрешения)');
     }
 
-    console.log(`[AdsService] Получен grant: ${response.grantId}`);
+    console.log(`[AdsService] Получен grant (разрешение): ${response.grantId}`);
     return response.grantId;
   }
 
   /**
-   * Получить награду с сервера.
+   * Получить награду (reward) с сервера.
    */
   private async claimReward(
     grantId: string,
@@ -210,7 +210,7 @@ class AdsService {
     }
 
     console.log(
-      `[AdsService] Награда получена: ${response.rewardType} x${response.rewardAmount || 1}`
+      `[AdsService] Награда (reward) получена: ${response.rewardType} x${response.rewardAmount || 1}`
     );
     return response;
   }
