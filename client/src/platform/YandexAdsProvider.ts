@@ -43,7 +43,7 @@ export class YandexAdsProvider implements IAdsProvider {
   }
 
   async isAdReady(_placement: AdPlacement): Promise<boolean> {
-    // Yandex SDK не предоставляет preload API
+    // Yandex SDK не предоставляет preload API (API предварительной загрузки)
     return this.isAvailable();
   }
 
