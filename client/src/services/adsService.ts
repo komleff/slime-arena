@@ -63,7 +63,7 @@ class AdsService {
   }
 
   /**
-   * Получить текущий grantId (для отладки).
+   * Получить текущий grantId (идентификатор разрешения) для отладки.
    */
   getCurrentGrantId(): string | null {
     return this._currentGrantId;
@@ -113,7 +113,7 @@ class AdsService {
     }
 
     try {
-      // Шаг 1: Запрос grantId с сервера
+      // Шаг 1: Запрос grantId (идентификатор разрешения) с сервера
       this.currentState = 'requesting_grant';
       const grantId = await this.requestGrant(placement);
       this._currentGrantId = grantId;
@@ -178,7 +178,7 @@ class AdsService {
   }
 
   /**
-   * Запросить grantId с сервера.
+   * Запросить grantId (идентификатор разрешения) с сервера.
    */
   private async requestGrant(placement: AdPlacement): Promise<string> {
     const response = await metaServerClient.post<GrantResponse>('/api/v1/ads/grant', {
@@ -186,7 +186,7 @@ class AdsService {
     });
 
     if (!response.grantId) {
-      throw new Error('Сервер не вернул grantId');
+      throw new Error('Сервер не вернул grantId (идентификатор разрешения)');
     }
 
     console.log(`[AdsService] Получен grant: ${response.grantId}`);
