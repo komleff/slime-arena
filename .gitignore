@@ -24,3 +24,7 @@ tests/load/results.html
 # Database backups (contain sensitive data)
 backups/*.dump
 backups/*.sql
+
+# Beads temp files
+.beads/file.tmp
+.beads/*.tmp
