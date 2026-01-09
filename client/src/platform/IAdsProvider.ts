@@ -46,6 +46,7 @@ export interface IAdsProvider {
   /**
    * Готова ли реклама к показу.
    * Асинхронная проверка (preload завершен).
+   * @param placement - placement (точка показа)
    */
   isAdReady(placement: AdPlacement): Promise<boolean>;
 
