@@ -4,12 +4,20 @@
 
 ## Текущее состояние
 **База:** main (9 января 2026)
-**Релиз:** v0.3.6
+**Релиз:** v0.4.0
 **GDD версия:** 3.3.2
 **Текущая ветка:** main
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 
 ### Фокус сессии
+
+- **[ЗАВЕРШЕНО] PR #61-66: Ads Documentation Improvements (MERGED):**
+  - ✅ PR #61: Устранить англицизм "dev-платформы" → "платформы разработки"
+  - ✅ PR #62: Добавить русский перевод для parameter placement в JSDoc
+  - ✅ PR #63: Добавить русский перевод для "rewarded video" → "(рекламы с вознаграждением)"
+  - ✅ PR #64: Добавить русский перевод для "preload API" → "(API предварительной загрузки)"
+  - ✅ PR #65: Добавить русский перевод для placement в adsService.ts
+  - ✅ PR #66: Добавить русский перевод для placement в IAdsProvider/adsService
 
 - **[ЗАВЕРШЕНО] Sprint 11.2: TalentSystem Integration (PR #57 MERGED):**
   - ✅ slime-arena-eg7 — ArenaRoom refactoring (−418 строк)

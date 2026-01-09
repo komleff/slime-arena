@@ -1,6 +1,6 @@
 /**
  * Интерфейс провайдера рекламы.
- * Абстрагирует показ rewarded video для разных платформ.
+ * Абстрагирует показ rewarded video (рекламы с вознаграждением) для разных платформ.
  */
 
 import type { PlatformType } from './IAuthAdapter';
@@ -50,7 +50,7 @@ export interface IAdsProvider {
   isAdReady(placement: AdPlacement): Promise<boolean>;
 
   /**
-   * Показать rewarded video.
+   * Показать rewarded video (рекламу с вознаграждением).
    * @param placement - Идентификатор точки показа
    * @returns Результат показа
    */

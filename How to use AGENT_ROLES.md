@@ -1,6 +1,6 @@
 ## ✅ Создан улучшенный документ с ролями агентов
 
-### 📄 Файл: [AGENT_ROLES.md](vscode-file://vscode-app/d:/Programs/Microsoft VS Code/resources/app/out/vs/code/electron-browser/workbench/workbench.html)
+### 📄 Файл: [.beads/AGENT_ROLES.md](.beads/AGENT_ROLES.md)
 
 ------
 
