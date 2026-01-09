@@ -133,6 +133,8 @@ class AdsService {
             return { success: false, error: 'Реклама временно недоступна' };
           case 'error':
             return { success: false, error: adResult.errorMessage || 'Ошибка показа рекламы' };
+          default:
+            return { success: false, error: `Неизвестный статус: ${adResult.status}` };
         }
       }
 

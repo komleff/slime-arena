@@ -6,6 +6,8 @@
 import type { PlatformType } from './IAuthAdapter';
 import type { IAdsProvider, AdPlacement, AdResult } from './IAdsProvider';
 
+const AD_TIMEOUT_MS = 30000;
+
 // Тип для Telegram WebApp с методом showAd
 interface TelegramWebAppWithAds {
   showAd?: (params: { onReward: () => void; onError: (error: string) => void }) => void;
@@ -41,16 +43,30 @@ export class TelegramAdsProvider implements IAdsProvider {
         return;
       }
 
-      console.log(`[TelegramAdsProvider] Показ рекламы для placement: ${placement}`);
+      console.log(`[TelegramAdsProvider] Показ рекламы: ${placement}`);
+
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[TelegramAdsProvider] Таймаут показа рекламы');
+          resolve({ status: 'error', errorMessage: 'Таймаут показа рекламы' });
+        }
+      }, AD_TIMEOUT_MS);
 
       this.webApp.showAd!({
         onReward: () => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
           console.log('[TelegramAdsProvider] Реклама успешно просмотрена');
           resolve({ status: 'completed' });
         },
         onError: (error: string) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeout);
           console.warn(`[TelegramAdsProvider] Ошибка: ${error}`);
-          // Telegram возвращает 'AD_CLOSED' если пользователь закрыл без просмотра
           if (error === 'AD_CLOSED') {
             resolve({ status: 'skipped' });
           } else {

@@ -83,7 +83,7 @@ class PlatformManager {
    * Получить провайдер рекламы.
    */
   getAdsProvider(): IAdsProvider | null {
-    if (!this.adsProvider) {
+    if (!this.adapter) {
       this.initialize();
     }
     return this.adsProvider;

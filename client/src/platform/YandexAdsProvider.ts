@@ -6,6 +6,8 @@
 import type { PlatformType } from './IAuthAdapter';
 import type { IAdsProvider, AdPlacement, AdResult } from './IAdsProvider';
 
+const AD_TIMEOUT_MS = 30000;
+
 // Типы Yandex Games SDK
 declare global {
   interface YaGamesSDK {
@@ -54,8 +56,18 @@ export class YandexAdsProvider implements IAdsProvider {
         return;
       }
 
-      console.log(`[YandexAdsProvider] Показ рекламы для placement: ${placement}`);
+      console.log(`[YandexAdsProvider] Показ рекламы: ${placement}`);
+
+      let resolved = false;
       let rewarded = false;
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[YandexAdsProvider] Таймаут показа рекламы');
+          resolve({ status: 'error', errorMessage: 'Таймаут показа рекламы' });
+        }
+      }, AD_TIMEOUT_MS);
 
       this.ysdk.adv.showRewardedVideo({
         callbacks: {
@@ -64,6 +76,9 @@ export class YandexAdsProvider implements IAdsProvider {
             console.log('[YandexAdsProvider] Награда получена');
           },
           onClose: (wasShown: boolean) => {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(timeout);
             if (rewarded) {
               resolve({ status: 'completed' });
             } else if (wasShown) {
@@ -73,6 +88,9 @@ export class YandexAdsProvider implements IAdsProvider {
             }
           },
           onError: (error: Error) => {
+            if (resolved) return;
+            resolved = true;
+            clearTimeout(timeout);
             console.warn(`[YandexAdsProvider] Ошибка: ${error.message}`);
             resolve({ status: 'error', errorMessage: error.message });
           },
