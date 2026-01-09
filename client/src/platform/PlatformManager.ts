@@ -9,8 +9,7 @@ import { TelegramAdapter } from './TelegramAdapter';
 import { StandaloneAdapter } from './StandaloneAdapter';
 import { MockAdsProvider } from './MockAdsProvider';
 import { TelegramAdsProvider } from './TelegramAdsProvider';
-import { YandexAdsProvider } from './YandexAdsProvider';
-import { PokiAdsProvider } from './PokiAdsProvider';
+// YandexAdsProvider и PokiAdsProvider будут добавлены когда появятся соответствующие auth adapters
 
 class PlatformManager {
   private adapter: IAuthAdapter | null = null;
@@ -44,6 +43,8 @@ class PlatformManager {
 
   /**
    * Инициализация провайдера рекламы.
+   * MockAdsProvider используется ТОЛЬКО для dev-платформы.
+   * Для остальных платформ — null если SDK недоступен.
    */
   private initializeAdsProvider(): void {
     switch (this.detectedPlatform) {
@@ -52,33 +53,20 @@ class PlatformManager {
         if (telegramAds.isAvailable()) {
           this.adsProvider = telegramAds;
           console.log('[PlatformManager] Ads provider: Telegram');
-          return;
+        } else {
+          console.log('[PlatformManager] Telegram Ads SDK not available');
         }
-        break;
+        return;
       }
-      case 'yandex': {
-        const yandexAds = new YandexAdsProvider();
-        if (yandexAds.isAvailable()) {
-          this.adsProvider = yandexAds;
-          console.log('[PlatformManager] Ads provider: Yandex');
-          return;
-        }
-        break;
+      case 'dev': {
+        this.adsProvider = new MockAdsProvider();
+        console.log('[PlatformManager] Ads provider: Mock (dev)');
+        return;
       }
-      case 'poki': {
-        const pokiAds = new PokiAdsProvider();
-        if (pokiAds.isAvailable()) {
-          this.adsProvider = pokiAds;
-          console.log('[PlatformManager] Ads provider: Poki');
-          return;
-        }
-        break;
+      default: {
+        console.log('[PlatformManager] No ads provider for platform:', this.detectedPlatform);
       }
     }
-
-    // Fallback: Mock provider для dev-режима
-    this.adsProvider = new MockAdsProvider();
-    console.log('[PlatformManager] Ads provider: Mock (dev)');
   }
 
   /**
