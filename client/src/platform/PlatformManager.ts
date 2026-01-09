@@ -43,7 +43,7 @@ class PlatformManager {
 
   /**
    * Инициализация провайдера рекламы.
-   * MockAdsProvider используется ТОЛЬКО для dev-платформы.
+   * MockAdsProvider используется ТОЛЬКО для платформы разработки.
    * Для остальных платформ — null если SDK недоступен.
    */
   private initializeAdsProvider(): void {
