@@ -79,7 +79,7 @@ class AdsService {
 
   /**
    * Проверить, готова ли реклама к показу.
-   * @param placement - Точка показа (placement) рекламы
+   * @param placement - Точка показа рекламы
    */
   async isReady(placement: AdPlacement): Promise<boolean> {
     if (!this.isAvailable()) return false;
@@ -98,7 +98,7 @@ class AdsService {
   /**
    * Показать рекламу и получить награду.
    * Полный цикл: grant → show → claim
-   * @param placement - Точка показа (placement) рекламы
+   * @param placement - Точка показа рекламы
    */
   async showAndClaim(placement: AdPlacement): Promise<AdsShowResult> {
     if (!this.isAvailable()) {
@@ -181,7 +181,7 @@ class AdsService {
 
   /**
    * Запросить grantId с сервера.
-   * @param placement - Точка показа (placement) рекламы
+   * @param placement - Точка показа рекламы
    */
   private async requestGrant(placement: AdPlacement): Promise<string> {
     const response = await metaServerClient.post<GrantResponse>('/api/v1/ads/grant', {
