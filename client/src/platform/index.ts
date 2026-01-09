@@ -11,5 +11,4 @@ export type { IAuthAdapter, PlatformCredentials, PlatformType } from './IAuthAda
 export type { IAdsProvider, AdResult, AdResultStatus, AdPlacement } from './IAdsProvider';
 export { MockAdsProvider } from './MockAdsProvider';
 export { TelegramAdsProvider } from './TelegramAdsProvider';
-export { YandexAdsProvider } from './YandexAdsProvider';
-export { PokiAdsProvider } from './PokiAdsProvider';
+// YandexAdsProvider и PokiAdsProvider будут экспортированы когда появятся YandexAdapter/PokiAdapter

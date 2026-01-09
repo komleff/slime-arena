@@ -42,14 +42,13 @@ export interface AdsShowResult {
 
 /**
  * Состояния показа рекламы.
+ * После завершения (успех или ошибка) сразу возвращается в 'idle'.
  */
 export type AdsFlowState =
   | 'idle'
   | 'requesting_grant'
   | 'showing_ad'
-  | 'claiming_reward'
-  | 'completed'
-  | 'error';
+  | 'claiming_reward';
 
 class AdsService {
   private currentState: AdsFlowState = 'idle';
@@ -138,18 +137,12 @@ class AdsService {
       }
 
       // Шаг 3: Claim награды на сервере
+      // providerPayload зарезервирован для будущих интеграций (подпись провайдера, ID показа)
       this.currentState = 'claiming_reward';
       const reward = await this.claimReward(grantId, adResult.providerPayload);
 
-      this.currentState = 'completed';
+      this.currentState = 'idle';
       this._currentGrantId = null;
-
-      // Сбрасываем состояние на idle после успеха
-      setTimeout(() => {
-        if (this.currentState === 'completed') {
-          this.currentState = 'idle';
-        }
-      }, 100);
 
       return {
         success: true,
@@ -160,18 +153,11 @@ class AdsService {
         },
       };
     } catch (error) {
-      this.currentState = 'error';
+      this.currentState = 'idle';
       this._currentGrantId = null;
 
       const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
       console.error('[AdsService] Ошибка:', message);
-
-      // Сбрасываем состояние на idle после ошибки
-      setTimeout(() => {
-        if (this.currentState === 'error') {
-          this.currentState = 'idle';
-        }
-      }, 100);
 
       return { success: false, error: message };
     }
@@ -206,7 +192,7 @@ class AdsService {
     });
 
     if (!response.success) {
-      throw new Error('Не удалось получить награду');
+      throw new Error(response.message || 'Не удалось получить награду');
     }
 
     console.log(
