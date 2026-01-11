@@ -23,7 +23,7 @@
         .game-screen {
             width: 960px;
             height: 540px;
-            background-image: url('bg_main_menu.png');
+            background-image: url('../backgrounds/bg_main_menu.png');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -69,7 +69,7 @@
 
         /* === ГЕРОЙ === */
         .hero-container { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%); width: 350px; height: 350px; z-index: 10; pointer-events: none; }
-        .hero-model { width: 100%; height: 100%; background-image: url('hero_skin_current.png'); background-size: contain; background-repeat: no-repeat; background-position: center; animation: floatHero 4s infinite ease-in-out; filter: drop-shadow(0 15px 20px rgba(0,0,0,0.4)); }
+        .hero-model { width: 100%; height: 100%; background-image: url('../skins/lobby/hero_skin_current.png'); background-size: contain; background-repeat: no-repeat; background-position: center; animation: floatHero 4s infinite ease-in-out; filter: drop-shadow(0 15px 20px rgba(0,0,0,0.4)); }
         .hero-floor-shadow { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 180px; height: 20px; background: rgba(0,0,0,0.3); border-radius: 50%; filter: blur(15px); animation: shadowScale 4s infinite ease-in-out; }
         @keyframes floatHero { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
         @keyframes shadowScale { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.3; } 50% { transform: translateX(-50%) scale(0.8); opacity: 0.2; } }
@@ -158,13 +158,13 @@
         <div class="hud-profile-wrapper">
             <div class="hud-container">
                 <div class="hud-avatar-group">
-                    <img src="hud_avatar_frame_cookie.png" class="frame-top">
-                    <img src="hud_avatar_hero_01.png" class="hud-avatar-img">
-                    <img src="hud_avatar_frame_cookie.png" class="frame-bottom">
+                    <img src="../hud/hud_avatar_frame_cookie.png" class="frame-top">
+                    <img src="../hud/hud_avatar_hero_01.png" class="hud-avatar-img">
+                    <img src="../hud/hud_avatar_frame_cookie.png" class="frame-bottom">
                 </div>
-                <img src="hud_profile_base_chocolate.png" class="hud-base">
+                <img src="../hud/hud_profile_base_chocolate.png" class="hud-base">
                 <div class="hud-star-group">
-                    <img src="hud_level_badge_star_blue.png" class="hud-star">
+                    <img src="../hud/hud_level_badge_star_blue.png" class="hud-star">
                     <div class="hud-level-text">12</div>
                 </div>
                 <div class="hud-info">
@@ -181,12 +181,12 @@
 
         <div class="currency-panel">
             <div class="curr-item">
-                <img src="icon_currency_coin.png" class="curr-icon-img" alt="Coins">
+                <img src="../icons/icon_currency_coin.png" class="curr-icon-img" alt="Coins">
                 <div class="curr-val">1,450</div>
                 <div class="btn-add">+</div>
             </div>
             <div class="curr-item">
-                <img src="icon_currency_gem.png" class="curr-icon-img" alt="Gems">
+                <img src="../icons/icon_currency_gem.png" class="curr-icon-img" alt="Gems">
                 <div class="curr-val">85</div>
                 <div class="btn-add">+</div>
             </div>
@@ -208,9 +208,9 @@
         </div>
 
         <div class="side-menu">
-            <div class="menu-btn" title="Настройки"><img src="icon_menu_settings.png" class="menu-icon-img"></div>
-            <div class="menu-btn" title="Лидеры"><img src="icon_menu_leaderboard.png" class="menu-icon-img"></div>
-            <div class="menu-btn" title="Гардероб"><img src="icon_menu_skins.png" class="menu-icon-img"></div>
+            <div class="menu-btn" title="Настройки"><img src="../icons/icon_menu_settings.png" class="menu-icon-img"></div>
+            <div class="menu-btn" title="Лидеры"><img src="../icons/icon_menu_leaderboard.png" class="menu-icon-img"></div>
+            <div class="menu-btn" title="Гардероб"><img src="../icons/icon_menu_skins.png" class="menu-icon-img"></div>
         </div>
     </div>
 
