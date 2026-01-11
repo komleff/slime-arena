@@ -11,6 +11,20 @@
 
 ### Фокус сессии
 
+- **[В РАБОТЕ] Графика арены — Параллакс-фон (12 января 2026):**
+  - ✅ GDD-Art-Architecture v2.0 — архитектура сцены (Layer Cake)
+  - ✅ arena.css — базовый CSS параллакс-фона
+  - ⏳ slime-arena-duo — интеграция в main.ts (для Developer)
+  - ⏳ slime-arena-99u — убрать CSS-градиенты (P1 bug)
+  - ⏳ bg_gameplay_floor_tile.png — ассет пола (нужен от Art Director)
+  - **Ветка:** `feature/graphics-arena-bg`
+  - **Документ:** `docs/soft-launch/SlimeArena-GDD-Art-Architecture.md`
+
+- **[В РАБОТЕ] AGENT_ROLES v1.4 — Ограничения агентов (12 января 2026):**
+  - ✅ Запрет работы с main веткой для всех агентов
+  - ✅ Запрет редактирования кода для Art Director
+  - **Ветка:** `docs/agent-roles-v1.4`
+
 - **[ЗАВЕРШЕНО] Графические ассеты UI — Golden Master (11 января 2026):**
   - ✅ Главный экран (LobbyScreen) — полный макет в `assets/main.html`
   - ✅ Jelly Button — CSS-стиль кнопки с 3D-эффектом

@@ -305,6 +305,7 @@ bd create --title="Улучшить ArenaRoom" --type=task --priority=2
 ### Контекст проекта Slime Arena
 
 **Ключевые файлы:**
+- `docs/soft-launch/SlimeArena-GDD-Art-Architecture.md` — архитектура сцены (Layer Cake, Z-Index)
 - `docs/soft-launch/SlimeArena-Assets-v1_1.md` — ТЗ для графических ассетов
 - `docs/soft-launch/SlimeArena-UI-TZ-v1_6_1.md` — требования к UI
 - `client/src/ui/` — React-компоненты интерфейса
