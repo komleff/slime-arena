@@ -1,87 +1,51 @@
 /*
  * Arena Background Styles
- * Style: Sticker Pack 3D / Pastry Mat
+ * Style: Silicone Baking Mat (Mobile-First)
+ *
+ * ВАЖНО: Никаких CSS-градиентов! Только запечённые текстуры.
+ * См. docs/soft-launch/SlimeArena-GDD-Art-Architecture.md (п. 3.1)
  */
 
 .arena-background {
-  position: fixed; /* Фиксируем контейнер на весь экран */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: -10; /* Убираем на самый задний план */
-  background-color: #E0F2F1; /* Нежный мятный цвет подложки (Teal 50) */
+  z-index: -10;
+  /* Нейтральный мятный фоллбэк (пока нет текстуры) */
+  background-color: #E0F2F1;
   overflow: hidden;
   pointer-events: none;
 }
 
-/* Слой 1: Силиконовый коврик (Основной пол) */
+/* Единственный слой: Силиконовый коврик */
 .arena-background::before {
   content: '';
   position: absolute;
-  /* Делаем запас размера для скроллинга без артефактов */
+  /* Запас для скроллинга без артефактов */
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
 
+  /* Тайловая текстура пола (512x512, seamless) */
   background-image: url('/assets/bg_gameplay_floor_tile.png');
   background-repeat: repeat;
-  background-size: 512px 512px; /* Размер тайла текстуры */
+  background-size: 512px 512px;
 
   /*
-   * Camera Sync
-   * Developer должен обновлять --cam-x/y в пикселях.
-   * Мы используем translate для GPU-ускорения.
+   * Camera Sync (GPU-ускорение)
+   * Developer обновляет --cam-x/--cam-y в игровом цикле
    */
   transform: translate3d(var(--cam-x, 0px), var(--cam-y, 0px), 0);
   will-change: transform;
-
-  /* Визуальные твики для "силиконовости" */
-  filter: contrast(0.95) brightness(1.02);
 }
 
-/* Слой 2: Параллакс-эффект (Глубина / Сетка / Тени) */
-.arena-background::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-
-  /* Генерируем процедурную сетку (сахарная пудра) */
-  background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.4) 2px, transparent 2.5px),
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-
-  background-size:
-    128px 128px, /* Точки */
-    256px 256px, /* Сетка гориз */
-    256px 256px; /* Сетка верт */
-
-  /*
-   * Parallax Magic
-   * Двигаем этот слой с коэффициентом 0.5 от скорости камеры.
-   * Это создаст иллюзию, что сетка находится "глубже" или "выше" текстуры.
-   */
-  transform: translate3d(
-    calc(var(--cam-x, 0px) * 0.5),
-    calc(var(--cam-y, 0px) * 0.5),
-    0
-  );
-  will-change: transform;
-}
-
-/* Виньетка поверх всего для фокуса на центре (опционально) */
-.arena-vignette {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  background: radial-gradient(circle, transparent 60%, rgba(62, 39, 35, 0.15) 100%);
-  z-index: -5;
-}
+/*
+ * УДАЛЕНО (Mobile Optimization):
+ * - ::after с radial-gradient/linear-gradient (убивает FPS)
+ * - .arena-vignette с radial-gradient
+ *
+ * Если нужна виньетка — используй запечённую PNG текстуру.
+ */
