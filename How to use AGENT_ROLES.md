@@ -19,6 +19,21 @@
 
 ---
 
+## Art Director (визуальный дизайн)
+
+```
+Ты Art Director. Прочитай AGENT_ROLES.md секция "5️⃣ Art Director".
+Задача: [описание визуальной задачи]
+```
+
+**Пример:**
+```
+Ты Art Director. Прочитай AGENT_ROLES.md секция "5️⃣ Art Director".
+Задача: создать CSS-стили для Jelly Button в стиле "Sticker Pack 3D".
+```
+
+---
+
 ## Developer (написание кода)
 
 ```
