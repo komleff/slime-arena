@@ -1,0 +1,51 @@
+/*
+ * Arena Background Styles
+ * Style: Silicone Baking Mat (Mobile-First)
+ *
+ * ВАЖНО: Никаких CSS-градиентов! Только запечённые текстуры.
+ * См. docs/soft-launch/SlimeArena-GDD-Art-Architecture.md (п. 3.1)
+ */
+
+.arena-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -10;
+  /* Нейтральный мятный фоллбэк (пока нет текстуры) */
+  background-color: #E0F2F1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Единственный слой: Силиконовый коврик */
+.arena-background::before {
+  content: '';
+  position: absolute;
+  /* Запас для скроллинга без артефактов */
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+
+  /* Тайловая текстура пола (512x512, seamless) */
+  background-image: url('/assets/backgrounds/bg_gameplay_floor_tile.png');
+  background-repeat: repeat;
+  background-size: 512px 512px;
+
+  /*
+   * Camera Sync (GPU-ускорение)
+   * Developer обновляет --cam-x/--cam-y в игровом цикле
+   */
+  transform: translate3d(var(--cam-x, 0px), var(--cam-y, 0px), 0);
+  will-change: transform;
+}
+
+/*
+ * УДАЛЕНО (Mobile Optimization):
+ * - ::after с radial-gradient/linear-gradient (убивает FPS)
+ * - .arena-vignette с radial-gradient
+ *
+ * Если нужна виньетка — используй запечённую PNG текстуру.
+ */

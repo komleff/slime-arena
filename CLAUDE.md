@@ -40,6 +40,17 @@
 - Порядок вызовов в `ArenaRoom.onTick()` фиксирован
 - Изменение порядка ломает детерминизм
 
+### Mobile-First (P1)
+
+> 90%+ аудитории — мобильные устройства (Telegram, Яндекс.Игры, соцсети)
+
+- ❌ **Никаких CSS-градиентов в анимации** (`radial-gradient`, `linear-gradient` в `requestAnimationFrame`)
+- ❌ Никаких сложных `filter`, `backdrop-filter`, `box-shadow` на больших областях
+- ❌ Никаких процедурных текстур через CSS — только запечённые PNG/WebP
+- ✅ Для движения фона: `transform: translate3d()` (GPU-ускорение)
+- ✅ Текстуры: бесшовные тайлы 512x512 или 256x256
+- Документ: `docs/soft-launch/SlimeArena-GDD-Art-Architecture.md`
+
 ## Команды
 
 ```bash

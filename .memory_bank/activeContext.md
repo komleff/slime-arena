@@ -16,11 +16,23 @@
 
 ### Фокус сессии
 
-- **[В РАБОТЕ] PR #74: Env-based HMR config:**
+- **[В РАБОТЕ] Графика арены — Параллакс-фон (12 января 2026):**
+  - ✅ GDD-Art-Architecture v2.0 — архитектура сцены (Layer Cake)
+  - ✅ arena.css — базовый CSS параллакс-фона (mobile-optimized)
+  - ✅ Mobile-First правила в CLAUDE.md и AGENT_ROLES.md
+  - ✅ Ассеты организованы (19 файлов)
+  - ⏳ slime-arena-duo — интеграция в main.ts (для Developer)
+  - **Ветка:** `feature/graphics-arena-bg`
+  - **PR:** #76
+
+- **[ЗАВЕРШЕНО] PR #74: Env-based HMR config:**
   - ✅ vite.config.ts: функциональный конфиг с loadEnv()
   - ✅ README.md: обновлён порт 5174 + документация HMR env vars
-  - ✅ Codex P2: loadEnv вместо process.env для поддержки .env файлов
-  - ✅ Copilot: порт 5173 → 5174 в документации
+
+- **[ЗАВЕРШЕНО] AGENT_ROLES v1.4 — Ограничения агентов (12 января 2026):**
+  - ✅ Запрет работы с main веткой для всех агентов
+  - ✅ Запрет редактирования кода для Art Director
+  - ✅ Mobile-First CSS ограничения
 
 - **[ЗАВЕРШЕНО] Графические ассеты UI — Golden Master (11 января 2026):**
   - ✅ Главный экран (LobbyScreen) — полный макет в `assets/main.html`
@@ -57,6 +69,8 @@
   - ✅ 11.3: InputManager module created (558 строк)
   - ✅ 11.4: TalentSystem module created
 
----
-
-*Полная история изменений доступна в progress.md*
+### ✅ Аудит технического долга (сессия)
+Уточнён и актуализирован список техдолга:
+- Декомпозиция God Objects (ArenaRoom, main.ts)
+- Порог ДХП теперь грузится из balance.json
+- Рефакторинг: TalentSystem, InputManager модули созданы
