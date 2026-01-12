@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig(() => {
   const hmrHost = process.env.VITE_HMR_HOST
@@ -14,7 +15,14 @@ export default defineConfig(() => {
             host: hmrHost,
             protocol: hmrProtocol || 'ws'
           }
-        : undefined
+        : true
+    },
+    resolve: {
+      alias: {
+        'react': 'preact/compat',
+        'react-dom': 'preact/compat',
+        '@slime-arena/shared': path.resolve(__dirname, '../shared/src/index')
+      }
     }
   }
 })
