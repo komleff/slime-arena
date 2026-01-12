@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        react: 'preact/compat',
+        'react': 'preact/compat',
         'react-dom': 'preact/compat',
         '@slime-arena/shared': path.resolve(__dirname, '../shared/src/index')
       }

@@ -27,7 +27,7 @@
 ### Результаты тестирования
 
 | Метрика | Результат |
-|---------|-----------|
+|---------|----------|
 | Stage D Integration Tests | 19/19 passed |
 | Load Test (k6) | CCU 500, 87k requests, 0% errors |
 | Backup/Restore | Verified (data integrity confirmed) |
@@ -87,7 +87,7 @@ npm install
 
 Рекомендуется запускать сервер и клиент в разных терминалах:
 1. **Сервер:** `npm run dev:server` (ws://localhost:2567)
-2. **Клиент:** `npm run dev:client` (http://localhost:5173)
+2. **Клиент:** `npm run dev:client` (http://localhost:5174)
 
 ### Сборка
 
@@ -125,6 +125,29 @@ npx tsx server/tests/meta-stage-d.test.ts
 # Или все smoke тесты (Stage B + C + D)
 .\tests\smoke\run-stage-d.ps1
 ```
+
+## Доступ с мобильных устройств (локальная сеть)
+
+Для тестирования на мобильных устройствах в локальной сети:
+
+1. **Узнайте IP-адрес компьютера** (например, `192.168.1.100`).
+2. **Настройте HMR** через переменные окружения в `.env.local`:
+
+```bash
+# client/.env.local
+VITE_HMR_HOST=192.168.1.100
+VITE_HMR_PROTOCOL=ws
+```
+
+3. **Запустите клиент** — HMR будет работать через указанный хост.
+4. **Откройте игру на мобильном устройстве:** `http://192.168.1.100:5174`
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|---------------|
+| `VITE_HMR_HOST` | IP-адрес для WebSocket HMR | (не задан — HMR на localhost) |
+| `VITE_HMR_PROTOCOL` | Протокол HMR (`ws` или `wss`) | `ws` |
+
+**Примечание:** Если переменные не заданы, HMR работает в стандартном режиме (localhost).
 
 ## Запуск в Docker (Stable Release)
 
