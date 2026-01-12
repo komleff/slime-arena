@@ -1,5 +1,21 @@
+import { randomUUID } from "crypto";
 import { Room, Client } from "colyseus";
-import { GameState, Player, Orb, Chest, HotZone, SlowZone, ToxicPool, Projectile, Mine, Talent, TalentCard } from "./schema/GameState";
+import {
+    GameState,
+    Player,
+    Orb,
+    Chest,
+    HotZone,
+    SlowZone,
+    ToxicPool,
+    Projectile,
+    Mine,
+    Talent,
+    TalentCard,
+    Obstacle,
+    Zone,
+    SafeZone,
+} from "./schema/GameState";
 import {
     InputCommand,
     MatchPhaseId,
@@ -19,13 +35,64 @@ import {
     FLAG_STUNNED,
     FLAG_INVISIBLE,
     FLAG_LEVIATHAN,
+    ZONE_TYPE_NECTAR,
+    ZONE_TYPE_ICE,
+    ZONE_TYPE_SLIME,
+    ZONE_TYPE_LAVA,
+    ZONE_TYPE_TURBO,
+    OBSTACLE_TYPE_PILLAR,
+    OBSTACLE_TYPE_SPIKES,
     ResolvedBalanceConfig,
     SlimeConfig,
     generateUniqueName,
     TalentConfig,
+    ClassTalentConfig,
+    BoostType,
 } from "@slime-arena/shared";
 import { loadBalanceConfig } from "../config/loadBalanceConfig";
 import { Rng } from "../utils/rng";
+import { TelemetryService } from "../telemetry/TelemetryService";
+import {
+    abilityCardSystem,
+    abilitySystem,
+    mineSystem,
+    projectileSystem,
+} from "./systems/abilitySystem";
+import { boostSystem } from "./systems/boostSystem";
+import { chestSystem, updateChests } from "./systems/chestSystem";
+import { collisionSystem } from "./systems/collisionSystem";
+import { deathSystem } from "./systems/deathSystem";
+import {
+    slowZoneSystem,
+    statusEffectSystem,
+    toxicPoolSystem,
+    zoneEffectSystem,
+} from "./systems/effectSystems";
+import { hungerSystem } from "./systems/hungerSystem";
+import { flightAssistSystem, physicsSystem } from "./systems/movementSystems";
+import { updateOrbs, updateOrbsVisual } from "./systems/orbSystem";
+import { rebelSystem } from "./systems/rebelSystem";
+import { safeZoneSystem } from "./systems/safeZoneSystem";
+import { talentCardSystem } from "./systems/talentCardSystem";
+import {
+    recalculateTalentModifiers as recalculateTalentModifiersModule,
+    generateTalentCard as generateTalentCardModule,
+    getTalentConfig as getTalentConfigModule,
+    parseAbilityUpgradeId as parseAbilityUpgradeIdModule,
+    type TalentBalanceConfig,
+    type TalentGeneratorConfig,
+    type TalentGeneratorDeps,
+} from "./systems/talent";
+import {
+    generateObstacleSeeds,
+    generateSafeZoneSeeds,
+    generateZoneSeeds,
+    isInsideWorld,
+    randomPointInMapWithMargin,
+} from "./helpers/arenaGeneration";
+import { getMatchResultService } from "../services/MatchResultService";
+import { MatchSummary, PlayerResult } from "@slime-arena/shared/src/types";
+import { joinTokenService, JoinTokenPayload } from "../meta/services/JoinTokenService";
 
 type ContactZone = "mouth" | "tail" | "side";
 
@@ -43,6 +110,7 @@ export class ArenaRoom extends Room<GameState> {
 
     private balance!: ResolvedBalanceConfig;
     private rng!: Rng;
+    private seed = 0;
     private tick = 0;
     private orbIdCounter = 0;
     private chestIdCounter = 0;
@@ -51,6 +119,8 @@ export class ArenaRoom extends Room<GameState> {
     private toxicPoolIdCounter = 0;
     private projectileIdCounter = 0;
     private mineIdCounter = 0;
+    private obstacleIdCounter = 0;
+    private zoneIdCounter = 0;
     private lastOrbSpawnTick = 0;
     private lastChestSpawnTick = 0;
     private lastPhaseId: MatchPhaseId | null = null;
@@ -60,6 +130,11 @@ export class ArenaRoom extends Room<GameState> {
     private metricsIntervalTicks = 0;
     private metricsMaxTickMs = 0;
     private maxTalentQueue = 3;
+    private telemetry: TelemetryService | null = null;
+    private matchIndex = 0;
+    private matchId = "";
+    private matchStartLogged = false;
+    private matchStartedAt: string = "";
 
     private attackCooldownTicks = 0;
     private invulnerableTicks = 0;
@@ -79,7 +154,12 @@ export class ArenaRoom extends Room<GameState> {
     onCreate(options: { seed?: number } = {}) {
         this.balance = loadBalanceConfig();
         this.maxClients = this.balance.server.maxPlayers;
-        this.rng = new Rng(Number(options.seed ?? Date.now()));
+        this.seed = Number(options.seed ?? Date.now());
+        this.rng = new Rng(this.seed);
+        const telemetryEnabled = process.env.TELEMETRY_DISABLED !== "1";
+        this.telemetry = new TelemetryService({ enabled: telemetryEnabled });
+        this.initMatchId();
+        this.applyMapSizeConfig();
 
         this.attackCooldownTicks = this.secondsToTicks(this.balance.combat.attackCooldownSec);
         this.invulnerableTicks = this.secondsToTicks(this.balance.combat.damageInvulnSec);
@@ -98,8 +178,9 @@ export class ArenaRoom extends Room<GameState> {
         this.setState(new GameState());
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
+        this.generateArena();
 
-        this.onMessage("selectClass", (client, data: { classId?: unknown }) => {
+        this.onMessage("selectClass", (client, data: { classId?: unknown; name?: unknown }) => {
             const player = this.state.players.get(client.sessionId);
             if (!player) return;
             if (this.isMatchEnded || this.state.phase === "Results") return;
@@ -108,15 +189,24 @@ export class ArenaRoom extends Room<GameState> {
             const needsClass = !(Number.isInteger(currentClassId) && currentClassId >= 0 && currentClassId <= 2);
             if (!needsClass) return;
 
-            const rawClassId = Number((data as any)?.classId);
+            const rawClassId = Number(data?.classId);
             if (!Number.isInteger(rawClassId) || rawClassId < 0 || rawClassId > 2) return;
 
             player.classId = rawClassId;
 
-            const classAbilities = ["dash", "shield", "slow"];
+            // Обновляем имя игрока, если передано (для replay между матчами)
+            const newName = data?.name;
+            if (typeof newName === "string" && newName.trim().length > 0) {
+                player.name = newName.trim().slice(0, 24);
+            }
+
+            const classAbilities = ["dash", "shield", "pull"];
             player.abilitySlot0 = classAbilities[player.classId] || "dash";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
+            player.abilityLevel0 = player.abilitySlot0 ? 1 : 0;
+            player.abilityLevel1 = 0;
+            player.abilityLevel2 = 0;
             player.pendingAbilityCard = null;
             player.cardChoicePressed = null;
             player.pendingCardSlots = [];
@@ -153,7 +243,9 @@ export class ArenaRoom extends Room<GameState> {
             if (!player || !data) return;
 
             const seq = Number(data.seq);
-            if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) return;
+            if (!Number.isFinite(seq) || seq <= player.lastProcessedSeq) {
+                return;
+            }
             player.lastProcessedSeq = seq;
 
             let moveX = Number(data.moveX);
@@ -191,43 +283,22 @@ export class ArenaRoom extends Room<GameState> {
                 }
             }
 
-            const talentChoice = data.talentChoice;
-            if (
-                typeof talentChoice === "number" &&
-                Number.isInteger(talentChoice) &&
-                talentChoice >= 0 &&
-                talentChoice <= 2
-            ) {
-                player.talentChoicePressed = talentChoice;
-            } else {
-                player.talentChoicePressed = null;
-            }
-            
-            // Выбор из карточки умений (GDD v3.3 1.3)
-            if ("cardChoice" in data) {
-                const cardChoice = data.cardChoice;
-                if (
-                    typeof cardChoice === "number" &&
-                    Number.isInteger(cardChoice) &&
-                    cardChoice >= 0 &&
-                    cardChoice <= 2
-                ) {
-                    player.cardChoicePressed = cardChoice;
-                }
-            }
-            
-            // Выбор из карточки талантов (GDD-Talents.md)
-            if ("talentChoice" in data) {
-                const talentChoice = data.talentChoice;
-                if (
-                    typeof talentChoice === "number" &&
-                    Number.isInteger(talentChoice) &&
-                    talentChoice >= 0 &&
-                    talentChoice <= 2
-                ) {
-                    player.talentChoicePressed2 = talentChoice;
-                }
-            }
+        });
+
+        this.onMessage("talentChoice", (client, data: { choice?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || !player.pendingTalentCard) return;
+            const choice = Number(data?.choice);
+            if (!Number.isInteger(choice) || choice < 0 || choice > 2) return;
+            player.talentChoicePressed2 = choice;
+        });
+
+        this.onMessage("cardChoice", (client, data: { choice?: unknown }) => {
+            const player = this.state.players.get(client.sessionId);
+            if (!player || !player.pendingAbilityCard) return;
+            const choice = Number(data?.choice);
+            if (!Number.isInteger(choice) || choice < 0 || choice > 2) return;
+            player.cardChoicePressed = choice;
         });
 
         this.setSimulationInterval(() => this.onTick(), this.balance.server.simulationIntervalMs);
@@ -236,11 +307,53 @@ export class ArenaRoom extends Room<GameState> {
         console.log("ArenaRoom created!");
     }
 
+    /**
+     * Authenticate client before allowing join
+     * Validates joinToken JWT if provided, or allows dev mode connections
+     */
+    async onAuth(client: Client, options: { joinToken?: string; name?: string; classId?: number }): Promise<JoinTokenPayload | boolean> {
+        // Dev mode: allow connections without token if JOIN_TOKEN_REQUIRED is not set
+        const requireToken = process.env.JOIN_TOKEN_REQUIRED === "true" || process.env.JOIN_TOKEN_REQUIRED === "1";
+
+        if (!options.joinToken) {
+            if (requireToken) {
+                console.warn(`[ArenaRoom] Client ${client.sessionId} rejected: no joinToken provided`);
+                throw new Error("Authentication required: joinToken missing");
+            }
+            // Dev mode - allow without token
+            console.log(`[ArenaRoom] Client ${client.sessionId} joined without token (dev mode)`);
+            return true;
+        }
+
+        try {
+            // Verify the joinToken and check it's valid for this room
+            const payload = joinTokenService.verifyTokenForRoom(options.joinToken, this.roomId);
+
+            const maskedUserId = joinTokenService.maskUserId(payload.userId);
+            console.log(`[ArenaRoom] Client ${client.sessionId} authenticated as user ${maskedUserId} for match ${payload.matchId}`);
+
+            // Return the payload - it will be available in onJoin via client.auth
+            return payload;
+        } catch (error: any) {
+            console.warn(`[ArenaRoom] Client ${client.sessionId} auth failed: ${error.message}`);
+            throw new Error(`Authentication failed: ${error.message}`);
+        }
+    }
+
     onJoin(client: Client, options: { name?: string; classId?: number } = {}) {
         const player = new Player();
         player.id = client.sessionId;
-        // Генерируем юмористическое имя если не указано
-        if (options.name && options.name.trim().length > 0) {
+
+        // If client authenticated with token, use nickname from payload (trusted source)
+        const authPayload = client.auth as JoinTokenPayload | boolean;
+        const tokenNickname = authPayload && typeof authPayload === 'object' && authPayload.nickname
+            ? authPayload.nickname
+            : null;
+
+        // Priority: token nickname > options.name > generated name
+        if (tokenNickname) {
+            player.name = tokenNickname.trim().slice(0, 24);
+        } else if (options.name && options.name.trim().length > 0) {
             player.name = options.name.trim().slice(0, 24);
         } else {
             // Собираем существующие имена для проверки уникальности
@@ -255,7 +368,12 @@ export class ArenaRoom extends Room<GameState> {
             nameSeed = nameSeed % 2147483647;
             player.name = generateUniqueName(nameSeed, existingNames);
         }
-        const spawn = this.randomPointInMap();
+        const spawnRadius = getSlimeRadiusFromConfig(this.balance.slime.initialMass, this.balance.slimeConfigs.base);
+        const spawn = this.findSpawnPoint(
+            spawnRadius,
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries
+        );
         player.x = spawn.x;
         player.y = spawn.y;
         player.mass = this.balance.slime.initialMass;
@@ -270,10 +388,13 @@ export class ArenaRoom extends Room<GameState> {
         player.classId = rawClassId;
         
         // Классовое умение в слот 0 (GDD v3.3 1.3)
-        const classAbilities = ["dash", "shield", "slow"];
+        const classAbilities = ["dash", "shield", "pull"];
         player.abilitySlot0 = player.classId >= 0 ? (classAbilities[player.classId] || "dash") : "";
         player.abilitySlot1 = "";  // Разблокируется на level 3
         player.abilitySlot2 = "";  // Разблокируется на level 5
+        player.abilityLevel0 = player.abilitySlot0 ? 1 : 0;
+        player.abilityLevel1 = 0;
+        player.abilityLevel2 = 0;
         player.pendingAbilityCard = null;
         
         player.talentsAvailable = 0;
@@ -312,6 +433,24 @@ export class ArenaRoom extends Room<GameState> {
 
     onDispose() {
         console.log("room", this.roomId, "disposing...");
+        this.telemetry?.close();
+    }
+
+    private applyMapSizeConfig() {
+        const mapSizes = this.balance.world.mapSizes ?? [] as number[];
+        const validSizes = mapSizes.filter((size: number) => Number.isFinite(size) && size > 0);
+        if (validSizes.length === 0) return;
+
+        const chosen = validSizes[Math.floor(this.rng.next() * validSizes.length)];
+        if (!Number.isFinite(chosen) || chosen <= 0) return;
+
+        this.balance.world.mapSize = chosen;
+        if (this.balance.worldPhysics.worldShape === "circle") {
+            this.balance.worldPhysics.radiusM = chosen / 2;
+        } else {
+            this.balance.worldPhysics.widthM = chosen;
+            this.balance.worldPhysics.heightM = chosen;
+        }
     }
 
     private onTick() {
@@ -332,6 +471,7 @@ export class ArenaRoom extends Room<GameState> {
         
         this.collectInputs();
         this.applyInputs();
+        this.boostSystem();
         this.abilitySystem();
         this.abilityCardSystem();  // GDD v3.3: обработка карточек выбора умений
         this.talentCardSystem();   // GDD-Talents: обработка карточек выбора талантов
@@ -346,8 +486,10 @@ export class ArenaRoom extends Room<GameState> {
         this.mineSystem();
         this.chestSystem();
         this.statusEffectSystem();
+        this.zoneEffectSystem();
         this.deathSystem();
         this.hungerSystem();
+        this.safeZoneSystem();
         this.rebelSystem();
         this.updatePlayerFlags();
         this.reportMetrics(tickStartMs);
@@ -395,45 +537,12 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
+    private boostSystem() {
+        boostSystem(this);
+    }
+
     private abilitySystem() {
-        const currentTick = this.tick;
-        for (const player of this.state.players.values()) {
-            if (player.isDead || player.isLastBreath) {
-                player.abilitySlotPressed = null;
-                player.talentChoicePressed = null;
-                continue;
-            }
-            if (player.stunEndTick > currentTick) {
-                player.abilitySlotPressed = null;
-                player.queuedAbilitySlot = null;
-                continue;
-            }
-
-            if (player.talentChoicePressed !== null) {
-                if (player.talentsAvailable > 0) {
-                    player.talentsAvailable = Math.max(0, player.talentsAvailable - 1);
-                    this.applyTalentChoice(player, player.talentChoicePressed);
-                }
-                player.talentChoicePressed = null;
-            }
-
-            const pressed = player.abilitySlotPressed;
-            const gcdReady = currentTick >= player.gcdReadyTick;
-
-            if (gcdReady && pressed !== null) {
-                this.activateAbility(player, pressed);
-            } else if (gcdReady && player.queuedAbilitySlot !== null) {
-                this.activateAbility(player, player.queuedAbilitySlot);
-                player.queuedAbilitySlot = null;
-            } else if (!gcdReady && pressed !== null && this.balance.server.abilityQueueSize > 0) {
-                if (player.queuedAbilitySlot === null) {
-                    player.queuedAbilitySlot = pressed;
-                    player.queuedAbilityTick = currentTick;
-                }
-            }
-
-            player.abilitySlotPressed = null;
-        }
+        abilitySystem(this);
     }
 
     private activateAbility(player: Player, slot: number) {
@@ -451,7 +560,7 @@ export class ArenaRoom extends Room<GameState> {
         const cooldownEndTick = this.getAbilityCooldownEndTick(player, slot);
         if (!canDoubleActivate && this.tick < cooldownEndTick) return;
 
-        const abilities = this.balance.abilities;
+        const abilityLevel = this.getAbilityLevelForSlot(player, slot) || 1;
         const tickRate = this.balance.server.tickRate;
         let activated = false;
         let cooldownSec = 0;
@@ -462,46 +571,75 @@ export class ArenaRoom extends Room<GameState> {
         // Активация по ID умения
         switch (abilityId) {
             case "dash":
-                activated = this.activateDash(player, abilities.dash, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.dash.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("dash", abilityLevel);
+                    activated = this.activateDash(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "shield":
-                activated = this.activateShield(player, abilities.shield, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.shield.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("shield", abilityLevel);
+                    activated = this.activateShield(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "slow":
-                activated = this.activateSlow(player, abilities.slow, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.slow.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("slow", abilityLevel);
+                    activated = this.activateSlow(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "projectile":
-                activated = this.activateProjectile(player, abilities.projectile, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.projectile.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("projectile", abilityLevel);
+                    activated = this.activateProjectile(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "pull":
-                activated = this.activateMagnet(player, abilities.magnet, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.magnet.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("pull", abilityLevel);
+                    activated = this.activateMagnet(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "spit":
-                activated = this.activateSpit(player, abilities.spit, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.spit.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("spit", abilityLevel);
+                    activated = this.activateSpit(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "bomb":
-                activated = this.activateBomb(player, abilities.bomb, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.bomb.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("bomb", abilityLevel);
+                    activated = this.activateBomb(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "push":
-                activated = this.activatePush(player, abilities.push, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.push.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("push", abilityLevel);
+                    activated = this.activatePush(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             case "mine":
-                activated = this.activateMine(player, abilities.mine, tickRate, costMultiplier);
-                cooldownSec = this.getAbilityCooldownSec(player, abilities.mine.cooldownSec);
+                {
+                    const config = this.getAbilityConfigById("mine", abilityLevel);
+                    activated = this.activateMine(player, config, tickRate, costMultiplier);
+                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
+                }
                 break;
             default:
                 return;  // Неизвестное умение
         }
 
         if (!activated) return;
+
+        this.logTelemetry("ability_used", { abilityId, slot, level: abilityLevel });
 
         if (abilityId !== "dash") {
             this.clearInvisibility(player);
@@ -569,6 +707,70 @@ export class ArenaRoom extends Room<GameState> {
         player.abilityCooldownTick = player.abilityCooldownEndTick0;
     }
 
+    private getAbilityLevelForSlot(player: Player, slot: number): number {
+        if (slot === 0) return Math.max(0, Math.floor(player.abilityLevel0));
+        if (slot === 1) return Math.max(0, Math.floor(player.abilityLevel1));
+        if (slot === 2) return Math.max(0, Math.floor(player.abilityLevel2));
+        return 0;
+    }
+
+    private setAbilityLevelForSlot(player: Player, slot: number, level: number) {
+        const value = Math.max(1, Math.min(3, Math.floor(level)));
+        if (slot === 0) {
+            player.abilityLevel0 = value;
+            return;
+        }
+        if (slot === 1) {
+            player.abilityLevel1 = value;
+            return;
+        }
+        if (slot === 2) {
+            player.abilityLevel2 = value;
+            return;
+        }
+        console.warn(`[setAbilityLevelForSlot] invalid slot ${slot}`);
+    }
+
+    private getAbilityLevelForAbility(player: Player, abilityId: string): number {
+        if (player.abilitySlot0 === abilityId) return this.getAbilityLevelForSlot(player, 0);
+        if (player.abilitySlot1 === abilityId) return this.getAbilityLevelForSlot(player, 1);
+        if (player.abilitySlot2 === abilityId) return this.getAbilityLevelForSlot(player, 2);
+        return 0;
+    }
+
+    private getAbilityConfigById(abilityId: string, level: number) {
+        const abilities = this.balance.abilities as any;
+        const safeLevel = Math.max(1, Math.min(3, Math.floor(level)));
+        const resolveLevel = (config: any) => {
+            if (!config?.levels || config.levels.length === 0) return config;
+            const index = Math.max(0, Math.min(config.levels.length - 1, safeLevel - 1));
+            return config.levels[index] ?? config;
+        };
+        switch (abilityId) {
+            case "pull":
+            case "magnet":
+                return resolveLevel(abilities.magnet);
+            case "dash":
+                return resolveLevel(abilities.dash);
+            case "shield":
+                return resolveLevel(abilities.shield);
+            case "slow":
+                return resolveLevel(abilities.slow);
+            case "projectile":
+                return resolveLevel(abilities.projectile);
+            case "spit":
+                return resolveLevel(abilities.spit);
+            case "bomb":
+                return resolveLevel(abilities.bomb);
+            case "push":
+                return resolveLevel(abilities.push);
+            case "mine":
+                return resolveLevel(abilities.mine);
+            default:
+                return resolveLevel(abilities.dash);
+        }
+    }
+
     private getAbilityCostPct(player: Player, basePct: number, extraMultiplier = 1): number {
         const reduction = this.clamp(player.mod_abilityCostReduction, 0, 0.9);
         const multiplier = Math.max(0, extraMultiplier);
@@ -581,9 +783,130 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(0.1, baseCooldownSec * (1 - reduction));
     }
 
+    private isBoostActive(player: Player, boostType: BoostType): boolean {
+        if (player.boostType !== boostType) return false;
+        if (player.boostEndTick > 0 && this.tick < player.boostEndTick) return true;
+        this.clearBoost(player);
+        return false;
+    }
+
+    private clearBoost(player: Player) {
+        player.boostType = "";
+        player.boostEndTick = 0;
+        player.boostCharges = 0;
+    }
+
+    private getBoostMaxCharges(boostType: BoostType): number {
+        if (boostType === "guard") {
+            return Math.max(0, Math.floor(this.balance.boosts.guard.charges));
+        }
+        if (boostType === "greed") {
+            return Math.max(0, Math.floor(this.balance.boosts.greed.charges));
+        }
+        return 0;
+    }
+
+    private getRageDamageMultiplier(player: Player): number {
+        if (!this.isBoostActive(player, "rage")) return 1;
+        return Math.max(0, this.balance.boosts.rage.damageMul);
+    }
+
+    private getHasteSpeedMultiplier(player: Player): number {
+        if (!this.isBoostActive(player, "haste")) return 1;
+        return Math.max(0, this.balance.boosts.haste.speedMul);
+    }
+
+    private tryConsumeGuard(player: Player): boolean {
+        if (!this.isBoostActive(player, "guard")) return false;
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+            return false;
+        }
+        player.boostCharges = Math.max(0, player.boostCharges - 1);
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+        }
+        return true;
+    }
+
+    private applyGreedToOrbGain(player: Player, gain: number): number {
+        if (gain <= 0) return gain;
+        if (!this.isBoostActive(player, "greed")) return gain;
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+            return gain;
+        }
+        const multiplier = Math.max(0, this.balance.boosts.greed.bubbleMassMul);
+        const boostedGain = gain * multiplier;
+        player.boostCharges = Math.max(0, player.boostCharges - 1);
+        if (player.boostCharges <= 0) {
+            this.clearBoost(player);
+        }
+        return boostedGain;
+    }
+
+    private getBoostDurationSec(boostType: BoostType): number {
+        switch (boostType) {
+            case "rage":
+                return this.balance.boosts.rage.durationSec;
+            case "haste":
+                return this.balance.boosts.haste.durationSec;
+            case "guard":
+                return this.balance.boosts.guard.durationSec;
+            case "greed":
+                return this.balance.boosts.greed.durationSec;
+            default:
+                return 0;
+        }
+    }
+
+    private applyBoost(player: Player, boostType: BoostType) {
+        const durationSec = this.getBoostDurationSec(boostType);
+        if (durationSec <= 0) return;
+
+        const durationTicks = this.secondsToTicks(durationSec);
+        const maxStackTicks = this.secondsToTicks(this.balance.boosts.maxStackTimeSec);
+        const maxCharges = this.getBoostMaxCharges(boostType);
+
+        const isStacked = player.boostType === boostType && player.boostEndTick > this.tick;
+        if (isStacked) {
+            const stackedEnd = player.boostEndTick + durationTicks;
+            const maxEnd = maxStackTicks > 0 ? this.tick + maxStackTicks : stackedEnd;
+            player.boostEndTick = Math.min(stackedEnd, maxEnd);
+            if (maxCharges > 0) {
+                player.boostCharges = Math.max(player.boostCharges, maxCharges);
+            }
+            this.logTelemetry(
+                "boost_gained",
+                {
+                    boostType,
+                    boostEndTick: player.boostEndTick,
+                    boostCharges: player.boostCharges,
+                    stacked: true,
+                },
+                player
+            );
+            return;
+        }
+
+        player.boostType = boostType;
+        player.boostEndTick = this.tick + durationTicks;
+        player.boostCharges = maxCharges;
+        this.logTelemetry(
+            "boost_gained",
+            {
+                boostType,
+                boostEndTick: player.boostEndTick,
+                boostCharges: player.boostCharges,
+                stacked: false,
+            },
+            player
+        );
+    }
+
     private getDamageBonusMultiplier(attacker: Player, includeBiteBonus: boolean): number {
         const bonus = attacker.mod_damageBonus + (includeBiteBonus ? attacker.mod_biteDamageBonus : 0);
-        return Math.max(0, 1 + bonus);
+        return Math.max(0, (1 + bonus) * this.getRageDamageMultiplier(attacker));
     }
 
     private getDamageTakenMultiplier(defender: Player): number {
@@ -635,8 +958,13 @@ export class ArenaRoom extends Room<GameState> {
         // Расчёт направления рывка (по текущему углу слайма)
         const angle = player.angle;
         const distance = config.distanceM * (1 + player.mod_dashDistanceBonus);
-        player.dashTargetX = player.x + Math.cos(angle) * distance;
-        player.dashTargetY = player.y + Math.sin(angle) * distance;
+        const rawTargetX = player.x + Math.cos(angle) * distance;
+        const rawTargetY = player.y + Math.sin(angle) * distance;
+        
+        // Clamp к границам мира (учитывает worldShape: rectangle/circle и width/height)
+        const clamped = this.clampPointToWorld(rawTargetX, rawTargetY);
+        player.dashTargetX = clamped.x;
+        player.dashTargetY = clamped.y;
         player.dashEndTick = this.tick + Math.round(config.durationSec * tickRate);
         
         // Устанавливаем флаг
@@ -743,9 +1071,16 @@ export class ArenaRoom extends Room<GameState> {
         if (player.mod_projectileRicochet > 0) {
             proj.remainingRicochets = Math.round(player.mod_projectileRicochet);
         }
-        if (player.mod_projectilePiercingHits > 1) {
-            proj.remainingPierces = Math.round(player.mod_projectilePiercingHits);
-            proj.piercingDamagePct = player.mod_projectilePiercingDamagePct;
+        const basePierceHits = Math.max(0, Math.round(config.piercingHits ?? 0));
+        const basePierceDamagePct = Math.max(0, Number(config.piercingDamagePct ?? 0));
+        const talentPierceHits = Math.max(0, Math.round(player.mod_projectilePiercingHits || 0));
+        const talentPierceDamagePct = Math.max(0, Number(player.mod_projectilePiercingDamagePct || 0));
+        // Пробивание берётся как максимум между умением и талантом, без суммирования.
+        const totalPierceHits = Math.max(basePierceHits, talentPierceHits);
+        const totalPierceDamagePct = Math.max(basePierceDamagePct, talentPierceDamagePct);
+        if (totalPierceHits > 1) {
+            proj.remainingPierces = totalPierceHits;
+            proj.piercingDamagePct = totalPierceDamagePct;
         }
         
         this.state.projectiles.set(proj.id, proj);
@@ -825,6 +1160,64 @@ export class ArenaRoom extends Room<GameState> {
         return true;
     }
 
+    private applyPushWave(
+        sourceX: number,
+        sourceY: number,
+        radiusM: number,
+        impulseNs: number,
+        minSpeedMps: number,
+        maxSpeedMps: number,
+        excludeId?: string
+    ) {
+        if (radiusM <= 0 || impulseNs <= 0) return;
+        const radiusSq = radiusM * radiusM;
+
+        for (const other of this.state.players.values()) {
+            if (excludeId && other.id === excludeId) continue;
+            if (other.isDead) continue;
+            const dx = other.x - sourceX;
+            const dy = other.y - sourceY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const otherMass = Math.max(other.mass, this.balance.physics.minSlimeMass);
+            const speed = this.clamp(impulseNs / otherMass, minSpeedMps, maxSpeedMps);
+            other.vx += nx * speed;
+            other.vy += ny * speed;
+        }
+
+        for (const orb of this.state.orbs.values()) {
+            const dx = orb.x - sourceX;
+            const dy = orb.y - sourceY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const orbMass = Math.max(orb.mass, 1);
+            const speed = this.clamp(impulseNs / orbMass, 50, 200);
+            orb.vx += nx * speed;
+            orb.vy += ny * speed;
+        }
+
+        for (const chest of this.state.chests.values()) {
+            const dx = chest.x - sourceX;
+            const dy = chest.y - sourceY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > radiusSq || distSq < 0.01) continue;
+            const dist = Math.sqrt(distSq);
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
+            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
+            const speed = this.clamp(impulseNs / chestMass, 20, 80);
+            chest.vx += nx * speed;
+            chest.vy += ny * speed;
+        }
+    }
+
     private activatePush(
         player: Player,
         config: typeof this.balance.abilities.push,
@@ -838,71 +1231,15 @@ export class ArenaRoom extends Room<GameState> {
         this.applyMassDelta(player, -massCost);
         
         player.pushEndTick = this.tick + Math.max(1, Math.round(0.25 * tickRate));
-        
-        const radiusSq = config.radiusM * config.radiusM;
-        
-        // Отталкиваем игроков в радиусе
-        for (const other of this.state.players.values()) {
-            if (other.id === player.id || other.isDead) continue;
-            
-            const dx = other.x - player.x;
-            const dy = other.y - player.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // Скорость = impulse / mass, но с ограничением
-            const otherMass = Math.max(other.mass, this.balance.physics.minSlimeMass);
-            const speed = this.clamp(config.impulseNs / otherMass, 30, 120);
-            
-            other.vx += nx * speed;
-            other.vy += ny * speed;
-        }
-        
-        // Отталкиваем орбы в радиусе
-        for (const orb of this.state.orbs.values()) {
-            const dx = orb.x - player.x;
-            const dy = orb.y - player.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // Орбы легче - отталкиваются сильнее
-            const orbMass = Math.max(orb.mass, 1);
-            const speed = this.clamp(config.impulseNs / orbMass, 50, 200);
-            
-            orb.vx += nx * speed;
-            orb.vy += ny * speed;
-        }
-        
-        // Отталкиваем сундуки в радиусе (та же формула, но они тяжелее)
-        for (const chest of this.state.chests.values()) {
-            const dx = chest.x - player.x;
-            const dy = chest.y - player.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            
-            // GDD v3.3: Масса сундука зависит от типа
-            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
-            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
-            const speed = this.clamp(config.impulseNs / chestMass, 20, 80);
-            
-            chest.vx += nx * speed;
-            chest.vy += ny * speed;
-        }
+        this.applyPushWave(
+            player.x,
+            player.y,
+            config.radiusM,
+            config.impulseNs,
+            config.minSpeedMps,
+            config.maxSpeedMps,
+            player.id
+        );
         return true;
     }
 
@@ -975,536 +1312,15 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private flightAssistSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) {
-                player.assistFx = 0;
-                player.assistFy = 0;
-                player.assistTorque = 0;
-                continue;
-            }
-
-            const slimeConfig = this.getSlimeConfig(player);
-            const classStats = this.getClassStats(player);
-            const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
-            const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
-
-            // Масштабируем параметры тяги по массе
-            let thrustForward = scaleSlimeValue(
-                slimeConfig.propulsion.thrustForwardN,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.thrustForwardN
-            );
-            let thrustReverse = scaleSlimeValue(
-                slimeConfig.propulsion.thrustReverseN,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.thrustReverseN
-            );
-            let thrustLateral = scaleSlimeValue(
-                slimeConfig.propulsion.thrustLateralN,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.thrustLateralN
-            );
-            const turnTorque = scaleSlimeValue(
-                slimeConfig.propulsion.turnTorqueNm,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.turnTorqueNm
-            );
-
-            // Таланты: бонусы к тяге
-            thrustForward *= 1 + player.mod_thrustForwardBonus;
-            thrustReverse *= 1 + player.mod_thrustReverseBonus;
-            thrustLateral *= 1 + player.mod_thrustLateralBonus;
-
-            // Таланты: бонус к повороту
-            const turnTorqueAdjusted = turnTorque * (1 + player.mod_turnBonus);
-
-            // Масштабируем лимиты скорости по массе
-            let speedLimitForward = scaleSlimeValue(
-                slimeConfig.limits.speedLimitForwardMps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.speedLimitForwardMps
-            );
-            let speedLimitReverse = scaleSlimeValue(
-                slimeConfig.limits.speedLimitReverseMps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.speedLimitReverseMps
-            );
-            let speedLimitLateral = scaleSlimeValue(
-                slimeConfig.limits.speedLimitLateralMps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.speedLimitLateralMps
-            );
-            const speedBonus = 1 + player.mod_speedLimitBonus + player.mod_lightningSpeedBonus;
-            speedLimitForward *= speedBonus;
-            speedLimitReverse *= speedBonus;
-            speedLimitLateral *= speedBonus;
-            let angularLimit = scaleSlimeValue(
-                slimeConfig.limits.angularSpeedLimitRadps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.angularSpeedLimitRadps
-            );
-
-            // Штраф last-breath применяется ко всем лимитам
-            if (player.isLastBreath) {
-                const penalty = this.balance.combat.lastBreathSpeedPenalty;
-                thrustForward *= penalty;
-                thrustReverse *= penalty;
-                thrustLateral *= penalty;
-                speedLimitForward *= penalty;
-                speedLimitReverse *= penalty;
-                speedLimitLateral *= penalty;
-                angularLimit *= penalty;
-            }
-
-            // Замедление от эффектов (SlowZone/Frost/Toxic)
-            if (player.slowPct > 0) {
-                const slowMult = 1 - player.slowPct;
-                speedLimitForward *= slowMult;
-                speedLimitReverse *= slowMult;
-                speedLimitLateral *= slowMult;
-            }
-
-            // Максимальное угловое ускорение из ТТХ
-            const maxAngularAccel = turnTorqueAdjusted / inertia;
-
-            // Читаем ввод джойстика
-            const inputX = player.inputX;
-            const inputY = player.inputY;
-            const inputMag = Math.hypot(inputX, inputY);
-            const hasInput = inputMag > slimeConfig.assist.inputMagnitudeThreshold;
-
-            // Локальные оси слайма
-            const forwardX = Math.cos(player.angle);
-            const forwardY = Math.sin(player.angle);
-            const rightX = -forwardY;
-            const rightY = forwardX;
-
-            // === ПОВОРОТ (fly-by-wire с честной физикой) ===
-            let yawCmd = 0;
-            let predictiveBraking = false; // Флаг опережающего торможения
-            
-            if (hasInput) {
-                const targetAngle = Math.atan2(inputY, inputX);
-                const angleDelta = this.normalizeAngle(targetAngle - player.angle);
-
-                const angularDeadzone = slimeConfig.assist.angularDeadzoneRad;
-                if (Math.abs(angleDelta) > angularDeadzone) {
-                    const yawFull = slimeConfig.assist.yawFullDeflectionAngleRad;
-                    if (yawFull > 1e-6) {
-                        // Опережающее торможение (U2 FA:ON стиль):
-                        // Учитываем пассивное демпфирование angularDragK при расчёте stoppingAngle
-                        // effectiveDecel = maxAngularAccel + angularDragK * |angVel| (примерно)
-                        const angularDragK = this.balance.worldPhysics.angularDragK;
-                        const effectiveDecel = maxAngularAccel + angularDragK * Math.abs(player.angVel);
-                        const stoppingAngle = (player.angVel * player.angVel) / (2 * effectiveDecel + 1e-6);
-                        const movingTowardsTarget = (player.angVel > 0 && angleDelta > 0) || (player.angVel < 0 && angleDelta < 0);
-                        
-                        if (movingTowardsTarget && stoppingAngle >= Math.abs(angleDelta)) {
-                            // Перелёт неизбежен → тормозим
-                            predictiveBraking = true;
-                            yawCmd = 0;
-                            // Очищаем историю осцилляций при торможении
-                            player.yawSignHistory.length = 0;
-                        } else {
-                            yawCmd = this.clamp(angleDelta / yawFull, -1, 1);
-                            yawCmd = this.clamp(yawCmd * slimeConfig.assist.yawRateGain, -1, 1);
-                            yawCmd = this.applyYawOscillationDamping(player, yawCmd, slimeConfig);
-                        }
-                    }
-                } else {
-                    player.yawSignHistory.length = 0;
-                }
-            } else {
-                player.yawSignHistory.length = 0;
-            }
-
-            const hasYawInput = hasInput && Math.abs(yawCmd) >= slimeConfig.assist.yawCmdEps && !predictiveBraking;
-            let torque = 0;
-            if (hasYawInput) {
-                const desiredAngVel = yawCmd * angularLimit;
-                const angVelError = desiredAngVel - player.angVel;
-                // Минимум 1мс для избежания деления на слишком малое значение
-                const reactionTime = Math.max(slimeConfig.assist.reactionTimeS, 0.001);
-                const desiredAlpha = angVelError / reactionTime;
-                const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
-                torque = inertia * clampedAlpha;
-            } else if (Math.abs(player.angVel) > 1e-3) {
-                // Brake boost: торможение быстрее при отсутствии ввода (как в U2 FA:ON)
-                // При опережающем торможении используем максимальное ускорение
-                const boostFactor = predictiveBraking ? 1.0 : (slimeConfig.assist.angularBrakeBoostFactor || 1.0);
-                const brakeTime = predictiveBraking 
-                    ? dt  // Максимально быстрое торможение при опережающем
-                    : Math.max(slimeConfig.assist.angularStopTimeS / boostFactor, dt);
-                const desiredAlpha = -player.angVel / brakeTime;
-                const clampedAlpha = this.clamp(desiredAlpha, -maxAngularAccel, maxAngularAccel);
-                torque = inertia * clampedAlpha;
-            }
-
-            // === ДВИЖЕНИЕ (fly-by-wire с честной физикой) ===
-            // Проецируем желаемую скорость на локальные оси слайма
-            let desiredVx = 0;
-            let desiredVy = 0;
-            
-            if (hasInput) {
-                const inputDirX = inputX / inputMag;
-                const inputDirY = inputY / inputMag;
-                
-                // Проекция направления ввода на оси слайма
-                const inputForward = inputDirX * forwardX + inputDirY * forwardY;
-                const inputRight = inputDirX * rightX + inputDirY * rightY;
-                
-                // Желаемая скорость по каждой оси с учётом лимитов
-                const desiredForwardSpeed = inputForward >= 0 
-                    ? inputForward * inputMag * speedLimitForward 
-                    : inputForward * inputMag * speedLimitReverse;
-                const desiredLateralSpeed = inputRight * inputMag * speedLimitLateral;
-                
-                // Переводим обратно в мировые координаты
-                desiredVx = forwardX * desiredForwardSpeed + rightX * desiredLateralSpeed;
-                desiredVy = forwardY * desiredForwardSpeed + rightY * desiredLateralSpeed;
-            }
-
-            // Ошибка скорости в мировых координатах
-            const vErrorX = desiredVx - player.vx;
-            const vErrorY = desiredVy - player.vy;
-
-            // Проецируем ошибку на локальные оси
-            const errorForward = vErrorX * forwardX + vErrorY * forwardY;
-            const errorRight = vErrorX * rightX + vErrorY * rightY;
-
-            let forceForward = 0;
-            let forceRight = 0;
-
-            // Время разгона/торможения
-            const accelTime = hasInput ? slimeConfig.assist.accelTimeS : slimeConfig.assist.comfortableBrakingTimeS;
-
-            // Сила по оси forward (вперёд/назад)
-            if (Math.abs(errorForward) > slimeConfig.assist.velocityErrorThreshold) {
-                const desiredAccelForward = errorForward / Math.max(accelTime, dt);
-                // Выбираем лимит тяги в зависимости от направления
-                const thrustLimit = errorForward >= 0 ? thrustForward : thrustReverse;
-                const maxAccelForward = thrustLimit / mass;
-                const clampedAccelForward = this.clamp(desiredAccelForward, -maxAccelForward, maxAccelForward);
-                forceForward = mass * clampedAccelForward;
-            }
-
-            // Сила по оси right (боковое движение)
-            if (Math.abs(errorRight) > slimeConfig.assist.velocityErrorThreshold) {
-                const desiredAccelRight = errorRight / Math.max(accelTime, dt);
-                const maxAccelRight = thrustLateral / mass;
-                const clampedAccelRight = this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
-                forceRight = mass * clampedAccelRight;
-            }
-
-            const overspeedRate = slimeConfig.assist.overspeedDampingRate;
-            if (overspeedRate > 0) {
-                const vForward = player.vx * forwardX + player.vy * forwardY;
-                const forwardLimit = vForward >= 0 ? speedLimitForward : speedLimitReverse;
-                const forwardExcess = Math.abs(vForward) - forwardLimit;
-                if (forwardExcess > 0) {
-                    const dvTarget = -Math.sign(vForward) * forwardExcess * overspeedRate;
-                    const desiredAccelForward = dvTarget / dt;
-                    const thrustLimit = vForward >= 0 ? thrustReverse : thrustForward;
-                    const maxAccelForward = thrustLimit / mass;
-                    let brakeForce = mass * this.clamp(desiredAccelForward, -maxAccelForward, maxAccelForward);
-                    if (!hasInput) {
-                        brakeForce *= slimeConfig.assist.autoBrakeMaxThrustFraction;
-                    }
-                    forceForward += brakeForce;
-                }
-
-                const vRight = player.vx * rightX + player.vy * rightY;
-                const lateralExcess = Math.abs(vRight) - speedLimitLateral;
-                if (lateralExcess > 0) {
-                    const dvTarget = -Math.sign(vRight) * lateralExcess * overspeedRate;
-                    const desiredAccelRight = dvTarget / dt;
-                    const maxAccelRight = thrustLateral / mass;
-                    let brakeForce = mass * this.clamp(desiredAccelRight, -maxAccelRight, maxAccelRight);
-                    if (!hasInput) {
-                        brakeForce *= slimeConfig.assist.autoBrakeMaxThrustFraction;
-                    }
-                    forceRight += brakeForce;
-                }
-            }
-
-            forceForward = this.clamp(forceForward, -thrustReverse, thrustForward);
-            forceRight = this.clamp(forceRight, -thrustLateral, thrustLateral);
-
-            // Переводим силу в мировые координаты
-            const forceX = forwardX * forceForward + rightX * forceRight;
-            const forceY = forwardY * forceForward + rightY * forceRight;
-
-            player.assistFx = forceX;
-            player.assistFy = forceY;
-            player.assistTorque = torque;
-        }
+        flightAssistSystem(this);
     }
 
     private physicsSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        const world = this.balance.worldPhysics;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-
-            // Dash movement: линейная интерполяция к цели
-            if ((player.flags & FLAG_DASHING) !== 0 && player.dashEndTick > 0) {
-                const dashConfig = this.balance.abilities.dash;
-                const dashDurationTicks = Math.round(dashConfig.durationSec * this.balance.server.tickRate);
-                const ticksRemaining = player.dashEndTick - this.tick;
-                const progress = 1 - ticksRemaining / dashDurationTicks;
-                
-                // Линейное движение к цели
-                const startX = player.dashTargetX - Math.cos(player.angle) * dashConfig.distanceM;
-                const startY = player.dashTargetY - Math.sin(player.angle) * dashConfig.distanceM;
-                player.x = startX + (player.dashTargetX - startX) * progress;
-                player.y = startY + (player.dashTargetY - startY) * progress;
-                
-                // Обнуляем скорость во время рывка, потом восстановим в направлении
-                const dashSpeed = dashConfig.distanceM / dashConfig.durationSec;
-                player.vx = Math.cos(player.angle) * dashSpeed;
-                player.vy = Math.sin(player.angle) * dashSpeed;
-                continue;
-            }
-
-            const slimeConfig = this.getSlimeConfig(player);
-            const classStats = this.getClassStats(player);
-            const mass = Math.max(player.mass, this.balance.physics.minSlimeMass);
-            const inertia = this.getSlimeInertiaForPlayer(player, slimeConfig, classStats);
-
-            const dragFx = -mass * world.linearDragK * player.vx;
-            const dragFy = -mass * world.linearDragK * player.vy;
-            const dragTorque = -inertia * world.angularDragK * player.angVel;
-
-            const totalFx = player.assistFx + dragFx;
-            const totalFy = player.assistFy + dragFy;
-            player.vx += (totalFx / mass) * dt;
-            player.vy += (totalFy / mass) * dt;
-            player.x += player.vx * dt;
-            player.y += player.vy * dt;
-
-            const totalTorque = player.assistTorque + dragTorque;
-            player.angVel += (totalTorque / Math.max(inertia, 1e-6)) * dt;
-            let angularLimit = scaleSlimeValue(
-                slimeConfig.limits.angularSpeedLimitRadps,
-                mass,
-                slimeConfig,
-                slimeConfig.massScaling.angularSpeedLimitRadps
-            );
-            // Штраф last-breath применяется и к угловому лимиту
-            if (player.isLastBreath) {
-                angularLimit *= this.balance.combat.lastBreathSpeedPenalty;
-            }
-            if (angularLimit > 0 && Math.abs(player.angVel) > angularLimit) {
-                player.angVel = Math.sign(player.angVel) * angularLimit;
-            }
-            player.angle = this.normalizeAngle(player.angle + player.angVel * dt);
-        }
+        physicsSystem(this);
     }
 
     private collisionSystem() {
-        const players = Array.from(this.state.players.values());
-        const orbs = Array.from(this.state.orbs.entries());
-        const chests = Array.from(this.state.chests.entries());
-        const iterations = 4;
-        const slop = 0.001;
-        const percent = 0.8;
-        const restitution = this.balance.worldPhysics.restitution;
-        const maxCorrection = this.balance.worldPhysics.maxPositionCorrectionM;
-
-        for (let iter = 0; iter < iterations; iter += 1) {
-            // Столкновения слайм-слайм
-            for (let i = 0; i < players.length; i += 1) {
-                const p1 = players[i];
-                if (p1.isDead) continue;
-                for (let j = i + 1; j < players.length; j += 1) {
-                    const p2 = players[j];
-                    if (p2.isDead) continue;
-
-                    const dx = p2.x - p1.x;
-                    const dy = p2.y - p1.y;
-                    const r1 = this.getPlayerRadius(p1);
-                    const r2 = this.getPlayerRadius(p2);
-                    const minDist = r1 + r2;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-                    const invMass1 = p1.mass > 0 ? 1 / p1.mass : 0;
-                    const invMass2 = p2.mass > 0 ? 1 / p2.mass : 0;
-                    const invMassSum = invMass1 + invMass2;
-
-                    if (invMassSum > 0) {
-                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
-                        const corrMag = Math.min(corrRaw, maxCorrection);
-                        const corrX = nx * corrMag;
-                        const corrY = ny * corrMag;
-                        p1.x -= corrX * invMass1;
-                        p1.y -= corrY * invMass1;
-                        p2.x += corrX * invMass2;
-                        p2.y += corrY * invMass2;
-
-                        const rvx = p2.vx - p1.vx;
-                        const rvy = p2.vy - p1.vy;
-                        const velAlongNormal = rvx * nx + rvy * ny;
-                        if (velAlongNormal <= 0) {
-                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
-                            const impulseX = nx * jImpulse;
-                            const impulseY = ny * jImpulse;
-                            p1.vx -= impulseX * invMass1;
-                            p1.vy -= impulseY * invMass1;
-                            p2.vx += impulseX * invMass2;
-                            p2.vy += impulseY * invMass2;
-                        }
-                    }
-
-                    this.processCombat(p1, p2, dx, dy);
-                    this.processCombat(p2, p1, -dx, -dy);
-                }
-            }
-
-            // Столкновения слайм-орб (физика + поедание ртом)
-            for (const player of players) {
-                if (player.isDead) continue;
-                const playerRadius = this.getPlayerRadius(player);
-                const playerAngleRad = player.angle;
-                const mouthHalf = this.getMouthHalfAngle(player);
-
-                for (const [orbId, orb] of orbs) {
-                    if (!this.state.orbs.has(orbId)) continue;
-
-                    const dx = orb.x - player.x;
-                    const dy = orb.y - player.y;
-                    const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-                    const orbRadius = getOrbRadius(orb.mass, type.density);
-                    const minDist = playerRadius + orbRadius;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-
-                    // Физическая масса орба = пищевая масса (без множителя density)
-                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
-                    const invMassOrb = orb.mass > 0 ? 1 / orb.mass : 0;
-                    const invMassSum = invMassPlayer + invMassOrb;
-
-                    if (invMassSum > 0) {
-                        // Позиционная коррекция
-                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
-                        const corrMag = Math.min(corrRaw, maxCorrection);
-                        const corrX = nx * corrMag;
-                        const corrY = ny * corrMag;
-                        player.x -= corrX * invMassPlayer;
-                        player.y -= corrY * invMassPlayer;
-                        orb.x += corrX * invMassOrb;
-                        orb.y += corrY * invMassOrb;
-
-                        // Импульсное отталкивание (закон сохранения импульса)
-                        const rvx = orb.vx - player.vx;
-                        const rvy = orb.vy - player.vy;
-                        const velAlongNormal = rvx * nx + rvy * ny;
-                        if (velAlongNormal <= 0) {
-                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
-                            const impulseX = nx * jImpulse;
-                            const impulseY = ny * jImpulse;
-                            player.vx -= impulseX * invMassPlayer;
-                            player.vy -= impulseY * invMassPlayer;
-                            orb.vx += impulseX * invMassOrb;
-                            orb.vy += impulseY * invMassOrb;
-                        }
-                    }
-
-                    // Проверка поедания ртом
-                    const angleToOrb = Math.atan2(dy, dx);
-                    let angleDiff = angleToOrb - playerAngleRad;
-                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                    const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
-
-                    // GDD v3.3: GCD между умениями и укусами
-                    const gcdReady = this.tick >= player.gcdReadyTick;
-                    if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
-                        this.tryEatOrb(player, orbId, orb);
-                    }
-                }
-            }
-
-            // Столкновения слайм-сундук (физика)
-            for (const player of players) {
-                if (player.isDead) continue;
-                const playerRadius = this.getPlayerRadius(player);
-
-                for (const [chestId, chest] of chests) {
-                    if (!this.state.chests.has(chestId)) continue;
-
-                    const dx = chest.x - player.x;
-                    const dy = chest.y - player.y;
-                    const minDist = playerRadius + this.balance.chests.radius;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq >= minDist * minDist) continue;
-
-                    const dist = Math.sqrt(distSq);
-                    const nx = dist > 0 ? dx / dist : 1;
-                    const ny = dist > 0 ? dy / dist : 0;
-                    const penetration = minDist - (dist || 0);
-
-                    const invMassPlayer = player.mass > 0 ? 1 / player.mass : 0;
-                    const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
-                    const chestMass = Math.max(
-                        this.balance.chests.types?.[chestTypeId]?.mass ?? this.balance.chests.mass,
-                        50
-                    );
-                    const invMassChest = chestMass > 0 ? 1 / chestMass : 0;
-                    const invMassSum = invMassPlayer + invMassChest;
-
-                    if (invMassSum > 0) {
-                        const corrRaw = (Math.max(penetration - slop, 0) / invMassSum) * percent;
-                        const corrMag = Math.min(corrRaw, maxCorrection);
-                        const corrX = nx * corrMag;
-                        const corrY = ny * corrMag;
-                        player.x -= corrX * invMassPlayer;
-                        player.y -= corrY * invMassPlayer;
-                        chest.x += corrX * invMassChest;
-                        chest.y += corrY * invMassChest;
-
-                        const rvx = chest.vx - player.vx;
-                        const rvy = chest.vy - player.vy;
-                        const velAlongNormal = rvx * nx + rvy * ny;
-                        if (velAlongNormal <= 0) {
-                            const jImpulse = (-(1 + restitution) * velAlongNormal) / invMassSum;
-                            const impulseX = nx * jImpulse;
-                            const impulseY = ny * jImpulse;
-                            player.vx -= impulseX * invMassPlayer;
-                            player.vy -= impulseY * invMassPlayer;
-                            chest.vx += impulseX * invMassChest;
-                            chest.vy += impulseY * invMassChest;
-                        }
-                    }
-                }
-            }
-
-            for (const player of players) {
-                if (player.isDead) continue;
-                this.applyWorldBounds(player, this.getPlayerRadius(player));
-            }
-
-            // Столкновения орб-орб
-            this.orbOrbCollisions(restitution);
-        }
+        collisionSystem(this);
     }
 
     /**
@@ -1517,21 +1333,28 @@ export class ArenaRoom extends Room<GameState> {
 
         const slimeConfig = this.getSlimeConfig(player);
         const classStats = this.getClassStats(player);
+        const orbBiteMinMass = this.balance.orbs.orbBiteMinMass;
+        const orbBiteMaxMass = this.balance.orbs.orbBiteMaxMass;
+        // GCD ставится при попытке укуса, даже если масса ниже порога.
+        if (player.mass < orbBiteMinMass) return;
         const bitePct = slimeConfig.combat.orbBitePctOfMass * classStats.eatingPowerMult;
 
         // Если orb.mass <= bitePct * player.mass - проглотить целиком
         // Иначе - откусить bitePct * player.mass
-        const swallowThreshold = player.mass * bitePct;
+        const effectiveMass = Math.min(player.mass, orbBiteMaxMass);
+        const swallowThreshold = effectiveMass * bitePct;
         const canSwallow = orb.mass <= swallowThreshold;
 
         if (canSwallow || orb.mass <= this.balance.orbs.minMass) {
-            const gain = orb.mass * (1 + player.mod_orbMassBonus);
+            const baseGain = orb.mass * (1 + player.mod_orbMassBonus);
+            const gain = this.applyGreedToOrbGain(player, baseGain);
             this.applyMassDelta(player, gain);
             this.state.orbs.delete(orbId);
         } else {
             const biteMass = swallowThreshold;
             orb.mass -= biteMass;
-            const gain = biteMass * (1 + player.mod_orbMassBonus);
+            const baseGain = biteMass * (1 + player.mod_orbMassBonus);
+            const gain = this.applyGreedToOrbGain(player, baseGain);
             this.applyMassDelta(player, gain);
         }
     }
@@ -1612,16 +1435,6 @@ export class ArenaRoom extends Room<GameState> {
             return;
         }
         
-        // Щит блокирует урон полностью - GCD применяется
-        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
-            // Щит снимается при атаке (согласно GDD)
-            defender.shieldEndTick = 0;
-            defender.flags &= ~FLAG_ABILITY_SHIELD; // Очищаем флаг сразу
-            attacker.lastAttackTick = this.tick; // Атака уходит на кулдаун
-            attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-            return;
-        }
-
         const attackerZone = this.getContactZone(attacker, dx, dy);
         if (attackerZone !== "mouth") return;
 
@@ -1630,7 +1443,13 @@ export class ArenaRoom extends Room<GameState> {
         if (defenderZone === "tail") {
             zoneMultiplier = this.balance.combat.tailDamageMultiplier;
         } else if (defenderZone === "mouth") {
-            zoneMultiplier = 0.5;
+            const attackerMass = attacker.mass;
+            const defenderMass = defender.mass;
+            if (!(attackerMass > defenderMass * 1.1)) {
+                attacker.lastAttackTick = this.tick;
+                attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
+                return;
+            }
         }
 
         const classStats = this.getClassStats(attacker);
@@ -1640,7 +1459,10 @@ export class ArenaRoom extends Room<GameState> {
         // Mass-as-HP: укус отбирает % массы жертвы
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
         const victimMassBefore = Math.max(0, defender.mass);
-        const damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
+        let damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
+        if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
+            damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
+        }
         const damageTakenMult = this.getDamageTakenMultiplier(defender);
         const multiplier = zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult;
         
@@ -1651,6 +1473,17 @@ export class ArenaRoom extends Room<GameState> {
         attacker.lastAttackTick = this.tick;
         // GDD v3.3: GCD после укуса слайма
         attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
+
+        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
+            this.applyShieldReflection(defender, attacker, massLoss);
+            this.clearInvisibility(attacker);
+            return;
+        }
+
+        if (this.tryConsumeGuard(defender)) {
+            this.clearInvisibility(attacker);
+            return;
+        }
 
         // Проверка Last Breath: если масса упадёт ниже минимума
         const newDefenderMass = defender.mass - massLoss;
@@ -1680,18 +1513,47 @@ export class ArenaRoom extends Room<GameState> {
             attackerGainPct = attacker.mod_vampireTailGainPct;
             scatterPct = Math.max(0, totalRewardPct - attackerGainPct);
         }
-        const attackerGain = totalRewardPct > 0 ? massLoss * (attackerGainPct / totalRewardPct) : 0;
-        const scatterMass = totalRewardPct > 0 ? massLoss * (scatterPct / totalRewardPct) : 0;
-
-        // Применяем изменения массы
+        // Применяем потерю массы жертвы сначала, чтобы получить ФАКТИЧЕСКУЮ потерю
+        const defenderMassBefore = defender.mass;
         this.applyMassDelta(defender, -massLoss);
+        const defenderMassAfter = defender.mass;
+        const actualLoss = defenderMassBefore - defenderMassAfter;
+        
+        // ИНВАРИАНТ: награды рассчитываются от ФАКТИЧЕСКОЙ потери (после clamp)
+        // Это гарантирует, что масса не создаётся из воздуха
+        const attackerGain = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (attackerGainPct / totalRewardPct) : 0;
+        const scatterMass = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (scatterPct / totalRewardPct) : 0;
+
+        // Проверка инварианта: награды не могут превысить фактическую потерю
+        if (attackerGain + scatterMass > actualLoss + 0.001) {
+            console.warn(`[processCombat] Invariant violation: rewards ${attackerGain + scatterMass} > actualLoss ${actualLoss}`);
+        }
+
+        // Применяем прибыль атакующему
         this.applyMassDelta(attacker, attackerGain);
         defender.lastDamagedById = attacker.id;
         defender.lastDamagedAtTick = this.tick;
         
+        // Талант "Шипы" (Warrior): отражение урона атакующему
+        if (defender.mod_thornsDamage > 0 && actualLoss > 0) {
+            const reflectedDamage = actualLoss * defender.mod_thornsDamage;
+            if (reflectedDamage > 0 && !this.tryConsumeGuard(attacker)) {
+                this.applyMassDelta(attacker, -reflectedDamage);
+                // Scatter orbs цвета атакующего от отражённого урона
+                const scatterReflected = reflectedDamage * this.balance.combat.pvpBiteScatterPct;
+                this.spawnPvPBiteOrbs(attacker.x, attacker.y, scatterReflected, this.getDamageOrbColorId(attacker));
+            }
+        }
+        
+        // Талант "Паразит" (Collector): кража массы при нанесении урона
+        if (attacker.mod_parasiteMass > 0 && actualLoss > 0) {
+            const stolenMass = actualLoss * attacker.mod_parasiteMass;
+            this.applyMassDelta(attacker, stolenMass);
+        }
+        
         // Scatter orbs: разлёт пузырей цвета жертвы
         if (scatterMass > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, defender.classId + 10);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, this.getDamageOrbColorId(defender));
         }
 
         if (attacker.mod_poisonDamagePctPerSec > 0 && attacker.mod_poisonDurationSec > 0) {
@@ -1733,16 +1595,58 @@ export class ArenaRoom extends Room<GameState> {
         defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
     }
 
+    private applyShieldReflection(defender: Player, attacker: Player, incomingLoss: number) {
+        if (incomingLoss <= 0) return;
+        if (attacker.isDead || attacker.isLastBreath) return;
+        if (this.tick < attacker.invulnerableUntilTick) return;
+
+        const shieldLevel = this.getAbilityLevelForAbility(defender, "shield") || 1;
+        const shieldConfig = this.getAbilityConfigById("shield", shieldLevel);
+        const reflectPct = Math.max(0, Number(shieldConfig.reflectDamagePct ?? 0));
+        if (reflectPct <= 0) return;
+
+        const reflectedDamage = incomingLoss * reflectPct;
+        if (reflectedDamage <= 0) return;
+
+        if (this.tryConsumeGuard(attacker)) return;
+
+        this.applyMassDelta(attacker, -reflectedDamage);
+        attacker.lastDamagedById = defender.id;
+        attacker.lastDamagedAtTick = this.tick;
+        this.spawnPvPBiteOrbs(attacker.x, attacker.y, reflectedDamage * 0.5, this.getDamageOrbColorId(attacker));
+    }
+
     /**
      * Создаёт орбы, разлетающиеся от точки укуса PvP.
      * Эти орбы игнорируют maxCount - боевая механика важнее лимита.
-     * @param colorId - colorId орбов (classId + 10 для цвета жертвы)
+     * @param colorId - colorId орбов (classId + 10 или золотой для Короля)
      */
     private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
         const count = this.balance.combat.pvpBiteScatterOrbCount;
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
         if (count <= 0 || totalMass <= 0) return;
+        if (totalMass < minOrbMass) return;
         
+        // Если общая масса слишком мала - не создаём мелкие орбы
         const perOrbMass = totalMass / count;
+        if (perOrbMass < minOrbMass) {
+            // Объединяем в меньшее количество орбов с минимальной массой
+            const actualCount = Math.floor(totalMass / minOrbMass);
+            if (actualCount <= 0) return; // Масса слишком мала даже для 1 орба
+            
+            const actualPerOrb = totalMass / actualCount;
+            const angleStep = (Math.PI * 2) / actualCount;
+            const speed = this.balance.combat.pvpBiteScatterSpeed;
+            
+            for (let i = 0; i < actualCount; i++) {
+                const angle = i * angleStep + this.rng.range(-0.3, 0.3);
+                const orb = this.forceSpawnOrb(x, y, actualPerOrb, colorId);
+                orb.vx = Math.cos(angle) * speed;
+                orb.vy = Math.sin(angle) * speed;
+            }
+            return;
+        }
+        
         const angleStep = (Math.PI * 2) / count;
         const speed = this.balance.combat.pvpBiteScatterSpeed;
         
@@ -1756,120 +1660,7 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     private projectileSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        const toRemove: string[] = [];
-        const mapSize = this.balance.world.mapSize;
-        const worldHalfW = mapSize / 2;
-        const worldHalfH = mapSize / 2;
-        
-        for (const [projId, proj] of this.state.projectiles.entries()) {
-            // Движение
-            proj.x += proj.vx * dt;
-            proj.y += proj.vy * dt;
-            
-            // Проверка дистанции
-            const dx = proj.x - proj.startX;
-            const dy = proj.y - proj.startY;
-            const distSq = dx * dx + dy * dy;
-            const maxDistReached = distSq > proj.maxRangeM * proj.maxRangeM;
-            
-            // Проверка границ мира
-            const outX = Math.abs(proj.x) > worldHalfW;
-            const outY = Math.abs(proj.y) > worldHalfH;
-            const outOfBounds = outX || outY;
-            
-            if (
-                outOfBounds &&
-                proj.projectileType === 0 &&
-                proj.remainingRicochets > 0
-            ) {
-                if (outX) {
-                    proj.vx = -proj.vx;
-                    proj.x = Math.sign(proj.x) * worldHalfW;
-                }
-                if (outY) {
-                    proj.vy = -proj.vy;
-                    proj.y = Math.sign(proj.y) * worldHalfH;
-                }
-                proj.remainingRicochets -= 1;
-                proj.startX = proj.x;
-                proj.startY = proj.y;
-                continue;
-            }
-
-            // Bomb взрывается при достижении макс. дистанции
-            if (maxDistReached || outOfBounds) {
-                if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                    this.explodeBomb(proj);
-                }
-                toRemove.push(projId);
-                continue;
-            }
-            
-            // Столкновение со слаймами (кроме владельца)
-            let hitPlayer = false;
-            for (const player of this.state.players.values()) {
-                if (player.isDead || player.id === proj.ownerId) continue;
-                if (player.isLastBreath) continue;
-                if (this.tick < player.invulnerableUntilTick) continue;
-                if (proj.lastHitId && proj.lastHitId === player.id) continue;
-                
-                // Щит блокирует снаряд
-                if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                    // Щит снимается при попадании
-                    player.shieldEndTick = 0;
-                    player.flags &= ~FLAG_ABILITY_SHIELD;
-                    // Bomb взрывается даже при попадании в щит
-                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                        this.explodeBomb(proj);
-                    }
-                    toRemove.push(projId);
-                    hitPlayer = true;
-                    break;
-                }
-                
-                const playerRadius = this.getPlayerRadius(player);
-                const pdx = proj.x - player.x;
-                const pdy = proj.y - player.y;
-                const pdistSq = pdx * pdx + pdy * pdy;
-                const touchDist = playerRadius + proj.radius;
-                
-                if (pdistSq <= touchDist * touchDist) {
-                    // Попадание! 
-                    if (proj.projectileType === 1 && proj.explosionRadiusM > 0) {
-                        // Bomb - AoE взрыв
-                        this.explodeBomb(proj);
-                    } else {
-                        // Обычный снаряд - прямой урон
-                        const owner = this.state.players.get(proj.ownerId);
-                        if (owner && (!owner.isDead || proj.allowDeadOwner)) {
-                            this.applyProjectileDamage(owner, player, proj.damagePct);
-                        }
-                    }
-                    proj.lastHitId = player.id;
-                    if (proj.remainingPierces > 0) {
-                        proj.remainingPierces -= 1;
-                        if (proj.remainingPierces === 1 && proj.piercingDamagePct > 0) {
-                            proj.damagePct *= proj.piercingDamagePct;
-                        }
-                        if (proj.remainingPierces > 0) {
-                            hitPlayer = true;
-                            continue;
-                        }
-                    }
-                    toRemove.push(projId);
-                    hitPlayer = true;
-                    break;
-                }
-            }
-            
-            if (hitPlayer) continue;
-        }
-        
-        // Удаляем снаряды
-        for (const id of toRemove) {
-            this.state.projectiles.delete(id);
-        }
+        projectileSystem(this);
     }
     
     /**
@@ -1886,13 +1677,6 @@ export class ArenaRoom extends Room<GameState> {
             if (player.isLastBreath) continue;
             if (this.tick < player.invulnerableUntilTick) continue;
             
-            // Щит блокирует взрыв
-            if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                player.shieldEndTick = 0;
-                player.flags &= ~FLAG_ABILITY_SHIELD;
-                continue;
-            }
-            
             const dx = player.x - proj.x;
             const dy = player.y - proj.y;
             const distSq = dx * dx + dy * dy;
@@ -1907,53 +1691,7 @@ export class ArenaRoom extends Room<GameState> {
      * Система мин - детонация при контакте с врагами
      */
     private mineSystem() {
-        const toRemove: string[] = [];
-        
-        for (const [mineId, mine] of this.state.mines.entries()) {
-            // Проверка истечения срока
-            if (this.tick >= mine.endTick) {
-                toRemove.push(mineId);
-                continue;
-            }
-            
-            const owner = this.state.players.get(mine.ownerId);
-            const radiusSq = mine.radius * mine.radius;
-            
-            // Проверка коллизий со всеми игроками (включая владельца)
-            for (const player of this.state.players.values()) {
-                if (player.isDead) continue;
-                if (player.isLastBreath) continue;
-                if (this.tick < player.invulnerableUntilTick) continue;
-                if (player.id === mine.ownerId) continue;
-                
-                const playerRadius = this.getPlayerRadius(player);
-                const dx = player.x - mine.x;
-                const dy = player.y - mine.y;
-                const distSq = dx * dx + dy * dy;
-                const touchDist = playerRadius + mine.radius;
-                
-                if (distSq <= touchDist * touchDist) {
-                    // Детонация!
-                    
-                    // Щит блокирует мину
-                    if ((player.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                        player.shieldEndTick = 0;
-                        player.flags &= ~FLAG_ABILITY_SHIELD;
-                    } else if (owner && !owner.isDead) {
-                        // Урон врагу с передачей массы владельцу
-                        this.applyProjectileDamage(owner, player, mine.damagePct);
-                    }
-                    
-                    toRemove.push(mineId);
-                    break;
-                }
-            }
-        }
-        
-        // Удаляем сдетонировавшие/истекшие мины
-        for (const id of toRemove) {
-            this.state.mines.delete(id);
-        }
+        mineSystem(this);
     }
     
     private applyProjectileDamage(attacker: Player, defender: Player, damagePct: number) {
@@ -1978,7 +1716,16 @@ export class ArenaRoom extends Room<GameState> {
         if (triggersLastBreath) {
             massLoss = Math.max(0, defender.mass - minSlimeMass);
         }
-        
+
+        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
+            this.applyShieldReflection(defender, attacker, massLoss);
+            return;
+        }
+
+        if (this.tryConsumeGuard(defender)) {
+            return;
+        }
+
         // Снаряд не даёт массу атакующему (только урон)
         this.applyMassDelta(defender, -massLoss);
         defender.lastDamagedById = attacker.id;
@@ -1986,7 +1733,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Scatter orbs цвета жертвы от урона снаряда
         if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, defender.classId + 10);
+            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, this.getDamageOrbColorId(defender));
         }
         
         if (triggersLastBreath) {
@@ -2023,7 +1770,7 @@ export class ArenaRoom extends Room<GameState> {
         
         // Scatter orbs от самоурона
         if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, player.classId + 10);
+            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, this.getDamageOrbColorId(player));
         }
         
         if (triggersLastBreath) {
@@ -2037,51 +1784,47 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private chestSystem() {
-        const chestEntries = Array.from(this.state.chests.entries());
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const playerRadius = this.getPlayerRadius(player);
-            const playerAngleRad = player.angle;
-            const mouthHalf = this.getMouthHalfAngle(player);
-
-            for (const [chestId, chest] of chestEntries) {
-                if (!this.state.chests.has(chestId)) continue;
-                const dx = chest.x - player.x;
-                const dy = chest.y - player.y;
-                const distSq = dx * dx + dy * dy;
-                const touchDist = playerRadius + this.balance.chests.radius;
-                if (distSq > touchDist * touchDist) continue;
-
-                const angleToChest = Math.atan2(dy, dx);
-                let angleDiff = angleToChest - playerAngleRad;
-                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                const isMouthHit = Math.abs(angleDiff) <= mouthHalf;
-
-                // GDD v3.3: GCD между умениями и укусами
-                const gcdReady = this.tick >= player.gcdReadyTick;
-                if (isMouthHit && gcdReady && this.tick >= player.lastBiteTick + this.biteCooldownTicks) {
-                    // GDD v3.3: Система обручей (armorRings)
-                    if (chest.armorRings > 0) {
-                        // Снимаем один обруч
-                        chest.armorRings--;
-                    } else {
-                        // Обручей нет - открываем сундук
-                        this.openChest(player, chest);
-                    }
-                    player.lastBiteTick = this.tick;
-                    // GDD v3.3: GCD после укуса
-                    player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-                }
-            }
-        }
+        chestSystem(this);
     }
 
     private openChest(player: Player, chest: Chest) {
         const chestTypeId = this.getChestTypeId(chest.type);
-        this.awardChestTalent(player, chestTypeId);
+        let rewardKind: "talent" | "boost" | "none" = "none";
+        let rewardId = "";
+        const awardedTalentId = this.awardChestTalent(player, chestTypeId);
+        if (awardedTalentId) {
+            rewardKind = "talent";
+            rewardId = awardedTalentId;
+        } else {
+            const awardedBoostId = this.awardChestBoost(player, chestTypeId);
+            if (awardedBoostId) {
+                rewardKind = "boost";
+                rewardId = awardedBoostId;
+            }
+        }
+        if (rewardKind !== "none") {
+            this.sendChestReward(player, chest, rewardKind, rewardId);
+        }
         this.spawnChestRewardOrbs(chestTypeId, chest.x, chest.y);
         this.state.chests.delete(chest.id);
+    }
+
+    private sendChestReward(
+        player: Player,
+        chest: Chest,
+        rewardKind: "talent" | "boost",
+        rewardId: string
+    ) {
+        const client = this.clients.find((entry) => entry.sessionId === player.id);
+        if (!client) return;
+        client.send("chestReward", {
+            chestId: chest.id,
+            x: chest.x,
+            y: chest.y,
+            type: chest.type ?? 0,
+            rewardKind,
+            rewardId,
+        });
     }
 
     private getChestTypeId(type: number): "rare" | "epic" | "gold" {
@@ -2094,30 +1837,45 @@ export class ArenaRoom extends Room<GameState> {
         return typeId === "epic" ? 1 : typeId === "gold" ? 2 : 0;
     }
 
-    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): boolean {
+    private awardChestTalent(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
         const available = this.getAvailableTalentsByRarity(player);
-        if (
-            available.common.length === 0 &&
-            available.rare.length === 0 &&
-            available.epic.length === 0
-        ) {
-            return false;
+        const rarityPools = [available.common, available.rare, available.epic];
+        if (rarityPools[0].length === 0 && rarityPools[1].length === 0 && rarityPools[2].length === 0) {
+            return null;
         }
 
         const weights = this.balance.chests.rewards.talentRarityWeights[chestTypeId];
-        const pickedRarity = this.pickTalentRarity(weights);
-        const rarityOrder = pickedRarity === 2 ? [2, 1, 0] : pickedRarity === 1 ? [1, 0] : [0];
-        const rarityPools = [available.common, available.rare, available.epic];
-
-        for (const rarity of rarityOrder) {
-            const pool = rarityPools[rarity];
-            if (pool.length === 0) continue;
-            const choice = pool[Math.floor(this.rng.next() * pool.length)];
-            this.addTalentToPlayer(player, choice);
-            return true;
+        const rarityWeights = [weights.common, weights.rare, weights.epic];
+        const availableRarities = [0, 1, 2].filter((rarity) => rarityPools[rarity].length > 0);
+        const totalWeight = availableRarities.reduce(
+            (sum, rarity) => sum + Math.max(0, rarityWeights[rarity] ?? 0),
+            0
+        );
+        let chosenRarity = availableRarities[0] ?? 0;
+        if (totalWeight > 0) {
+            let roll = this.rng.next() * totalWeight;
+            for (const rarity of availableRarities) {
+                roll -= Math.max(0, rarityWeights[rarity] ?? 0);
+                if (roll < 0) {
+                    chosenRarity = rarity;
+                    break;
+                }
+            }
+        } else if (availableRarities.length > 0) {
+            chosenRarity = availableRarities[Math.floor(this.rng.next() * availableRarities.length)];
         }
+        const pool = rarityPools[chosenRarity];
+        const choice = pool[Math.floor(this.rng.next() * pool.length)];
+        this.addTalentToPlayer(player, choice);
+        return choice;
+    }
 
-        return false;
+    private awardChestBoost(player: Player, chestTypeId: "rare" | "epic" | "gold"): string | null {
+        const allowedBoosts = this.balance.boosts.allowedByChestType[chestTypeId] ?? [];
+        if (allowedBoosts.length === 0) return null;
+        const choice = allowedBoosts[Math.floor(this.rng.next() * allowedBoosts.length)];
+        this.applyBoost(player, choice);
+        return choice;
     }
 
     private pickTalentRarity(weights: { common: number; rare: number; epic: number }): number {
@@ -2170,6 +1928,33 @@ export class ArenaRoom extends Room<GameState> {
         addFromPool(talents.talentPool.common, talents.common, available.common);
         addFromPool(talents.talentPool.rare, talents.rare, available.rare);
         addFromPool(talents.talentPool.epic, talents.epic, available.epic);
+
+        const className = this.getClassName(player.classId);
+        const classTalents = talents.classTalents[className];
+        if (classTalents) {
+            for (const [id, config] of Object.entries(classTalents) as [string, ClassTalentConfig][]) {
+                if (config.requirement) {
+                    const hasRequirement =
+                        player.abilitySlot0 === config.requirement ||
+                        player.abilitySlot1 === config.requirement ||
+                        player.abilitySlot2 === config.requirement;
+                    if (!hasRequirement) continue;
+                }
+
+                let currentLevel = 0;
+                for (const t of player.talents) {
+                    if (t.id === id) {
+                        currentLevel = t.level;
+                        break;
+                    }
+                }
+
+                if (currentLevel < config.maxLevel) {
+                    const dest = config.rarity === "epic" ? available.epic : available.rare;
+                    dest.push(id);
+                }
+            }
+        }
 
         return available;
     }
@@ -2239,6 +2024,13 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(0, types.length - 1);
     }
 
+    private getDamageOrbColorId(player: Player): number {
+        if (this.state.rebelId && player.id === this.state.rebelId) {
+            return this.getOrbTypeIndexById("gold");
+        }
+        return Math.max(0, player.classId) + 10;
+    }
+
     private grantTalent(player: Player): boolean {
         // Выдаём карточку таланта через новую систему
         this.awardTalentToPlayer(player);
@@ -2246,21 +2038,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private deathSystem() {
-        const minSlimeMass = this.balance.physics.minSlimeMass;
-        for (const player of this.state.players.values()) {
-            if (player.isLastBreath && this.tick >= player.lastBreathEndTick) {
-                player.isLastBreath = false;
-            }
-
-            // Mass-as-HP: смерть при массе <= minSlimeMass
-            if (!player.isDead && player.mass <= minSlimeMass && !player.isLastBreath) {
-                this.handlePlayerDeath(player);
-            }
-
-            if (player.isDead && this.tick >= player.respawnAtTick) {
-                this.handlePlayerRespawn(player);
-            }
-        }
+        deathSystem(this);
     }
 
     private handlePlayerDeath(player: Player) {
@@ -2276,6 +2054,7 @@ export class ArenaRoom extends Room<GameState> {
         player.doubleAbilityWindowEndTick = 0;
         player.doubleAbilitySlot = null;
         player.doubleAbilitySecondUsed = false;
+        this.clearBoost(player);
 
         const killerId = player.lastDamagedById;
         if (killerId) {
@@ -2285,6 +2064,11 @@ export class ArenaRoom extends Room<GameState> {
                 this.awardKillMass(killer);
             }
         }
+        this.logTelemetry("player_death", {
+            killerId: killerId || null,
+            mass: player.mass,
+            classId: player.classId,
+        }, player);
         player.lastDamagedById = "";
         player.lastDamagedAtTick = 0;
 
@@ -2293,19 +2077,31 @@ export class ArenaRoom extends Room<GameState> {
         this.spawnToxicPool(player);
 
         const massForOrbs = player.mass * this.balance.death.massToOrbsPercent;
-        const perOrbMass = massForOrbs / Math.max(1, this.balance.death.orbsCount);
+        let orbsCount = this.balance.death.orbsCount;
+        
+        // Минимальная масса орба (issue 11.4)
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        if (massForOrbs < minOrbMass) return;
+        let perOrbMass = massForOrbs / Math.max(1, orbsCount);
+        if (perOrbMass < minOrbMass) {
+            orbsCount = Math.floor(massForOrbs / minOrbMass);
+            if (orbsCount <= 0) return;
+            perOrbMass = massForOrbs / orbsCount;
+        }
+
         const count = Math.min(
-            this.balance.death.orbsCount,
+            orbsCount,
             this.balance.orbs.maxCount - this.state.orbs.size
         );
         if (count <= 0) return;
+        const deathOrbColorId = this.getDamageOrbColorId(player);
 
         for (let i = 0; i < count; i += 1) {
             const angle = (i / count) * Math.PI * 2;
             const spread = 30;
             const orbX = player.x + Math.cos(angle) * spread;
             const orbY = player.y + Math.sin(angle) * spread;
-            const orb = this.spawnOrb(orbX, orbY, perOrbMass);
+            const orb = this.forceSpawnOrb(orbX, orbY, perOrbMass, deathOrbColorId);
             if (orb) {
                 const spreadSpeed = 150;
                 orb.vx = Math.cos(angle) * spreadSpeed;
@@ -2335,12 +2131,6 @@ export class ArenaRoom extends Room<GameState> {
             if (target.isLastBreath) continue;
             if (this.tick < target.invulnerableUntilTick) continue;
 
-            if ((target.flags & FLAG_ABILITY_SHIELD) !== 0) {
-                target.shieldEndTick = 0;
-                target.flags &= ~FLAG_ABILITY_SHIELD;
-                continue;
-            }
-
             const dx = target.x - player.x;
             const dy = target.y - player.y;
             const distSq = dx * dx + dy * dy;
@@ -2348,7 +2138,18 @@ export class ArenaRoom extends Room<GameState> {
 
             const damageBonusMult = this.getDamageBonusMultiplier(player, false);
             const damageTakenMult = this.getDamageTakenMultiplier(target);
-            let massLoss = target.mass * damagePct * damageBonusMult * damageTakenMult;
+            const baseLoss = target.mass * damagePct * damageBonusMult * damageTakenMult;
+
+            if ((target.flags & FLAG_ABILITY_SHIELD) !== 0) {
+                this.applyShieldReflection(target, player, baseLoss);
+                continue;
+            }
+
+            if (this.tryConsumeGuard(target)) {
+                continue;
+            }
+
+            let massLoss = baseLoss;
 
             const newMass = target.mass - massLoss;
             const triggersLastBreath =
@@ -2365,7 +2166,7 @@ export class ArenaRoom extends Room<GameState> {
                 this.applyMassDelta(target, -massLoss);
                 target.lastDamagedById = player.id;
                 target.lastDamagedAtTick = this.tick;
-                this.spawnPvPBiteOrbs(target.x, target.y, massLoss * 0.5, target.classId + 10);
+                this.spawnPvPBiteOrbs(target.x, target.y, massLoss * 0.5, this.getDamageOrbColorId(target));
             }
 
             if (triggersLastBreath) {
@@ -2447,7 +2248,11 @@ export class ArenaRoom extends Room<GameState> {
             player.mass * (1 - this.balance.death.massLostPercent)
         );
         player.mass = respawnMass;
-        const spawn = this.randomPointInMap();
+        const spawn = this.findSpawnPoint(
+            this.getPlayerRadius(player),
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries
+        );
         player.x = spawn.x;
         player.y = spawn.y;
         player.vx = 0;
@@ -2461,85 +2266,20 @@ export class ArenaRoom extends Room<GameState> {
         player.poisonTickAccumulator = 0;
         player.invisibleEndTick = 0;
         player.slowPct = 0;
+        this.clearBoost(player);
         player.doubleAbilityWindowEndTick = 0;
         player.doubleAbilitySlot = null;
         player.doubleAbilitySecondUsed = false;
         player.lastDamagedById = "";
         player.lastDamagedAtTick = 0;
+        player.pendingLavaScatterMass = 0;
         player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
         player.gcdReadyTick = this.tick;
         player.queuedAbilitySlot = null;
     }
 
     private updateOrbs() {
-        const dt = 1 / this.balance.server.tickRate;
-        if (
-            this.tick - this.lastOrbSpawnTick >= this.orbSpawnIntervalTicks &&
-            this.state.orbs.size < this.balance.orbs.maxCount
-        ) {
-            const spawnMultiplier = this.getOrbSpawnMultiplier();
-            let spawnCount = Math.floor(spawnMultiplier);
-            if (this.rng.next() < spawnMultiplier - spawnCount) {
-                spawnCount += 1;
-            }
-            spawnCount = Math.max(1, spawnCount);
-            const remaining = this.balance.orbs.maxCount - this.state.orbs.size;
-            spawnCount = Math.min(spawnCount, remaining);
-
-            for (let i = 0; i < spawnCount; i += 1) {
-                const spawn = this.randomOrbSpawnPoint();
-                this.spawnOrb(spawn.x, spawn.y);
-            }
-            this.lastOrbSpawnTick = this.tick;
-        }
-
-        // Притяжение орбов (магнит умения + вакуум талант)
-        const magnetConfig = this.balance.abilities.magnet;
-        const magnetPlayers: { player: Player; radiusSq: number; speed: number }[] = [];
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const magnetActive = (player.flags & FLAG_MAGNETIZING) !== 0;
-            const magnetRadius = magnetActive ? magnetConfig.radiusM : 0;
-            const magnetSpeed = magnetActive ? magnetConfig.pullSpeedMps : 0;
-            const vacuumRadius = player.mod_vacuumRadius;
-            const vacuumSpeed = player.mod_vacuumSpeed;
-            const radius = Math.max(magnetRadius, vacuumRadius);
-            const speed = Math.max(magnetSpeed, vacuumSpeed);
-            if (radius <= 0 || speed <= 0) continue;
-            magnetPlayers.push({ player, radiusSq: radius * radius, speed });
-        }
-
-        for (const orb of this.state.orbs.values()) {
-            // Magnet/vacuum pull
-            for (const entry of magnetPlayers) {
-                const player = entry.player;
-                const dx = player.x - orb.x;
-                const dy = player.y - orb.y;
-                const distSq = dx * dx + dy * dy;
-                if (distSq < entry.radiusSq && distSq > 1) {
-                    const dist = Math.sqrt(distSq);
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    // Сила притяжения
-                    orb.vx += nx * entry.speed * dt * 2;
-                    orb.vy += ny * entry.speed * dt * 2;
-                }
-            }
-            
-            // Orbs keep the simplified damping model to avoid extra force calculations.
-            const damping = Math.max(
-                0,
-                1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
-            );
-            orb.vx *= damping;
-            orb.vy *= damping;
-            this.applySpeedCap(orb, this.balance.physics.maxOrbSpeed);
-            orb.x += orb.vx * dt;
-            orb.y += orb.vy * dt;
-            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density);
-            this.applyWorldBounds(orb, radius);
-        }
+        updateOrbs(this);
     }
 
     /**
@@ -2547,208 +2287,71 @@ export class ArenaRoom extends Room<GameState> {
      * Орбы только замедляются и останавливаются у границ.
      */
     private updateOrbsVisual(): void {
-        const dt = 1 / this.balance.server.tickRate;
-        const damping = Math.max(
-            0,
-            1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
-        );
-        for (const orb of this.state.orbs.values()) {
-            orb.vx *= damping;
-            orb.vy *= damping;
-            orb.x += orb.vx * dt;
-            orb.y += orb.vy * dt;
-            const type = this.balance.orbs.types[orb.colorId] ?? this.balance.orbs.types[0];
-            const radius = getOrbRadius(orb.mass, type.density);
-            this.applyWorldBounds(orb, radius);
-        }
+        updateOrbsVisual(this);
     }
 
     private updateChests() {
-        const dt = 1 / this.balance.server.tickRate;
-        if (
-            this.tick - this.lastChestSpawnTick >= this.chestSpawnIntervalTicks &&
-            this.state.chests.size < this.balance.chests.maxCount
-        ) {
-            this.spawnChest();
-            this.lastChestSpawnTick = this.tick;
-        }
-
-        const damping = Math.max(
-            0,
-            1 - this.balance.physics.environmentDrag - this.balance.physics.orbLinearDamping
-        );
-        for (const chest of this.state.chests.values()) {
-            chest.vx *= damping;
-            chest.vy *= damping;
-            chest.x += chest.vx * dt;
-            chest.y += chest.vy * dt;
-            this.applyWorldBounds(chest, this.balance.chests.radius);
-        }
+        updateChests(this);
     }
 
     private slowZoneSystem() {
-        // Удаляем истекшие зоны
-        const expiredZones: string[] = [];
-        for (const zone of this.state.slowZones.values()) {
-            if (this.tick >= zone.endTick) {
-                expiredZones.push(zone.id);
-            }
-        }
-        for (const id of expiredZones) {
-            this.state.slowZones.delete(id);
-        }
-
-        // Применяем суммарное замедление к игрокам
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            
-            let totalSlowPct = 0;
-            
-            for (const zone of this.state.slowZones.values()) {
-                // Не замедляем владельца зоны
-                if (zone.ownerId === player.id) continue;
-                
-                const dx = player.x - zone.x;
-                const dy = player.y - zone.y;
-                const distSq = dx * dx + dy * dy;
-                const radiusSq = zone.radius * zone.radius;
-                
-                if (distSq < radiusSq) {
-                    totalSlowPct += zone.slowPct;
-                }
-            }
-
-            for (const pool of this.state.toxicPools.values()) {
-                const dx = player.x - pool.x;
-                const dy = player.y - pool.y;
-                const distSq = dx * dx + dy * dy;
-                const radiusSq = pool.radius * pool.radius;
-                if (distSq < radiusSq) {
-                    totalSlowPct += pool.slowPct;
-                }
-            }
-
-            if (this.tick < player.frostEndTick) {
-                totalSlowPct += player.frostSlowPct;
-            } else if (player.frostEndTick > 0) {
-                player.frostEndTick = 0;
-                player.frostSlowPct = 0;
-            }
-
-            totalSlowPct = Math.min(totalSlowPct, 0.8);
-            player.slowPct = totalSlowPct;
-            
-            // Устанавливаем/снимаем флаг замедления
-            if (totalSlowPct > 0) {
-                player.flags |= FLAG_SLOWED;
-            } else {
-                player.flags &= ~FLAG_SLOWED;
-            }
-        }
+        slowZoneSystem(this);
     }
 
     private toxicPoolSystem() {
-        // Удаляем истекшие лужи
-        const expiredPools: string[] = [];
-        for (const pool of this.state.toxicPools.values()) {
-            if (this.tick >= pool.endTick) {
-                expiredPools.push(pool.id);
-            }
-        }
-        for (const id of expiredPools) {
-            this.state.toxicPools.delete(id);
-        }
-
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            if (player.isLastBreath) continue;
-            if (this.tick < player.invulnerableUntilTick) continue;
-            let totalDamagePctPerSec = 0;
-            for (const pool of this.state.toxicPools.values()) {
-                const dx = player.x - pool.x;
-                const dy = player.y - pool.y;
-                const distSq = dx * dx + dy * dy;
-                const radiusSq = pool.radius * pool.radius;
-                if (distSq < radiusSq) {
-                    totalDamagePctPerSec += pool.damagePctPerSec;
-                }
-            }
-            if (totalDamagePctPerSec <= 0) continue;
-            const damageTakenMult = this.getDamageTakenMultiplier(player);
-            const massLoss = player.mass * totalDamagePctPerSec * dt * damageTakenMult;
-            if (massLoss > 0) {
-                this.applyMassDelta(player, -massLoss);
-            }
-        }
+        toxicPoolSystem(this);
     }
 
     private statusEffectSystem() {
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            if (this.tick < player.invulnerableUntilTick) continue;
-            if (player.poisonEndTick > this.tick && player.poisonDamagePctPerSec > 0) {
-                const damageTakenMult = this.getDamageTakenMultiplier(player);
-                const massLoss = player.mass * player.poisonDamagePctPerSec * dt * damageTakenMult;
-                if (massLoss > 0) {
-                    this.applyMassDelta(player, -massLoss);
-                }
-            } else if (player.poisonEndTick > 0) {
-                player.poisonEndTick = 0;
-                player.poisonDamagePctPerSec = 0;
-                player.poisonTickAccumulator = 0;
-            }
+        statusEffectSystem(this);
+    }
+
+    private zoneEffectSystem() {
+        zoneEffectSystem(this);
+    }
+
+    private spawnLavaOrbs(player: Player, addedMass: number) {
+        if (addedMass <= 0) return;
+        
+        // Накапливаем массу до минимального порога
+        player.pendingLavaScatterMass += addedMass;
+        
+        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
+        if (player.pendingLavaScatterMass < minOrbMass) return;
+        
+        const totalMass = player.pendingLavaScatterMass;
+        player.pendingLavaScatterMass = 0;
+        
+        let count = Math.max(0, Math.floor(this.balance.zones.lava.scatterOrbCount));
+        if (count <= 0) return;
+
+        let perOrbMass = totalMass / count;
+        if (perOrbMass < minOrbMass) {
+            count = Math.max(1, Math.floor(totalMass / minOrbMass));
+            perOrbMass = totalMass / count;
+        }
+
+        const angleStep = (Math.PI * 2) / count;
+        const speed = Math.max(0, this.balance.zones.lava.scatterSpeedMps);
+        const colorId = this.getDamageOrbColorId(player);
+        for (let i = 0; i < count; i += 1) {
+            const angle = i * angleStep + this.rng.range(-0.3, 0.3);
+            const orb = this.forceSpawnOrb(player.x, player.y, perOrbMass, colorId);
+            orb.vx = Math.cos(angle) * speed;
+            orb.vy = Math.sin(angle) * speed;
         }
     }
 
     private hungerSystem() {
-        const phase = this.state.phase as MatchPhaseId;
-        // GDD v3.3: Hunger активен в Hunt и Final
-        if (phase !== "Hunt" && phase !== "Final") return;
-        if (this.state.hotZones.size === 0) return;
+        hungerSystem(this);
+    }
 
-        const dt = 1 / this.balance.server.tickRate;
-        for (const player of this.state.players.values()) {
-            if (player.isDead) continue;
-            const inHotZone = this.isInsideHotZone(player);
-            if (inHotZone) continue;
-
-            const drainPerSec = Math.min(
-                this.balance.hunger.maxDrainPerSec,
-                this.balance.hunger.baseDrainPerSec + this.balance.hunger.scalingPerMass * (player.mass / 100)
-            );
-            const drain = drainPerSec * dt;
-            const minMass = Math.max(this.balance.hunger.minMass, this.balance.physics.minSlimeMass);
-            const targetMass = Math.max(minMass, player.mass - drain);
-            this.applyMassDelta(player, targetMass - player.mass);
-        }
+    private safeZoneSystem() {
+        safeZoneSystem(this);
     }
 
     private rebelSystem() {
-        if (this.tick - this.lastRebelUpdateTick < this.rebelUpdateIntervalTicks) return;
-        this.lastRebelUpdateTick = this.tick;
-
-        const alivePlayers = Array.from(this.state.players.values()).filter((player) => !player.isDead);
-        if (alivePlayers.length === 0) {
-            this.state.rebelId = "";
-            this.updateLeaderboard();
-            return;
-        }
-
-        let totalMass = 0;
-        let leader = alivePlayers[0];
-        for (const player of alivePlayers) {
-            totalMass += player.mass;
-            if (player.mass > leader.mass) leader = player;
-        }
-        const avgMass = totalMass / alivePlayers.length;
-        if (leader.mass >= avgMass * this.balance.rebel.massThresholdMultiplier) {
-            this.state.rebelId = leader.id;
-        } else {
-            this.state.rebelId = "";
-        }
-        this.updateLeaderboard();
+        rebelSystem(this);
     }
 
     private updateLeaderboard() {
@@ -2789,6 +2392,21 @@ export class ArenaRoom extends Room<GameState> {
             if (this.tick < player.shieldEndTick) {
                 flags |= FLAG_ABILITY_SHIELD;
             } else if (player.shieldEndTick > 0) {
+                const shieldLevel = this.getAbilityLevelForAbility(player, "shield") || 1;
+                const shieldConfig = this.getAbilityConfigById("shield", shieldLevel);
+                const burstRadius = Math.max(0, Number(shieldConfig.burstRadiusM ?? 0));
+                if (burstRadius > 0) {
+                    const pushConfig = this.getAbilityConfigById("push", 1);
+                    this.applyPushWave(
+                        player.x,
+                        player.y,
+                        burstRadius,
+                        pushConfig.impulseNs,
+                        pushConfig.minSpeedMps,
+                        pushConfig.maxSpeedMps,
+                        player.id
+                    );
+                }
                 // Shield ended
                 player.shieldEndTick = 0;
             }
@@ -2868,9 +2486,14 @@ export class ArenaRoom extends Room<GameState> {
         }
 
         if (this.lastPhaseId !== nextPhase) {
-            console.log(`Phase: ${this.lastPhaseId ?? "none"} -> ${nextPhase}`);
+            const prevPhase = this.lastPhaseId;
+            console.log(`Phase: ${prevPhase ?? "none"} -> ${nextPhase}`);
             this.lastPhaseId = nextPhase;
             this.state.phase = nextPhase;
+            if (!this.matchStartLogged && nextPhase !== "Results") {
+                this.startMatchTelemetry();
+            }
+            this.logTelemetry("phase_change", { from: prevPhase ?? "none", to: nextPhase });
             this.handlePhaseChange(nextPhase);
         } else {
             this.state.phase = nextPhase;
@@ -2884,7 +2507,11 @@ export class ArenaRoom extends Room<GameState> {
         this.lastPhaseId = "Results";
         this.updateLeaderboard();
         console.log("Match ended! Phase: Results");
-        
+        this.logTelemetry("match_end", {
+            leaderboard: Array.from(this.state.leaderboard),
+            playersAlive: Array.from(this.state.players.values()).filter((player) => !player.isDead).length,
+        });
+
         // Останавливаем всех игроков
         for (const player of this.state.players.values()) {
             player.inputX = 0;
@@ -2892,6 +2519,58 @@ export class ArenaRoom extends Room<GameState> {
             player.vx = 0;
             player.vy = 0;
             player.angVel = 0;
+        }
+
+        // Отправляем результаты матча на MetaServer
+        this.submitMatchResults();
+    }
+
+    private submitMatchResults() {
+        try {
+            const matchResultService = getMatchResultService();
+
+            // Формируем результаты игроков
+            const playerResults: PlayerResult[] = [];
+            const leaderboard = Array.from(this.state.leaderboard);
+
+            for (const [sessionId, player] of this.state.players.entries()) {
+                const placement = leaderboard.indexOf(sessionId) + 1;
+                playerResults.push({
+                    userId: undefined, // TODO: получить userId из joinToken
+                    sessionId,
+                    placement: placement > 0 ? placement : leaderboard.length + 1,
+                    finalMass: player.mass,
+                    killCount: player.killCount,
+                    deathCount: 0, // TODO: добавить счётчик смертей в Player schema
+                    level: player.level,
+                    classId: player.classId,
+                    isDead: player.isDead,
+                });
+            }
+
+            // Формируем MatchSummary
+            const matchSummary: MatchSummary = {
+                matchId: this.matchId,
+                mode: "arena",
+                startedAt: this.matchStartedAt || new Date().toISOString(),
+                endedAt: new Date().toISOString(),
+                configVersion: "1.0.0", // TODO: получить из RuntimeConfig
+                buildVersion: "0.3.1", // TODO: получить из package.json
+                playerResults,
+                matchStats: {
+                    totalKills: playerResults.reduce((sum, p) => sum + p.killCount, 0),
+                    totalBubblesCollected: 0, // TODO: добавить счётчик
+                    matchDurationMs: Math.floor((this.tick / this.balance.server.tickRate) * 1000),
+                },
+            };
+
+            // Отправляем асинхронно, не блокируем игровой цикл
+            matchResultService.submitMatchResult(matchSummary).catch((error) => {
+                console.error(`[ArenaRoom] Failed to submit match results: ${error}`);
+            });
+        } catch (error) {
+            // MatchResultService не инициализирован — это нормально в dev режиме
+            console.log("[ArenaRoom] MatchResultService not available, skipping result submission");
         }
     }
 
@@ -2901,6 +2580,10 @@ export class ArenaRoom extends Room<GameState> {
         this.resultsStartTick = 0;
         this.tick = 0;
         this.lastPhaseId = null;
+        this.matchId = "";
+        this.matchStartLogged = false;
+        this.matchStartedAt = "";
+        this.initMatchId();
         this.lastOrbSpawnTick = 0;
         this.lastChestSpawnTick = 0;
         this.lastRebelUpdateTick = 0;
@@ -2918,6 +2601,7 @@ export class ArenaRoom extends Room<GameState> {
         this.state.hotZones.clear();
         this.state.slowZones.clear();
         this.state.zones.clear();
+        this.state.obstacles.clear();
         this.state.safeZones.splice(0, this.state.safeZones.length);
         this.state.toxicPools.clear();
         this.state.projectiles.clear();
@@ -2926,6 +2610,7 @@ export class ArenaRoom extends Room<GameState> {
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
         this.state.serverTick = 0;
+        this.generateArena();
 
         // Респавн всех игроков
         for (const player of this.state.players.values()) {
@@ -2970,6 +2655,7 @@ export class ArenaRoom extends Room<GameState> {
             player.talentChoicePressed = null;
             player.talents.splice(0, player.talents.length);
             this.recalculateTalentModifiers(player);
+            this.clearBoost(player);
             
             // Сброс состояний способностей
             player.dashEndTick = 0;
@@ -2981,6 +2667,9 @@ export class ArenaRoom extends Room<GameState> {
             player.abilitySlot0 = "";
             player.abilitySlot1 = "";
             player.abilitySlot2 = "";
+            player.abilityLevel0 = 0;
+            player.abilityLevel1 = 0;
+            player.abilityLevel2 = 0;
             player.pendingAbilityCard = null;
             player.cardChoicePressed = null;
             player.pendingCardSlots = [];
@@ -3000,6 +2689,115 @@ export class ArenaRoom extends Room<GameState> {
         } else if (phase === "Final") {
             this.spawnHotZones(this.balance.hotZones.finalCount, this.balance.hotZones.spawnMultiplierFinal, true);
         }
+    }
+
+    private generateArena() {
+        this.state.obstacles.clear();
+        this.state.safeZones.splice(0, this.state.safeZones.length);
+        this.state.zones.clear();
+        this.obstacleIdCounter = 0;
+        this.zoneIdCounter = 0;
+        const mapSize = this.balance.world.mapSize;
+        const world = this.balance.worldPhysics;
+        const safeZoneSeeds = generateSafeZoneSeeds(this.rng, world, mapSize, this.balance.safeZones);
+        for (const zoneSeed of safeZoneSeeds) {
+            const zone = new SafeZone();
+            zone.x = zoneSeed.x;
+            zone.y = zoneSeed.y;
+            zone.radius = zoneSeed.radius;
+            this.state.safeZones.push(zone);
+        }
+        const zoneSeeds = generateZoneSeeds(this.rng, world, mapSize, this.balance.zones, safeZoneSeeds);
+        for (const zoneSeed of zoneSeeds) {
+            const zone = new Zone();
+            zone.id = `zone_${this.zoneIdCounter++}`;
+            zone.x = zoneSeed.x;
+            zone.y = zoneSeed.y;
+            zone.radius = zoneSeed.radius;
+            zone.type = zoneSeed.type;
+            this.state.zones.set(zone.id, zone);
+        }
+        // Препятствия могут пересекаться с зонами, это допустимо по дизайну.
+        const obstacles = generateObstacleSeeds(this.rng, world, mapSize, this.balance.obstacles);
+        for (const obstacle of obstacles) {
+            this.addObstacle(obstacle.type, obstacle.x, obstacle.y, obstacle.radius);
+        }
+    }
+
+    private isPointFreeOfObstacles(x: number, y: number, radius: number, padding: number): boolean {
+        const safePadding = Math.max(0, padding);
+        for (const obstacle of this.state.obstacles.values()) {
+            const dx = x - obstacle.x;
+            const dy = y - obstacle.y;
+            const minDist = radius + obstacle.radius + safePadding;
+            if (dx * dx + dy * dy < minDist * minDist) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private isPointNearZoneType(x: number, y: number, radius: number, zoneType: number): boolean {
+        const safeRadius = Math.max(0, radius);
+        for (const zone of this.state.zones.values()) {
+            if (zone.type !== zoneType) continue;
+            const dx = x - zone.x;
+            const dy = y - zone.y;
+            const minDist = zone.radius + safeRadius;
+            if (dx * dx + dy * dy < minDist * minDist) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private randomPointAround(x: number, y: number, range: number) {
+        const angle = this.rng.range(0, Math.PI * 2);
+        const r = Math.sqrt(this.rng.next()) * range;
+        return { x: x + Math.cos(angle) * r, y: y + Math.sin(angle) * r };
+    }
+
+    private findSpawnPoint(
+        radius: number,
+        padding: number,
+        retries: number,
+        preferred?: { x: number; y: number }
+    ) {
+        const safeRadius = Math.max(0, radius);
+        const safePadding = Math.max(0, padding);
+        const attempts = Math.max(1, retries);
+        const mapSize = this.balance.world.mapSize;
+        const world = this.balance.worldPhysics;
+        const isValid = (point: { x: number; y: number }) =>
+            isInsideWorld(world, mapSize, point.x, point.y, safeRadius) &&
+            this.isPointFreeOfObstacles(point.x, point.y, safeRadius, safePadding) &&
+            !this.isPointNearZoneType(point.x, point.y, safeRadius, ZONE_TYPE_LAVA);
+
+        if (preferred && isValid(preferred)) {
+            return preferred;
+        }
+
+        for (let i = 0; i < attempts; i += 1) {
+            const spread = safeRadius + safePadding * 2;
+            const point = preferred
+                ? this.randomPointAround(preferred.x, preferred.y, spread)
+                : randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
+            if (isValid(point)) {
+                return point;
+            }
+        }
+
+        return preferred ?? randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
+    }
+
+    private addObstacle(type: number, x: number, y: number, radius: number) {
+        const obstacle = new Obstacle();
+        obstacle.id = `obs_${this.obstacleIdCounter++}`;
+        obstacle.x = x;
+        obstacle.y = y;
+        obstacle.radius = radius;
+        obstacle.type = type;
+        this.state.obstacles.set(obstacle.id, obstacle);
     }
 
     private spawnHotZones(count: number, spawnMultiplier: number, centerFirst = false) {
@@ -3032,6 +2830,59 @@ export class ArenaRoom extends Room<GameState> {
         return false;
     }
 
+    private isInsideSafeZone(player: Player): boolean {
+        for (const zone of this.state.safeZones) {
+            const dx = player.x - zone.x;
+            const dy = player.y - zone.y;
+            if (dx * dx + dy * dy <= zone.radius * zone.radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private isSafeZoneActive(): boolean {
+        if (this.state.phase !== "Final") return false;
+        const elapsedSec = this.tick / this.balance.server.tickRate;
+        return elapsedSec >= this.balance.safeZones.finalStartSec;
+    }
+
+    private getZoneForPlayer(player: Player): Zone | null {
+        if (this.state.zones.size === 0) return null;
+        for (const zone of this.state.zones.values()) {
+            const dx = player.x - zone.x;
+            const dy = player.y - zone.y;
+            if (dx * dx + dy * dy <= zone.radius * zone.radius) {
+                return zone;
+            }
+        }
+        return null;
+    }
+
+    private getZoneSpeedMultiplier(player: Player): number {
+        const zone = this.getZoneForPlayer(player);
+        if (!zone) return 1;
+        if (zone.type === ZONE_TYPE_TURBO) {
+            return Math.max(0, this.balance.zones.turbo.speedMultiplier);
+        }
+        if (zone.type === ZONE_TYPE_SLIME) {
+            return Math.max(0, this.balance.zones.slime.speedMultiplier);
+        }
+        return 1;
+    }
+
+    private getZoneFrictionMultiplier(player: Player): number {
+        const zone = this.getZoneForPlayer(player);
+        if (!zone) return 1;
+        if (zone.type === ZONE_TYPE_ICE) {
+            return Math.max(0, this.balance.zones.ice.frictionMultiplier);
+        }
+        if (zone.type === ZONE_TYPE_SLIME) {
+            return Math.max(0, this.balance.zones.slime.frictionMultiplier);
+        }
+        return 1;
+    }
+
     private getOrbSpawnMultiplier(): number {
         let multiplier = 1;
         for (const zone of this.state.hotZones.values()) {
@@ -3056,8 +2907,7 @@ export class ArenaRoom extends Room<GameState> {
     private spawnInitialOrbs() {
         const count = Math.min(this.balance.orbs.initialCount, this.balance.orbs.maxCount);
         for (let i = 0; i < count; i += 1) {
-            const spawn = this.randomPointInMap();
-            this.spawnOrb(spawn.x, spawn.y);
+            this.spawnOrb();
         }
     }
 
@@ -3070,15 +2920,23 @@ export class ArenaRoom extends Room<GameState> {
      * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
      */
     private forceSpawnOrb(x?: number, y?: number, massOverride?: number, colorId?: number): Orb {
-        const spawn = x !== undefined && y !== undefined ? { x, y } : this.randomPointInMap();
         const typePick = this.pickOrbType();
-        const orb = new Orb();
-        orb.id = `orb_${this.orbIdCounter++}`;
-        orb.x = x ?? spawn.x;
-        orb.y = y ?? spawn.y;
-        orb.mass =
+        const mass =
             massOverride ??
             this.rng.range(typePick.type.massRange[0], typePick.type.massRange[1]);
+        const orbRadius = getOrbRadius(mass, typePick.type.density);
+        const basePoint = x !== undefined && y !== undefined ? { x, y } : this.randomOrbSpawnPoint();
+        const spawn = this.findSpawnPoint(
+            orbRadius,
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries,
+            basePoint
+        );
+        const orb = new Orb();
+        orb.id = `orb_${this.orbIdCounter++}`;
+        orb.x = spawn.x;
+        orb.y = spawn.y;
+        orb.mass = mass;
         orb.colorId = colorId ?? typePick.index;
         orb.vx = 0;
         orb.vy = 0;
@@ -3105,7 +2963,11 @@ export class ArenaRoom extends Room<GameState> {
         if (this.state.chests.size >= this.balance.chests.maxCount) return;
         const chest = new Chest();
         chest.id = `chest_${this.chestIdCounter++}`;
-        const spawn = this.randomPointInMap();
+        const spawn = this.findSpawnPoint(
+            this.balance.chests.radius,
+            this.balance.obstacles.spacing,
+            this.balance.obstacles.placementRetries
+        );
         chest.x = spawn.x;
         chest.y = spawn.y;
         chest.vx = 0;
@@ -3145,6 +3007,16 @@ export class ArenaRoom extends Room<GameState> {
         const classStats = this.getClassStats(player);
         const leviathanMul = player.mod_leviathanRadiusMul > 0 ? player.mod_leviathanRadiusMul : 1;
         return getSlimeRadiusFromConfig(player.mass, slimeConfig) * classStats.radiusMult * leviathanMul;
+    }
+
+    /** Точка притяжения орбов смещена на 1.9 радиуса от центра слайма по углу поворота */
+    public getMouthPoint(player: Player): { x: number; y: number } {
+        const radius = this.getPlayerRadius(player);
+        const offset = radius * 1.9;
+        return {
+            x: player.x + Math.cos(player.angle) * offset,
+            y: player.y + Math.sin(player.angle) * offset,
+        };
     }
 
     private getClassStats(player: Player): ClassStats {
@@ -3255,6 +3127,16 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(inertia, 1e-6);
     }
 
+    /**
+     * Изменяет массу игрока на delta.
+     * 
+     * ИНВАРИАНТ: после применения delta, масса clamp'ится к [minSlimeMass, ∞).
+     * Фактическое изменение массы может быть меньше delta, если игрок уже на минимуме.
+     * Смерть обрабатывается отдельно при mass <= minSlimeMass в deathSystem().
+     * 
+     * @param player - игрок
+     * @param delta - изменение массы (может быть отрицательным)
+     */
     private applyMassDelta(player: Player, delta: number) {
         if (!Number.isFinite(delta) || delta === 0) return;
         const minMass = this.balance.physics.minSlimeMass;
@@ -3270,12 +3152,14 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
-     * Обновляет уровень игрока по массе (GDD v3.3 1.3)
-     * При достижении level 3/5 открываются слоты 2/3 и показывается карточка выбора
+     * Обновляет уровень игрока по массе (GDD v3.3 5.1)
+     * При достижении level 3/5 открываются слоты 2/3 и показывается карточка выбора умения
+     * При достижении level 2/4/6/7+ показывается карточка выбора таланта
      */
     private updatePlayerLevel(player: Player) {
         const thresholds = this.balance.slime.levelThresholds;
         const slotUnlockLevels = this.balance.slime.slotUnlockLevels;
+        const talentGrantLevels = this.balance.slime.talentGrantLevels;
         
         // Вычисляем текущий уровень по массе
         let newLevel = 1;
@@ -3285,25 +3169,46 @@ export class ArenaRoom extends Room<GameState> {
             }
         }
         
+        // GDD v3.3 5.1: уровни 7+ дают карточки талантов за каждый уровень
+        // Пороги после базовых: 1800 * 1.5^n
+        if (thresholds.length > 0) {
+            const lastThreshold = thresholds[thresholds.length - 1];
+            let dynamicThreshold = lastThreshold * 1.5;
+            if (player.mass >= dynamicThreshold) {
+                let dynamicLevel = thresholds.length + 1;
+                while (player.mass >= dynamicThreshold) {
+                    newLevel = dynamicLevel;
+                    dynamicLevel += 1;
+                    dynamicThreshold *= 1.5;
+                }
+            }
+        }
+        
         if (newLevel <= player.level) return;
         
         const oldLevel = player.level;
         player.level = newLevel;
         
-        // Проверяем разблокировку слотов
-        // slotUnlockLevels = [1, 3, 5] => slot 0 на level 1, slot 1 на level 3, slot 2 на level 5
-        for (let slotIdx = 1; slotIdx < slotUnlockLevels.length; slotIdx++) {
-            const unlockLevel = slotUnlockLevels[slotIdx];
-            // Если перешли через порог разблокировки и слот ещё пустой
-            if (oldLevel < unlockLevel && newLevel >= unlockLevel) {
-                const slotProp = slotIdx === 1 ? "abilitySlot1" : "abilitySlot2";
-                if (player[slotProp] === "") {
-                    // Добавляем слот в очередь (карточка сгенерируется после предыдущей)
-                    if (!player.pendingCardSlots.includes(slotIdx)) {
-                        player.pendingCardSlots.push(slotIdx);
-                        player.pendingCardCount = player.pendingCardSlots.length;
+        // Обрабатываем каждый пройденный уровень
+        for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+            // Проверяем разблокировку слотов умений (уровни 3, 5)
+            for (let slotIdx = 1; slotIdx < slotUnlockLevels.length; slotIdx++) {
+                const unlockLevel = slotUnlockLevels[slotIdx];
+                if (lvl === unlockLevel) {
+                    const slotProp = slotIdx === 1 ? "abilitySlot1" : "abilitySlot2";
+                    if (player[slotProp] === "") {
+                        if (!player.pendingCardSlots.includes(slotIdx)) {
+                            player.pendingCardSlots.push(slotIdx);
+                            player.pendingCardCount = player.pendingCardSlots.length;
+                        }
                     }
                 }
+            }
+            
+            // Проверяем выдачу таланта (уровни 2, 4, 6, 7+)
+            const isTalentLevel = talentGrantLevels.includes(lvl) || lvl > thresholds.length;
+            if (isTalentLevel) {
+                this.awardTalentToPlayer(player);
             }
         }
         
@@ -3334,10 +3239,7 @@ export class ArenaRoom extends Room<GameState> {
         const usedAbilities = new Set([player.abilitySlot0, player.abilitySlot1, player.abilitySlot2]);
         
         // Фильтруем доступные умения (которых ещё нет у игрока)
-        const available = pool.filter(ab => !usedAbilities.has(ab));
-        if (available.length === 0) return;
-        
-        // Выбираем 3 случайных (или меньше если не хватает)
+        const available = pool.filter((ab: string) => !usedAbilities.has(ab));
         const shuffled = [...available];
         for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(this.rng.next() * (i + 1));
@@ -3359,30 +3261,7 @@ export class ArenaRoom extends Room<GameState> {
      * Система обработки карточек умений
      */
     private abilityCardSystem() {
-        const currentTick = this.tick;
-        
-        for (const player of this.state.players.values()) {
-            // Очистка cardChoicePressed если нет активной карточки (Codex fix)
-            if (!player.pendingAbilityCard && player.cardChoicePressed !== null) {
-                player.cardChoicePressed = null;
-            }
-            
-            if (player.isDead || !player.pendingAbilityCard) continue;
-            
-            const card = player.pendingAbilityCard;
-            
-            // Обработка выбора игрока
-            if (player.cardChoicePressed !== null) {
-                this.applyAbilityCardChoice(player, player.cardChoicePressed);
-                player.cardChoicePressed = null;
-                continue;
-            }
-            
-            // Автовыбор по таймауту
-            if (currentTick >= card.expiresAtTick) {
-                this.applyAbilityCardChoice(player, 0);  // Автовыбор первого варианта
-            }
-        }
+        abilityCardSystem(this);
     }
     
     /**
@@ -3403,8 +3282,10 @@ export class ArenaRoom extends Room<GameState> {
         // Присваиваем умение в соответствующий слот
         if (card.slotIndex === 1) {
             player.abilitySlot1 = chosen;
+            player.abilityLevel1 = chosen ? 1 : 0;
         } else if (card.slotIndex === 2) {
             player.abilitySlot2 = chosen;
+            player.abilityLevel2 = chosen ? 1 : 0;
         }
         
         player.pendingAbilityCard = null;
@@ -3417,30 +3298,7 @@ export class ArenaRoom extends Room<GameState> {
      * Система обработки карточек талантов (GDD-Talents.md)
      */
     private talentCardSystem() {
-        const currentTick = this.tick;
-        
-        for (const player of this.state.players.values()) {
-            // Очистка talentChoicePressed если нет активной карточки
-            if (!player.pendingTalentCard && player.talentChoicePressed2 !== null) {
-                player.talentChoicePressed2 = null;
-            }
-            
-            if (player.isDead || !player.pendingTalentCard) continue;
-            
-            const card = player.pendingTalentCard;
-            
-            // Обработка выбора игрока
-            if (player.talentChoicePressed2 !== null) {
-                this.applyTalentCardChoice(player, player.talentChoicePressed2);
-                player.talentChoicePressed2 = null;
-                continue;
-            }
-            
-            // Автовыбор по таймауту
-            if (currentTick >= card.expiresAtTick) {
-                this.applyTalentCardChoice(player, 0);  // Автовыбор первого варианта
-            }
-        }
+        talentCardSystem(this);
     }
     
     /**
@@ -3457,9 +3315,14 @@ export class ArenaRoom extends Room<GameState> {
             player.pendingTalentCard = null;
             return;
         }
-        
-        // Добавляем или повышаем уровень таланта
-        this.addTalentToPlayer(player, chosen);
+
+        const upgrade = parseAbilityUpgradeIdModule(chosen);
+        if (upgrade) {
+            this.applyAbilityUpgrade(player, upgrade.abilityId, upgrade.level);
+        } else {
+            // Добавляем или повышаем уровень таланта
+            this.addTalentToPlayer(player, chosen);
+        }
         
         player.pendingTalentCard = null;
         
@@ -3481,8 +3344,10 @@ export class ArenaRoom extends Room<GameState> {
         }
         
         // Получаем конфиг таланта
-        const talentConfig = this.getTalentConfig(talentId);
+        const className = this.getClassName(player.classId);
+        const talentConfig = getTalentConfigModule(talentId, this.getTalentBalanceConfig(), className);
         if (!talentConfig) return;
+        const beforeLevel = existingTalent?.level ?? 0;
         
         if (existingTalent) {
             // Повышаем уровень если возможно
@@ -3496,22 +3361,29 @@ export class ArenaRoom extends Room<GameState> {
             newTalent.level = 1;
             player.talents.push(newTalent);
         }
+
+        const afterLevel = existingTalent?.level ?? 1;
+        if (afterLevel > beforeLevel) {
+            this.logTelemetry("talent_chosen", { talentId, level: afterLevel }, player);
+        }
         
         // Пересчитываем модификаторы
         this.recalculateTalentModifiers(player);
     }
-    
+
     /**
-     * Получает конфиг таланта по ID
+     * Создаёт TalentBalanceConfig из текущего balance.talents
      */
-    private getTalentConfig(talentId: string): TalentConfig | null {
+    private getTalentBalanceConfig(): TalentBalanceConfig {
         const talents = this.balance.talents;
-        if (talents.common[talentId]) return talents.common[talentId];
-        if (talents.rare[talentId]) return talents.rare[talentId];
-        if (talents.epic[talentId]) return talents.epic[talentId];
-        return null;
+        return {
+            common: talents.common,
+            rare: talents.rare,
+            epic: talents.epic,
+            classTalents: talents.classTalents,
+        };
     }
-    
+
     /**
      * Определяет редкость таланта (0=common, 1=rare, 2=epic)
      */
@@ -3520,269 +3392,75 @@ export class ArenaRoom extends Room<GameState> {
         if (talents.common[talentId]) return 0;
         if (talents.rare[talentId]) return 1;
         if (talents.epic[talentId]) return 2;
+        for (const classPool of Object.values(talents.classTalents)) {
+            const classTalent = classPool[talentId];
+            if (classTalent) return classTalent.rarity === "epic" ? 2 : 1;
+        }
         return 0;
     }
     
     /**
-     * Пересчитывает все модификаторы игрока на основе его талантов
+     * Пересчитывает все модификаторы игрока на основе его талантов.
+     * Делегирует в модуль talent/TalentModifierCalculator.
      */
     private recalculateTalentModifiers(player: Player) {
-        // Сбрасываем модификаторы
-        player.mod_speedLimitBonus = 0;
-        player.mod_turnBonus = 0;
-        player.mod_biteDamageBonus = 0;
-        player.mod_damageBonus = 0;
-        player.mod_damageTakenBonus = 0;
-        player.mod_orbMassBonus = 0;
-        player.mod_abilityCostReduction = 0;
-        player.mod_cooldownReduction = 0;
-        player.mod_allDamageReduction = 0;
-        player.mod_thrustForwardBonus = 0;
-        player.mod_thrustReverseBonus = 0;
-        player.mod_thrustLateralBonus = 0;
-        player.mod_killMassBonus = 0;
-        player.mod_respawnMass = 100;  // Default
-        player.mod_dashDistanceBonus = 0;
-        player.mod_vacuumRadius = 0;
-        player.mod_vacuumSpeed = 0;
-        player.mod_poisonDamagePctPerSec = 0;
-        player.mod_poisonDurationSec = 0;
-        player.mod_frostSlowPct = 0;
-        player.mod_frostDurationSec = 0;
-        player.mod_vampireSideGainPct = 0;
-        player.mod_vampireTailGainPct = 0;
-        player.mod_projectileRicochet = 0;
-        player.mod_projectilePiercingDamagePct = 0;
-        player.mod_projectilePiercingHits = 0;
-        player.mod_lightningSpeedBonus = 0;
-        player.mod_lightningStunSec = 0;
-        player.mod_doubleAbilityWindowSec = 0;
-        player.mod_doubleAbilitySecondCostMult = 1;
-        player.mod_deathExplosionRadiusM = 0;
-        player.mod_deathExplosionDamagePct = 0;
-        player.mod_leviathanRadiusMul = 1;
-        player.mod_leviathanMouthMul = 1;
-        player.mod_invisibleDurationSec = 0;
-        player.mod_deathNeedlesCount = 0;
-        player.mod_deathNeedlesDamagePct = 0;
-        player.mod_toxicPoolBonus = 1;
-        player.biteResistPct = 0;
-        
-        // Применяем каждый талант
-        for (const talent of player.talents) {
-            const config = this.getTalentConfig(talent.id);
-            if (!config) continue;
-            
-            const level = talent.level;
-            const values = config.values;
-            
-            // Получаем значение для текущего уровня
-            let value: number | number[] = 0;
-            if (Array.isArray(values)) {
-                if (level <= values.length) {
-                    value = values[level - 1];
-                }
-            } else {
-                value = values;
-            }
-            
-            // Применяем эффект
-            switch (config.effect) {
-                case "speedLimitBonus":
-                    player.mod_speedLimitBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "turnBonus":
-                    player.mod_turnBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "biteDamageBonus":
-                    player.mod_biteDamageBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "orbMassBonus":
-                    player.mod_orbMassBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "biteResistBonus":
-                    player.biteResistPct += typeof value === "number" ? value : 0;
-                    break;
-                case "abilityCostReduction":
-                    player.mod_abilityCostReduction += typeof value === "number" ? value : 0;
-                    break;
-                case "cooldownReduction":
-                    player.mod_cooldownReduction += typeof value === "number" ? value : 0;
-                    break;
-                case "allDamageReduction":
-                    player.mod_allDamageReduction += typeof value === "number" ? value : 0;
-                    break;
-                case "thrustForwardBonus":
-                    player.mod_thrustForwardBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "thrustReverseBonus":
-                    player.mod_thrustReverseBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "thrustLateralBonus":
-                    player.mod_thrustLateralBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "killMassBonus":
-                    player.mod_killMassBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "respawnMass":
-                    player.mod_respawnMass = typeof value === "number" ? value : 100;
-                    break;
-                case "aggressorDual":
-                    player.mod_damageBonus += typeof value === "number" ? value : 0;
-                    player.mod_damageTakenBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "allThrustBonus":
-                    // motor: +25% ко всем двигателям
-                    const motorBonus = typeof value === "number" ? value : 0;
-                    player.mod_thrustForwardBonus += motorBonus;
-                    player.mod_thrustReverseBonus += motorBonus;
-                    player.mod_thrustLateralBonus += motorBonus;
-                    break;
-                case "poisonOnBite":
-                    if (Array.isArray(value)) {
-                        player.mod_poisonDamagePctPerSec = Number(value[0] ?? 0);
-                        player.mod_poisonDurationSec = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "frostOnBite":
-                    if (Array.isArray(value)) {
-                        player.mod_frostSlowPct = Number(value[0] ?? 0);
-                        player.mod_frostDurationSec = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "vampireBite":
-                    if (Array.isArray(value)) {
-                        player.mod_vampireSideGainPct = Number(value[0] ?? 0);
-                        player.mod_vampireTailGainPct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "vacuumOrbs":
-                    if (Array.isArray(value)) {
-                        player.mod_vacuumRadius = Number(value[0] ?? 0);
-                        player.mod_vacuumSpeed = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "projectileRicochet":
-                    player.mod_projectileRicochet = typeof value === "number" ? value : 0;
-                    break;
-                case "projectilePiercing":
-                    if (Array.isArray(value)) {
-                        const extraHits = Math.max(0, Number(value[0] ?? 0));
-                        player.mod_projectilePiercingHits = 1 + extraHits;
-                        player.mod_projectilePiercingDamagePct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "dashDistanceBonus":
-                    player.mod_dashDistanceBonus += typeof value === "number" ? value : 0;
-                    break;
-                case "deathNeedles":
-                    if (Array.isArray(value)) {
-                        player.mod_deathNeedlesCount = Math.max(0, Math.round(Number(value[0] ?? 0)));
-                        player.mod_deathNeedlesDamagePct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "toxicPoolBonus":
-                    player.mod_toxicPoolBonus = typeof value === "number" ? value : 1;
-                    break;
-                case "lightningSpeed":
-                    if (Array.isArray(value)) {
-                        player.mod_lightningSpeedBonus = Number(value[0] ?? 0);
-                        player.mod_lightningStunSec = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "doubleAbility":
-                    if (Array.isArray(value)) {
-                        player.mod_doubleAbilityWindowSec = Number(value[0] ?? 0);
-                        player.mod_doubleAbilitySecondCostMult = Number(value[1] ?? 1);
-                    }
-                    break;
-                case "deathExplosion":
-                    if (Array.isArray(value)) {
-                        player.mod_deathExplosionRadiusM = Number(value[0] ?? 0);
-                        player.mod_deathExplosionDamagePct = Number(value[1] ?? 0);
-                    }
-                    break;
-                case "leviathanSize":
-                    if (Array.isArray(value)) {
-                        player.mod_leviathanRadiusMul = Number(value[0] ?? 1);
-                        player.mod_leviathanMouthMul = Number(value[1] ?? 1);
-                    }
-                    break;
-                case "invisibleAfterDash":
-                    player.mod_invisibleDurationSec = typeof value === "number" ? value : 0;
-                    break;
-            }
-        }
-        
-        // Применяем cap на biteResistPct (max 50%)
-        player.biteResistPct = Math.min(player.biteResistPct, 0.5);
+        const balance = this.getTalentBalanceConfig();
+        recalculateTalentModifiersModule(player, balance, this.getClassName.bind(this));
     }
     
     /**
-     * Генерирует карточку выбора таланта для игрока
+     * Получает имя класса по classId
+     */
+    private getClassName(classId: number): string {
+        if (classId === 0) return "hunter";
+        if (classId === 1) return "warrior";
+        if (classId === 2) return "collector";
+        return "hunter";
+    }
+
+    private getAbilitySlotIndex(player: Player, abilityId: string): number {
+        if (player.abilitySlot0 === abilityId) return 0;
+        if (player.abilitySlot1 === abilityId) return 1;
+        if (player.abilitySlot2 === abilityId) return 2;
+        return -1;
+    }
+
+    private applyAbilityUpgrade(player: Player, abilityId: string, level: number): boolean {
+        const slotIndex = this.getAbilitySlotIndex(player, abilityId);
+        if (slotIndex < 0) return false;
+        const currentLevel = this.getAbilityLevelForSlot(player, slotIndex);
+        const targetLevel = Math.max(1, Math.min(3, Math.floor(level)));
+        if (currentLevel <= 0) {
+            // Неконсистентное состояние: улучшение не должно предлагаться без умения.
+            return false;
+        }
+        if (targetLevel <= currentLevel) return false;
+        this.setAbilityLevelForSlot(player, slotIndex, targetLevel);
+        return true;
+    }
+    
+    /**
+     * Генерирует карточку выбора таланта для игрока (GDD v3.3 7.2-7.3).
+     * Делегирует в модуль talent/TalentGenerator.
      */
     private generateTalentCard(player: Player) {
-        const talents = this.balance.talents;
-        const tickRate = this.balance.server.tickRate;
-        const timeoutTicks = this.secondsToTicks(talents.cardChoiceTimeoutSec);
-        
-        // Собираем доступные таланты (без дубликатов на макс. уровне)
-        const availableTalents: { id: string; rarity: number }[] = [];
-        
-        const addFromPool = (pool: string[], configs: Record<string, TalentConfig>, rarity: number) => {
-            for (const id of pool) {
-                const config = configs[id];
-                if (!config) continue;
-                
-                // Проверяем требование
-                if (config.requirement) {
-                    const hasRequirement = 
-                        player.abilitySlot0 === config.requirement ||
-                        player.abilitySlot1 === config.requirement ||
-                        player.abilitySlot2 === config.requirement;
-                    if (!hasRequirement) continue;
-                }
-                
-                // Проверяем не на макс. уровне ли уже
-                let currentLevel = 0;
-                for (const t of player.talents) {
-                    if (t.id === id) {
-                        currentLevel = t.level;
-                        break;
-                    }
-                }
-                
-                if (currentLevel < config.maxLevel) {
-                    availableTalents.push({ id, rarity });
-                }
-            }
+        const talentConfig: TalentGeneratorConfig = {
+            cardChoiceTimeoutSec: this.balance.talents.cardChoiceTimeoutSec,
+            talentRarityByLevel: this.balance.talents.talentRarityByLevel,
+            talentPool: this.balance.talents.talentPool,
+            abilityUpgradeChance: this.balance.talents.abilityUpgradeChance,
         };
-        
-        addFromPool(talents.talentPool.common, talents.common, 0);
-        addFromPool(talents.talentPool.rare, talents.rare, 1);
-        addFromPool(talents.talentPool.epic, talents.epic, 2);
-        
-        if (availableTalents.length === 0) return;
-        
-        // Выбираем 3 случайных (или меньше если мало)
-        const shuffled = [...availableTalents];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(this.rng.next() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        
-        const selected = shuffled.slice(0, 3);
-        
-        const card = new TalentCard();
-        card.option0 = selected[0]?.id || "";
-        card.option1 = selected[1]?.id || "";
-        card.option2 = selected[2]?.id || "";
-        card.rarity0 = selected[0]?.rarity ?? 0;
-        card.rarity1 = selected[1]?.rarity ?? 0;
-        card.rarity2 = selected[2]?.rarity ?? 0;
-        card.expiresAtTick = this.tick + timeoutTicks;
-        
-        player.pendingTalentCard = card;
+
+        const deps: TalentGeneratorDeps = {
+            rng: this.rng,
+            currentTick: this.tick,
+            secondsToTicks: this.secondsToTicks.bind(this),
+            getClassName: this.getClassName.bind(this),
+            getAbilityLevelForSlot: this.getAbilityLevelForSlot.bind(this),
+            clamp: this.clamp.bind(this),
+        };
+
+        generateTalentCardModule(player, talentConfig, this.getTalentBalanceConfig(), deps);
     }
     
     /**
@@ -3797,9 +3475,67 @@ export class ArenaRoom extends Room<GameState> {
     }
     
     /**
+     * Принудительный автовыбор таланта при переполнении очереди (GDD 7.4)
+     * Использует приоритеты класса для выбора лучшего варианта
+     */
+    private forceAutoPickTalent(player: Player) {
+        const card = player.pendingTalentCard;
+        if (!card) return;
+        
+        const talents = this.balance.talents;
+        const className = this.getClassName(player.classId);
+        const priorities = talents.autoPickPriorities[className] || [];
+        
+        const options = [card.option0, card.option1, card.option2];
+        let bestIndex = 0;
+        let bestScore = -1;
+        let hasTalentOption = false;
+        
+        // Ищем талант с наивысшим приоритетом по категории (больше число = выше приоритет)
+        for (let i = 0; i < options.length; i++) {
+            const talentId = options[i];
+            if (!talentId) continue;
+
+            if (parseAbilityUpgradeIdModule(talentId)) {
+                continue;
+            }
+            
+            // Получаем категорию таланта
+            const talentConfig = getTalentConfigModule(talentId, this.getTalentBalanceConfig(), className);
+            if (!talentConfig) continue;
+            
+            hasTalentOption = true;
+            const category = talentConfig.category || "other";
+            const score = priorities[category] || 0;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+
+        if (!hasTalentOption) {
+            const fallbackIndex = options.findIndex((value) => !!value);
+            if (fallbackIndex >= 0) {
+                bestIndex = fallbackIndex;
+            }
+        }
+        
+        // Применяем выбор
+        this.applyTalentCardChoice(player, bestIndex);
+    }
+    
+    /**
      * Выдаёт игроку талант (например, из сундука)
      */
     private awardTalentToPlayer(player: Player) {
+        const cardQueueMax = this.balance.talents.cardQueueMax || 3;
+        
+        // GDD 7.4: При переполнении очереди - принудительный автовыбор
+        if (player.pendingTalentQueue.length >= cardQueueMax) {
+            this.forceAutoPickTalent(player);
+        }
+        
         if (player.pendingTalentCard) {
             // Уже есть активная карточка - добавляем в очередь
             player.pendingTalentQueue.push(1);
@@ -3911,6 +3647,40 @@ export class ArenaRoom extends Room<GameState> {
         const scale = dampedSpeed / speed;
         entity.vx *= scale;
         entity.vy *= scale;
+    }
+
+    private startMatchTelemetry() {
+        if (!this.matchId) {
+            this.initMatchId();
+        }
+        if (this.matchStartLogged) return;
+        this.matchStartLogged = true;
+        this.matchStartedAt = new Date().toISOString();
+        this.logTelemetry("match_start", {
+            mapSize: this.balance.world.mapSize,
+            worldShape: this.balance.worldPhysics.worldShape,
+            seed: this.seed,
+        });
+    }
+
+    private initMatchId() {
+        this.matchIndex += 1;
+        // Generate UUID for matchId (required by match_results.match_id UUID PRIMARY KEY)
+        this.matchId = randomUUID();
+    }
+
+    private logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
+        if (!this.telemetry) return;
+        this.telemetry.log({
+            event,
+            ts: Date.now(),
+            tick: this.tick,
+            matchId: this.matchId,
+            roomId: this.roomId,
+            phase: this.state.phase,
+            playerId: player?.id,
+            data,
+        });
     }
 
     private reportMetrics(startMs: number) {

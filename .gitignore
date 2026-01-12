@@ -7,8 +7,24 @@ client/dist/
 server/dist/
 shared/dist/
 .vscode/
+!.vscode/settings.json
 .obsidian/workspace.json
 .obsidian/workspace
 .u2/
 _ext/u2/
 legacy/
+logs/
+.claude/
+
+# Test artifacts and local logs
+local/test-logs/
+tests/load/results.json
+tests/load/results.html
+
+# Database backups (contain sensitive data)
+backups/*.dump
+backups/*.sql
+
+# Beads temp files
+.beads/file.tmp
+.beads/*.tmp

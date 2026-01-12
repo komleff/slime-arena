@@ -53,6 +53,9 @@ export class Player extends Schema {
     @type("string") abilitySlot0: string = "";  // Классовое умение
     @type("string") abilitySlot1: string = "";  // Слот 2 (level 3)
     @type("string") abilitySlot2: string = "";  // Слот 3 (level 5)
+    @type("number") abilityLevel0: number = 0;  // Уровень умения слота 1
+    @type("number") abilityLevel1: number = 0;  // Уровень умения слота 2
+    @type("number") abilityLevel2: number = 0;  // Уровень умения слота 3
     @type(AbilityCard) pendingAbilityCard: AbilityCard | null = null;
     @type("number") pendingCardCount: number = 0;  // Кол-во карточек в очереди (синхронизируется)
     
@@ -60,6 +63,10 @@ export class Player extends Schema {
     @type({ array: Talent }) talents = new ArraySchema<Talent>();
     @type(TalentCard) pendingTalentCard: TalentCard | null = null;
     @type("number") pendingTalentCount: number = 0;  // Кол-во талантов в очереди
+    @type("string") boostType: string = "";
+    @type("number") boostEndTick: number = 0;
+    @type("number") boostCharges: number = 0;
+    @type("number") pendingLavaScatterMass: number = 0;
 
     // Server-only state (not synced)
     inputX: number = 0;
@@ -152,8 +159,16 @@ export class Player extends Schema {
     mod_leviathanMouthMul: number = 1;
     mod_invisibleDurationSec: number = 0;
     mod_deathNeedlesCount: number = 0;
+    
     mod_deathNeedlesDamagePct: number = 0;
     mod_toxicPoolBonus: number = 1;
+    
+    // New class talent modifiers
+    mod_thornsDamage: number = 0;        // Warrior: reflect damage on bite
+    mod_ambushDamage: number = 0;        // Hunter: bonus damage from invisibility
+    mod_parasiteMass: number = 0;        // Collector: mass steal on damage
+    mod_magnetRadius: number = 0;        // Collector: orb attraction radius
+    mod_magnetSpeed: number = 0;         // Collector: orb attraction speed
 }
 
 export class Orb extends Schema {
@@ -252,6 +267,14 @@ export class Zone extends Schema {
     @type("number") type: number = 0; // ZONE_TYPE_*
 }
 
+export class Obstacle extends Schema {
+    @type("string") id: string = "";
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+    @type("number") radius: number = 0;
+    @type("number") type: number = 0; // OBSTACLE_TYPE_*
+}
+
 export class SafeZone extends Schema {
     @type("number") x: number = 0;
     @type("number") y: number = 0;
@@ -272,6 +295,7 @@ export class GameState extends Schema {
     @type({ map: Projectile }) projectiles = new MapSchema<Projectile>();
     @type({ map: Mine }) mines = new MapSchema<Mine>();
     @type({ map: Zone }) zones = new MapSchema<Zone>();
+    @type({ map: Obstacle }) obstacles = new MapSchema<Obstacle>();
     @type({ array: SafeZone }) safeZones = new ArraySchema<SafeZone>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
 }

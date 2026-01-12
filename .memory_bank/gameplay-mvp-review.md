@@ -199,14 +199,15 @@
 - Штраф скорости: 80% (lastBreathSpeedPenalty: 0.8)
 - Применяется к линейной и угловой скорости в FlightAssist
 - После окончания Last Breath игрок финализирует смерть
-- Визуал на клиенте: мигание/прозрачность (TODO: не реализовано)
+- Визуал на клиенте: текстовый индикатор "LB" отображается под именем игрока
 
 **Что отсутствует:**
-- Визуальный эффект мигания/прозрачности на клиенте
+- Визуальный эффект мигания/прозрачности на клиенте (может быть добавлен позже для лучшей видимости)
 
 **Файлы:**
 - `server/src/rooms/ArenaRoom.ts` (Last Breath логика в processCombat, deathSystem, flightAssistSystem)
 - `config/balance.json` (combat.lastBreathDurationSec, lastBreathSpeedPenalty)
+- `client/src/main.ts` (отрисовка: индикатор "LB" под именем игрока)
 
 ---
 

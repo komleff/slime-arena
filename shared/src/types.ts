@@ -14,3 +14,35 @@ export interface InputCommand {
     abilitySlot?: number;
     talentChoice?: number;
 }
+
+/**
+ * Match result interfaces for MatchServer → MetaServer integration
+ */
+export interface PlayerResult {
+    userId?: string;
+    sessionId: string;
+    placement: number;
+    finalMass: number;
+    killCount: number;
+    deathCount: number;
+    level: number;
+    classId: number;
+    isDead: boolean;
+}
+
+export interface MatchStats {
+    totalKills: number;
+    totalBubblesCollected: number;
+    matchDurationMs: number;
+}
+
+export interface MatchSummary {
+    matchId: string;
+    mode: string;
+    startedAt: string;
+    endedAt: string;
+    configVersion: string;
+    buildVersion: string;
+    playerResults: PlayerResult[];
+    matchStats?: MatchStats;
+}

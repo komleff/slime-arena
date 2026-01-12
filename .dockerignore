@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# CI/CD and IDE
+.github
+.claude
+.memory_bank
+.obsidian
+.vscode
+.idea
+
+# Dependencies - will be installed in container
+node_modules
+
+# Build outputs - will be built in container
+dist
+client/dist
+server/dist
+shared/dist
+
+# Tests
+tests
+server/tests
+**/*.test.ts
+**/*.spec.ts
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Local development
+backups
+local
+logs
+legacy
+
+# Temporary files
+*.log
+*.dump
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor files
+*.swp
+*.swo
+*~

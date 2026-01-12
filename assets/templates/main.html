@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Cookie Crash: Arena</title>
+    <link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* === БАЗОВЫЕ НАСТРОЙКИ === */
+        body {
+            background-color: #1a1a1a;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Nunito', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* === ИГРОВОЙ ЭКРАН === */
+        .game-screen {
+            width: 960px;
+            height: 540px;
+            background-image: url('../backgrounds/bg_main_menu.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+            box-shadow: 0 0 80px rgba(0,0,0,0.8);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 8px solid #2d2d2d;
+        }
+
+        /* === HUD PROFILE === */
+        .hud-profile-wrapper { position: absolute; top: 25px; left: 25px; transform: scale(0.75); transform-origin: top left; z-index: 20; }
+        .hud-container { position: relative; width: 480px; height: 160px; }
+        .hud-base { position: absolute; left: 25px; top: 5px; width: 340px; z-index: 1; filter: drop-shadow(0px 8px 10px rgba(0,0,0,0.4)); }
+        .hud-avatar-group { position: absolute; left: 0; top: 0; width: 150px; height: 150px; z-index: 10; }
+        .frame-top { position: absolute; left: 0; top: 0; width: 146px; z-index: 10; filter: drop-shadow(0px 5px 5px rgba(0,0,0,0.3)); clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%); }
+        .hud-avatar-img { position: absolute; left: 20px; top: 12px; width: 110px; height: 110px; z-index: 11; }
+        .frame-bottom { position: absolute; left: 0; top: 0; width: 146px; z-index: 12; clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%); }
+        
+        .hud-star-group { position: absolute; left: 100px; top: 75px; width: 60px; height: 60px; z-index: 20; }
+        .hud-star { width: 100%; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); }
+        .hud-level-text {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Titan One', cursive; color: white; font-size: 24px;
+            padding-top: 4px; text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+        }
+
+        .hud-info { position: absolute; left: 165px; top: 24px; z-index: 5; display: flex; flex-direction: column; gap: 8px; }
+        .hud-name { font-family: 'Titan One', cursive; color: white; font-size: 26px; text-transform: uppercase; text-shadow: 2px 2px 0 #3E2723; }
+        .medals-row { display: flex; gap: 8px; }
+        .medal { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .xp-track { position: absolute; left: 140px; top: 114px; width: 200px; height: 10px; z-index: 4; background: rgba(0,0,0,0.3); border-radius: 6px; }
+        .xp-fill { width: 75%; height: 100%; background: linear-gradient(180deg, #96E06C 0%, #43A047 100%); border-radius: 6px; box-shadow: inset 0 2px 2px rgba(255,255,255,0.5); }
+
+        /* === ВАЛЮТА === */
+        .currency-panel { position: absolute; top: 25px; right: 25px; display: flex; gap: 20px; transform: scale(0.9); z-index: 20; }
+        .curr-item { position: relative; background: #4E342E; padding: 5px 15px 5px 45px; border-radius: 30px; height: 40px; display: flex; align-items: center; border: 2px solid #6D4C41; box-shadow: 0 6px 10px rgba(0,0,0,0.3); }
+        .curr-icon-img { position: absolute; left: -15px; top: -8px; width: 58px; height: 58px; z-index: 2; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.4)); transition: transform 0.2s; }
+        .curr-item:hover .curr-icon-img { transform: scale(1.15) rotate(-10deg); }
+        .curr-val { color: #fff; font-family: 'Titan One', cursive; font-size: 20px; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); margin-right: 5px; }
+        .btn-add { width: 24px; height: 24px; background: #66BB6A; border-radius: 50%; color: white; font-weight: 800; display: flex; justify-content: center; align-items: center; border: 2px solid white; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+
+        /* === ГЕРОЙ === */
+        .hero-container { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%); width: 350px; height: 350px; z-index: 10; pointer-events: none; }
+        .hero-model { width: 100%; height: 100%; background-image: url('../skins/lobby/hero_skin_current.png'); background-size: contain; background-repeat: no-repeat; background-position: center; animation: floatHero 4s infinite ease-in-out; filter: drop-shadow(0 15px 20px rgba(0,0,0,0.4)); }
+        .hero-floor-shadow { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 180px; height: 20px; background: rgba(0,0,0,0.3); border-radius: 50%; filter: blur(15px); animation: shadowScale 4s infinite ease-in-out; }
+        @keyframes floatHero { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        @keyframes shadowScale { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.3; } 50% { transform: translateX(-50%) scale(0.8); opacity: 0.2; } }
+
+        /* === НОВАЯ КНОПКА PLAY (JELLY STYLE) === */
+        .play-btn-wrapper { position: absolute; bottom: 35px; right: 40px; z-index: 30; }
+
+        .jelly-btn {
+            /* НАСТРОЙКИ ЦВЕТА (КРАСНЫЙ) */
+            --hue: 355; 
+            --sat: 90%; 
+            --lum-main: 50%;
+            
+            --c-dark: hsl(var(--hue), var(--sat), 30%);
+            --c-border: hsl(var(--hue), var(--sat), 40%);
+            --c-surface: hsl(var(--hue), var(--sat), var(--lum-main));
+            --c-highlight: hsl(var(--hue), var(--sat), 65%);
+            --c-shadow: hsl(var(--hue), var(--sat), 15%);
+
+            position: relative; border: none; outline: none; cursor: pointer; background: transparent; padding: 0;
+            min-width: 240px; height: 80px; /* Чуть выше, чем в примере, для солидности */
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Рамка-капсула */
+        .jelly-btn-frame {
+            position: absolute; inset: 0;
+            background: linear-gradient(to bottom, var(--c-highlight), var(--c-dark));
+            border-radius: 999px;
+            box-shadow: 0 8px 0 var(--c-shadow), 0 15px 20px rgba(0,0,0,0.4);
+            transition: box-shadow 0.1s;
+        }
+
+        /* Мякоть */
+        .jelly-btn-content {
+            position: absolute; inset: 4px;
+            background: linear-gradient(180deg, var(--c-highlight) 0%, var(--c-surface) 40%, var(--c-dark) 100%);
+            border-radius: 999px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.4), inset 0 -3px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Блик сверху */
+        .jelly-btn-shine {
+            position: absolute; top: 6px; left: 12px; right: 12px; height: 40%; /* Адаптивная высота */
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.1) 100%);
+            filter: blur(0.5px); pointer-events: none;
+        }
+        /* Точечный блик */
+        .jelly-btn-shine::after {
+            content: ''; position: absolute; top: 4px; right: 10px; width: 6px; height: 6px;
+            background: white; border-radius: 50%; opacity: 0.6; box-shadow: -8px 2px 0 rgba(255,255,255,0.3);
+        }
+
+        /* ТЕКСТ (С нашим шрифтом Titan One) */
+        .jelly-text {
+            color: white; 
+            font-family: 'Titan One', cursive; /* ВАЖНО: используем наш шрифт */
+            font-size: 36px;
+            text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+            -webkit-text-stroke: 1px var(--c-dark); /* Легкая обводка в цвет кнопки */
+            z-index: 2; position: relative; padding-bottom: 5px;
+        }
+
+        /* Эффект нажатия */
+        .jelly-btn:active { transform: translateY(6px); }
+        .jelly-btn:active .jelly-btn-frame { box-shadow: 0 2px 0 var(--c-shadow), 0 4px 10px rgba(0,0,0,0.3); }
+        /* Эффект наведения */
+        .jelly-btn:hover { filter: brightness(1.1); }
+
+
+        /* === МЕНЮ === */
+        .side-menu { position: absolute; bottom: 35px; left: 40px; display: flex; gap: 20px; z-index: 30; }
+        .menu-btn { width: 75px; height: 75px; background: #FFF8E1; border-radius: 20px; border: 3px solid #FFD54F; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 6px 0 #FFA000, 0 10px 15px rgba(0,0,0,0.3); transition: transform 0.1s; }
+        .menu-btn:active { transform: translateY(6px); box-shadow: 0 0 0 #FFA000; }
+        .menu-icon-img { width: 85%; height: 85%; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2)); transition: transform 0.2s; }
+        .menu-btn:hover .menu-icon-img { transform: scale(1.15); }
+
+    </style>
+</head>
+<body>
+
+    <div class="game-screen">
+        <div class="hud-profile-wrapper">
+            <div class="hud-container">
+                <div class="hud-avatar-group">
+                    <img src="../hud/hud_avatar_frame_cookie.png" class="frame-top">
+                    <img src="../hud/hud_avatar_hero_01.png" class="hud-avatar-img">
+                    <img src="../hud/hud_avatar_frame_cookie.png" class="frame-bottom">
+                </div>
+                <img src="../hud/hud_profile_base_chocolate.png" class="hud-base">
+                <div class="hud-star-group">
+                    <img src="../hud/hud_level_badge_star_blue.png" class="hud-star">
+                    <div class="hud-level-text">12</div>
+                </div>
+                <div class="hud-info">
+                    <div class="hud-name">CHEF_BOB</div>
+                    <div class="medals-row">
+                        <div class="medal" style="background: #FFD700;"></div>
+                        <div class="medal" style="background: #C0C0C0;"></div>
+                        <div class="medal" style="background: #E91E63;"></div>
+                    </div>
+                </div>
+                <div class="xp-track"><div class="xp-fill"></div></div>
+            </div>
+        </div>
+
+        <div class="currency-panel">
+            <div class="curr-item">
+                <img src="../icons/icon_currency_coin.png" class="curr-icon-img" alt="Coins">
+                <div class="curr-val">1,450</div>
+                <div class="btn-add">+</div>
+            </div>
+            <div class="curr-item">
+                <img src="../icons/icon_currency_gem.png" class="curr-icon-img" alt="Gems">
+                <div class="curr-val">85</div>
+                <div class="btn-add">+</div>
+            </div>
+        </div>
+
+        <div class="hero-container">
+            <div class="hero-floor-shadow"></div>
+            <div class="hero-model"></div>
+        </div>
+
+        <div class="play-btn-wrapper">
+            <button class="jelly-btn">
+                <div class="jelly-btn-frame"></div>
+                <div class="jelly-btn-content">
+                    <span class="jelly-text">PLAY!</span>
+                    <div class="jelly-btn-shine"></div>
+                </div>
+            </button>
+        </div>
+
+        <div class="side-menu">
+            <div class="menu-btn" title="Настройки"><img src="../icons/icon_menu_settings.png" class="menu-icon-img"></div>
+            <div class="menu-btn" title="Лидеры"><img src="../icons/icon_menu_leaderboard.png" class="menu-icon-img"></div>
+            <div class="menu-btn" title="Гардероб"><img src="../icons/icon_menu_skins.png" class="menu-icon-img"></div>
+        </div>
+    </div>
+
+</body>
+</html>

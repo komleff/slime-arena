@@ -1,0 +1,69 @@
+{
+  "testId": "mobile-controls-v1",
+  "configVersion": "1.0.0",
+  "assignmentScope": "room",
+  "targetPlatforms": ["telegram", "mobile", "tablet"],
+  "variants": {
+    "A": {
+      "label": "Stability",
+      "controls": {
+        "joystickDeadzone": 0.07,
+        "joystickSensitivity": 1.15,
+        "joystickFollowSpeed": 0.95
+      },
+      "assist": {
+        "yawRateGain": 5.0,
+        "reactionTimeS": 0.11,
+        "angularStopTimeS": 0.15,
+        "angularBrakeBoostFactor": 1.8,
+        "angularDeadzoneRad": 0.012,
+        "counterAccelTimeS": 0.11,
+        "counterAccelDirectionThresholdDeg": 22,
+        "overspeedDampingRate": 0.30,
+        "velocityErrorThreshold": 0.06
+      },
+      "worldPhysics": {
+        "angularDragK": 1.3
+      }
+    },
+    "B": {
+      "label": "Responsiveness",
+      "controls": {
+        "joystickDeadzone": 0.05,
+        "joystickSensitivity": 1.25,
+        "joystickFollowSpeed": 1.05
+      },
+      "assist": {
+        "yawRateGain": 5.6,
+        "reactionTimeS": 0.10,
+        "angularStopTimeS": 0.13,
+        "angularBrakeBoostFactor": 2.0,
+        "angularDeadzoneRad": 0.010,
+        "counterAccelTimeS": 0.10,
+        "counterAccelDirectionThresholdDeg": 18,
+        "overspeedDampingRate": 0.35,
+        "velocityErrorThreshold": 0.05
+      },
+      "worldPhysics": {
+        "angularDragK": 1.3
+      }
+    }
+  },
+  "weights": {
+    "A": 50,
+    "B": 50
+  },
+  "defaultVariant": "A",
+  "override": {
+    "enabled": false,
+    "variantId": "A",
+    "reason": ""
+  },
+  "metrics": [
+    "turn_time_90",
+    "turn_time_180",
+    "yaw_overshoot_deg",
+    "oscillation_count",
+    "input_latency_ms"
+  ]
+}

@@ -1,8 +1,10 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
+import path from 'path'
 
-export default defineConfig(() => {
-  const hmrHost = process.env.VITE_HMR_HOST
-  const hmrProtocol = process.env.VITE_HMR_PROTOCOL
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
+  const hmrHost = env.VITE_HMR_HOST
+  const hmrProtocol = env.VITE_HMR_PROTOCOL || 'ws'
 
   return {
     server: {
@@ -12,9 +14,16 @@ export default defineConfig(() => {
       hmr: hmrHost
         ? {
             host: hmrHost,
-            protocol: hmrProtocol || 'ws'
+            protocol: hmrProtocol
           }
-        : undefined
+        : true
+    },
+    resolve: {
+      alias: {
+        react: 'preact/compat',
+        'react-dom': 'preact/compat',
+        '@slime-arena/shared': path.resolve(__dirname, '../shared/src/index')
+      }
     }
   }
 })

@@ -1,4 +1,4 @@
-import { MatchPhaseId, MATCH_PHASES } from "./types.js";
+import { MatchPhaseId, MATCH_PHASES } from "./types";
 
 export interface FormulaConfig {
     base: number;
@@ -20,6 +20,99 @@ export interface MassCurveConfig {
     k?: number;
     minValue?: number;
     maxValue?: number;
+}
+
+export type BoostType = "rage" | "haste" | "guard" | "greed";
+
+export interface BoostConfig {
+    maxStackTimeSec: number;
+    rage: {
+        durationSec: number;
+        damageMul: number;
+    };
+    haste: {
+        durationSec: number;
+        speedMul: number;
+    };
+    guard: {
+        durationSec: number;
+        charges: number;
+    };
+    greed: {
+        durationSec: number;
+        bubbleMassMul: number;
+        charges: number;
+    };
+    allowedByChestType: {
+        rare: BoostType[];
+        epic: BoostType[];
+        gold: BoostType[];
+    };
+}
+
+export interface MapSizeConfig {
+    small: number;
+    medium: number;
+    large: number;
+}
+
+export interface ObstacleConfig {
+    countByMapSize: MapSizeConfig;
+    passageCountByMapSize: MapSizeConfig;
+    passageGapWidth: number;
+    passagePillarRadius: number;
+    pillarRadius: number;
+    spikeRadius: number;
+    spikeDamagePct: number;
+    spikeChance: number;
+    spacing: number;
+    placementRetries: number;
+}
+
+export interface SafeZoneConfig {
+    finalStartSec: number;
+    warningSec: number;
+    damagePctPerSec: number;
+    minDistance: number;
+    placementRetries: number;
+    countByMapSize: MapSizeConfig;
+    radiusByMapSize: MapSizeConfig;
+}
+
+export interface ZoneTypeWeights {
+    nectar: number;
+    ice: number;
+    slime: number;
+    lava: number;
+    turbo: number;
+}
+
+export interface ZonesConfig {
+    countByMapSize: MapSizeConfig;
+    radiusByMapSize: MapSizeConfig;
+    minDistance: number;
+    placementRetries: number;
+    typeWeights: ZoneTypeWeights;
+    lavaMinDistanceFromSpawn: number;
+    nectar: {
+        massGainPctPerSec: number;
+    };
+    ice: {
+        frictionMultiplier: number;
+    };
+    slime: {
+        speedMultiplier: number;
+        frictionMultiplier: number;
+    };
+    lava: {
+        damagePctPerSec: number;
+        scatterPct: number;
+        scatterOrbCount: number;
+        scatterSpeedMps: number;
+    };
+    turbo: {
+        speedMultiplier: number;
+    };
 }
 
 export interface SlimeConfig {
@@ -60,6 +153,11 @@ export interface SlimeConfig {
         accelTimeS: number;
         velocityErrorThreshold: number;
         inputMagnitudeThreshold: number;
+        // Параметры контр-ускорения
+        counterAccelEnabled: boolean;
+        counterAccelDirectionThresholdDeg: number;
+        counterAccelTimeS: number;
+        counterAccelMinSpeedMps: number;
     };
     combat: {
         biteDamagePctOfMass: number;
@@ -99,9 +197,19 @@ export interface ClientNetSmoothingConfig {
     angleCatchUpSpeed: number;
 }
 
+export interface CameraConfig {
+    zoomMin: number;
+    zoomMax: number;
+    zoomSpeed: number;
+    zoomDamageHoldSec: number;
+    zoomMassMin: number;
+    zoomMassMax: number;
+}
+
 export interface BalanceConfig {
     world: {
         mapSize: number;
+        mapSizes: number[];
     };
     server: {
         maxPlayers: number;
@@ -145,14 +253,16 @@ export interface BalanceConfig {
     };
     worldPhysics: WorldPhysicsConfig;
     clientNetSmoothing: ClientNetSmoothingConfig;
+    camera: CameraConfig;
     slime: {
         initialMass: number;
         initialLevel: number;
         initialClassId: number;
-        levelThresholds: number[];       // [100, 200, 300, 500, 800]
+        levelThresholds: number[];       // [100, 180, 300, 500, 800, 1200] (GDD v3.3)
         slotUnlockLevels: number[];      // [1, 3, 5]
+        talentGrantLevels: number[];     // [2, 4, 6] - уровни, дающие карточки талантов
         cardChoiceTimeoutSec: number;    // 12
-        abilityPool: string[];           // ["pull", "projectile", "spit", ...]
+        abilityPool: string[];           // ["slow", "projectile", "spit", ...]
     };
     combat: {
         mouthArcDeg: number;
@@ -169,6 +279,7 @@ export interface BalanceConfig {
         pvpBiteScatterPct: number;
         pvpBiteScatterOrbCount: number;
         pvpBiteScatterSpeed: number;
+        scatterOrbMinMass: number;
     };
     death: {
         respawnDelaySec: number;
@@ -184,6 +295,10 @@ export interface BalanceConfig {
         minMass: number;
         minRadius: number;
         pushForce: number;
+        // Минимальная масса игрока для укуса орбов.
+        orbBiteMinMass: number;
+        // Максимальная масса игрока, учитываемая при расчёте силы укуса орба.
+        orbBiteMaxMass: number;
         types: Array<{
             id: string;
             weight: number;
@@ -224,11 +339,27 @@ export interface BalanceConfig {
             distanceM: number;
             durationSec: number;
             collisionDamageMult: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                distanceM: number;
+                durationSec: number;
+                collisionDamageMult: number;
+            }>;
         };
         shield: {
             massCostPct: number;
             cooldownSec: number;
             durationSec: number;
+            reflectDamagePct: number;
+            burstRadiusM: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                durationSec: number;
+                reflectDamagePct: number;
+                burstRadiusM: number;
+            }>;
         };
         magnet: {
             massCostPct: number;
@@ -236,6 +367,13 @@ export interface BalanceConfig {
             durationSec: number;
             radiusM: number;
             pullSpeedMps: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                durationSec: number;
+                radiusM: number;
+                pullSpeedMps: number;
+            }>;
         };
         slow: {
             massCostPct: number;
@@ -243,6 +381,13 @@ export interface BalanceConfig {
             durationSec: number;
             radiusM: number;
             slowPct: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                durationSec: number;
+                radiusM: number;
+                slowPct: number;
+            }>;
         };
         projectile: {
             massCostPct: number;
@@ -251,6 +396,18 @@ export interface BalanceConfig {
             rangeM: number;
             damagePct: number;
             radiusM: number;
+            piercingHits: number;
+            piercingDamagePct: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                speedMps: number;
+                rangeM: number;
+                damagePct: number;
+                radiusM: number;
+                piercingHits: number;
+                piercingDamagePct: number;
+            }>;
         };
         spit: {
             massCostPct: number;
@@ -261,6 +418,16 @@ export interface BalanceConfig {
             radiusM: number;
             projectileCount: number;
             spreadAngleDeg: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                speedMps: number;
+                rangeM: number;
+                damagePct: number;
+                radiusM: number;
+                projectileCount: number;
+                spreadAngleDeg: number;
+            }>;
         };
         bomb: {
             massCostPct: number;
@@ -270,6 +437,15 @@ export interface BalanceConfig {
             damagePct: number;
             radiusM: number;
             explosionRadiusM: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                speedMps: number;
+                rangeM: number;
+                damagePct: number;
+                radiusM: number;
+                explosionRadiusM: number;
+            }>;
         };
         push: {
             massCostPct: number;
@@ -278,6 +454,14 @@ export interface BalanceConfig {
             impulseNs: number;
             minSpeedMps: number;
             maxSpeedMps: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                radiusM: number;
+                impulseNs: number;
+                minSpeedMps: number;
+                maxSpeedMps: number;
+            }>;
         };
         mine: {
             massCostPct: number;
@@ -286,6 +470,14 @@ export interface BalanceConfig {
             radiusM: number;
             durationSec: number;
             maxMines: number;
+            levels?: Array<{
+                massCostPct: number;
+                cooldownSec: number;
+                damagePct: number;
+                radiusM: number;
+                durationSec: number;
+                maxMines: number;
+            }>;
         };
     };
     chests: {
@@ -319,6 +511,10 @@ export interface BalanceConfig {
             Final?: { rare: number; epic: number; gold: number };
         };
     };
+    boosts: BoostConfig;
+    obstacles: ObstacleConfig;
+    safeZones: SafeZoneConfig;
+    zones: ZonesConfig;
     hotZones: {
         chaosCount: number;
         finalCount: number;
@@ -344,14 +540,19 @@ export interface BalanceConfig {
     };
     talents: {
         cardChoiceTimeoutSec: number;
+        cardQueueMax: number;
+        abilityUpgradeChance: number;
         talentPool: {
             common: string[];
             rare: string[];
             epic: string[];
         };
+        talentRarityByLevel: Record<string, { common: number; rare: number; epic: number }>;
+        autoPickPriorities: Record<string, Record<string, number>>;
         common: Record<string, TalentConfig>;
         rare: Record<string, TalentConfig>;
         epic: Record<string, TalentConfig>;
+        classTalents: Record<string, Record<string, ClassTalentConfig>>;
     };
 }
 
@@ -362,6 +563,12 @@ export interface TalentConfig {
     values: number[] | number[][] | number;  // Значения по уровням
     effect: string;
     requirement?: string | null;
+    category?: string;
+}
+
+// Конфиг классового таланта
+export interface ClassTalentConfig extends TalentConfig {
+    rarity: "rare" | "epic";
 }
 
 export interface ResolvedBalanceConfig extends BalanceConfig {
@@ -373,6 +580,7 @@ export interface ResolvedBalanceConfig extends BalanceConfig {
 export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     world: {
         mapSize: 1000,
+        mapSizes: [],
     },
     server: {
         maxPlayers: 20,
@@ -425,7 +633,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -450,6 +658,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -480,7 +692,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -505,6 +717,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -535,7 +751,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -560,6 +776,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -590,7 +810,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 thrustForwardN: 9000,
                 thrustReverseN: 6750,
                 thrustLateralN: 8500,
-                turnTorqueNm: 17500,
+                turnTorqueNm: 24000,
             },
             limits: {
                 speedLimitForwardMps: 260,
@@ -615,6 +835,10 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 accelTimeS: 0.5,
                 velocityErrorThreshold: 0.1,
                 inputMagnitudeThreshold: 0.01,
+                counterAccelEnabled: true,
+                counterAccelDirectionThresholdDeg: 30,
+                counterAccelTimeS: 0.15,
+                counterAccelMinSpeedMps: 50,
             },
             combat: {
                 biteDamagePctOfMass: 0.15,
@@ -651,14 +875,23 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         teleportThreshold: 100,
         angleCatchUpSpeed: 12.0,
     },
+    camera: {
+        zoomMin: 1.0,
+        zoomMax: 2.5,
+        zoomSpeed: 0.5,
+        zoomDamageHoldSec: 3,
+        zoomMassMin: 100,
+        zoomMassMax: 2000,
+    },
     slime: {
         initialMass: 100,
         initialLevel: 1,
         initialClassId: 0,
-        levelThresholds: [100, 200, 300, 500, 800],
+        levelThresholds: [100, 180, 300, 500, 800, 1200],
         slotUnlockLevels: [1, 3, 5],
+        talentGrantLevels: [2, 4, 6],
         cardChoiceTimeoutSec: 12,
-        abilityPool: ["pull", "projectile", "spit", "bomb", "push", "mine"],
+        abilityPool: ["slow", "projectile", "spit", "bomb", "push", "mine"],
     },
     combat: {
         mouthArcDeg: 120,
@@ -675,6 +908,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         pvpBiteScatterPct: 0.10,
         pvpBiteScatterOrbCount: 3,
         pvpBiteScatterSpeed: 200,
+        scatterOrbMinMass: 5,
     },
     death: {
         respawnDelaySec: 2,
@@ -690,6 +924,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         minMass: 3,
         minRadius: 2.5,
         pushForce: 100,
+        // Орбы можно кусать только начиная с этой массы.
+        orbBiteMinMass: 50,
+        // Влияние массы на силу укуса орба ограничивается этим значением.
+        // Большое значение означает фактически без верхнего ограничения.
+        orbBiteMaxMass: 100000,
         types: [
             { id: "green", weight: 40, density: 0.8, massRange: [5, 15] },
             { id: "blue", weight: 30, density: 1.0, massRange: [20, 40] },
@@ -711,14 +950,14 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         },
         warrior: {
             speedMult: 0.9,
-            biteResistPct: 0.15,
+            biteResistPct: 0,
             damageVsSlimeMult: 1.1,
             swallowLimit: 45,
             biteFraction: 0.35,
         },
         collector: {
-            radiusMult: 1.25,
-            eatingPowerMult: 1.15,
+            radiusMult: 1,
+            eatingPowerMult: 1.25,
             swallowLimit: 70,
             biteFraction: 0.5,
         },
@@ -727,14 +966,26 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         dash: {
             massCostPct: 0.03,
             cooldownSec: 5,
-            distanceM: 150,
-            durationSec: 0.2,
+            distanceM: 80,
+            durationSec: 0.3,
             collisionDamageMult: 1.5,
+            levels: [
+                { massCostPct: 0.03, cooldownSec: 5, distanceM: 80, durationSec: 0.3, collisionDamageMult: 1.5 },
+                { massCostPct: 0.03, cooldownSec: 4, distanceM: 80, durationSec: 0.3, collisionDamageMult: 1.5 },
+                { massCostPct: 0.03, cooldownSec: 4, distanceM: 104, durationSec: 0.3, collisionDamageMult: 1.5 },
+            ],
         },
         shield: {
             massCostPct: 0.04,
             cooldownSec: 8,
-            durationSec: 2.0,
+            durationSec: 2.5,
+            reflectDamagePct: 0,
+            burstRadiusM: 0,
+            levels: [
+                { massCostPct: 0.04, cooldownSec: 8, durationSec: 2.5, reflectDamagePct: 0, burstRadiusM: 0 },
+                { massCostPct: 0.04, cooldownSec: 8, durationSec: 2.5, reflectDamagePct: 0.30, burstRadiusM: 0 },
+                { massCostPct: 0.04, cooldownSec: 8, durationSec: 2.5, reflectDamagePct: 0.30, burstRadiusM: 40 },
+            ],
         },
         magnet: {
             massCostPct: 0.02,
@@ -742,6 +993,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             durationSec: 1.5,
             radiusM: 120,
             pullSpeedMps: 50,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 1.5, radiusM: 120, pullSpeedMps: 50 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 1.5, radiusM: 150, pullSpeedMps: 50 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 1.5, radiusM: 150, pullSpeedMps: 70 },
+            ],
         },
         slow: {
             massCostPct: 0.02,
@@ -749,14 +1005,26 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             durationSec: 2,
             radiusM: 80,
             slowPct: 0.30,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 2, radiusM: 80, slowPct: 0.30 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 2, radiusM: 100, slowPct: 0.30 },
+                { massCostPct: 0.02, cooldownSec: 7, durationSec: 2, radiusM: 100, slowPct: 0.40 },
+            ],
         },
         projectile: {
             massCostPct: 0.02,
             cooldownSec: 3,
             speedMps: 400,
             rangeM: 300,
-            damagePct: 0.10,
+            damagePct: 0.15,
             radiusM: 8,
+            piercingHits: 0,
+            piercingDamagePct: 0,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 3, speedMps: 400, rangeM: 300, damagePct: 0.15, radiusM: 8, piercingHits: 0, piercingDamagePct: 0 },
+                { massCostPct: 0.02, cooldownSec: 3, speedMps: 400, rangeM: 300, damagePct: 0.18, radiusM: 8, piercingHits: 0, piercingDamagePct: 0 },
+                { massCostPct: 0.02, cooldownSec: 3, speedMps: 400, rangeM: 300, damagePct: 0.18, radiusM: 8, piercingHits: 2, piercingDamagePct: 0.6 },
+            ],
         },
         spit: {
             massCostPct: 0.03,
@@ -767,6 +1035,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             radiusM: 6,
             projectileCount: 3,
             spreadAngleDeg: 30,
+            levels: [
+                { massCostPct: 0.03, cooldownSec: 4, speedMps: 350, rangeM: 200, damagePct: 0.08, radiusM: 6, projectileCount: 3, spreadAngleDeg: 30 },
+                { massCostPct: 0.03, cooldownSec: 4, speedMps: 350, rangeM: 200, damagePct: 0.08, radiusM: 6, projectileCount: 4, spreadAngleDeg: 30 },
+                { massCostPct: 0.03, cooldownSec: 4, speedMps: 350, rangeM: 200, damagePct: 0.092, radiusM: 6, projectileCount: 4, spreadAngleDeg: 30 },
+            ],
         },
         bomb: {
             massCostPct: 0.04,
@@ -776,6 +1049,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             damagePct: 0.12,
             radiusM: 10,
             explosionRadiusM: 50,
+            levels: [
+                { massCostPct: 0.04, cooldownSec: 6, speedMps: 200, rangeM: 250, damagePct: 0.12, radiusM: 10, explosionRadiusM: 50 },
+                { massCostPct: 0.04, cooldownSec: 6, speedMps: 200, rangeM: 250, damagePct: 0.12, radiusM: 10, explosionRadiusM: 70 },
+                { massCostPct: 0.04, cooldownSec: 5, speedMps: 200, rangeM: 250, damagePct: 0.12, radiusM: 10, explosionRadiusM: 70 },
+            ],
         },
         push: {
             massCostPct: 0.03,
@@ -784,6 +1062,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             impulseNs: 50000,
             minSpeedMps: 30,
             maxSpeedMps: 120,
+            levels: [
+                { massCostPct: 0.03, cooldownSec: 6, radiusM: 80, impulseNs: 50000, minSpeedMps: 30, maxSpeedMps: 120 },
+                { massCostPct: 0.03, cooldownSec: 6, radiusM: 100, impulseNs: 50000, minSpeedMps: 30, maxSpeedMps: 120 },
+                { massCostPct: 0.03, cooldownSec: 6, radiusM: 100, impulseNs: 65000, minSpeedMps: 30, maxSpeedMps: 150 },
+            ],
         },
         mine: {
             massCostPct: 0.02,
@@ -792,6 +1075,11 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
             radiusM: 15,
             durationSec: 20,
             maxMines: 1,
+            levels: [
+                { massCostPct: 0.02, cooldownSec: 10, damagePct: 0.15, radiusM: 15, durationSec: 20, maxMines: 1 },
+                { massCostPct: 0.02, cooldownSec: 10, damagePct: 0.15, radiusM: 15, durationSec: 20, maxMines: 2 },
+                { massCostPct: 0.02, cooldownSec: 10, damagePct: 0.20, radiusM: 15, durationSec: 20, maxMines: 2 },
+            ],
         },
     },
     chests: {
@@ -813,6 +1101,109 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
                 epic: { common: 30, rare: 60, epic: 10 },
                 gold: { common: 0, rare: 40, epic: 60 },
             },
+        },
+    },
+    boosts: {
+        maxStackTimeSec: 20,
+        rage: {
+            durationSec: 10,
+            damageMul: 1.25,
+        },
+        haste: {
+            durationSec: 10,
+            speedMul: 1.3,
+        },
+        guard: {
+            durationSec: 15,
+            charges: 1,
+        },
+        greed: {
+            durationSec: 15,
+            bubbleMassMul: 2.0,
+            charges: 3,
+        },
+        allowedByChestType: {
+            rare: ["haste", "guard"],
+            epic: ["rage", "haste", "guard"],
+            gold: ["greed", "rage", "guard"],
+        },
+    },
+    obstacles: {
+        countByMapSize: {
+            small: 4,
+            medium: 6,
+            large: 9,
+        },
+        passageCountByMapSize: {
+            small: 1,
+            medium: 2,
+            large: 2,
+        },
+        passageGapWidth: 25,
+        passagePillarRadius: 18,
+        pillarRadius: 20,
+        spikeRadius: 16,
+        spikeDamagePct: 0.05,
+        spikeChance: 0.3,
+        spacing: 8,
+        placementRetries: 30,
+    },
+    safeZones: {
+        finalStartSec: 120,
+        warningSec: 10,
+        damagePctPerSec: 0.015,
+        minDistance: 200,
+        placementRetries: 30,
+        countByMapSize: {
+            small: 1,
+            medium: 2,
+            large: 3,
+        },
+        radiusByMapSize: {
+            small: 120,
+            medium: 150,
+            large: 180,
+        },
+    },
+    zones: {
+        countByMapSize: {
+            small: 3,
+            medium: 4,
+            large: 5,
+        },
+        radiusByMapSize: {
+            small: 90,
+            medium: 110,
+            large: 130,
+        },
+        minDistance: 180,
+        placementRetries: 40,
+        typeWeights: {
+            nectar: 1,
+            ice: 1,
+            slime: 1,
+            lava: 1,
+            turbo: 1,
+        },
+        lavaMinDistanceFromSpawn: 100,
+        nectar: {
+            massGainPctPerSec: 0.01,
+        },
+        ice: {
+            frictionMultiplier: 0.3,
+        },
+        slime: {
+            speedMultiplier: 0.5,
+            frictionMultiplier: 2.0,
+        },
+        lava: {
+            damagePctPerSec: 0.02,
+            scatterPct: 0.5,
+            scatterOrbCount: 6,
+            scatterSpeedMps: 60,
+        },
+        turbo: {
+            speedMultiplier: 1.4,
         },
     },
     hotZones: {
@@ -840,45 +1231,76 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
     },
     talents: {
         cardChoiceTimeoutSec: 12,
+        cardQueueMax: 3,
+        abilityUpgradeChance: 0.5,
         talentPool: {
             common: ["fastLegs", "spinner", "sharpTeeth", "glutton", "thickSkin", "economical", "recharge", "aggressor", "sturdy", "accelerator", "anchor", "crab", "bloodlust", "secondWind"],
             rare: ["poison", "frost", "vampire", "vacuum", "motor", "ricochet", "piercing", "longDash", "backNeedles", "toxic"],
             epic: ["lightning", "doubleActivation", "explosion", "leviathan", "invisible"],
         },
+        talentRarityByLevel: {
+            "2": { common: 100, rare: 0, epic: 0 },
+            "3": { common: 85, rare: 15, epic: 0 },
+            "4": { common: 70, rare: 28, epic: 2 },
+            "5": { common: 60, rare: 35, epic: 5 },
+            "6": { common: 50, rare: 40, epic: 10 },
+            "7": { common: 40, rare: 45, epic: 15 },
+        },
+        autoPickPriorities: {
+            hunter: { speed: 3, damage: 2, defense: 1, gather: 1 },
+            warrior: { defense: 3, damage: 2, speed: 1, gather: 1 },
+            collector: { gather: 3, defense: 2, speed: 1, damage: 1 },
+        },
         common: {
-            fastLegs: { name: "Быстрые ноги", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "speedLimitBonus" },
-            spinner: { name: "Юла", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "turnBonus" },
-            sharpTeeth: { name: "Острые зубы", maxLevel: 3, values: [0.15, 0.25, 0.35], effect: "biteDamageBonus" },
-            glutton: { name: "Обжора", maxLevel: 3, values: [0.20, 0.35, 0.50], effect: "orbMassBonus" },
-            thickSkin: { name: "Толстая шкура", maxLevel: 3, values: [0.12, 0.20, 0.27], effect: "biteResistBonus" },
-            economical: { name: "Экономный", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "abilityCostReduction" },
-            recharge: { name: "Перезарядка", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "cooldownReduction" },
-            aggressor: { name: "Агрессор", maxLevel: 1, values: [0.12], effect: "aggressorDual" },
-            sturdy: { name: "Стойкий", maxLevel: 1, values: [0.10], effect: "allDamageReduction" },
-            accelerator: { name: "Ускоритель", maxLevel: 1, values: [0.15], effect: "thrustForwardBonus" },
-            anchor: { name: "Якорь", maxLevel: 1, values: [0.20], effect: "thrustReverseBonus" },
-            crab: { name: "Краб", maxLevel: 1, values: [0.15], effect: "thrustLateralBonus" },
-            bloodlust: { name: "Кровожадность", maxLevel: 1, values: [0.15], effect: "killMassBonus" },
-            secondWind: { name: "Второе дыхание", maxLevel: 1, values: [150], effect: "respawnMass" },
+            fastLegs: { name: "Быстрые ноги", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "speedLimitBonus", category: "speed" },
+            spinner: { name: "Юла", maxLevel: 3, values: [0.10, 0.18, 0.25], effect: "turnBonus", category: "speed" },
+            sharpTeeth: { name: "Острые зубы", maxLevel: 3, values: [0.15, 0.25, 0.35], effect: "biteDamageBonus", category: "damage" },
+            glutton: { name: "Обжора", maxLevel: 3, values: [0.20, 0.35, 0.50], effect: "orbMassBonus", category: "gather" },
+            thickSkin: { name: "Толстая шкура", maxLevel: 3, values: [0.12, 0.20, 0.27], effect: "biteResistBonus", category: "defense" },
+            economical: { name: "Экономный", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "abilityCostReduction", category: "gather" },
+            recharge: { name: "Перезарядка", maxLevel: 3, values: [0.15, 0.25, 0.33], effect: "cooldownReduction", category: "speed" },
+            aggressor: { name: "Агрессор", maxLevel: 1, values: [0.12], effect: "aggressorDual", category: "damage" },
+            sturdy: { name: "Стойкий", maxLevel: 1, values: [0.10], effect: "allDamageReduction", category: "defense" },
+            accelerator: { name: "Ускоритель", maxLevel: 1, values: [0.15], effect: "thrustForwardBonus", category: "speed" },
+            anchor: { name: "Якорь", maxLevel: 1, values: [0.20], effect: "thrustReverseBonus", category: "defense" },
+            crab: { name: "Краб", maxLevel: 1, values: [0.15], effect: "thrustLateralBonus", category: "speed" },
+            bloodlust: { name: "Кровожадность", maxLevel: 1, values: [0.15], effect: "killMassBonus", category: "damage" },
+            secondWind: { name: "Второе дыхание", maxLevel: 1, values: [150], effect: "respawnMass", category: "defense" },
+            sense: { name: "Чутьё", maxLevel: 2, values: [2, 5], effect: "chestSense", category: "gather" },
+            regeneration: { name: "Регенерация", maxLevel: 2, values: [[0.01, 5], [0.01, 4]], effect: "outOfCombatRegen", category: "defense" },
         },
         rare: {
-            poison: { name: "Яд", maxLevel: 2, values: [[0.02, 3], [0.03, 3]], effect: "poisonOnBite", requirement: null },
-            frost: { name: "Мороз", maxLevel: 2, values: [[0.30, 2], [0.40, 2.5]], effect: "frostOnBite", requirement: null },
-            vampire: { name: "Вампир", maxLevel: 1, values: [[0.20, 0.25]], effect: "vampireBite", requirement: null },
-            vacuum: { name: "Вакуум", maxLevel: 2, values: [[40, 15], [60, 20]], effect: "vacuumOrbs", requirement: null },
-            motor: { name: "Мотор", maxLevel: 1, values: [0.25], effect: "allThrustBonus", requirement: null },
-            ricochet: { name: "Рикошет", maxLevel: 1, values: [1], effect: "projectileRicochet", requirement: "projectile" },
-            piercing: { name: "Пробивание", maxLevel: 1, values: [[1.0, 0.6]], effect: "projectilePiercing", requirement: "projectile" },
-            longDash: { name: "Длинный рывок", maxLevel: 1, values: [0.40], effect: "dashDistanceBonus", requirement: "dash" },
-            backNeedles: { name: "Иглы назад", maxLevel: 1, values: [[3, 0.10]], effect: "deathNeedles", requirement: null },
-            toxic: { name: "Токсичный", maxLevel: 1, values: [2.0], effect: "toxicPoolBonus", requirement: null },
+            poison: { name: "Яд", maxLevel: 2, values: [[0.02, 3], [0.03, 3]], effect: "poisonOnBite", requirement: null, category: "damage" },
+            frost: { name: "Мороз", maxLevel: 2, values: [[0.30, 2], [0.40, 2.5]], effect: "frostOnBite", requirement: null, category: "damage" },
+            vampire: { name: "Вампир", maxLevel: 1, values: [[0.20, 0.25]], effect: "vampireBite", requirement: null, category: "gather" },
+            vacuum: { name: "Вакуум", maxLevel: 2, values: [[40, 15], [60, 20]], effect: "vacuumOrbs", requirement: null, category: "gather" },
+            motor: { name: "Мотор", maxLevel: 1, values: [0.25], effect: "allThrustBonus", requirement: null, category: "speed" },
+            ricochet: { name: "Рикошет", maxLevel: 1, values: [1], effect: "projectileRicochet", requirement: "projectile", category: "damage" },
+            piercing: { name: "Пробивание", maxLevel: 1, values: [[1.0, 0.6]], effect: "projectilePiercing", requirement: "projectile", category: "damage" },
+            longDash: { name: "Длинный рывок", maxLevel: 1, values: [0.40], effect: "dashDistanceBonus", requirement: "dash", category: "speed" },
+            backNeedles: { name: "Иглы назад", maxLevel: 1, values: [[3, 0.10]], effect: "deathNeedles", requirement: null, category: "damage" },
+            toxic: { name: "Токсичный", maxLevel: 1, values: [2.0], effect: "toxicPoolBonus", requirement: null, category: "damage" },
         },
         epic: {
-            lightning: { name: "Молния", maxLevel: 1, values: [[0.25, 0.3]], effect: "lightningSpeed", requirement: null },
-            doubleActivation: { name: "Двойная активация", maxLevel: 1, values: [[1.0, 0.80]], effect: "doubleAbility", requirement: null },
-            explosion: { name: "Взрыв", maxLevel: 1, values: [[60, 0.08]], effect: "deathExplosion", requirement: null },
-            leviathan: { name: "Левиафан", maxLevel: 1, values: [[1.3, 1.5]], effect: "leviathanSize", requirement: null },
-            invisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash" },
+            lightning: { name: "Молния", maxLevel: 1, values: [[0.25, 0.3]], effect: "lightningSpeed", requirement: null, category: "speed" },
+            doubleActivation: { name: "Двойная активация", maxLevel: 1, values: [[1.0, 0.80]], effect: "doubleAbility", requirement: null, category: "damage" },
+            explosion: { name: "Взрыв", maxLevel: 1, values: [[60, 0.08]], effect: "deathExplosion", requirement: null, category: "damage" },
+            leviathan: { name: "Левиафан", maxLevel: 1, values: [[1.3, 1.5]], effect: "leviathanSize", requirement: null, category: "defense" },
+            invisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash", category: "speed" },
+        },
+        classTalents: {
+            hunter: {
+                ambush: { name: "Засада", maxLevel: 1, values: [0.30], effect: "ambushDamage", rarity: "rare", category: "damage" },
+                hunterInvisible: { name: "Невидимка", maxLevel: 1, values: [1.5], effect: "invisibleAfterDash", requirement: "dash", rarity: "epic", category: "speed" },
+            },
+            warrior: {
+                indestructible: { name: "Несокрушимый", maxLevel: 1, values: [0.15], effect: "allDamageReduction", rarity: "rare", category: "defense" },
+                thorns: { name: "Шипы", maxLevel: 1, values: [0.10], effect: "thornsDamage", rarity: "rare", category: "defense" },
+            },
+            collector: {
+                parasite: { name: "Паразит", maxLevel: 1, values: [0.05], effect: "parasiteMass", rarity: "rare", category: "gather" },
+                magnet: { name: "Магнит", maxLevel: 1, values: [[50, 10]], effect: "magnetOrbs", rarity: "rare", category: "gather" },
+            },
         },
     },
 };
@@ -903,12 +1325,29 @@ function readString(value: unknown, fallback: string, path: string): string {
     return value;
 }
 
+function readBoolean(value: unknown, fallback: boolean, path: string): boolean {
+    if (value === undefined || value === null) return fallback;
+    if (typeof value !== "boolean") {
+        throw new Error(`Invalid boolean at ${path}`);
+    }
+    return value;
+}
+
 function readNumberArray(value: unknown, fallback: number[], path: string): number[] {
     if (value === undefined || value === null) return fallback;
     if (!Array.isArray(value)) {
         throw new Error(`Invalid array at ${path}`);
     }
     return value.map((item, index) => readNumber(item, fallback[index] ?? 0, `${path}[${index}]`));
+}
+
+function readMapSizeConfig(value: unknown, fallback: MapSizeConfig, path: string): MapSizeConfig {
+    if (!isRecord(value)) return fallback;
+    return {
+        small: readNumber(value.small, fallback.small, `${path}.small`),
+        medium: readNumber(value.medium, fallback.medium, `${path}.medium`),
+        large: readNumber(value.large, fallback.large, `${path}.large`),
+    };
 }
 
 function readStringArray(value: unknown, fallback: string[], path: string): string[] {
@@ -921,6 +1360,18 @@ function readStringArray(value: unknown, fallback: string[], path: string): stri
             throw new Error(`Invalid string at ${path}[${index}]`);
         }
         return item;
+    });
+}
+
+const BOOST_TYPES: BoostType[] = ["rage", "haste", "guard", "greed"];
+
+function readBoostTypeArray(value: unknown, fallback: BoostType[], path: string): BoostType[] {
+    const items = readStringArray(value, fallback, path);
+    return items.map((item, index) => {
+        if (!BOOST_TYPES.includes(item as BoostType)) {
+            throw new Error(`Invalid boost type at ${path}[${index}]`);
+        }
+        return item as BoostType;
     });
 }
 
@@ -1124,6 +1575,26 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
                 fallback.assist.inputMagnitudeThreshold,
                 `${path}.assist.inputMagnitudeThreshold`
             ),
+            counterAccelEnabled: readBoolean(
+                assist.counterAccelEnabled,
+                fallback.assist.counterAccelEnabled,
+                `${path}.assist.counterAccelEnabled`
+            ),
+            counterAccelDirectionThresholdDeg: readNumber(
+                assist.counterAccelDirectionThresholdDeg,
+                fallback.assist.counterAccelDirectionThresholdDeg,
+                `${path}.assist.counterAccelDirectionThresholdDeg`
+            ),
+            counterAccelTimeS: readNumber(
+                assist.counterAccelTimeS,
+                fallback.assist.counterAccelTimeS,
+                `${path}.assist.counterAccelTimeS`
+            ),
+            counterAccelMinSpeedMps: readNumber(
+                assist.counterAccelMinSpeedMps,
+                fallback.assist.counterAccelMinSpeedMps,
+                `${path}.assist.counterAccelMinSpeedMps`
+            ),
         },
         combat: {
             biteDamagePctOfMass: readNumber(
@@ -1203,6 +1674,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const slimeConfigs = isRecord(data.slimeConfigs) ? data.slimeConfigs : {};
     const worldPhysics = isRecord(data.worldPhysics) ? data.worldPhysics : {};
     const clientNetSmoothing = isRecord(data.clientNetSmoothing) ? data.clientNetSmoothing : {};
+    const camera = isRecord(data.camera) ? data.camera : {};
     const slime = isRecord(data.slime) ? data.slime : {};
     const combat = isRecord(data.combat) ? data.combat : {};
     const death = isRecord(data.death) ? data.death : {};
@@ -1210,6 +1682,10 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const formulas = isRecord(data.formulas) ? data.formulas : {};
     const classes = isRecord(data.classes) ? data.classes : {};
     const chests = isRecord(data.chests) ? data.chests : {};
+    const boosts = isRecord(data.boosts) ? data.boosts : {};
+    const obstacles = isRecord(data.obstacles) ? data.obstacles : {};
+    const safeZones = isRecord(data.safeZones) ? data.safeZones : {};
+    const zones = isRecord(data.zones) ? data.zones : {};
     const hotZones = isRecord(data.hotZones) ? data.hotZones : {};
     const toxicPools = isRecord(data.toxicPools) ? data.toxicPools : {};
     const hunger = isRecord(data.hunger) ? data.hunger : {};
@@ -1230,11 +1706,28 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const chestRewardWeights = isRecord(chestRewards.talentRarityWeights)
         ? chestRewards.talentRarityWeights
         : {};
+    const boostAllowedByChestType = isRecord(boosts.allowedByChestType) ? boosts.allowedByChestType : {};
+    const boostRage = isRecord(boosts.rage) ? boosts.rage : {};
+    const boostHaste = isRecord(boosts.haste) ? boosts.haste : {};
+    const boostGuard = isRecord(boosts.guard) ? boosts.guard : {};
+    const boostGreed = isRecord(boosts.greed) ? boosts.greed : {};
+    const zoneTypeWeights = isRecord(zones.typeWeights) ? zones.typeWeights : {};
+    const zoneNectar = isRecord(zones.nectar) ? zones.nectar : {};
+    const zoneIce = isRecord(zones.ice) ? zones.ice : {};
+    const zoneSlime = isRecord(zones.slime) ? zones.slime : {};
+    const zoneLava = isRecord(zones.lava) ? zones.lava : {};
+    const zoneTurbo = isRecord(zones.turbo) ? zones.turbo : {};
     const worldMapSize = readNumber(world.mapSize, DEFAULT_BALANCE_CONFIG.world.mapSize, "world.mapSize");
+    const worldMapSizes = readNumberArray(
+        world.mapSizes,
+        DEFAULT_BALANCE_CONFIG.world.mapSizes,
+        "world.mapSizes"
+    ).filter((value) => Number.isFinite(value) && value > 0);
 
     const resolved: BalanceConfig = {
         world: {
             mapSize: worldMapSize,
+            mapSizes: worldMapSizes,
         },
         server: {
             maxPlayers: readNumber(server.maxPlayers, DEFAULT_BALANCE_CONFIG.server.maxPlayers, "server.maxPlayers"),
@@ -1438,6 +1931,18 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 "clientNetSmoothing.angleCatchUpSpeed"
             )),
         },
+        camera: {
+            zoomMin: readNumber(camera.zoomMin, DEFAULT_BALANCE_CONFIG.camera.zoomMin, "camera.zoomMin"),
+            zoomMax: readNumber(camera.zoomMax, DEFAULT_BALANCE_CONFIG.camera.zoomMax, "camera.zoomMax"),
+            zoomSpeed: readNumber(camera.zoomSpeed, DEFAULT_BALANCE_CONFIG.camera.zoomSpeed, "camera.zoomSpeed"),
+            zoomDamageHoldSec: readNumber(
+                camera.zoomDamageHoldSec,
+                DEFAULT_BALANCE_CONFIG.camera.zoomDamageHoldSec,
+                "camera.zoomDamageHoldSec"
+            ),
+            zoomMassMin: readNumber(camera.zoomMassMin, DEFAULT_BALANCE_CONFIG.camera.zoomMassMin, "camera.zoomMassMin"),
+            zoomMassMax: readNumber(camera.zoomMassMax, DEFAULT_BALANCE_CONFIG.camera.zoomMassMax, "camera.zoomMassMax"),
+        },
         slime: {
             initialMass: readNumber(
                 slime.initialMass,
@@ -1462,6 +1967,10 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 ? slime.slotUnlockLevels.map((v: unknown, i: number) =>
                     readNumber(v, DEFAULT_BALANCE_CONFIG.slime.slotUnlockLevels[i] ?? 1, `slime.slotUnlockLevels[${i}]`))
                 : DEFAULT_BALANCE_CONFIG.slime.slotUnlockLevels,
+            talentGrantLevels: Array.isArray(slime.talentGrantLevels)
+                ? slime.talentGrantLevels.map((v: unknown, i: number) =>
+                    readNumber(v, DEFAULT_BALANCE_CONFIG.slime.talentGrantLevels[i] ?? 2, `slime.talentGrantLevels[${i}]`))
+                : DEFAULT_BALANCE_CONFIG.slime.talentGrantLevels,
             cardChoiceTimeoutSec: readNumber(
                 slime.cardChoiceTimeoutSec,
                 DEFAULT_BALANCE_CONFIG.slime.cardChoiceTimeoutSec,
@@ -1542,6 +2051,11 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 DEFAULT_BALANCE_CONFIG.combat.pvpBiteScatterSpeed,
                 "combat.pvpBiteScatterSpeed"
             ),
+            scatterOrbMinMass: readNumber(
+                combat.scatterOrbMinMass,
+                DEFAULT_BALANCE_CONFIG.combat.scatterOrbMinMass,
+                "combat.scatterOrbMinMass"
+            ),
         },
         death: {
             respawnDelaySec: readNumber(
@@ -1584,6 +2098,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ),
             minMass: readNumber(orbs.minMass, DEFAULT_BALANCE_CONFIG.orbs.minMass, "orbs.minMass"),
             minRadius: readNumber(orbs.minRadius, DEFAULT_BALANCE_CONFIG.orbs.minRadius, "orbs.minRadius"),
+            orbBiteMinMass: readNumber(
+                orbs.orbBiteMinMass,
+                DEFAULT_BALANCE_CONFIG.orbs.orbBiteMinMass,
+                "orbs.orbBiteMinMass"
+            ),
+            orbBiteMaxMass: readNumber(
+                orbs.orbBiteMaxMass,
+                DEFAULT_BALANCE_CONFIG.orbs.orbBiteMaxMass,
+                "orbs.orbBiteMaxMass"
+            ),
             types: (() => {
                 if (!Array.isArray(orbs.types)) return DEFAULT_BALANCE_CONFIG.orbs.types;
                 return orbs.types.map((entry: unknown, index: number) => {
@@ -1694,6 +2218,161 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             const bomb = isRecord(abilities.bomb) ? abilities.bomb : {};
             const push = isRecord(abilities.push) ? abilities.push : {};
             const mine = isRecord(abilities.mine) ? abilities.mine : {};
+            const dashLevelsRaw = Array.isArray(dash.levels) ? dash.levels : null;
+            const shieldLevelsRaw = Array.isArray(shield.levels) ? shield.levels : null;
+            const magnetLevelsRaw = Array.isArray(magnet.levels) ? magnet.levels : null;
+            const slowLevelsRaw = Array.isArray(slow.levels) ? slow.levels : null;
+            const projectileLevelsRaw = Array.isArray(projectile.levels) ? projectile.levels : null;
+            const spitLevelsRaw = Array.isArray(spit.levels) ? spit.levels : null;
+            const bombLevelsRaw = Array.isArray(bomb.levels) ? bomb.levels : null;
+            const pushLevelsRaw = Array.isArray(push.levels) ? push.levels : null;
+            const mineLevelsRaw = Array.isArray(mine.levels) ? mine.levels : null;
+
+            const dashLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.dash.levels ?? [];
+            const shieldLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.shield.levels ?? [];
+            const magnetLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.magnet.levels ?? [];
+            const slowLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.slow.levels ?? [];
+            const projectileLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.projectile.levels ?? [];
+            const spitLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.spit.levels ?? [];
+            const bombLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.bomb.levels ?? [];
+            const pushLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.push.levels ?? [];
+            const mineLevelsFallback = DEFAULT_BALANCE_CONFIG.abilities.mine.levels ?? [];
+
+            const dashLevels = dashLevelsRaw && dashLevelsRaw.length > 0
+                ? dashLevelsRaw.map((level, index) => {
+                    const fallback = dashLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.dash;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.dash.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.dash.levels.${index}.cooldownSec`),
+                        distanceM: readNumber(dataLevel.distanceM, fallback.distanceM, `abilities.dash.levels.${index}.distanceM`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.dash.levels.${index}.durationSec`),
+                        collisionDamageMult: readNumber(dataLevel.collisionDamageMult, fallback.collisionDamageMult, `abilities.dash.levels.${index}.collisionDamageMult`),
+                    };
+                })
+                : dashLevelsFallback;
+
+            const shieldLevels = shieldLevelsRaw && shieldLevelsRaw.length > 0
+                ? shieldLevelsRaw.map((level, index) => {
+                    const fallback = shieldLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.shield;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.shield.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.shield.levels.${index}.cooldownSec`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.shield.levels.${index}.durationSec`),
+                        reflectDamagePct: readNumber(dataLevel.reflectDamagePct, fallback.reflectDamagePct, `abilities.shield.levels.${index}.reflectDamagePct`),
+                        burstRadiusM: readNumber(dataLevel.burstRadiusM, fallback.burstRadiusM, `abilities.shield.levels.${index}.burstRadiusM`),
+                    };
+                })
+                : shieldLevelsFallback;
+
+            const magnetLevels = magnetLevelsRaw && magnetLevelsRaw.length > 0
+                ? magnetLevelsRaw.map((level, index) => {
+                    const fallback = magnetLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.magnet;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.magnet.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.magnet.levels.${index}.cooldownSec`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.magnet.levels.${index}.durationSec`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.magnet.levels.${index}.radiusM`),
+                        pullSpeedMps: readNumber(dataLevel.pullSpeedMps, fallback.pullSpeedMps, `abilities.magnet.levels.${index}.pullSpeedMps`),
+                    };
+                })
+                : magnetLevelsFallback;
+
+            const slowLevels = slowLevelsRaw && slowLevelsRaw.length > 0
+                ? slowLevelsRaw.map((level, index) => {
+                    const fallback = slowLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.slow;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.slow.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.slow.levels.${index}.cooldownSec`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.slow.levels.${index}.durationSec`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.slow.levels.${index}.radiusM`),
+                        slowPct: readNumber(dataLevel.slowPct, fallback.slowPct, `abilities.slow.levels.${index}.slowPct`),
+                    };
+                })
+                : slowLevelsFallback;
+
+            const projectileLevels = projectileLevelsRaw && projectileLevelsRaw.length > 0
+                ? projectileLevelsRaw.map((level, index) => {
+                    const fallback = projectileLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.projectile;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.projectile.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.projectile.levels.${index}.cooldownSec`),
+                        speedMps: readNumber(dataLevel.speedMps, fallback.speedMps, `abilities.projectile.levels.${index}.speedMps`),
+                        rangeM: readNumber(dataLevel.rangeM, fallback.rangeM, `abilities.projectile.levels.${index}.rangeM`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.projectile.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.projectile.levels.${index}.radiusM`),
+                        piercingHits: readNumber(dataLevel.piercingHits, fallback.piercingHits, `abilities.projectile.levels.${index}.piercingHits`),
+                        piercingDamagePct: readNumber(dataLevel.piercingDamagePct, fallback.piercingDamagePct, `abilities.projectile.levels.${index}.piercingDamagePct`),
+                    };
+                })
+                : projectileLevelsFallback;
+
+            const spitLevels = spitLevelsRaw && spitLevelsRaw.length > 0
+                ? spitLevelsRaw.map((level, index) => {
+                    const fallback = spitLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.spit;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.spit.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.spit.levels.${index}.cooldownSec`),
+                        speedMps: readNumber(dataLevel.speedMps, fallback.speedMps, `abilities.spit.levels.${index}.speedMps`),
+                        rangeM: readNumber(dataLevel.rangeM, fallback.rangeM, `abilities.spit.levels.${index}.rangeM`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.spit.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.spit.levels.${index}.radiusM`),
+                        projectileCount: readNumber(dataLevel.projectileCount, fallback.projectileCount, `abilities.spit.levels.${index}.projectileCount`),
+                        spreadAngleDeg: readNumber(dataLevel.spreadAngleDeg, fallback.spreadAngleDeg, `abilities.spit.levels.${index}.spreadAngleDeg`),
+                    };
+                })
+                : spitLevelsFallback;
+
+            const bombLevels = bombLevelsRaw && bombLevelsRaw.length > 0
+                ? bombLevelsRaw.map((level, index) => {
+                    const fallback = bombLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.bomb;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.bomb.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.bomb.levels.${index}.cooldownSec`),
+                        speedMps: readNumber(dataLevel.speedMps, fallback.speedMps, `abilities.bomb.levels.${index}.speedMps`),
+                        rangeM: readNumber(dataLevel.rangeM, fallback.rangeM, `abilities.bomb.levels.${index}.rangeM`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.bomb.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.bomb.levels.${index}.radiusM`),
+                        explosionRadiusM: readNumber(dataLevel.explosionRadiusM, fallback.explosionRadiusM, `abilities.bomb.levels.${index}.explosionRadiusM`),
+                    };
+                })
+                : bombLevelsFallback;
+
+            const pushLevels = pushLevelsRaw && pushLevelsRaw.length > 0
+                ? pushLevelsRaw.map((level, index) => {
+                    const fallback = pushLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.push;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.push.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.push.levels.${index}.cooldownSec`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.push.levels.${index}.radiusM`),
+                        impulseNs: readNumber(dataLevel.impulseNs, fallback.impulseNs, `abilities.push.levels.${index}.impulseNs`),
+                        minSpeedMps: readNumber(dataLevel.minSpeedMps, fallback.minSpeedMps, `abilities.push.levels.${index}.minSpeedMps`),
+                        maxSpeedMps: readNumber(dataLevel.maxSpeedMps, fallback.maxSpeedMps, `abilities.push.levels.${index}.maxSpeedMps`),
+                    };
+                })
+                : pushLevelsFallback;
+
+            const mineLevels = mineLevelsRaw && mineLevelsRaw.length > 0
+                ? mineLevelsRaw.map((level, index) => {
+                    const fallback = mineLevelsFallback[index] ?? DEFAULT_BALANCE_CONFIG.abilities.mine;
+                    const dataLevel = isRecord(level) ? level : {};
+                    return {
+                        massCostPct: readNumber(dataLevel.massCostPct, fallback.massCostPct, `abilities.mine.levels.${index}.massCostPct`),
+                        cooldownSec: readNumber(dataLevel.cooldownSec, fallback.cooldownSec, `abilities.mine.levels.${index}.cooldownSec`),
+                        damagePct: readNumber(dataLevel.damagePct, fallback.damagePct, `abilities.mine.levels.${index}.damagePct`),
+                        radiusM: readNumber(dataLevel.radiusM, fallback.radiusM, `abilities.mine.levels.${index}.radiusM`),
+                        durationSec: readNumber(dataLevel.durationSec, fallback.durationSec, `abilities.mine.levels.${index}.durationSec`),
+                        maxMines: readNumber(dataLevel.maxMines, fallback.maxMines, `abilities.mine.levels.${index}.maxMines`),
+                    };
+                })
+                : mineLevelsFallback;
             return {
                 dash: {
                     massCostPct: readNumber(dash.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.dash.massCostPct, "abilities.dash.massCostPct"),
@@ -1701,11 +2380,15 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     distanceM: readNumber(dash.distanceM, DEFAULT_BALANCE_CONFIG.abilities.dash.distanceM, "abilities.dash.distanceM"),
                     durationSec: readNumber(dash.durationSec, DEFAULT_BALANCE_CONFIG.abilities.dash.durationSec, "abilities.dash.durationSec"),
                     collisionDamageMult: readNumber(dash.collisionDamageMult, DEFAULT_BALANCE_CONFIG.abilities.dash.collisionDamageMult, "abilities.dash.collisionDamageMult"),
+                    levels: dashLevels,
                 },
                 shield: {
                     massCostPct: readNumber(shield.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.shield.massCostPct, "abilities.shield.massCostPct"),
                     cooldownSec: readNumber(shield.cooldownSec, DEFAULT_BALANCE_CONFIG.abilities.shield.cooldownSec, "abilities.shield.cooldownSec"),
                     durationSec: readNumber(shield.durationSec, DEFAULT_BALANCE_CONFIG.abilities.shield.durationSec, "abilities.shield.durationSec"),
+                    reflectDamagePct: readNumber(shield.reflectDamagePct, DEFAULT_BALANCE_CONFIG.abilities.shield.reflectDamagePct, "abilities.shield.reflectDamagePct"),
+                    burstRadiusM: readNumber(shield.burstRadiusM, DEFAULT_BALANCE_CONFIG.abilities.shield.burstRadiusM, "abilities.shield.burstRadiusM"),
+                    levels: shieldLevels,
                 },
                 magnet: {
                     massCostPct: readNumber(magnet.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.magnet.massCostPct, "abilities.magnet.massCostPct"),
@@ -1713,6 +2396,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     durationSec: readNumber(magnet.durationSec, DEFAULT_BALANCE_CONFIG.abilities.magnet.durationSec, "abilities.magnet.durationSec"),
                     radiusM: readNumber(magnet.radiusM, DEFAULT_BALANCE_CONFIG.abilities.magnet.radiusM, "abilities.magnet.radiusM"),
                     pullSpeedMps: readNumber(magnet.pullSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.magnet.pullSpeedMps, "abilities.magnet.pullSpeedMps"),
+                    levels: magnetLevels,
                 },
                 slow: {
                     massCostPct: readNumber(slow.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.slow.massCostPct, "abilities.slow.massCostPct"),
@@ -1720,6 +2404,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     durationSec: readNumber(slow.durationSec, DEFAULT_BALANCE_CONFIG.abilities.slow.durationSec, "abilities.slow.durationSec"),
                     radiusM: readNumber(slow.radiusM, DEFAULT_BALANCE_CONFIG.abilities.slow.radiusM, "abilities.slow.radiusM"),
                     slowPct: readNumber(slow.slowPct, DEFAULT_BALANCE_CONFIG.abilities.slow.slowPct, "abilities.slow.slowPct"),
+                    levels: slowLevels,
                 },
                 projectile: {
                     massCostPct: readNumber(projectile.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.projectile.massCostPct, "abilities.projectile.massCostPct"),
@@ -1728,6 +2413,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     rangeM: readNumber(projectile.rangeM, DEFAULT_BALANCE_CONFIG.abilities.projectile.rangeM, "abilities.projectile.rangeM"),
                     damagePct: readNumber(projectile.damagePct, DEFAULT_BALANCE_CONFIG.abilities.projectile.damagePct, "abilities.projectile.damagePct"),
                     radiusM: readNumber(projectile.radiusM, DEFAULT_BALANCE_CONFIG.abilities.projectile.radiusM, "abilities.projectile.radiusM"),
+                    piercingHits: readNumber(projectile.piercingHits, DEFAULT_BALANCE_CONFIG.abilities.projectile.piercingHits, "abilities.projectile.piercingHits"),
+                    piercingDamagePct: readNumber(projectile.piercingDamagePct, DEFAULT_BALANCE_CONFIG.abilities.projectile.piercingDamagePct, "abilities.projectile.piercingDamagePct"),
+                    levels: projectileLevels,
                 },
                 spit: {
                     massCostPct: readNumber(spit.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.spit.massCostPct, "abilities.spit.massCostPct"),
@@ -1738,6 +2426,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     radiusM: readNumber(spit.radiusM, DEFAULT_BALANCE_CONFIG.abilities.spit.radiusM, "abilities.spit.radiusM"),
                     projectileCount: readNumber(spit.projectileCount, DEFAULT_BALANCE_CONFIG.abilities.spit.projectileCount, "abilities.spit.projectileCount"),
                     spreadAngleDeg: readNumber(spit.spreadAngleDeg, DEFAULT_BALANCE_CONFIG.abilities.spit.spreadAngleDeg, "abilities.spit.spreadAngleDeg"),
+                    levels: spitLevels,
                 },
                 bomb: {
                     massCostPct: readNumber(bomb.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.bomb.massCostPct, "abilities.bomb.massCostPct"),
@@ -1747,6 +2436,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     damagePct: readNumber(bomb.damagePct, DEFAULT_BALANCE_CONFIG.abilities.bomb.damagePct, "abilities.bomb.damagePct"),
                     radiusM: readNumber(bomb.radiusM, DEFAULT_BALANCE_CONFIG.abilities.bomb.radiusM, "abilities.bomb.radiusM"),
                     explosionRadiusM: readNumber(bomb.explosionRadiusM, DEFAULT_BALANCE_CONFIG.abilities.bomb.explosionRadiusM, "abilities.bomb.explosionRadiusM"),
+                    levels: bombLevels,
                 },
                 push: {
                     massCostPct: readNumber(push.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.push.massCostPct, "abilities.push.massCostPct"),
@@ -1755,6 +2445,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     impulseNs: readNumber(push.impulseNs, DEFAULT_BALANCE_CONFIG.abilities.push.impulseNs, "abilities.push.impulseNs"),
                     minSpeedMps: readNumber(push.minSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.push.minSpeedMps, "abilities.push.minSpeedMps"),
                     maxSpeedMps: readNumber(push.maxSpeedMps, DEFAULT_BALANCE_CONFIG.abilities.push.maxSpeedMps, "abilities.push.maxSpeedMps"),
+                    levels: pushLevels,
                 },
                 mine: {
                     massCostPct: readNumber(mine.massCostPct, DEFAULT_BALANCE_CONFIG.abilities.mine.massCostPct, "abilities.mine.massCostPct"),
@@ -1763,6 +2454,7 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     radiusM: readNumber(mine.radiusM, DEFAULT_BALANCE_CONFIG.abilities.mine.radiusM, "abilities.mine.radiusM"),
                     durationSec: readNumber(mine.durationSec, DEFAULT_BALANCE_CONFIG.abilities.mine.durationSec, "abilities.mine.durationSec"),
                     maxMines: readNumber(mine.maxMines, DEFAULT_BALANCE_CONFIG.abilities.mine.maxMines, "abilities.mine.maxMines"),
+                    levels: mineLevels,
                 },
             };
         })(),
@@ -1850,6 +2542,281 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             types: isRecord(chests.types) ? chests.types as BalanceConfig["chests"]["types"] : undefined,
             phaseWeights: isRecord(chests.phaseWeights) ? chests.phaseWeights as BalanceConfig["chests"]["phaseWeights"] : undefined,
         },
+        boosts: {
+            maxStackTimeSec: readNumber(
+                boosts.maxStackTimeSec,
+                DEFAULT_BALANCE_CONFIG.boosts.maxStackTimeSec,
+                "boosts.maxStackTimeSec"
+            ),
+            rage: {
+                durationSec: readNumber(
+                    boostRage.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.rage.durationSec,
+                    "boosts.rage.durationSec"
+                ),
+                damageMul: readNumber(
+                    boostRage.damageMul,
+                    DEFAULT_BALANCE_CONFIG.boosts.rage.damageMul,
+                    "boosts.rage.damageMul"
+                ),
+            },
+            haste: {
+                durationSec: readNumber(
+                    boostHaste.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.haste.durationSec,
+                    "boosts.haste.durationSec"
+                ),
+                speedMul: readNumber(
+                    boostHaste.speedMul,
+                    DEFAULT_BALANCE_CONFIG.boosts.haste.speedMul,
+                    "boosts.haste.speedMul"
+                ),
+            },
+            guard: {
+                durationSec: readNumber(
+                    boostGuard.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.guard.durationSec,
+                    "boosts.guard.durationSec"
+                ),
+                charges: readNumber(
+                    boostGuard.charges,
+                    DEFAULT_BALANCE_CONFIG.boosts.guard.charges,
+                    "boosts.guard.charges"
+                ),
+            },
+            greed: {
+                durationSec: readNumber(
+                    boostGreed.durationSec,
+                    DEFAULT_BALANCE_CONFIG.boosts.greed.durationSec,
+                    "boosts.greed.durationSec"
+                ),
+                bubbleMassMul: readNumber(
+                    boostGreed.bubbleMassMul,
+                    DEFAULT_BALANCE_CONFIG.boosts.greed.bubbleMassMul,
+                    "boosts.greed.bubbleMassMul"
+                ),
+                charges: readNumber(
+                    boostGreed.charges,
+                    DEFAULT_BALANCE_CONFIG.boosts.greed.charges,
+                    "boosts.greed.charges"
+                ),
+            },
+            allowedByChestType: {
+                rare: readBoostTypeArray(
+                    boostAllowedByChestType.rare,
+                    DEFAULT_BALANCE_CONFIG.boosts.allowedByChestType.rare,
+                    "boosts.allowedByChestType.rare"
+                ),
+                epic: readBoostTypeArray(
+                    boostAllowedByChestType.epic,
+                    DEFAULT_BALANCE_CONFIG.boosts.allowedByChestType.epic,
+                    "boosts.allowedByChestType.epic"
+                ),
+                gold: readBoostTypeArray(
+                    boostAllowedByChestType.gold,
+                    DEFAULT_BALANCE_CONFIG.boosts.allowedByChestType.gold,
+                    "boosts.allowedByChestType.gold"
+                ),
+            },
+        },
+        obstacles: {
+            countByMapSize: readMapSizeConfig(
+                obstacles.countByMapSize,
+                DEFAULT_BALANCE_CONFIG.obstacles.countByMapSize,
+                "obstacles.countByMapSize"
+            ),
+            passageCountByMapSize: readMapSizeConfig(
+                obstacles.passageCountByMapSize,
+                DEFAULT_BALANCE_CONFIG.obstacles.passageCountByMapSize,
+                "obstacles.passageCountByMapSize"
+            ),
+            passageGapWidth: readNumber(
+                obstacles.passageGapWidth,
+                DEFAULT_BALANCE_CONFIG.obstacles.passageGapWidth,
+                "obstacles.passageGapWidth"
+            ),
+            passagePillarRadius: readNumber(
+                obstacles.passagePillarRadius,
+                DEFAULT_BALANCE_CONFIG.obstacles.passagePillarRadius,
+                "obstacles.passagePillarRadius"
+            ),
+            pillarRadius: readNumber(
+                obstacles.pillarRadius,
+                DEFAULT_BALANCE_CONFIG.obstacles.pillarRadius,
+                "obstacles.pillarRadius"
+            ),
+            spikeRadius: readNumber(
+                obstacles.spikeRadius,
+                DEFAULT_BALANCE_CONFIG.obstacles.spikeRadius,
+                "obstacles.spikeRadius"
+            ),
+            spikeDamagePct: readNumber(
+                obstacles.spikeDamagePct,
+                DEFAULT_BALANCE_CONFIG.obstacles.spikeDamagePct,
+                "obstacles.spikeDamagePct"
+            ),
+            spikeChance: readNumber(
+                obstacles.spikeChance,
+                DEFAULT_BALANCE_CONFIG.obstacles.spikeChance,
+                "obstacles.spikeChance"
+            ),
+            spacing: readNumber(
+                obstacles.spacing,
+                DEFAULT_BALANCE_CONFIG.obstacles.spacing,
+                "obstacles.spacing"
+            ),
+            placementRetries: readNumber(
+                obstacles.placementRetries,
+                DEFAULT_BALANCE_CONFIG.obstacles.placementRetries,
+                "obstacles.placementRetries"
+            ),
+        },
+        safeZones: {
+            finalStartSec: readNumber(
+                safeZones.finalStartSec,
+                DEFAULT_BALANCE_CONFIG.safeZones.finalStartSec,
+                "safeZones.finalStartSec"
+            ),
+            warningSec: readNumber(
+                safeZones.warningSec,
+                DEFAULT_BALANCE_CONFIG.safeZones.warningSec,
+                "safeZones.warningSec"
+            ),
+            damagePctPerSec: readNumber(
+                safeZones.damagePctPerSec,
+                DEFAULT_BALANCE_CONFIG.safeZones.damagePctPerSec,
+                "safeZones.damagePctPerSec"
+            ),
+            minDistance: readNumber(
+                safeZones.minDistance,
+                DEFAULT_BALANCE_CONFIG.safeZones.minDistance,
+                "safeZones.minDistance"
+            ),
+            placementRetries: readNumber(
+                safeZones.placementRetries,
+                DEFAULT_BALANCE_CONFIG.safeZones.placementRetries,
+                "safeZones.placementRetries"
+            ),
+            countByMapSize: readMapSizeConfig(
+                safeZones.countByMapSize,
+                DEFAULT_BALANCE_CONFIG.safeZones.countByMapSize,
+                "safeZones.countByMapSize"
+            ),
+            radiusByMapSize: readMapSizeConfig(
+                safeZones.radiusByMapSize,
+                DEFAULT_BALANCE_CONFIG.safeZones.radiusByMapSize,
+                "safeZones.radiusByMapSize"
+            ),
+        },
+        zones: {
+            countByMapSize: readMapSizeConfig(
+                zones.countByMapSize,
+                DEFAULT_BALANCE_CONFIG.zones.countByMapSize,
+                "zones.countByMapSize"
+            ),
+            radiusByMapSize: readMapSizeConfig(
+                zones.radiusByMapSize,
+                DEFAULT_BALANCE_CONFIG.zones.radiusByMapSize,
+                "zones.radiusByMapSize"
+            ),
+            minDistance: readNumber(
+                zones.minDistance,
+                DEFAULT_BALANCE_CONFIG.zones.minDistance,
+                "zones.minDistance"
+            ),
+            placementRetries: readNumber(
+                zones.placementRetries,
+                DEFAULT_BALANCE_CONFIG.zones.placementRetries,
+                "zones.placementRetries"
+            ),
+            typeWeights: {
+                nectar: readNumber(
+                    zoneTypeWeights.nectar,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.nectar,
+                    "zones.typeWeights.nectar"
+                ),
+                ice: readNumber(
+                    zoneTypeWeights.ice,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.ice,
+                    "zones.typeWeights.ice"
+                ),
+                slime: readNumber(
+                    zoneTypeWeights.slime,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.slime,
+                    "zones.typeWeights.slime"
+                ),
+                lava: readNumber(
+                    zoneTypeWeights.lava,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.lava,
+                    "zones.typeWeights.lava"
+                ),
+                turbo: readNumber(
+                    zoneTypeWeights.turbo,
+                    DEFAULT_BALANCE_CONFIG.zones.typeWeights.turbo,
+                    "zones.typeWeights.turbo"
+                ),
+            },
+            lavaMinDistanceFromSpawn: readNumber(
+                zones.lavaMinDistanceFromSpawn,
+                DEFAULT_BALANCE_CONFIG.zones.lavaMinDistanceFromSpawn,
+                "zones.lavaMinDistanceFromSpawn"
+            ),
+            nectar: {
+                massGainPctPerSec: readNumber(
+                    zoneNectar.massGainPctPerSec,
+                    DEFAULT_BALANCE_CONFIG.zones.nectar.massGainPctPerSec,
+                    "zones.nectar.massGainPctPerSec"
+                ),
+            },
+            ice: {
+                frictionMultiplier: readNumber(
+                    zoneIce.frictionMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.ice.frictionMultiplier,
+                    "zones.ice.frictionMultiplier"
+                ),
+            },
+            slime: {
+                speedMultiplier: readNumber(
+                    zoneSlime.speedMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.slime.speedMultiplier,
+                    "zones.slime.speedMultiplier"
+                ),
+                frictionMultiplier: readNumber(
+                    zoneSlime.frictionMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.slime.frictionMultiplier,
+                    "zones.slime.frictionMultiplier"
+                ),
+            },
+            lava: {
+                damagePctPerSec: readNumber(
+                    zoneLava.damagePctPerSec,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.damagePctPerSec,
+                    "zones.lava.damagePctPerSec"
+                ),
+                scatterPct: readNumber(
+                    zoneLava.scatterPct,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.scatterPct,
+                    "zones.lava.scatterPct"
+                ),
+                scatterOrbCount: readNumber(
+                    zoneLava.scatterOrbCount,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.scatterOrbCount,
+                    "zones.lava.scatterOrbCount"
+                ),
+                scatterSpeedMps: readNumber(
+                    zoneLava.scatterSpeedMps,
+                    DEFAULT_BALANCE_CONFIG.zones.lava.scatterSpeedMps,
+                    "zones.lava.scatterSpeedMps"
+                ),
+            },
+            turbo: {
+                speedMultiplier: readNumber(
+                    zoneTurbo.speedMultiplier,
+                    DEFAULT_BALANCE_CONFIG.zones.turbo.speedMultiplier,
+                    "zones.turbo.speedMultiplier"
+                ),
+            },
+        },
         hotZones: {
             chaosCount: readNumber(
                 hotZones.chaosCount,
@@ -1924,6 +2891,9 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         talents: (() => {
             const talents = isRecord(data.talents) ? data.talents : {};
             const talentPool = isRecord(talents.talentPool) ? talents.talentPool : {};
+            const talentRarityByLevel = isRecord(talents.talentRarityByLevel) ? talents.talentRarityByLevel : {};
+            const autoPickPriorities = isRecord(talents.autoPickPriorities) ? talents.autoPickPriorities : {};
+            const classTalents = isRecord(talents.classTalents) ? talents.classTalents : {};
             
             // Parse talent configs from JSON, falling back to defaults
             const parseTalentRecord = (
@@ -1932,16 +2902,85 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
             ): Record<string, TalentConfig> => {
                 if (!isRecord(source)) return defaults;
                 const result: Record<string, TalentConfig> = {};
-                for (const key of Object.keys(defaults)) {
+                // Merge source keys with defaults
+                const allKeys = new Set([...Object.keys(defaults), ...Object.keys(source)]);
+                for (const key of allKeys) {
                     const src = isRecord(source[key]) ? source[key] : {};
-                    const def = defaults[key];
+                    const def = defaults[key] || { name: key, maxLevel: 1, values: [0], effect: key };
                     result[key] = {
                         name: typeof src.name === "string" ? src.name : def.name,
                         maxLevel: typeof src.maxLevel === "number" ? src.maxLevel : def.maxLevel,
                         values: Array.isArray(src.values) ? src.values : def.values,
                         effect: typeof src.effect === "string" ? src.effect : def.effect,
                         requirement: src.requirement !== undefined ? src.requirement as string | null : def.requirement,
+                        category: typeof src.category === "string" ? src.category : def.category,
                     };
+                }
+                return result;
+            };
+            
+            // Parse class talents
+            const parseClassTalents = (
+                source: unknown,
+                defaults: Record<string, Record<string, ClassTalentConfig>>
+            ): Record<string, Record<string, ClassTalentConfig>> => {
+                if (!isRecord(source)) return defaults;
+                const result: Record<string, Record<string, ClassTalentConfig>> = {};
+                for (const className of Object.keys(defaults)) {
+                    const srcClass = isRecord(source[className]) ? source[className] : {};
+                    const defClass = defaults[className];
+                    result[className] = {};
+                    const allKeys = new Set([...Object.keys(defClass), ...Object.keys(srcClass)]);
+                    for (const talentKey of allKeys) {
+                        const src = isRecord(srcClass[talentKey]) ? srcClass[talentKey] : {};
+                        const def = defClass[talentKey] || { name: talentKey, maxLevel: 1, values: [0], effect: talentKey, rarity: "rare" as const, category: "damage" };
+                        result[className][talentKey] = {
+                            name: typeof src.name === "string" ? src.name : def.name,
+                            maxLevel: typeof src.maxLevel === "number" ? src.maxLevel : def.maxLevel,
+                            values: Array.isArray(src.values) ? src.values : def.values,
+                            effect: typeof src.effect === "string" ? src.effect : def.effect,
+                            requirement: src.requirement !== undefined ? src.requirement as string | null : def.requirement,
+                            rarity: (src.rarity === "rare" || src.rarity === "epic") ? src.rarity : def.rarity,
+                            category: typeof src.category === "string" ? src.category : def.category,
+                        };
+                    }
+                }
+                return result;
+            };
+            
+            // Parse rarity by level
+            const parseRarityByLevel = (
+                source: unknown,
+                defaults: Record<string, { common: number; rare: number; epic: number }>
+            ): Record<string, { common: number; rare: number; epic: number }> => {
+                if (!isRecord(source)) return defaults;
+                const result: Record<string, { common: number; rare: number; epic: number }> = {};
+                for (const lvl of Object.keys(defaults)) {
+                    const src = isRecord(source[lvl]) ? source[lvl] : {};
+                    const def = defaults[lvl];
+                    result[lvl] = {
+                        common: typeof src.common === "number" ? src.common : def.common,
+                        rare: typeof src.rare === "number" ? src.rare : def.rare,
+                        epic: typeof src.epic === "number" ? src.epic : def.epic,
+                    };
+                }
+                return result;
+            };
+            
+            // Parse auto pick priorities
+            const parseAutoPickPriorities = (
+                source: unknown,
+                defaults: Record<string, Record<string, number>>
+            ): Record<string, Record<string, number>> => {
+                if (!isRecord(source)) return defaults;
+                const result: Record<string, Record<string, number>> = {};
+                for (const className of Object.keys(defaults)) {
+                    const srcClass = isRecord(source[className]) ? source[className] : {};
+                    const defClass = defaults[className];
+                    result[className] = {};
+                    for (const cat of Object.keys(defClass)) {
+                        result[className][cat] = typeof srcClass[cat] === "number" ? srcClass[cat] as number : defClass[cat];
+                    }
                 }
                 return result;
             };
@@ -1952,14 +2991,27 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                     DEFAULT_BALANCE_CONFIG.talents.cardChoiceTimeoutSec,
                     "talents.cardChoiceTimeoutSec"
                 ),
+                cardQueueMax: readNumber(
+                    talents.cardQueueMax,
+                    DEFAULT_BALANCE_CONFIG.talents.cardQueueMax,
+                    "talents.cardQueueMax"
+                ),
+                abilityUpgradeChance: readNumber(
+                    talents.abilityUpgradeChance,
+                    DEFAULT_BALANCE_CONFIG.talents.abilityUpgradeChance,
+                    "talents.abilityUpgradeChance"
+                ),
                 talentPool: {
                     common: readStringArray(talentPool.common, DEFAULT_BALANCE_CONFIG.talents.talentPool.common, "talents.talentPool.common"),
                     rare: readStringArray(talentPool.rare, DEFAULT_BALANCE_CONFIG.talents.talentPool.rare, "talents.talentPool.rare"),
                     epic: readStringArray(talentPool.epic, DEFAULT_BALANCE_CONFIG.talents.talentPool.epic, "talents.talentPool.epic"),
                 },
+                talentRarityByLevel: parseRarityByLevel(talentRarityByLevel, DEFAULT_BALANCE_CONFIG.talents.talentRarityByLevel),
+                autoPickPriorities: parseAutoPickPriorities(autoPickPriorities, DEFAULT_BALANCE_CONFIG.talents.autoPickPriorities),
                 common: parseTalentRecord(talents.common, DEFAULT_BALANCE_CONFIG.talents.common),
                 rare: parseTalentRecord(talents.rare, DEFAULT_BALANCE_CONFIG.talents.rare),
                 epic: parseTalentRecord(talents.epic, DEFAULT_BALANCE_CONFIG.talents.epic),
+                classTalents: parseClassTalents(classTalents, DEFAULT_BALANCE_CONFIG.talents.classTalents),
             };
         })(),
     };
