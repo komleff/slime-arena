@@ -99,6 +99,42 @@ npm run build
 
 *(Сначала собирается shared, затем server и client)*
 
+### Конфигурация (опционально)
+
+#### MetaServer
+
+По умолчанию игра работает без MetaServer в offline режиме. Для подключения к MetaServer:
+
+1. Скопируйте шаблон конфигурации:
+
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+2. Раскомментируйте и настройте `VITE_META_SERVER_URL` в `.env.local`:
+
+   ```bash
+   VITE_META_SERVER_URL=http://localhost:3000
+   ```
+
+3. Запустите MetaServer (см. документацию).
+
+4. Перезапустите dev-сервер клиента.
+
+**Без MetaServer:**
+
+- Игра полностью играбельна
+- Подключение напрямую к Colyseus серверу (ws://localhost:2567)
+- Монетизация (платежи, реклама) недоступна
+- Авторизация недоступна (имя задаётся локально)
+
+**С MetaServer:**
+
+- Авторизация через платформы (YaGames, Telegram, VK)
+- RuntimeConfig с удалённым управлением фичами
+- Matchmaking через очередь
+- Реклама с наградой
+
 ### Тестирование
 
 ```bash

@@ -4,14 +4,9 @@
  */
 
 const getMetaServerUrl = () => {
-  if (import.meta.env?.VITE_META_SERVER_URL) {
-    return import.meta.env.VITE_META_SERVER_URL as string;
-  }
-  if (typeof window !== 'undefined') {
-    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
-    return `${protocol}://${window.location.hostname}:3000`;
-  }
-  return 'http://localhost:3000';
+  // MetaServer URL задаётся через env-переменную VITE_META_SERVER_URL
+  // Если не задан, возвращаем пустую строку (offline режим)
+  return import.meta.env?.VITE_META_SERVER_URL || '';
 };
 
 const META_SERVER_URL = getMetaServerUrl();
@@ -38,10 +33,16 @@ function generateUUID(): string {
   });
 }
 
-interface ApiError {
+class ApiError extends Error {
   status: number;
-  message: string;
   code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
 }
 
 class MetaServerClient {
@@ -136,6 +137,15 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    // Если META_SERVER_URL пустой, сразу выбрасываем понятную ошибку
+    if (!META_SERVER_URL) {
+      throw new ApiError(
+        'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
+        0,
+        'NO_META_SERVER'
+      );
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
 
@@ -193,7 +203,7 @@ class MetaServerClient {
 
       // Timeout после исчерпания попыток
       if (isAbortError) {
-        throw { status: 0, message: 'Превышено время ожидания запроса', code: 'TIMEOUT' } as ApiError;
+        throw new ApiError('Превышено время ожидания запроса', 0, 'TIMEOUT');
       }
 
       throw err;
@@ -206,16 +216,13 @@ class MetaServerClient {
   private async parseError(response: Response): Promise<ApiError> {
     try {
       const data = await response.json();
-      return {
-        status: response.status,
-        message: data.error || data.message || response.statusText,
-        code: data.code,
-      };
+      return new ApiError(
+        data.error || data.message || response.statusText,
+        response.status,
+        data.code
+      );
     } catch {
-      return {
-        status: response.status,
-        message: response.statusText,
-      };
+      return new ApiError(response.statusText, response.status);
     }
   }
 

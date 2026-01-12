@@ -5,6 +5,7 @@
 
 import { signal } from '@preact/signals';
 import { metaServerClient } from '../api/metaServerClient';
+import { DEFAULT_RUNTIME_CONFIG } from './defaultRuntimeConfig';
 
 // ========== Типы ==========
 
@@ -111,7 +112,7 @@ const CONFIG_POLL_INTERVAL = 5 * 60 * 1000;
 
 // ========== State ==========
 
-export const runtimeConfig = signal<RuntimeConfig | null>(null);
+export const runtimeConfig = signal<RuntimeConfig>(DEFAULT_RUNTIME_CONFIG);
 export const configLoading = signal(false);
 export const configError = signal<string | null>(null);
 
@@ -124,12 +125,22 @@ class ConfigService {
   /**
    * Загрузить конфигурацию с сервера.
    */
-  async loadConfig(): Promise<RuntimeConfig | null> {
+  async loadConfig(): Promise<RuntimeConfig> {
     try {
       configLoading.value = true;
       configError.value = null;
 
-      // Пробуем загрузить из кэша
+      // Проверяем, доступен ли MetaServer
+      const metaServerUrl = import.meta.env?.VITE_META_SERVER_URL || '';
+
+      // Если MetaServer недоступен — сразу используем дефолтный конфиг
+      if (!metaServerUrl) {
+        console.warn('[ConfigService] MetaServer URL not set, using default config');
+        this.applyConfig(DEFAULT_RUNTIME_CONFIG);
+        return DEFAULT_RUNTIME_CONFIG;
+      }
+
+      // Пробуем загрузить из кэша (только если MetaServer доступен)
       const cached = this.loadFromCache();
       if (cached) {
         this.applyConfig(cached);
@@ -141,10 +152,17 @@ class ConfigService {
       // Загружаем с сервера
       return await this.fetchFromServer();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Не удалось загрузить конфигурацию';
+      // Улучшенный type guard для ApiError и других ошибок
+      let message = 'Не удалось загрузить конфигурацию';
+      if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+        message = err.message;
+      }
       configError.value = message;
-      console.error('[ConfigService] Load failed:', message);
-      return null;
+      console.warn('[ConfigService] Load failed, using default config:', message);
+
+      // Применяем дефолтный конфиг
+      this.applyConfig(DEFAULT_RUNTIME_CONFIG);
+      return DEFAULT_RUNTIME_CONFIG;
     } finally {
       configLoading.value = false;
     }
@@ -153,7 +171,7 @@ class ConfigService {
   /**
    * Загрузить конфигурацию с сервера.
    */
-  private async fetchFromServer(): Promise<RuntimeConfig | null> {
+  private async fetchFromServer(): Promise<RuntimeConfig> {
     try {
       const config = await metaServerClient.get<RuntimeConfig>('/api/v1/config/runtime');
 
@@ -254,7 +272,7 @@ class ConfigService {
   /**
    * Получить текущую конфигурацию.
    */
-  getConfig(): RuntimeConfig | null {
+  getConfig(): RuntimeConfig {
     return runtimeConfig.value;
   }
 
@@ -262,28 +280,28 @@ class ConfigService {
    * Проверить, включены ли платежи.
    */
   isPaymentsEnabled(): boolean {
-    return runtimeConfig.value?.features.paymentsEnabled ?? false;
+    return runtimeConfig.value.features.paymentsEnabled;
   }
 
   /**
    * Проверить, включена ли реклама с наградой.
    */
   isAdsRewardEnabled(): boolean {
-    return runtimeConfig.value?.features.adsRewardEnabled ?? false;
+    return runtimeConfig.value.features.adsRewardEnabled;
   }
 
   /**
    * Проверить, включен ли matchmaking.
    */
   isMatchmakingEnabled(): boolean {
-    return runtimeConfig.value?.features.matchmakingEnabled ?? true;
+    return runtimeConfig.value.features.matchmakingEnabled;
   }
 
   /**
    * Получить офферы магазина.
    */
   getShopOffers(): ShopOffer[] {
-    return runtimeConfig.value?.shop?.offers ?? [];
+    return runtimeConfig.value.shop?.offers ?? [];
   }
 
   /**
@@ -291,7 +309,7 @@ class ConfigService {
    */
   clearCache(): void {
     localStorage.removeItem(CONFIG_CACHE_KEY);
-    runtimeConfig.value = null;
+    runtimeConfig.value = DEFAULT_RUNTIME_CONFIG;
   }
 }
 
