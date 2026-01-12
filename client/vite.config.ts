@@ -1,9 +1,10 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import path from 'path'
 
-export default defineConfig(() => {
-  const hmrHost = process.env.VITE_HMR_HOST
-  const hmrProtocol = process.env.VITE_HMR_PROTOCOL
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
+  const hmrHost = env.VITE_HMR_HOST
+  const hmrProtocol = env.VITE_HMR_PROTOCOL
 
   return {
     server: {
