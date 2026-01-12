@@ -35,7 +35,7 @@
 - **Стиль:** "Силиконовый коврик для выпечки" (Baking Mat).
 - **Цвет:** Светло-бежевый / Кремовый (Тесто) или Светлый Мятный. Низкая насыщенность.
 - **Детали:** Еле заметная геометрическая сетка (Grid) для ощущения скорости. Без крошек, без мусора.
-- **Техничка:** 512x512 px, Seamless (Beskrovnaya).
+- **Техничка:** 512x512 px, Seamless.
 - **Файл:** `bg_gameplay_floor_tile.png`
 
 ### Layer 1: Зоны (Zone Overlays)
@@ -70,17 +70,15 @@
 
 ### Rendering & Performance (Mobile Optimization)
 
-1. **NO CSS Gradients:** Запрещено использовать сложные процедурные градиенты (`radial-gradient`) на весь экран в `requestAnimationFrame`. Это убивает батарею. Используем **запеченные текстуры**.
+1. **NO CSS Gradients:** Запрещено использовать сложные процедурные градиенты (`radial-gradient`) на весь экран в `requestAnimationFrame`. Это убивает батарею. Используем **запечённые текстуры**.
 
 2. **GPU Acceleration:** Для движения фона использовать `transform: translate3d(x, y, 0)`.
 
 3. **Camera Logic:** Фон зациклен через modulo (остаток от деления).
 
-   TypeScript
-
-   ```
+   ```typescript
    // Пример логики параллакса
-   const bgX = -camera.x % TILE_SIZE; 
+   const bgX = -camera.x % TILE_SIZE;
    const bgY = -camera.y % TILE_SIZE;
    ```
 
