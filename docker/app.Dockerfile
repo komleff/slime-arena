@@ -77,8 +77,8 @@ RUN npm install -g serve concurrently
 # Expose ports:
 # 3000 - MetaServer (HTTP API)
 # 2567 - MatchServer (WebSocket/Colyseus)
-# 5174 - Client (static files)
-EXPOSE 3000 2567 5174
+# 5173 - Client (static files)
+EXPOSE 3000 2567 5173
 
 # Health check for MetaServer
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
@@ -94,4 +94,4 @@ CMD ["concurrently", \
     "--prefix-colors", "blue.bold,magenta.bold,green.bold", \
     "node server/dist/server/src/meta/server.js", \
     "node server/dist/server/src/index.js", \
-    "serve -s client/dist -l 5174 --no-clipboard"]
+    "serve -s client/dist -l 5173 --no-clipboard"]

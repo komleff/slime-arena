@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: '0.0.0.0',
-      port: 5174,
+      port: 5173,
       allowedHosts: ['*.overmobile.space'],
       hmr: hmrHost
         ? {

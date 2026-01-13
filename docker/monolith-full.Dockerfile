@@ -107,8 +107,8 @@ RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 # Expose ports:
 # 3000 - MetaServer (HTTP API)
 # 2567 - MatchServer (WebSocket/Colyseus)
-# 5174 - Client (static files)
-EXPOSE 3000 2567 5174
+# 5173 - Client (static files)
+EXPOSE 3000 2567 5173
 
 # Health check for MetaServer
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

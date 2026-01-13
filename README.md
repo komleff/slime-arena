@@ -87,7 +87,7 @@ npm install
 
 Рекомендуется запускать сервер и клиент в разных терминалах:
 1. **Сервер:** `npm run dev:server` (ws://localhost:2567)
-2. **Клиент:** `npm run dev:client` (http://localhost:5174)
+2. **Клиент:** `npm run dev:client` (http://localhost:5173)
 
 ### Сборка
 
@@ -176,7 +176,7 @@ VITE_HMR_PROTOCOL=ws
 ```
 
 3. **Запустите клиент** — HMR будет работать через указанный хост.
-4. **Откройте игру на мобильном устройстве:** `http://192.168.1.100:5174`
+4. **Откройте игру на мобильном устройстве:** `http://192.168.1.100:5173`
 
 | Переменная | Описание | По умолчанию |
 |------------|----------|---------------|
@@ -195,7 +195,7 @@ docker-compose -f docker/docker-compose.yml up -d
 ```
 
 ### Доступные сервисы v0.4.0:
-- **Client**: [http://localhost:5174](http://localhost:5174) (Контейнер: `slime-arena-client`)
+- **Client**: [http://localhost:5173](http://localhost:5173) (Контейнер: `slime-arena-client`)
 - **MetaServer**: [http://localhost:3000](http://localhost:3000) (Контейнер: `slime-arena-meta-server`)
 - **MatchServer**: [ws://localhost:2567](ws://localhost:2567) (Контейнер: `slime-arena-match-server`)
 - **PostgreSQL**: [localhost:5432](localhost:5432) (Контейнер: `slime-arena-postgres`)
@@ -248,7 +248,7 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 # Сервисы:
 # - MetaServer: http://localhost:3000
 # - MatchServer: ws://localhost:2567
-# - Client: http://localhost:5174
+# - Client: http://localhost:5173
 ```
 
 Образ: `ghcr.io/komleff/slime-arena-monolith:v0.4.0`
@@ -263,7 +263,7 @@ docker-compose -f docker/docker-compose.monolith.yml up -d
 docker-compose -f docker/docker-compose.monolith.yml up -d
 
 # Доступ из браузера:
-# - http://192.168.1.100:5174 (игра)
+# - http://192.168.1.100:5173 (игра)
 # - http://192.168.1.100:3000/health (API health check)
 # - ws://192.168.1.100:2567 (WebSocket автоматически)
 ```
@@ -315,6 +315,39 @@ docker pull --platform linux/arm64 ghcr.io/komleff/slime-arena-monolith-full:lat
 
 # AMD64 (Intel/AMD, эмуляция на M1-M4 через Rosetta 2)
 docker pull --platform linux/amd64 ghcr.io/komleff/slime-arena-monolith-full:latest
+```
+
+## Production Deployment
+
+### Live Demo
+
+**Production URL:** <https://slime-arena.overmobile.space>
+
+Игра автоматически подключается к production серверу:
+
+- **Client**: <https://slime-arena.overmobile.space> (HTTPS)
+- **MatchServer**: `wss://slime-arena-server.overmobile.space` (WSS)
+
+### Domain Configuration
+
+Для работы с кастомным доменом:
+
+**1. Vite Dev Server** (уже настроено):
+
+```typescript
+// client/vite.config.ts
+server: {
+  allowedHosts: ['*.overmobile.space']
+}
+```
+
+**2. WebSocket Auto-detection** (уже настроено):
+
+```typescript
+// client/src/main.ts
+if (isHttps && window.location.hostname.includes("overmobile.space")) {
+    defaultWsUrl = `wss://slime-arena-server.overmobile.space`;
+}
 ```
 
 ## Журнал изменений

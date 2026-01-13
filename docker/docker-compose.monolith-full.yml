@@ -17,7 +17,7 @@ services:
     ports:
       - "3000:3000"   # MetaServer (HTTP API)
       - "2567:2567"   # MatchServer (WebSocket/Colyseus)
-      - "5174:5174"   # Client (static files)
+      - "5173:5173"   # Client (static files)
     volumes:
       # Data persistence
       - pgdata:/var/lib/postgresql/data
