@@ -32,10 +32,9 @@ export function LobbyScreen() {
     };
 
     const handlePlay = () => {
-        // Если класс не выбран, выбираем случайный
+        // Если класс не выбран, выбираем первый
         if (selectedClassId.value < 0) {
-            const randomIdx = Math.floor(Math.random() * CLASSES_DATA.length);
-            selectedClassId.value = CLASSES_DATA[randomIdx].id;
+            selectedClassId.value = CLASSES_DATA[0].id;
         }
         pushScreen('matchmaking');
     };
