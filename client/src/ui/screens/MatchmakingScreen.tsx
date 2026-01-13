@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { selectedClassId, popScreen, setGamePhase } from '../signals/gameState';
+import { selectedClassId, popScreen, playerName, setGamePhase } from '../signals/gameState';
+import { getUICallbacks } from '../UIBridge';
 import { CLASSES_DATA } from '../data/classes';
 import styles from './MatchmakingScreen.module.css';
 
@@ -28,24 +29,31 @@ export function MatchmakingScreen() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Таймер и симуляция поиска матча
+    // Таймер и запуск реального матчмейкинга
     useEffect(() => {
         const interval = setInterval(() => {
             setTimer(t => t + 1);
         }, 1000);
 
-        // Симуляция нахождения матча через 5 секунд
-        const matchTimeout = setTimeout(() => {
+        // Запускаем реальное подключение к серверу
+        const callbacks = getUICallbacks();
+        if (callbacks && typeof callbacks.onPlay === 'function') {
+            callbacks.onPlay(playerName.value, selectedClassId.value);
+        } else {
+            // Резервный сценарий: сразу переходим к подключению
             setGamePhase('connecting');
-        }, 5000);
+        }
 
         return () => {
             clearInterval(interval);
-            clearTimeout(matchTimeout);
         };
     }, []);
 
     const handleCancel = () => {
+        const callbacks = getUICallbacks();
+        if (callbacks?.onCancelMatchmaking) {
+            callbacks.onCancelMatchmaking();
+        }
         popScreen();
     };
 
@@ -63,14 +71,14 @@ export function MatchmakingScreen() {
         <div class={styles.matchmakingScreen} ref={gameScreenRef}>
             <div class={styles.loaderContainer}>
                 <div class={styles.spinner}></div>
-                <div class={styles.statusText}>SEARCHING FOR OPPONENTS...</div>
+                <div class={styles.statusText}>ПОИСК ПРОТИВНИКОВ...</div>
                 <div class={styles.timer}>{formatTime(timer)}</div>
                 <div style={{ color: 'rgba(255,255,255,0.7)', marginTop: '10px', fontFamily: 'Nunito' }}>
-                    Class: {className.toUpperCase()}
+                    Класс: {className.toUpperCase()}
                 </div>
             </div>
 
-            <button class={styles.cancelBtn} onClick={handleCancel}>CANCEL</button>
+            <button class={styles.cancelBtn} onClick={handleCancel}>ОТМЕНА</button>
         </div>
     );
 }

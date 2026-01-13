@@ -46,7 +46,7 @@ export function LobbyScreen() {
 
     return (
         <div class={styles.lobbyScreen} ref={gameScreenRef}>
-            <h1 class={styles.title}>CHOOSE YOUR HERO</h1>
+            <h1 class={styles.title}>ВЫБЕРИ ГЕРОЯ</h1>
 
             <div class={styles.cardsContainer}>
                 {CLASSES_DATA.map((cls) => (
@@ -61,8 +61,8 @@ export function LobbyScreen() {
             </div>
 
             <div class={styles.controls}>
-                <button class={styles.backBtn} onClick={handleBack}>BACK TO MAIN</button>
-                <button class={styles.playBtn} onClick={handlePlay}>PLAY</button>
+                <button class={styles.backBtn} onClick={handleBack}>НАЗАД</button>
+                <button class={styles.playBtn} onClick={handlePlay}>ИГРАТЬ</button>
             </div>
         </div>
     );

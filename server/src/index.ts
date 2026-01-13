@@ -43,7 +43,7 @@ if (enableMonitor) {
 // Глобальные обработчики ошибок — логируем и завершаем (supervisord перезапустит)
 process.on("uncaughtException", (error: Error) => {
     console.error("[MatchServer] FATAL: Uncaught exception:", error);
-    console.error("Stack:", error.stack);
+    console.error("Стек:", error.stack);
     // Даём время записать логи, затем завершаем — supervisord перезапустит
     setTimeout(() => process.exit(1), 1000);
 });
@@ -51,7 +51,7 @@ process.on("uncaughtException", (error: Error) => {
 process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
     console.error("[MatchServer] FATAL: Unhandled promise rejection:", reason);
     if (reason instanceof Error) {
-        console.error("Stack:", reason.stack);
+        console.error("Стек:", reason.stack);
     }
     // Даём время записать логи, затем завершаем — supervisord перезапустит
     setTimeout(() => process.exit(1), 1000);

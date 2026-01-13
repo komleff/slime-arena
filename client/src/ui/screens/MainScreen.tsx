@@ -87,7 +87,7 @@ export function MainScreen() {
                 <button class={styles.jellyBtn} onClick={handleArenaClick}>
                     <div class={styles.jellyBtnFrame}></div>
                     <div class={styles.jellyBtnContent}>
-                        <span class={styles.jellyText}>ARENA</span>
+                        <span class={styles.jellyText}>АРЕНА</span>
                         <div class={styles.jellyBtnShine}></div>
                     </div>
                 </button>

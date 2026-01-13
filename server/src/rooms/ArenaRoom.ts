@@ -498,10 +498,10 @@ export class ArenaRoom extends Room<GameState> {
             // Критическая ошибка — состояние комнаты может быть повреждено
             console.error(`[ArenaRoom ${this.roomId}] CRITICAL: onTick() error at tick ${this.tick}:`, error);
             if (error instanceof Error) {
-                console.error("Stack:", error.stack);
+                console.error("Стек:", error.stack);
             }
-            // Безопасно закрываем комнату — продолжение с повреждённым состоянием опасно
-            this.disconnect();
+            // Безопасно закрываем комнату — отключаем всех клиентов
+            this.clients.forEach(client => client.leave());
         }
     }
 
