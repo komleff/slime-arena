@@ -317,6 +317,39 @@ docker pull --platform linux/arm64 ghcr.io/komleff/slime-arena-monolith-full:lat
 docker pull --platform linux/amd64 ghcr.io/komleff/slime-arena-monolith-full:latest
 ```
 
+## Production Deployment
+
+### Live Demo
+
+**Production URL:** <https://slime-arena.overmobile.space>
+
+Игра автоматически подключается к production серверу:
+
+- **Client**: <https://slime-arena.overmobile.space> (HTTPS)
+- **MatchServer**: `wss://slime-arena-server.overmobile.space` (WSS)
+
+### Domain Configuration
+
+Для работы с кастомным доменом:
+
+**1. Vite Dev Server** (уже настроено):
+
+```typescript
+// client/vite.config.ts
+server: {
+  allowedHosts: ['*.overmobile.space']
+}
+```
+
+**2. WebSocket Auto-detection** (уже настроено):
+
+```typescript
+// client/src/main.ts
+if (isHttps && window.location.hostname.includes("overmobile.space")) {
+    defaultWsUrl = `wss://slime-arena-server.overmobile.space`;
+}
+```
+
 ## Журнал изменений
 
 Полная история изменений доступна в файле [CHANGELOG.md](CHANGELOG.md).
