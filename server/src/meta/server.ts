@@ -150,6 +150,21 @@ async function shutdown() {
   }
 }
 
+// Global error handlers to prevent server crashes
+process.on('uncaughtException', (error: Error) => {
+  console.error('[MetaServer] FATAL: Uncaught exception:', error);
+  console.error('Stack:', error.stack);
+  // Log but don't exit immediately - log the error for debugging
+});
+
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+  console.error('[MetaServer] FATAL: Unhandled promise rejection:', reason);
+  if (reason instanceof Error) {
+    console.error('Stack:', reason.stack);
+  }
+  // Log but don't exit - allow server to continue
+});
+
 // Handle shutdown signals
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
