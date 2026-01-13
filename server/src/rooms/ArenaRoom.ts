@@ -495,12 +495,13 @@ export class ArenaRoom extends Room<GameState> {
             this.updatePlayerFlags();
             this.reportMetrics(tickStartMs);
         } catch (error) {
-            // Изолируем ошибки в комнате — одна комната не роняет весь сервер
+            // Критическая ошибка — состояние комнаты может быть повреждено
             console.error(`[ArenaRoom ${this.roomId}] CRITICAL: onTick() error at tick ${this.tick}:`, error);
             if (error instanceof Error) {
                 console.error("Stack:", error.stack);
             }
-            // Не пробрасываем ошибку — комната продолжает работу
+            // Безопасно закрываем комнату — продолжение с повреждённым состоянием опасно
+            this.disconnect();
         }
     }
 
