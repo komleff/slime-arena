@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Cookie Crash: Arena</title>
     <link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <style>
         /* === БАЗОВЫЕ НАСТРОЙКИ === */
@@ -38,7 +39,7 @@
         .hud-profile-wrapper { position: absolute; top: 25px; left: 25px; transform: scale(0.75); transform-origin: top left; z-index: 20; }
         .hud-container { position: relative; width: 480px; height: 160px; }
         .hud-base { position: absolute; left: 25px; top: 5px; width: 340px; z-index: 1; filter: drop-shadow(0px 8px 10px rgba(0,0,0,0.4)); }
-        .hud-avatar-group { position: absolute; left: 0; top: 0; width: 150px; height: 150px; z-index: 10; }
+        .hud-avatar-group { position: absolute; left: 0; top: 0; width: 160px; height: 160px; z-index: 10; }
         .frame-top { position: absolute; left: 0; top: 0; width: 146px; z-index: 10; filter: drop-shadow(0px 5px 5px rgba(0,0,0,0.3)); clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%); }
         .hud-avatar-img { position: absolute; left: 16px; top: 12px; width: 116px; height: 116px; z-index: 11; }
         .frame-bottom { position: absolute; left: 0; top: 0; width: 146px; z-index: 12; clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%); }
@@ -150,6 +151,14 @@
         .menu-icon-img { width: 85%; height: 85%; object-fit: contain; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2)); transition: transform 0.2s; }
         .menu-btn:hover .menu-icon-img { transform: scale(1.15); }
 
+        /* АДАПТИВНОСТЬ */
+        @media (max-width: 960px), (max-height: 540px) {
+            /* Скрипт ниже будет управлять масштабом, но CSS должен быть готов */
+            .game-screen {
+                /* Гарантируем, что контейнер не ломает верстку при загрузке */
+                transform-origin: center center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -201,7 +210,7 @@
             <button class="jelly-btn">
                 <div class="jelly-btn-frame"></div>
                 <div class="jelly-btn-content">
-                    <span class="jelly-text">PLAY!</span>
+                    <span class="jelly-text">ARENA</span>
                     <div class="jelly-btn-shine"></div>
                 </div>
             </button>
@@ -214,5 +223,20 @@
         </div>
     </div>
 
+    <script>
+        // Простой скрипт для масштабирования игрового экрана под окно браузера (Fit to Screen)
+        function resizeGame() {
+            const gameScreen = document.querySelector('.game-screen');
+            const targetW = 960;
+            const targetH = 540;
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const scale = Math.min(winW / targetW, winH / targetH);
+            
+            gameScreen.style.transform = `scale(${Math.min(scale, 1.2)})`; // Ограничим увеличение, чтобы не мылило сильно
+        }
+        window.addEventListener('resize', resizeGame);
+        window.addEventListener('DOMContentLoaded', resizeGame);
+    </script>
 </body>
 </html>

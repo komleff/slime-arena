@@ -1,0 +1,113 @@
+.lobbyScreen {
+    width: 960px;
+    height: 540px;
+    background-image: url('/assets/backgrounds/bg_main_menu.png'); /* Используем тот же фон или другой */
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    box-shadow: 0 0 80px rgba(0,0,0,0.8);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 8px solid #2d2d2d;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.title {
+    font-family: 'Titan One', cursive;
+    color: white;
+    font-size: 48px;
+    text-shadow: 0 4px 0 rgba(0,0,0,0.3);
+    margin-bottom: 40px;
+    margin-top: -20px;
+}
+
+.cardsContainer {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.classCard {
+    width: 180px;
+    height: 240px;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
+    border: 6px solid #ffffff;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.15), 0 15px 20px rgba(0,0,0,0.2);
+    position: relative;
+}
+
+/* Цвета классов (можно добавлять через inline styles или отдельные классы в TSX) */
+.classCard:nth-child(1) { --class-color: #66BB6A; } /* Hunter */
+.classCard:nth-child(2) { --class-color: #EF5350; } /* Warrior */
+.classCard:nth-child(3) { --class-color: #42A5F5; } /* Gatherer */
+
+.classCard:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 12px 0 rgba(0,0,0,0.15), 0 20px 25px rgba(0,0,0,0.2);
+}
+
+.classCard.selected {
+    border-color: #FFD700;
+    background: #FFF8E1;
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 12px 0 #FFA000, 0 20px 30px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
+.className {
+    font-family: 'Titan One', cursive;
+    color: var(--class-color, #333);
+    font-size: 22px;
+    margin-top: 15px;
+    text-transform: uppercase;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+    -webkit-text-stroke: 1px #333; /* Контур текста для читаемости */
+    -webkit-text-fill-color: white;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+}
+
+.controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.backBtn {
+    /* Стили для кнопки назад, можно сделать маленькой круглой или текстовой */
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900;
+    color: white;
+    background: #4E342E;
+    border: 2px solid #6D4C41;
+    padding: 10px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+/* Используем стили Jelly Button из MainScreen для кнопки Play, 
+   но здесь можно упростить или импортировать общий класс */
+.playBtn {
+    background: #66BB6A;
+    border: none;
+    border-radius: 12px;
+    padding: 15px 40px;
+    font-family: 'Titan One', cursive;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #388E3C;
+}
+.playBtn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #388E3C;
+}

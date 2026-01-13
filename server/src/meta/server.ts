@@ -150,6 +150,21 @@ async function shutdown() {
   }
 }
 
+// Глобальные обработчики ошибок для предотвращения крашей сервера
+process.on('uncaughtException', (error: Error) => {
+  console.error('[MetaServer] FATAL: Uncaught exception:', error);
+  console.error('Stack:', error.stack);
+  // Логируем, но не завершаем — даём время для отладки
+});
+
+process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+  console.error('[MetaServer] FATAL: Unhandled promise rejection:', reason);
+  if (reason instanceof Error) {
+    console.error('Stack:', reason.stack);
+  }
+  // Логируем, но не завершаем — сервер продолжает работу
+});
+
 // Handle shutdown signals
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);

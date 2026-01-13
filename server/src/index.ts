@@ -40,6 +40,37 @@ if (enableMonitor) {
     app.use("/colyseus", monitor());
 }
 
+// Глобальные обработчики ошибок для предотвращения крашей сервера
+process.on("uncaughtException", (error: Error) => {
+    console.error("[MatchServer] FATAL: Uncaught exception:", error);
+    console.error("Stack:", error.stack);
+    // Логируем, но не завершаем — сервер продолжает работу для других комнат
+});
+
+process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
+    console.error("[MatchServer] FATAL: Unhandled promise rejection:", reason);
+    if (reason instanceof Error) {
+        console.error("Stack:", reason.stack);
+    }
+    // Логируем, но не завершаем — сервер продолжает работу
+});
+
+// Graceful shutdown для корректного завершения
+const shutdown = async () => {
+    console.log("[MatchServer] Shutting down gracefully...");
+    try {
+        await gameServer.gracefullyShutdown();
+        console.log("[MatchServer] Shutdown complete");
+        process.exit(0);
+    } catch (error) {
+        console.error("[MatchServer] Error during shutdown:", error);
+        process.exit(1);
+    }
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+
 gameServer.listen(port, host);
 console.log(`Balance config loaded. Tick rate: ${balance.server.tickRate}`);
 console.log(`Listening on ws://${host}:${port}`);

@@ -454,45 +454,54 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private onTick() {
-        const tickStartMs = Date.now();
-        this.tick += 1;
-        this.state.serverTick = this.tick;
+        try {
+            const tickStartMs = Date.now();
+            this.tick += 1;
+            this.state.serverTick = this.tick;
 
-        this.updateMatchPhase();
-        
-        // Results phase: полная заморозка симуляции
-        if (this.isMatchEnded) {
-            // Только обновляем orbs для визуального эффекта (они замедляются)
-            this.updateOrbsVisual();
+            this.updateMatchPhase();
+
+            // Results phase: полная заморозка симуляции
+            if (this.isMatchEnded) {
+                // Только обновляем orbs для визуального эффекта (они замедляются)
+                this.updateOrbsVisual();
+                this.updatePlayerFlags();
+                this.reportMetrics(tickStartMs);
+                return;
+            }
+
+            this.collectInputs();
+            this.applyInputs();
+            this.boostSystem();
+            this.abilitySystem();
+            this.abilityCardSystem();  // GDD v3.3: обработка карточек выбора умений
+            this.talentCardSystem();   // GDD-Talents: обработка карточек выбора талантов
+            this.updateOrbs();
+            this.updateChests();
+            this.toxicPoolSystem();
+            this.slowZoneSystem();  // GDD v3.3: до flightAssist чтобы FLAG_SLOWED был актуален
+            this.flightAssistSystem();
+            this.physicsSystem();
+            this.collisionSystem();
+            this.projectileSystem();
+            this.mineSystem();
+            this.chestSystem();
+            this.statusEffectSystem();
+            this.zoneEffectSystem();
+            this.deathSystem();
+            this.hungerSystem();
+            this.safeZoneSystem();
+            this.rebelSystem();
             this.updatePlayerFlags();
             this.reportMetrics(tickStartMs);
-            return;
+        } catch (error) {
+            // Изолируем ошибки в комнате — одна комната не роняет весь сервер
+            console.error(`[ArenaRoom ${this.roomId}] CRITICAL: onTick() error at tick ${this.tick}:`, error);
+            if (error instanceof Error) {
+                console.error("Stack:", error.stack);
+            }
+            // Не пробрасываем ошибку — комната продолжает работу
         }
-        
-        this.collectInputs();
-        this.applyInputs();
-        this.boostSystem();
-        this.abilitySystem();
-        this.abilityCardSystem();  // GDD v3.3: обработка карточек выбора умений
-        this.talentCardSystem();   // GDD-Talents: обработка карточек выбора талантов
-        this.updateOrbs();
-        this.updateChests();
-        this.toxicPoolSystem();
-        this.slowZoneSystem();  // GDD v3.3: до flightAssist чтобы FLAG_SLOWED был актуален
-        this.flightAssistSystem();
-        this.physicsSystem();
-        this.collisionSystem();
-        this.projectileSystem();
-        this.mineSystem();
-        this.chestSystem();
-        this.statusEffectSystem();
-        this.zoneEffectSystem();
-        this.deathSystem();
-        this.hungerSystem();
-        this.safeZoneSystem();
-        this.rebelSystem();
-        this.updatePlayerFlags();
-        this.reportMetrics(tickStartMs);
     }
 
     private collectInputs() {
