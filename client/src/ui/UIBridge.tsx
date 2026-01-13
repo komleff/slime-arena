@@ -46,7 +46,7 @@ import { GameHUD } from './components/GameHUD';
 import { TalentModal } from './components/TalentModal';
 import { ResultsScreen } from './components/ResultsScreen';
 import { AbilityButtons } from './components/AbilityButtons';
-import { MainMenu } from './components/MainMenu';
+import { ScreenManager } from './screens/ScreenManager';
 
 // ========== Типы для колбеков ==========
 
@@ -66,22 +66,22 @@ let uiContainer: HTMLElement | null = null;
 let callbacks: UICallbacks | null = null;
 let cleanupMobileDetection: (() => void) | null = null;
 
+/**
+ * Получить текущие колбеки UI (для использования в экранах)
+ */
+export function getUICallbacks(): UICallbacks | null {
+  return callbacks;
+}
+
 function UIRoot() {
   // Кэшируем значения сигналов для предотвращения множественных чтений
   const phase = gamePhase.value;
-  const connecting = isConnecting.value;
   const showTalent = showTalentModal.value;
 
   return (
     <Fragment>
-      {/* Main Menu */}
-      {phase === 'menu' && callbacks && (
-        <MainMenu
-          onPlay={callbacks.onPlay}
-          onCancelMatchmaking={callbacks.onCancelMatchmaking}
-          isConnecting={connecting}
-        />
-      )}
+      {/* Main Menu - новые экраны через ScreenManager */}
+      {phase === 'menu' && <ScreenManager />}
 
       {/* Game HUD */}
       {(phase === 'playing' || phase === 'waiting') && (

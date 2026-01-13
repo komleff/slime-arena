@@ -29,3 +29,4 @@ backups/*.sql
 # Beads temp files
 .beads/file.tmp
 .beads/*.tmp
+tmpclaude-*-cwd

@@ -374,6 +374,17 @@ export function hideModal() {
   closeModal();
 }
 
+// ========== Регистрация экранов ==========
+
+import { MainScreen } from './MainScreen';
+import { LobbyScreen } from './LobbyScreen';
+import { MatchmakingScreen } from './MatchmakingScreen';
+
+// Регистрируем экраны при загрузке модуля
+registerScreen({ id: 'main-menu', component: () => <MainScreen /> });
+registerScreen({ id: 'lobby', component: () => <LobbyScreen /> });
+registerScreen({ id: 'matchmaking', component: () => <MatchmakingScreen /> });
+
 // ========== Рендер ==========
 
 let screenManagerRoot: HTMLElement | null = null;

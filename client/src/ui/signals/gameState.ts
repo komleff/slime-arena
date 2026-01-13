@@ -9,7 +9,7 @@ import { FLAG_IS_DEAD, DEFAULT_BALANCE_CONFIG } from '@slime-arena/shared';
 // ========== Типы ==========
 
 export type GamePhase = 'menu' | 'connecting' | 'waiting' | 'playing' | 'results';
-export type ScreenType = 'main-menu' | 'lobby' | 'game' | 'results' | 'settings' | 'shop' | 'profile';
+export type ScreenType = 'main-menu' | 'lobby' | 'matchmaking' | 'game' | 'results' | 'settings' | 'shop' | 'profile';
 export type ModalType = 'talent' | 'pause' | 'confirm-exit' | 'settings';
 
 export interface PlayerStats {
