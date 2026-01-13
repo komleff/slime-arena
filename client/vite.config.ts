@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
-      allowedHosts: ['*.overmobile.space'],
+      allowedHosts: ['*.overmobile.space', 'slime-arena.overmobile.space'],
       hmr: hmrHost
         ? {
             host: hmrHost,
