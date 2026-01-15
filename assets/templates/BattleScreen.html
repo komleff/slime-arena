@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Slime Arena: Battle UI</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&family=Titan+One&display=swap" rel="stylesheet">
+
+    <style>
+        /* === 1. VARIABLES & THEME === */
+        :root {
+            --c-gold: #FFD700;
+            --c-green: #7BED9F;
+            --c-blue: #1E90FF;
+            --c-red: #FF4757;
+            --f-head: 'Titan One', cursive;
+            --f-body: 'Nunito', sans-serif;
+            --z-floor: 0;
+            --z-props: 10;
+            --z-hero: 15;
+            --z-walls: 20;
+            --z-hud: 100;
+        }
+
+        body {
+            margin: 0; width: 100vw; height: 100vh; overflow: hidden;
+            background-color: #2F3542; font-family: var(--f-body);
+            user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+
+        /* === 2. GAME WORLD === */
+        #game-view {
+            position: absolute; inset: 0;
+            z-index: var(--z-floor);
+            
+            /* ПОЛ (Тайл) */
+            background-image: url('../backgrounds/bg_gameplay_floor_tile.png'); 
+            background-size: 256px 256px; /* Размер плитки */
+            background-repeat: repeat;
+            background-color: #5D4037; 
+        }
+
+        /* СТЕНЫ */
+        .arena-wall {
+            position: absolute; z-index: var(--z-walls);
+            background-image: url('../props/prop_wall_bouncy.png');
+            background-size: 64px 64px; 
+            background-color: #673AB7; border: 2px solid #4527A0; /* Fallback */
+        }
+        #wall-top { top: 0; left: 0; width: 100%; height: 64px; background-repeat: repeat-x; }
+        #wall-left { top: 64px; left: 0; width: 64px; height: calc(100% - 64px); background-repeat: repeat-y; }
+
+        /* ОБЪЕКТЫ */
+        .game-obj {
+            position: absolute; transform: translate(-50%, -50%);
+            z-index: var(--z-props);
+            background-position: center; background-size: contain; background-repeat: no-repeat;
+        }
+
+        /* Герой (Блинчик) */
+        .hero-unit {
+            width: 120px; height: 120px;
+            z-index: var(--z-hero);
+            background-image: url('../sprites/slimes/base/hero_blin_v1.png');
+            filter: drop-shadow(0 10px 10px rgba(0,0,0,0.4));
+        }
+
+        /* Пропсы */
+        .prop-rock { width: 100px; height: 100px; background-image: url('../props/prop_obstacle_rock.png'); }
+        .prop-spikes { width: 80px; height: 80px; background-image: url('../props/prop_obstacle_spikes.png'); }
+
+        /* Лут (Орбы) */
+        .loot-orb { width: 48px; height: 48px; animation: floatLoot 2s ease-in-out infinite; }
+        .orb-green { background-image: url('../loot/orb_green.png'); }
+        .orb-blue { background-image: url('../loot/orb_blue.png'); }
+        .orb-gold { background-image: url('../loot/orb_gold.png'); }
+        
+        @keyframes floatLoot {
+            0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+            50% { transform: translate(-50%, -50%) translateY(-10px); }
+        }
+
+        /* === 3. HUD LAYER === */
+        #hud-layer {
+            position: absolute; inset: 0; z-index: var(--z-hud);
+            pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+        }
+        .hud-top, .hud-controls button { pointer-events: auto; }
+
+        .hud-top { display: flex; justify-content: space-between; height: 60px; }
+
+        /* MASS WIDGET */
+        .mass-widget { display: flex; align-items: center; gap: -12px; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3)); }
+        .level-badge { 
+            width: 52px; height: 52px; background: var(--c-blue); border-radius: 50%; 
+            background-image: url('../hud/hud_level_badge_star_blue.png'); 
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            display: flex; justify-content: center; align-items: center; 
+            font-family: var(--f-head); color: white; font-size: 20px; z-index: 2; 
+        }
+        .bar-frame { 
+            height: 32px; width: 180px; background: rgba(0,0,0,0.4); 
+            border: 3px solid white; border-radius: 20px; 
+            display: flex; align-items: center; padding: 0 4px; z-index: 1; margin-left: -5px; overflow: hidden; 
+        }
+        .bar-fill { height: 20px; width: 65%; background: linear-gradient(180deg, #7BED9F 0%, #2ED573 100%); border-radius: 12px; }
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 14px; font-weight: 900; color: white; margin-top: -1px; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+
+        /* TIMER */
+        .timer-widget { text-align: center; margin-top: 6px; }
+        .timer-digits { font-family: var(--f-head); font-size: 28px; color: white; -webkit-text-stroke: 1.5px black; }
+
+        /* MINIMAP (CSS) */
+        .minimap { 
+            width: 100px; height: 100px; background: rgba(0,0,0,0.3); 
+            border: 3px solid rgba(255,255,255,0.8); border-radius: 16px; 
+            position: relative; backdrop-filter: blur(4px); 
+        }
+        .mm-icon { position: absolute; transform: translate(-50%,-50%); border: 2px solid white; }
+        .mm-player { width: 10px; height: 10px; background: white; border-radius: 50%; left: 50%; top: 50%; }
+
+        /* CONTROLS */
+        .hud-controls { display: flex; justify-content: space-between; align-items: flex-end; min-height: 120px; }
+        
+        .joystick-zone { 
+            width: 140px; height: 140px; border: 4px solid rgba(255,255,255,0.4); border-radius: 50%; 
+            background: rgba(255,255,255,0.1); position: relative; 
+        }
+        .joystick-knob { 
+            width: 60px; height: 60px; position: absolute; top: 40px; left: 40px; 
+            background: linear-gradient(135deg, #7BED9F, #2ED573); border-radius: 50%; border: 4px solid white; 
+        }
+
+        .skills-grid { display: flex; gap: 16px; align-items: flex-end; }
+        .btn-skill { width: 70px; height: 70px; border: none; background: none; padding: 0; transition: transform 0.1s; }
+        .btn-skill:active { transform: scale(0.95); }
+        
+        .btn-base { 
+            width: 100%; height: 100%; 
+            background-image: url('../buttons/btn_jelly_blue.png'); 
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            display: flex; justify-content: center; align-items: center; 
+        }
+        .btn-attack .btn-base { background-image: url('../buttons/btn_jelly_red.png'); }
+        .btn-attack { width: 100px; height: 100px; }
+        .btn-icon { font-size: 28px; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.3)); }
+        .btn-attack .btn-icon { font-size: 40px; }
+
+        /* АВАТАР (Слева) */
+        .avatar-widget {
+            position: absolute; top: 70px; left: 20px; width: 64px; height: 64px;
+            background-image: url('../hud/hud_avatar_frame_cookie.png');
+            background-size: contain; background-repeat: no-repeat;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .avatar-img {
+            width: 48px; height: 48px; border-radius: 50%;
+            background-image: url('../hud/hud_avatar_hero_01.png');
+            background-size: cover; border: 2px solid #5D4037;
+        }
+
+        @media (orientation: portrait) {
+            .hud-top { padding-top: 8px; } .bar-frame { width: 130px; } 
+            .mass-widget { margin-left: 80px; }
+            .skills-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; }
+            .btn-attack { grid-column: 2; grid-row: 1 / span 2; align-self: end; }
+        }
+        @media (orientation: landscape) {
+            .bar-frame { width: 280px; height: 32px; } .mass-widget { margin-left: 80px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-view">
+        <div id="wall-top" class="arena-wall"></div>
+        <div id="wall-left" class="arena-wall"></div>
+
+        <div class="game-obj hero-unit" style="top: 50%; left: 50%;"></div>
+
+        <div class="game-obj prop-rock" style="top: 25%; left: 70%;"></div>
+        <div class="game-obj prop-spikes" style="top: 70%; left: 30%;"></div>
+
+        <div class="game-obj loot-orb orb-green" style="top: 40%; left: 60%; animation-delay: 0s;"></div>
+        <div class="game-obj loot-orb orb-blue" style="top: 80%; left: 80%; animation-delay: 0.5s;"></div>
+        <div class="game-obj loot-orb orb-gold" style="top: 60%; left: 20%; animation-delay: 1s;"></div>
+    </div>
+
+    <div id="hud-layer">
+        
+        <div class="avatar-widget"><div class="avatar-img"></div></div>
+
+        <div class="hud-top">
+            <div class="mass-widget">
+                <div class="level-badge">5</div>
+                <div class="bar-frame">
+                    <div class="bar-fill"></div>
+                    <span class="bar-text">1250 kg</span>
+                </div>
+            </div>
+            
+            <div class="timer-widget"><div class="timer-digits">02:15</div></div>
+            
+            <div class="minimap">
+                <div class="mm-icon mm-player"></div> 
+            </div>
+        </div>
+
+        <div class="hud-controls">
+            <div class="joystick-zone"><div class="joystick-knob"></div></div>
+            
+            <div class="skills-grid">
+                <button class="btn-skill"><div class="btn-base"><span class="btn-icon">⚡</span></div></button>
+                <button class="btn-skill"><div class="btn-base"><span class="btn-icon">🛡️</span></div></button>
+                <button class="btn-skill btn-attack"><div class="btn-base"><span class="btn-icon">💣</span></div></button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
