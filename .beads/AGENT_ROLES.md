@@ -359,11 +359,15 @@ bd create --title="Улучшить ArenaRoom" --type=task --priority=2
 | Префикс | Назначение | Пример |
 |---------|------------|--------|
 | `bg_*` | Полноэкранные фоны | `bg_main_menu.png`, `bg_gameplay_arena.png` |
+| `btn_*` | Кнопки UI | `btn_jelly_red.png`, `btn_close_red.png` |
 | `icon_menu_*` | Кнопки навигации | `icon_menu_settings.png` |
 | `icon_currency_*` | Валюта | `icon_currency_coin.png`, `icon_currency_gem.png` |
 | `hero_skin_*` | Скины персонажей | `hero_skin_macaron_angry.png` |
 | `hud_*` | Элементы интерфейса | `hud_health_bar.png`, `hud_avatar_frame.png` |
-| `prop_*` | Объекты на сцене | `prop_obstacle_rock.png` |
+| `panel_*` | Панели UI (9-slice) | `panel_modal_cookie.png` |
+| `prop_*` | Статичные объекты на сцене | `prop_obstacle_rock.png`, `prop_wall_bouncy.png` |
+| `orb_*` | Съедобные орбы (игровые сущности) | `orb_blue.png`, `orb_gold.png` |
+| `slime-*` | Спрайты слаймов | `slime-base.png`, `slime-frost.png` |
 
 ### Твои обязанности
 
