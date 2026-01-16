@@ -181,7 +181,7 @@ export class InputManager {
 
     /**
      * Относительный режим клавиатуры: WASD как руль.
-     * W — вперёд по heading, S — назад, A/D — боковое движение (strafe) + поворот.
+     * W — вперёд по heading, S — назад, A/D — поворот на месте.
      */
     private getRelativeKeyboardInput(): { x: number; y: number } {
         // W/S — движение вдоль heading
@@ -189,32 +189,22 @@ export class InputManager {
         if (this.keyState.up) forward += 1;
         if (this.keyState.down) forward -= 1;
 
-        // A/D — боковое движение (strafe) перпендикулярно heading
-        let strafe = 0;
-        if (this.keyState.left) strafe -= 1;
-        if (this.keyState.right) strafe += 1;
+        const cosH = Math.cos(this._keyboardHeading);
+        const sinH = Math.sin(this._keyboardHeading);
 
-        if (forward !== 0 || strafe !== 0) {
-            // heading направление: (cos, -sin)
-            // перпендикуляр (вправо): (sin, cos) в инвертированной Y системе
-            const cosH = Math.cos(this._keyboardHeading);
-            const sinH = Math.sin(this._keyboardHeading);
+        if (forward !== 0) {
+            // Полное движение вперёд/назад по heading
+            const kx = cosH * forward;
+            const ky = -sinH * forward;
+            return { x: kx, y: ky };
+        }
 
-            // Вперёд/назад по heading
-            let kx = cosH * forward;
-            let ky = -sinH * forward;
-
-            // Боковое движение (strafe): перпендикуляр к heading
-            kx += -sinH * strafe;
-            ky += -cosH * strafe;
-
-            // Нормализуем если есть диагональ
-            const len = Math.hypot(kx, ky);
-            if (len > 0) {
-                kx /= len;
-                ky /= len;
-            }
-
+        // A/D без W/S — поворот на месте
+        // Отправляем минимальный вектор в направлении heading для поворота слайма
+        if (this.keyState.left || this.keyState.right) {
+            const epsilon = 0.01;
+            const kx = cosH * epsilon;
+            const ky = -sinH * epsilon;
             return { x: kx, y: ky };
         }
 
