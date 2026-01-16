@@ -1974,6 +1974,7 @@ async function connectToServer(playerName: string, classId: number) {
                 const scale = baseScale * cameraZoom;
                 return screenToWorld(screenX, screenY, scale, camera.x, camera.y, cw, ch);
             },
+            balanceConfig,
         };
 
         const inputManagerCallbacks: InputCallbacks = {
@@ -3129,11 +3130,8 @@ async function connectToServer(playerName: string, classId: number) {
                     const isInvisible = (player.flags & FLAG_INVISIBLE) !== 0;
                     if (isInvisible && !isSelf) continue;
 
-                    // Определить цвет: свой/враг/союзник
-                    const isAlly = false; // TODO: логика команд
-                    const color = isSelf
-                        ? mouthConfig.colors.player
-                        : (isAlly ? mouthConfig.colors.ally : mouthConfig.colors.enemy);
+                    // Определить цвет: свой/враг (союзники — резерв для командных арен)
+                    const color = isSelf ? mouthConfig.colors.player : mouthConfig.colors.enemy;
 
                     // Радиус сектора
                     const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
@@ -3146,8 +3144,8 @@ async function connectToServer(playerName: string, classId: number) {
                     const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
                     const screenRadius = worldRadius * scale;
 
-                    // Угол направления рта
-                    const angle = player.angle;
+                    // Угол направления рта (инверсия Y для Canvas)
+                    const angle = -player.angle;
                     const halfAngle = mouthConfig.angleRadians / 2;
 
                     // Рисуем сектор
@@ -3359,9 +3357,10 @@ async function connectToServer(playerName: string, classId: number) {
                         canvasCtx.stroke();
 
                         // Рисуем наконечник (треугольник)
-                        const tipLength = 15;
-                        const tipAngle1 = inputAngle + Math.PI * 0.85;
-                        const tipAngle2 = inputAngle - Math.PI * 0.85;
+                        const tipLength = arrowConfig.tipLength;
+                        const tipAngleRatio = arrowConfig.tipAngleRatio;
+                        const tipAngle1 = inputAngle + Math.PI * tipAngleRatio;
+                        const tipAngle2 = inputAngle - Math.PI * tipAngleRatio;
 
                         const tip1WorldX = worldEndX + Math.cos(tipAngle1) * tipLength;
                         const tip1WorldY = worldEndY + Math.sin(tipAngle1) * tipLength;

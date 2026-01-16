@@ -571,9 +571,12 @@ export interface BalanceConfig {
             maxLength: number;
             widthBase: number;
             widthTip: number;
+            tipLength: number;
+            tipAngleRatio: number;
             color: string;
             minIntensity: number;
         };
+        keyboardMixWeight?: number;
     };
 }
 

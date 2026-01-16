@@ -46,6 +46,7 @@ export interface InputManagerDeps {
     mouseDeadzone: number;
     mouseMaxDist: number;
     getScreenToWorld: (screenX: number, screenY: number) => { x: number; y: number };
+    balanceConfig: any;
 }
 
 export interface InputCallbacks {
@@ -170,14 +171,21 @@ export class InputManager {
 
         // Смешивание: мышь + клавиатура (WASD даёт корректировку)
         if (this.mouseState.active) {
+            const mouseIntensity = Math.hypot(this.mouseState.moveX, this.mouseState.moveY);
+
+            // Если нет клавиатурного ввода — только мышь
+            if (!hasKeyboardInput) {
+                return { x: this.mouseState.moveX, y: this.mouseState.moveY };
+            }
+
             // Мышь — основное направление, клавиатура — корректировка
-            const mx = this.mouseState.moveX + kx * 0.5; // 50% вес клавиатуры
-            const my = this.mouseState.moveY + ky * 0.5;
+            const keyboardWeight = this.deps.balanceConfig.visual?.keyboardMixWeight ?? 0.5;
+            const mx = this.mouseState.moveX + kx * keyboardWeight;
+            const my = this.mouseState.moveY + ky * keyboardWeight;
             const len = Math.hypot(mx, my);
             if (len > 0) {
                 // Сохраняем интенсивность мыши, направление корректируется
-                const mouseIntensity = Math.hypot(this.mouseState.moveX, this.mouseState.moveY);
-                return { x: (mx / len) * Math.min(1, len), y: (my / len) * Math.min(1, len) };
+                return { x: (mx / len) * mouseIntensity, y: (my / len) * mouseIntensity };
             }
             return { x: this.mouseState.moveX, y: this.mouseState.moveY };
         }
