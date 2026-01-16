@@ -284,12 +284,13 @@ export class InputManager {
         const turnSpeedDegps = this.deps.balanceConfig.controls?.keyboardTurnSpeedDegps ?? 180;
         const turnSpeedRad = (turnSpeedDegps * Math.PI) / 180;
 
-        // A (left) - поворот влево (увеличение угла), D (right) - поворот вправо (уменьшение угла)
+        // A (left) - поворот влево, D (right) - поворот вправо
+        // Инвертировано из-за Y-оси (Y+ = вверх в игре, но sin/cos работают с Y+ = вниз)
         if (this.keyState.left) {
-            this._keyboardHeading += turnSpeedRad * dt;
+            this._keyboardHeading -= turnSpeedRad * dt;
         }
         if (this.keyState.right) {
-            this._keyboardHeading -= turnSpeedRad * dt;
+            this._keyboardHeading += turnSpeedRad * dt;
         }
 
         // Нормализуем угол в диапазон [-PI, PI]
