@@ -67,8 +67,23 @@
 **Смешанное управление (ПК):**
 
 - Мышь — основное направление
-- WASD — корректировка (50% вес)
+- WASD — корректировка направления (вес задаётся в `balance.json: visual.keyboardMixWeight`, по умолчанию 0.5)
+- Интенсивность мыши сохраняется, изменяется только направление
 - Смешивание происходит перед Flight Assist
+
+**Параметры конфигурации** (`config/balance.json`):
+
+- `visual.mouthSector.enabled` — включить сектор рта
+- `visual.mouthSector.radiusMultiplier` — множитель радиуса (1.5)
+- `visual.mouthSector.angleRadians` — угол сектора в радианах (2.094 ≈ 120°)
+- `visual.mouthSector.colors.player/enemy/ally` — RGBA цвета
+- `visual.inputArrow.enabled` — включить стрелку направления
+- `visual.inputArrow.minLength/maxLength` — диапазон длины стрелки (px)
+- `visual.inputArrow.tipLength` — длина наконечника (px)
+- `visual.inputArrow.tipAngleRatio` — угол наконечника (0.85 × π)
+- `visual.inputArrow.color` — RGBA цвет
+- `visual.inputArrow.minIntensity` — минимальная интенсивность для отображения (0.15)
+- `visual.keyboardMixWeight` — вес клавиатуры при смешивании с мышью (0.5)
 
 ---
 
