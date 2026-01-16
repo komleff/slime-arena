@@ -3118,6 +3118,55 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
 
+            // === Слой: Mouth sectors ===
+            if (balanceConfig.visual?.mouthSector?.enabled) {
+                const mouthConfig = balanceConfig.visual.mouthSector;
+                for (const [id, player] of playersView.entries()) {
+                    if (player.classId < 0) continue;
+                    if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
+
+                    const isSelf = id === room.sessionId;
+                    const isInvisible = (player.flags & FLAG_INVISIBLE) !== 0;
+                    if (isInvisible && !isSelf) continue;
+
+                    // Определить цвет: свой/враг/союзник
+                    const isAlly = false; // TODO: логика команд
+                    const color = isSelf
+                        ? mouthConfig.colors.player
+                        : (isAlly ? mouthConfig.colors.ally : mouthConfig.colors.enemy);
+
+                    // Радиус сектора
+                    const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
+                    const slimeConfig = getSlimeConfigForPlayer(player.classId);
+                    const baseRadius = getSlimeRadiusFromConfig(player.mass, slimeConfig);
+                    const leviathanMul = (player.flags & FLAG_LEVIATHAN) !== 0 ? getLeviathanRadiusMul() : 1;
+                    const worldRadius = baseRadius * classRadiusMult * leviathanMul * mouthConfig.radiusMultiplier;
+
+                    // Позиция на экране
+                    const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
+                    const screenRadius = worldRadius * scale;
+
+                    // Угол направления рта
+                    const angle = player.angle;
+                    const halfAngle = mouthConfig.angleRadians / 2;
+
+                    // Рисуем сектор
+                    canvasCtx.fillStyle = color;
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(p.x, p.y);
+                    canvasCtx.arc(
+                        p.x,
+                        p.y,
+                        screenRadius,
+                        angle - halfAngle,
+                        angle + halfAngle,
+                        false
+                    );
+                    canvasCtx.closePath();
+                    canvasCtx.fill();
+                }
+            }
+
             for (const [id, player] of playersView.entries()) {
                 // Пропускать игроков без выбранного класса (между матчами)
                 if (player.classId < 0) continue;
@@ -3282,6 +3331,55 @@ async function connectToServer(playerName: string, classId: number) {
                 }
                 
                 drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
+
+                // === Стрелка направления ввода (только для своего слайма) ===
+                if (isSelf && balanceConfig.visual?.inputArrow?.enabled) {
+                    const arrowConfig = balanceConfig.visual.inputArrow;
+                    const input = inputManager.getMovementInput();
+                    const intensity = Math.hypot(input.x, input.y);
+
+                    if (intensity > arrowConfig.minIntensity) {
+                        // Направление ввода
+                        const inputAngle = Math.atan2(input.y, input.x);
+
+                        // Длина стрелки пропорциональна интенсивности
+                        const arrowLength = arrowConfig.minLength + (arrowConfig.maxLength - arrowConfig.minLength) * intensity;
+
+                        // Конечная точка стрелки (в мировых координатах)
+                        const worldEndX = player.x + Math.cos(inputAngle) * arrowLength;
+                        const worldEndY = player.y + Math.sin(inputAngle) * arrowLength;
+                        const endScreen = worldToScreen(worldEndX, worldEndY, scale, camera.x, camera.y, cw, ch);
+
+                        // Рисуем линию
+                        canvasCtx.strokeStyle = arrowConfig.color;
+                        canvasCtx.lineWidth = arrowConfig.widthBase;
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(p.x, p.y);
+                        canvasCtx.lineTo(endScreen.x, endScreen.y);
+                        canvasCtx.stroke();
+
+                        // Рисуем наконечник (треугольник)
+                        const tipLength = 15;
+                        const tipAngle1 = inputAngle + Math.PI * 0.85;
+                        const tipAngle2 = inputAngle - Math.PI * 0.85;
+
+                        const tip1WorldX = worldEndX + Math.cos(tipAngle1) * tipLength;
+                        const tip1WorldY = worldEndY + Math.sin(tipAngle1) * tipLength;
+                        const tip1Screen = worldToScreen(tip1WorldX, tip1WorldY, scale, camera.x, camera.y, cw, ch);
+
+                        const tip2WorldX = worldEndX + Math.cos(tipAngle2) * tipLength;
+                        const tip2WorldY = worldEndY + Math.sin(tipAngle2) * tipLength;
+                        const tip2Screen = worldToScreen(tip2WorldX, tip2WorldY, scale, camera.x, camera.y, cw, ch);
+
+                        canvasCtx.fillStyle = arrowConfig.color;
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(endScreen.x, endScreen.y);
+                        canvasCtx.lineTo(tip1Screen.x, tip1Screen.y);
+                        canvasCtx.lineTo(tip2Screen.x, tip2Screen.y);
+                        canvasCtx.closePath();
+                        canvasCtx.fill();
+                    }
+                }
 
                 // Имя с иконкой класса (или короной для Короля)
                 const displayName = getDisplayName(player.name, player.classId ?? 0, isRebel);

@@ -554,6 +554,27 @@ export interface BalanceConfig {
         epic: Record<string, TalentConfig>;
         classTalents: Record<string, Record<string, ClassTalentConfig>>;
     };
+    visual?: {
+        mouthSector?: {
+            enabled: boolean;
+            radiusMultiplier: number;
+            angleRadians: number;
+            colors: {
+                player: string;
+                enemy: string;
+                ally: string;
+            };
+        };
+        inputArrow?: {
+            enabled: boolean;
+            minLength: number;
+            maxLength: number;
+            widthBase: number;
+            widthTip: number;
+            color: string;
+            minIntensity: number;
+        };
+    };
 }
 
 // Конфиг отдельного таланта

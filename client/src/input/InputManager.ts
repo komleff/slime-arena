@@ -148,26 +148,43 @@ export class InputManager {
     getMovementInput(): { x: number; y: number } {
         const { joystickState } = this.deps;
 
-        // Приоритет: joystick > mouse > keyboard (agar.io style)
+        // Приоритет: joystick > мышь + клавиатура (смешивание)
         if (joystickState.active) {
             return { x: joystickState.moveX, y: -joystickState.moveY };
         }
 
-        // Mouse (приоритет над клавиатурой для agar.io style)
-        if (this.mouseState.active) {
-            return { x: this.mouseState.moveX, y: this.mouseState.moveY };
-        }
-
-        // Keyboard
+        // Вычисляем клавиатурный ввод (корректировка)
         let kx = 0, ky = 0;
         if (this.keyState.up) ky += 1;
         if (this.keyState.down) ky -= 1;
         if (this.keyState.left) kx -= 1;
         if (this.keyState.right) kx += 1;
 
-        if (kx !== 0 || ky !== 0) {
+        // Нормализуем клавиатурный вектор
+        const hasKeyboardInput = kx !== 0 || ky !== 0;
+        if (hasKeyboardInput) {
             const len = Math.hypot(kx, ky);
-            return { x: kx / len, y: ky / len };
+            kx /= len;
+            ky /= len;
+        }
+
+        // Смешивание: мышь + клавиатура (WASD даёт корректировку)
+        if (this.mouseState.active) {
+            // Мышь — основное направление, клавиатура — корректировка
+            const mx = this.mouseState.moveX + kx * 0.5; // 50% вес клавиатуры
+            const my = this.mouseState.moveY + ky * 0.5;
+            const len = Math.hypot(mx, my);
+            if (len > 0) {
+                // Сохраняем интенсивность мыши, направление корректируется
+                const mouseIntensity = Math.hypot(this.mouseState.moveX, this.mouseState.moveY);
+                return { x: (mx / len) * Math.min(1, len), y: (my / len) * Math.min(1, len) };
+            }
+            return { x: this.mouseState.moveX, y: this.mouseState.moveY };
+        }
+
+        // Если нет мыши — только клавиатура
+        if (hasKeyboardInput) {
+            return { x: kx, y: ky };
         }
 
         return { x: 0, y: 0 };

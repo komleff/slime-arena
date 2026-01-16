@@ -300,6 +300,27 @@
     "zoomMassMin": 100,
     "zoomMassMax": 2000
   },
+  "visual": {
+    "mouthSector": {
+      "enabled": true,
+      "radiusMultiplier": 1.5,
+      "angleRadians": 2.094,
+      "colors": {
+        "player": "rgba(96, 165, 250, 0.2)",
+        "enemy": "rgba(239, 68, 68, 0.2)",
+        "ally": "rgba(74, 222, 128, 0.2)"
+      }
+    },
+    "inputArrow": {
+      "enabled": true,
+      "minLength": 30,
+      "maxLength": 80,
+      "widthBase": 4,
+      "widthTip": 12,
+      "color": "rgba(111, 214, 255, 0.8)",
+      "minIntensity": 0.15
+    }
+  },
   "slime": {
     "initialMass": 100,
     "initialLevel": 1,
