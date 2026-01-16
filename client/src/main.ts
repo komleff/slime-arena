@@ -262,7 +262,7 @@ talentRewardPanel.appendChild(talentRewardTitle);
 
 const talentRewardCard = document.createElement("div");
 talentRewardCard.style.width = "min(320px, 40vw)";
-talentRewardCard.style.background = "#111b2a";
+talentRewardCard.style.background = "rgba(17, 27, 42, 0.9)";
 talentRewardCard.style.border = "2px solid #2d4a6d";
 talentRewardCard.style.borderRadius = "12px";
 talentRewardCard.style.padding = "14px 16px";
@@ -363,7 +363,7 @@ abilityCardModal.style.display = "none";
 abilityCardModal.style.flexDirection = "column";
 abilityCardModal.style.gap = "10px";
 abilityCardModal.style.padding = "16px";
-abilityCardModal.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
+abilityCardModal.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.9), rgba(12, 15, 20, 0.9))";
 abilityCardModal.style.border = "2px solid #4a90c2";
 abilityCardModal.style.borderRadius = "16px";
 abilityCardModal.style.zIndex = "100";
@@ -3328,9 +3328,7 @@ async function connectToServer(playerName: string, classId: number) {
                     canvasCtx.fill();
                 }
                 
-                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
-
-                // === Стрелка направления ввода (только для своего слайма) ===
+                // === Стрелка направления ввода (рисуем ПОД слаймом) ===
                 if (isSelf && balanceConfig.visual?.inputArrow?.enabled) {
                     const arrowConfig = balanceConfig.visual.inputArrow;
                     const input = inputManager.getMovementInput();
@@ -3379,6 +3377,8 @@ async function connectToServer(playerName: string, classId: number) {
                         canvasCtx.fill();
                     }
                 }
+
+                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
 
                 // Имя с иконкой класса (или короной для Короля)
                 const displayName = getDisplayName(player.name, player.classId ?? 0, isRebel);
