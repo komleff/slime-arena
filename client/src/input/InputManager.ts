@@ -173,18 +173,23 @@ export class InputManager {
         return { x: 0, y: 0 };
     }
 
-    updateMouseDirection(playerWorldX: number, playerWorldY: number): void {
+    updateMouseDirection(playerWorldX: number, playerWorldY: number, scale: number): void {
         if (!this.mouseState.active) return;
 
         const { mouseDeadzone, mouseMaxDist } = this.deps;
+
+        // Конвертируем deadzone и maxDist из экранных пикселей в мировые единицы
+        // чтобы чувствительность не зависела от зума камеры
+        const deadzoneWorld = mouseDeadzone / scale;
+        const maxDistWorld = mouseMaxDist / scale;
 
         // Вычисляем направление в мировых координатах
         const dx = this.mouseState.worldX - playerWorldX;
         const dy = this.mouseState.worldY - playerWorldY;
         const dist = Math.hypot(dx, dy);
 
-        // Мёртвая зона (в мировых единицах)
-        if (dist < mouseDeadzone) {
+        // Мёртвая зона (фиксирована в экранных пикселях)
+        if (dist < deadzoneWorld) {
             this.mouseState.moveX = 0;
             this.mouseState.moveY = 0;
             return;
@@ -195,7 +200,7 @@ export class InputManager {
         const ny = dy / dist;
 
         // Интенсивность зависит от расстояния (линейно до maxDist)
-        const intensity = clamp((dist - mouseDeadzone) / (mouseMaxDist - mouseDeadzone), 0, 1);
+        const intensity = clamp((dist - deadzoneWorld) / (maxDistWorld - deadzoneWorld), 0, 1);
 
         this.mouseState.moveX = nx * intensity;
         this.mouseState.moveY = ny * intensity;

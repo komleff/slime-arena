@@ -2790,7 +2790,7 @@ async function connectToServer(playerName: string, classId: number) {
                 inputManager.mouseState.worldX = worldPos.x;
                 inputManager.mouseState.worldY = worldPos.y;
             }
-            inputManager.updateMouseDirection(smoothedPlayerX, smoothedPlayerY);
+            inputManager.updateMouseDirection(smoothedPlayerX, smoothedPlayerY, scale);
 
             canvasCtx.clearRect(0, 0, cw, ch);
             drawGrid(scale, camera.x, camera.y, cw, ch);
