@@ -162,49 +162,21 @@ export class InputManager {
             return { x: joystickState.moveX, y: -joystickState.moveY };
         }
 
-        // Проверяем наличие клавиатурного ввода движения (W/S)
-        const hasForwardInput = this.keyState.up || this.keyState.down;
+        // Проверяем наличие клавиатурного ввода
+        const hasKeyboardInput = this.keyState.up || this.keyState.down || this.keyState.left || this.keyState.right;
 
-        // Смешивание: мышь + клавиатура (WASD корректирует направление мыши)
+        // Если есть клавиатурный ввод — относительный режим WASD (руль)
+        // WASD имеет приоритет над мышью
+        if (hasKeyboardInput) {
+            return this.getRelativeKeyboardInput();
+        }
+
+        // Нет клавиатуры — используем мышь
         if (this.mouseState.active) {
-            const mouseIntensity = Math.hypot(this.mouseState.moveX, this.mouseState.moveY);
-
-            // Если мышь в мёртвой зоне — переходим к относительному режиму клавиатуры
-            if (mouseIntensity < 0.01) {
-                return this.getRelativeKeyboardInput();
-            }
-
-            // Если нет клавиатурного ввода — только мышь
-            if (!hasForwardInput && !this.keyState.left && !this.keyState.right) {
-                return { x: this.mouseState.moveX, y: this.mouseState.moveY };
-            }
-
-            // Мышь активна — используем абсолютный режим WASD для корректировки
-            let kx = 0, ky = 0;
-            if (this.keyState.up) ky += 1;
-            if (this.keyState.down) ky -= 1;
-            if (this.keyState.left) kx -= 1;
-            if (this.keyState.right) kx += 1;
-
-            if (kx !== 0 || ky !== 0) {
-                const len = Math.hypot(kx, ky);
-                kx /= len;
-                ky /= len;
-            }
-
-            // Мышь — основное направление, клавиатура — корректировка
-            const keyboardWeight = this.deps.balanceConfig.visual?.keyboardMixWeight ?? 0.5;
-            const mx = this.mouseState.moveX + kx * keyboardWeight;
-            const my = this.mouseState.moveY + ky * keyboardWeight;
-            const len = Math.hypot(mx, my);
-            if (len > 0) {
-                return { x: (mx / len) * mouseIntensity, y: (my / len) * mouseIntensity };
-            }
             return { x: this.mouseState.moveX, y: this.mouseState.moveY };
         }
 
-        // Нет мыши — относительный режим клавиатуры (WASD как руль)
-        return this.getRelativeKeyboardInput();
+        return { x: 0, y: 0 };
     }
 
     /**
