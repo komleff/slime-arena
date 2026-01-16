@@ -673,10 +673,6 @@ const slimeSpriteNames = [
     "slime-toxic.png",
     "slime-wizard.png",
     "slime-zombi.png",
-    "hero_blin_v1.png",
-    "hero_blin_v2.png",
-    "hero_burger_v1.png",
-    "hero_burger_v2.png",
 ];
 const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
