@@ -3037,6 +3037,8 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 classTalents: parseClassTalents(classTalents, DEFAULT_BALANCE_CONFIG.talents.classTalents),
             };
         })(),
+        // Передаём visual как есть (клиентская визуализация)
+        visual: isRecord(data.visual) ? data.visual as BalanceConfig["visual"] : undefined,
     };
 
     const globalCooldownTicks = Math.max(
