@@ -2514,7 +2514,10 @@ async function connectToServer(playerName: string, classId: number) {
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
             const { x, y } = inputManager.getMovementInput();
-            // Heartbeat: отправляем input всегда, чтобы сервер не сбрасывал lastInputTick
+            // Heartbeat: отправляем input каждый тик, даже если вектор движения не изменился.
+            // На сервере lastInputTick используется для автоостановки слайма при отсутствии новых команд.
+            // При статичном курсоре мыши слайм не должен самопроизвольно останавливаться, поэтому
+            // запрещено оптимизировать это место проверкой "если ввод не изменился — не отправлять".
             lastSentInput = { x, y };
             inputManager.setLastSentInput(x, y);
             globalInputSeq += 1;
@@ -2772,6 +2775,21 @@ async function connectToServer(playerName: string, classId: number) {
             camera.y = clampY;
 
             // Обновляем направление мыши (используем мировые координаты)
+            // Пересчитываем мировые координаты мыши перед вычислением направления,
+            // чтобы учесть движение камеры при неподвижном курсоре
+            if (inputManager.mouseState.active) {
+                const worldPos = screenToWorld(
+                    inputManager.mouseState.screenX,
+                    inputManager.mouseState.screenY,
+                    scale,
+                    camera.x,
+                    camera.y,
+                    cw,
+                    ch
+                );
+                inputManager.mouseState.worldX = worldPos.x;
+                inputManager.mouseState.worldY = worldPos.y;
+            }
             inputManager.updateMouseDirection(smoothedPlayerX, smoothedPlayerY);
 
             canvasCtx.clearRect(0, 0, cw, ch);

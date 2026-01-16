@@ -224,6 +224,8 @@ export class InputManager {
         this._hasFocus = false;
         this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
         this.mouseState.active = false;
+        this.mouseState.screenX = 0;
+        this.mouseState.screenY = 0;
         this.mouseState.worldX = 0;
         this.mouseState.worldY = 0;
         this.mouseState.moveX = 0;
@@ -534,6 +536,8 @@ export class InputManager {
         this._hasFocus = false;
         this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
         this.mouseState.active = false;
+        this.mouseState.screenX = 0;
+        this.mouseState.screenY = 0;
         this.mouseState.worldX = 0;
         this.mouseState.worldY = 0;
         this.mouseState.moveX = 0;
@@ -549,6 +553,8 @@ export class InputManager {
             this._hasFocus = false;
             this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
             this.mouseState.active = false;
+            this.mouseState.screenX = 0;
+            this.mouseState.screenY = 0;
             this.mouseState.worldX = 0;
             this.mouseState.worldY = 0;
             this.mouseState.moveX = 0;
