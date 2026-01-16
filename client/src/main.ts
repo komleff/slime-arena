@@ -2514,8 +2514,6 @@ async function connectToServer(playerName: string, classId: number) {
             if (!inputManager.hasFocus) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
-            // Обновляем heading для относительного WASD управления
-            inputManager.updateKeyboardHeading();
             const { x, y } = inputManager.getMovementInput();
             // Heartbeat: отправляем input каждый тик, даже если вектор движения не изменился.
             // На сервере lastInputTick используется для автоостановки слайма при отсутствии новых команд.

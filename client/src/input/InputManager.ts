@@ -71,16 +71,8 @@ export class InputManager {
     private joystickPointerListenersAttached = false;
     private lastSentInput = { x: 0, y: 0 };
 
-    // Относительное управление клавиатурой (WASD как руль)
-    private _keyboardHeading: number = -Math.PI / 2; // начальное направление - вверх (Y+)
-    private lastHeadingUpdateTime: number = 0;
-
     get hasFocus(): boolean {
         return this._hasFocus;
-    }
-
-    get keyboardHeading(): number {
-        return this._keyboardHeading;
     }
 
     // Debug
@@ -157,54 +149,54 @@ export class InputManager {
     getMovementInput(): { x: number; y: number } {
         const { joystickState } = this.deps;
 
-        // Приоритет: joystick (абсолютный режим)
+        // Приоритет: joystick > мышь + клавиатура (смешивание)
         if (joystickState.active) {
             return { x: joystickState.moveX, y: -joystickState.moveY };
         }
 
-        // Проверяем наличие клавиатурного ввода
-        const hasKeyboardInput = this.keyState.up || this.keyState.down || this.keyState.left || this.keyState.right;
+        // Вычисляем клавиатурный ввод (корректировка)
+        let kx = 0, ky = 0;
+        if (this.keyState.up) ky += 1;
+        if (this.keyState.down) ky -= 1;
+        if (this.keyState.left) kx -= 1;
+        if (this.keyState.right) kx += 1;
 
-        // Если есть клавиатурный ввод — относительный режим WASD (руль)
-        // WASD имеет приоритет над мышью
+        // Нормализуем клавиатурный вектор
+        const hasKeyboardInput = kx !== 0 || ky !== 0;
         if (hasKeyboardInput) {
-            return this.getRelativeKeyboardInput();
+            const len = Math.hypot(kx, ky);
+            kx /= len;
+            ky /= len;
         }
 
-        // Нет клавиатуры — используем мышь
+        // Смешивание: мышь + клавиатура (WASD даёт корректировку)
         if (this.mouseState.active) {
+            const mouseIntensity = Math.hypot(this.mouseState.moveX, this.mouseState.moveY);
+
+            // Если нет клавиатурного ввода — только мышь
+            if (!hasKeyboardInput) {
+                return { x: this.mouseState.moveX, y: this.mouseState.moveY };
+            }
+
+            // Если мышь в мёртвой зоне (нулевая интенсивность), используем чистый клавиатурный ввод
+            if (mouseIntensity < 0.01) {
+                return { x: kx, y: ky };
+            }
+
+            // Мышь — основное направление, клавиатура — корректировка
+            const keyboardWeight = this.deps.balanceConfig.visual?.keyboardMixWeight ?? 0.5;
+            const mx = this.mouseState.moveX + kx * keyboardWeight;
+            const my = this.mouseState.moveY + ky * keyboardWeight;
+            const len = Math.hypot(mx, my);
+            if (len > 0) {
+                // Сохраняем интенсивность мыши, направление корректируется
+                return { x: (mx / len) * mouseIntensity, y: (my / len) * mouseIntensity };
+            }
             return { x: this.mouseState.moveX, y: this.mouseState.moveY };
         }
 
-        return { x: 0, y: 0 };
-    }
-
-    /**
-     * Относительный режим клавиатуры: WASD как руль.
-     * W — вперёд по heading, S — назад, A/D — поворот на месте.
-     */
-    private getRelativeKeyboardInput(): { x: number; y: number } {
-        // W/S — движение вдоль heading
-        let forward = 0;
-        if (this.keyState.up) forward += 1;
-        if (this.keyState.down) forward -= 1;
-
-        const cosH = Math.cos(this._keyboardHeading);
-        const sinH = Math.sin(this._keyboardHeading);
-
-        if (forward !== 0) {
-            // Полное движение вперёд/назад по heading
-            const kx = cosH * forward;
-            const ky = -sinH * forward;
-            return { x: kx, y: ky };
-        }
-
-        // A/D без W/S — поворот на месте
-        // Отправляем минимальный вектор в направлении heading для поворота слайма
-        if (this.keyState.left || this.keyState.right) {
-            const epsilon = 0.01;
-            const kx = cosH * epsilon;
-            const ky = -sinH * epsilon;
+        // Если нет мыши — только клавиатура
+        if (hasKeyboardInput) {
             return { x: kx, y: ky };
         }
 
@@ -274,38 +266,6 @@ export class InputManager {
         this.mouseState.moveX = 0;
         this.mouseState.moveY = 0;
         this.lastSentInput = { x: 0, y: 0 };
-    }
-
-    /**
-     * Обновляет направление клавиатурного руля (heading) на основе A/D.
-     * Должен вызываться каждый кадр или каждый тик ввода.
-     */
-    updateKeyboardHeading(): void {
-        const now = performance.now();
-        if (this.lastHeadingUpdateTime === 0) {
-            this.lastHeadingUpdateTime = now;
-            return;
-        }
-
-        const dt = (now - this.lastHeadingUpdateTime) / 1000; // секунды
-        this.lastHeadingUpdateTime = now;
-
-        // Скорость поворота из баланса (градусов в секунду)
-        const turnSpeedDegps = this.deps.balanceConfig.controls?.keyboardTurnSpeedDegps ?? 180;
-        const turnSpeedRad = (turnSpeedDegps * Math.PI) / 180;
-
-        // A (left) - поворот влево, D (right) - поворот вправо
-        // Инвертировано из-за Y-оси (Y+ = вверх в игре, но sin/cos работают с Y+ = вниз)
-        if (this.keyState.left) {
-            this._keyboardHeading -= turnSpeedRad * dt;
-        }
-        if (this.keyState.right) {
-            this._keyboardHeading += turnSpeedRad * dt;
-        }
-
-        // Нормализуем угол в диапазон [-PI, PI]
-        while (this._keyboardHeading > Math.PI) this._keyboardHeading -= 2 * Math.PI;
-        while (this._keyboardHeading < -Math.PI) this._keyboardHeading += 2 * Math.PI;
     }
 
     // ========== Keyboard Handlers ==========
