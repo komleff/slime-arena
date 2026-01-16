@@ -181,23 +181,43 @@ export class InputManager {
 
     /**
      * Относительный режим клавиатуры: WASD как руль.
-     * W — вперёд по heading, S — назад, A/D — только поворот (без движения).
+     * W — вперёд по heading, S — назад, A/D — боковое движение (strafe) + поворот.
      */
     private getRelativeKeyboardInput(): { x: number; y: number } {
-        // W/S определяют движение вдоль heading
+        // W/S — движение вдоль heading
         let forward = 0;
         if (this.keyState.up) forward += 1;
         if (this.keyState.down) forward -= 1;
 
-        if (forward !== 0) {
-            // Движение вдоль текущего heading
-            // heading = -PI/2 (вверх): cos = 0, sin = -1 → x=0, y=1
-            const kx = Math.cos(this._keyboardHeading) * forward;
-            const ky = -Math.sin(this._keyboardHeading) * forward;
+        // A/D — боковое движение (strafe) перпендикулярно heading
+        let strafe = 0;
+        if (this.keyState.left) strafe -= 1;
+        if (this.keyState.right) strafe += 1;
+
+        if (forward !== 0 || strafe !== 0) {
+            // heading направление: (cos, -sin)
+            // перпендикуляр (вправо): (sin, cos) в инвертированной Y системе
+            const cosH = Math.cos(this._keyboardHeading);
+            const sinH = Math.sin(this._keyboardHeading);
+
+            // Вперёд/назад по heading
+            let kx = cosH * forward;
+            let ky = -sinH * forward;
+
+            // Боковое движение (strafe): перпендикуляр к heading
+            kx += -sinH * strafe;
+            ky += -cosH * strafe;
+
+            // Нормализуем если есть диагональ
+            const len = Math.hypot(kx, ky);
+            if (len > 0) {
+                kx /= len;
+                ky /= len;
+            }
+
             return { x: kx, y: ky };
         }
 
-        // Если только A/D (поворот) без W/S — стоим на месте
         return { x: 0, y: 0 };
     }
 
