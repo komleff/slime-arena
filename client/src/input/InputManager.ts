@@ -178,6 +178,11 @@ export class InputManager {
                 return { x: this.mouseState.moveX, y: this.mouseState.moveY };
             }
 
+            // Если мышь в мёртвой зоне (нулевая интенсивность), используем чистый клавиатурный ввод
+            if (mouseIntensity < 0.01) {
+                return { x: kx, y: ky };
+            }
+
             // Мышь — основное направление, клавиатура — корректировка
             const keyboardWeight = this.deps.balanceConfig.visual?.keyboardMixWeight ?? 0.5;
             const mx = this.mouseState.moveX + kx * keyboardWeight;
