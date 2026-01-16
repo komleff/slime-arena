@@ -37,7 +37,7 @@
     "joystickDeadzone": 0.07,
     "joystickSensitivity": 1.15,
     "joystickFollowSpeed": 0.95,
-    "inputTimeoutMs": 200,
+    "inputTimeoutMs": 500,
     "mouseDeadzone": 30,
     "mouseMaxDist": 200
   },

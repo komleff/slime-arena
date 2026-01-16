@@ -28,6 +28,8 @@ export interface MouseState {
     active: boolean;
     screenX: number;
     screenY: number;
+    worldX: number;
+    worldY: number;
     moveX: number;
     moveY: number;
 }
@@ -43,6 +45,7 @@ export interface InputManagerDeps {
     isCoarsePointer: () => boolean;
     mouseDeadzone: number;
     mouseMaxDist: number;
+    getScreenToWorld: (screenX: number, screenY: number) => { x: number; y: number };
 }
 
 export interface InputCallbacks {
@@ -62,7 +65,7 @@ export class InputManager {
 
     // Состояние
     readonly keyState: KeyState = { up: false, down: false, left: false, right: false };
-    readonly mouseState: MouseState = { active: false, screenX: 0, screenY: 0, moveX: 0, moveY: 0 };
+    readonly mouseState: MouseState = { active: false, screenX: 0, screenY: 0, worldX: 0, worldY: 0, moveX: 0, moveY: 0 };
     private _hasFocus = false;
     private joystickPointerListenersAttached = false;
     private lastSentInput = { x: 0, y: 0 };
@@ -170,16 +173,23 @@ export class InputManager {
         return { x: 0, y: 0 };
     }
 
-    updateMouseDirection(playerScreenX: number, playerScreenY: number): void {
+    updateMouseDirection(playerWorldX: number, playerWorldY: number, scale: number): void {
         if (!this.mouseState.active) return;
 
         const { mouseDeadzone, mouseMaxDist } = this.deps;
-        const dx = this.mouseState.screenX - playerScreenX;
-        const dy = playerScreenY - this.mouseState.screenY; // Y инвертирован
+
+        // Конвертируем deadzone и maxDist из экранных пикселей в мировые единицы
+        // чтобы чувствительность не зависела от зума камеры
+        const deadzoneWorld = mouseDeadzone / scale;
+        const maxDistWorld = mouseMaxDist / scale;
+
+        // Вычисляем направление в мировых координатах
+        const dx = this.mouseState.worldX - playerWorldX;
+        const dy = this.mouseState.worldY - playerWorldY;
         const dist = Math.hypot(dx, dy);
 
-        // Мёртвая зона в центре
-        if (dist < mouseDeadzone) {
+        // Мёртвая зона (фиксирована в экранных пикселях)
+        if (dist < deadzoneWorld) {
             this.mouseState.moveX = 0;
             this.mouseState.moveY = 0;
             return;
@@ -190,7 +200,7 @@ export class InputManager {
         const ny = dy / dist;
 
         // Интенсивность зависит от расстояния (линейно до maxDist)
-        const intensity = clamp((dist - mouseDeadzone) / (mouseMaxDist - mouseDeadzone), 0, 1);
+        const intensity = clamp((dist - deadzoneWorld) / (maxDistWorld - deadzoneWorld), 0, 1);
 
         this.mouseState.moveX = nx * intensity;
         this.mouseState.moveY = ny * intensity;
@@ -219,6 +229,10 @@ export class InputManager {
         this._hasFocus = false;
         this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
         this.mouseState.active = false;
+        this.mouseState.screenX = 0;
+        this.mouseState.screenY = 0;
+        this.mouseState.worldX = 0;
+        this.mouseState.worldY = 0;
         this.mouseState.moveX = 0;
         this.mouseState.moveY = 0;
         this.lastSentInput = { x: 0, y: 0 };
@@ -492,6 +506,11 @@ export class InputManager {
         this.mouseState.active = true;
         this.mouseState.screenX = event.clientX;
         this.mouseState.screenY = event.clientY;
+
+        // Конвертируем экранные координаты в мировые
+        const worldPos = this.deps.getScreenToWorld(event.clientX, event.clientY);
+        this.mouseState.worldX = worldPos.x;
+        this.mouseState.worldY = worldPos.y;
     }
 
     private onMouseLeave(event: MouseEvent): void {
@@ -504,6 +523,11 @@ export class InputManager {
         this.mouseState.active = true;
         this.mouseState.screenX = clamp(event.clientX, rect.left + 1, rect.right - 1);
         this.mouseState.screenY = clamp(event.clientY, rect.top + 1, rect.bottom - 1);
+
+        // Конвертируем clamped координаты в мировые
+        const worldPos = this.deps.getScreenToWorld(this.mouseState.screenX, this.mouseState.screenY);
+        this.mouseState.worldX = worldPos.x;
+        this.mouseState.worldY = worldPos.y;
     }
 
     // ========== Focus Handlers ==========
@@ -517,6 +541,10 @@ export class InputManager {
         this._hasFocus = false;
         this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
         this.mouseState.active = false;
+        this.mouseState.screenX = 0;
+        this.mouseState.screenY = 0;
+        this.mouseState.worldX = 0;
+        this.mouseState.worldY = 0;
         this.mouseState.moveX = 0;
         this.mouseState.moveY = 0;
         this.callbacks.onSendStopInput();
@@ -530,6 +558,10 @@ export class InputManager {
             this._hasFocus = false;
             this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
             this.mouseState.active = false;
+            this.mouseState.screenX = 0;
+            this.mouseState.screenY = 0;
+            this.mouseState.worldX = 0;
+            this.mouseState.worldY = 0;
             this.mouseState.moveX = 0;
             this.mouseState.moveY = 0;
             this.callbacks.onSendStopInput();
