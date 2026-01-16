@@ -570,7 +570,6 @@ export interface BalanceConfig {
             minLength: number;
             maxLength: number;
             widthBase: number;
-            widthTip: number;
             tipLength: number;
             tipAngleRatio: number;
             color: string;

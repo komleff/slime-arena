@@ -304,7 +304,7 @@
     "mouthSector": {
       "enabled": true,
       "radiusMultiplier": 1.5,
-      "angleRadians": 2.094,
+      "angleRadians": 2.0944,
       "colors": {
         "player": "rgba(96, 165, 250, 0.2)",
         "enemy": "rgba(239, 68, 68, 0.2)",
@@ -316,7 +316,6 @@
       "minLength": 30,
       "maxLength": 80,
       "widthBase": 4,
-      "widthTip": 12,
       "tipLength": 15,
       "tipAngleRatio": 0.85,
       "color": "rgba(111, 214, 255, 0.8)",
