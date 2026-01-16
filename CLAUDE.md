@@ -6,6 +6,12 @@
 
 > ⛔ **Пуш в main запрещён.** Создавай ветку `sprint-X/task-name`, работай в ней, создавай PR. Merge — только человек-оператор.
 
+## Протокол работы
+
+1. **Beads** — единственный источник задач. Перед работой: `bd ready`, затем `bd update <id> --status=in_progress`.
+2. **AGENT_ROLES** — следуй роли Developer из `.beads/AGENT_ROLES.md`.
+3. **Memory Bank** — веди протокол в `.memory_bank/activeContext.md` при значительных изменениях.
+
 ## Коммуникация
 
 | Аспект | Правило |
