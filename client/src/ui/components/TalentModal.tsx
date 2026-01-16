@@ -31,7 +31,7 @@ const styles = `
     width: min(420px, 44vw);
     max-height: 70vh;
     overflow-y: auto;
-    background: linear-gradient(160deg, rgba(16, 23, 33, 0.75), rgba(12, 15, 20, 0.75));
+    background: linear-gradient(160deg, rgba(16, 23, 33, 0.6), rgba(12, 15, 20, 0.6));
     border: 1px solid #2a3c55;
     border-radius: 16px;
     padding: 20px;
@@ -72,7 +72,7 @@ const styles = `
     display: flex;
     gap: 12px;
     padding: 14px 16px;
-    background: rgba(17, 27, 42, 0.75);
+    background: rgba(17, 27, 42, 0.5);
     border: 2px solid #2d4a6d;
     border-radius: 12px;
     color: #e6f3ff;
@@ -85,7 +85,7 @@ const styles = `
 
   .talent-button:hover:not(:disabled) {
     transform: translateY(-2px);
-    background: #1b2c45;
+    background: rgba(27, 44, 69, 0.6);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
   }
 

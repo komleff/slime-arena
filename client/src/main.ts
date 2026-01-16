@@ -160,7 +160,7 @@ talentCard.style.width = "min(420px, 44vw)";
 talentCard.style.maxHeight = "70vh";
 talentCard.style.overflowY = "auto";
 talentCard.style.pointerEvents = "auto";
-talentCard.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
+talentCard.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.6), rgba(12, 15, 20, 0.6))";
 talentCard.style.border = "1px solid #2a3c55";
 talentCard.style.borderRadius = "16px";
 talentCard.style.padding = "20px";
@@ -199,7 +199,7 @@ for (let i = 0; i < 3; i++) {
     button.style.display = "none";
     button.style.gap = "8px";
     button.style.padding = "14px 16px";
-    button.style.background = "#111b2a";
+    button.style.background = "rgba(17, 27, 42, 0.5)";
     button.style.border = "2px solid #2d4a6d";
     button.style.borderRadius = "12px";
     button.style.color = "#e6f3ff";
@@ -211,13 +211,13 @@ for (let i = 0; i < 3; i++) {
     button.addEventListener("mouseenter", () => {
         if (button.disabled) return;
         button.style.transform = "translateY(-2px)";
-        button.style.background = "#1b2c45";
+        button.style.background = "rgba(27, 44, 69, 0.6)";
         button.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
     });
-    
+
     button.addEventListener("mouseleave", () => {
         button.style.transform = "translateY(0)";
-        button.style.background = "#111b2a";
+        button.style.background = "rgba(17, 27, 42, 0.5)";
         button.style.boxShadow = "none";
     });
     
@@ -262,7 +262,7 @@ talentRewardPanel.appendChild(talentRewardTitle);
 
 const talentRewardCard = document.createElement("div");
 talentRewardCard.style.width = "min(320px, 40vw)";
-talentRewardCard.style.background = "rgba(17, 27, 42, 0.75)";
+talentRewardCard.style.background = "rgba(17, 27, 42, 0.6)";
 talentRewardCard.style.border = "2px solid #2d4a6d";
 talentRewardCard.style.borderRadius = "12px";
 talentRewardCard.style.padding = "14px 16px";
@@ -363,7 +363,7 @@ abilityCardModal.style.display = "none";
 abilityCardModal.style.flexDirection = "column";
 abilityCardModal.style.gap = "10px";
 abilityCardModal.style.padding = "16px";
-abilityCardModal.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.75), rgba(12, 15, 20, 0.75))";
+abilityCardModal.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.6), rgba(12, 15, 20, 0.6))";
 abilityCardModal.style.border = "2px solid #4a90c2";
 abilityCardModal.style.borderRadius = "16px";
 abilityCardModal.style.zIndex = "100";
@@ -475,7 +475,7 @@ function createAbilityCardButton(index: number): HTMLButtonElement {
     btn.style.alignItems = "center";
     btn.style.gap = "10px";
     btn.style.padding = "12px 14px";
-    btn.style.background = "#111b2a";
+    btn.style.background = "rgba(17, 27, 42, 0.5)";
     btn.style.border = "1px solid #2d4a6d";
     btn.style.borderRadius = "12px";
     btn.style.color = "#e6f3ff";
@@ -486,12 +486,12 @@ function createAbilityCardButton(index: number): HTMLButtonElement {
     
     btn.addEventListener("mouseenter", () => {
         btn.style.transform = "translateX(-4px)";
-        btn.style.background = "#1b2c45";
+        btn.style.background = "rgba(27, 44, 69, 0.6)";
         btn.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
     });
     btn.addEventListener("mouseleave", () => {
         btn.style.transform = "translateX(0)";
-        btn.style.background = "#111b2a";
+        btn.style.background = "rgba(17, 27, 42, 0.5)";
         btn.style.boxShadow = "none";
     });
     
