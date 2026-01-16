@@ -53,7 +53,7 @@
 
 - Показывает направление взгляда и зону атаки слайма
 - Угол сектора = 120°
-- Радиус = 1.5 × размер слайма
+- Радиус = 1.3 × размер слайма
 - Цвет: синий (свой), красный (враги), зелёный (союзники)
 - Рендерится под спрайтом слайма (полупрозрачный)
 
@@ -74,7 +74,7 @@
 **Параметры конфигурации** (`config/balance.json`):
 
 - `visual.mouthSector.enabled` — включить сектор рта
-- `visual.mouthSector.radiusMultiplier` — множитель радиуса (1.5)
+- `visual.mouthSector.radiusMultiplier` — множитель радиуса (1.3)
 - `visual.mouthSector.angleRadians` — угол сектора в радианах (2.094 ≈ 120°)
 - `visual.mouthSector.colors.player/enemy/ally` — RGBA цвета
 - `visual.inputArrow.enabled` — включить стрелку направления

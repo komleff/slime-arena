@@ -160,7 +160,7 @@ talentCard.style.width = "min(420px, 44vw)";
 talentCard.style.maxHeight = "70vh";
 talentCard.style.overflowY = "auto";
 talentCard.style.pointerEvents = "auto";
-talentCard.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
+talentCard.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.6), rgba(12, 15, 20, 0.6))";
 talentCard.style.border = "1px solid #2a3c55";
 talentCard.style.borderRadius = "16px";
 talentCard.style.padding = "20px";
@@ -199,7 +199,7 @@ for (let i = 0; i < 3; i++) {
     button.style.display = "none";
     button.style.gap = "8px";
     button.style.padding = "14px 16px";
-    button.style.background = "#111b2a";
+    button.style.background = "rgba(17, 27, 42, 0.5)";
     button.style.border = "2px solid #2d4a6d";
     button.style.borderRadius = "12px";
     button.style.color = "#e6f3ff";
@@ -211,13 +211,13 @@ for (let i = 0; i < 3; i++) {
     button.addEventListener("mouseenter", () => {
         if (button.disabled) return;
         button.style.transform = "translateY(-2px)";
-        button.style.background = "#1b2c45";
+        button.style.background = "rgba(27, 44, 69, 0.6)";
         button.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
     });
-    
+
     button.addEventListener("mouseleave", () => {
         button.style.transform = "translateY(0)";
-        button.style.background = "#111b2a";
+        button.style.background = "rgba(17, 27, 42, 0.5)";
         button.style.boxShadow = "none";
     });
     
@@ -262,7 +262,7 @@ talentRewardPanel.appendChild(talentRewardTitle);
 
 const talentRewardCard = document.createElement("div");
 talentRewardCard.style.width = "min(320px, 40vw)";
-talentRewardCard.style.background = "#111b2a";
+talentRewardCard.style.background = "rgba(17, 27, 42, 0.6)";
 talentRewardCard.style.border = "2px solid #2d4a6d";
 talentRewardCard.style.borderRadius = "12px";
 talentRewardCard.style.padding = "14px 16px";
@@ -363,7 +363,7 @@ abilityCardModal.style.display = "none";
 abilityCardModal.style.flexDirection = "column";
 abilityCardModal.style.gap = "10px";
 abilityCardModal.style.padding = "16px";
-abilityCardModal.style.background = "linear-gradient(160deg, #101721, #0c0f14)";
+abilityCardModal.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.6), rgba(12, 15, 20, 0.6))";
 abilityCardModal.style.border = "2px solid #4a90c2";
 abilityCardModal.style.borderRadius = "16px";
 abilityCardModal.style.zIndex = "100";
@@ -475,7 +475,7 @@ function createAbilityCardButton(index: number): HTMLButtonElement {
     btn.style.alignItems = "center";
     btn.style.gap = "10px";
     btn.style.padding = "12px 14px";
-    btn.style.background = "#111b2a";
+    btn.style.background = "rgba(17, 27, 42, 0.5)";
     btn.style.border = "1px solid #2d4a6d";
     btn.style.borderRadius = "12px";
     btn.style.color = "#e6f3ff";
@@ -486,12 +486,12 @@ function createAbilityCardButton(index: number): HTMLButtonElement {
     
     btn.addEventListener("mouseenter", () => {
         btn.style.transform = "translateX(-4px)";
-        btn.style.background = "#1b2c45";
+        btn.style.background = "rgba(27, 44, 69, 0.6)";
         btn.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.35)";
     });
     btn.addEventListener("mouseleave", () => {
         btn.style.transform = "translateX(0)";
-        btn.style.background = "#111b2a";
+        btn.style.background = "rgba(17, 27, 42, 0.5)";
         btn.style.boxShadow = "none";
     });
     
@@ -3119,6 +3119,36 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
 
+            // === Слой: Золотое сияние Короля (рисуем ДО mouthSector) ===
+            for (const [id, player] of playersView.entries()) {
+                if (player.classId < 0) continue;
+                if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
+                const isRebel = id === room.state.rebelId || (player.flags & FLAG_IS_REBEL) !== 0;
+                if (!isRebel) continue;
+
+                const isSelf = id === room.sessionId;
+                const isInvisible = (player.flags & FLAG_INVISIBLE) !== 0;
+                if (isInvisible && !isSelf) continue;
+
+                const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
+                const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
+                const slimeConfig = getSlimeConfigForPlayer(player.classId);
+                const baseRadius = getSlimeRadiusFromConfig(player.mass, slimeConfig);
+                const leviathanMul = (player.flags & FLAG_LEVIATHAN) !== 0 ? getLeviathanRadiusMul() : 1;
+                const r = baseRadius * classRadiusMult * leviathanMul * scale;
+
+                const glowR = r * 1.4;
+                const glowAlpha = 0.2 + 0.05 * Math.sin(time * 5);
+                const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, glowR);
+                gradient.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha})`);
+                gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
+
+                canvasCtx.beginPath();
+                canvasCtx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.fill();
+            }
+
             // === Слой: Mouth sectors ===
             if (balanceConfig.visual?.mouthSector?.enabled) {
                 const mouthConfig = balanceConfig.visual.mouthSector;
@@ -3203,20 +3233,6 @@ async function connectToServer(playerName: string, classId: number) {
                     canvasCtx.strokeStyle = `rgba(150, 220, 255, ${0.5 + 0.2 * Math.sin(time * 10)})`;
                     canvasCtx.lineWidth = 2;
                     canvasCtx.stroke();
-                }
-
-                // Визуализация золотого свечения Короля
-                if (isRebel) {
-                    const glowR = r * 1.4;
-                    const glowAlpha = 0.3 + 0.1 * Math.sin(time * 5);
-                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, glowR);
-                    gradient.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha})`);
-                    gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
-                    
-                    canvasCtx.beginPath();
-                    canvasCtx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
-                    canvasCtx.fillStyle = gradient;
-                    canvasCtx.fill();
                 }
 
                 // Визуализация рывка охотника - реактивные следы
@@ -3328,9 +3344,7 @@ async function connectToServer(playerName: string, classId: number) {
                     canvasCtx.fill();
                 }
                 
-                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
-
-                // === Стрелка направления ввода (только для своего слайма) ===
+                // === Стрелка направления ввода (рисуем ПОД слаймом) ===
                 if (isSelf && balanceConfig.visual?.inputArrow?.enabled) {
                     const arrowConfig = balanceConfig.visual.inputArrow;
                     const input = inputManager.getMovementInput();
@@ -3379,6 +3393,8 @@ async function connectToServer(playerName: string, classId: number) {
                         canvasCtx.fill();
                     }
                 }
+
+                drawSprite(sprite.img, sprite.ready, p.x, p.y, r, angleRad, color, stroke, sprite.scale);
 
                 // Имя с иконкой класса (или короной для Короля)
                 const displayName = getDisplayName(player.name, player.classId ?? 0, isRebel);

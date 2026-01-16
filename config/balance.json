@@ -303,7 +303,7 @@
   "visual": {
     "mouthSector": {
       "enabled": true,
-      "radiusMultiplier": 1.5,
+      "radiusMultiplier": 1.3,
       "angleRadians": 2.0944,
       "colors": {
         "player": "rgba(96, 165, 250, 0.2)",
@@ -313,10 +313,10 @@
     },
     "inputArrow": {
       "enabled": true,
-      "minLength": 30,
-      "maxLength": 80,
-      "widthBase": 4,
-      "tipLength": 15,
+      "minLength": 15,
+      "maxLength": 40,
+      "widthBase": 2,
+      "tipLength": 8,
       "tipAngleRatio": 0.85,
       "color": "rgba(111, 214, 255, 0.8)",
       "minIntensity": 0.15
