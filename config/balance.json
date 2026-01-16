@@ -317,9 +317,12 @@
       "maxLength": 80,
       "widthBase": 4,
       "widthTip": 12,
+      "tipLength": 15,
+      "tipAngleRatio": 0.85,
       "color": "rgba(111, 214, 255, 0.8)",
       "minIntensity": 0.15
-    }
+    },
+    "keyboardMixWeight": 0.5
   },
   "slime": {
     "initialMass": 100,
