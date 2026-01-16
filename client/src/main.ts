@@ -262,7 +262,7 @@ talentRewardPanel.appendChild(talentRewardTitle);
 
 const talentRewardCard = document.createElement("div");
 talentRewardCard.style.width = "min(320px, 40vw)";
-talentRewardCard.style.background = "rgba(17, 27, 42, 0.9)";
+talentRewardCard.style.background = "rgba(17, 27, 42, 0.75)";
 talentRewardCard.style.border = "2px solid #2d4a6d";
 talentRewardCard.style.borderRadius = "12px";
 talentRewardCard.style.padding = "14px 16px";
@@ -363,7 +363,7 @@ abilityCardModal.style.display = "none";
 abilityCardModal.style.flexDirection = "column";
 abilityCardModal.style.gap = "10px";
 abilityCardModal.style.padding = "16px";
-abilityCardModal.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.9), rgba(12, 15, 20, 0.9))";
+abilityCardModal.style.background = "linear-gradient(160deg, rgba(16, 23, 33, 0.75), rgba(12, 15, 20, 0.75))";
 abilityCardModal.style.border = "2px solid #4a90c2";
 abilityCardModal.style.borderRadius = "16px";
 abilityCardModal.style.zIndex = "100";
