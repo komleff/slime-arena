@@ -39,7 +39,8 @@
     "joystickFollowSpeed": 0.95,
     "inputTimeoutMs": 500,
     "mouseDeadzone": 30,
-    "mouseMaxDist": 200
+    "mouseMaxDist": 200,
+    "keyboardTurnSpeedDegps": 180
   },
   "slimeConfigs": {
     "base": {
