@@ -303,22 +303,23 @@ export class InputManager {
             return;
         }
 
-        // Movement
-        switch (key) {
-            case "arrowup":
-            case "w":
+        // Movement — используем event.code для независимости от раскладки клавиатуры
+        const code = event.code;
+        switch (code) {
+            case "ArrowUp":
+            case "KeyW":
                 this.keyState.up = true;
                 break;
-            case "arrowdown":
-            case "s":
+            case "ArrowDown":
+            case "KeyS":
                 this.keyState.down = true;
                 break;
-            case "arrowleft":
-            case "a":
+            case "ArrowLeft":
+            case "KeyA":
                 this.keyState.left = true;
                 break;
-            case "arrowright":
-            case "d":
+            case "ArrowRight":
+            case "KeyD":
                 this.keyState.right = true;
                 break;
             default:
@@ -328,21 +329,22 @@ export class InputManager {
     }
 
     private onKeyUp(event: KeyboardEvent): void {
-        switch (event.key.toLowerCase()) {
-            case "arrowup":
-            case "w":
+        // Используем event.code для независимости от раскладки
+        switch (event.code) {
+            case "ArrowUp":
+            case "KeyW":
                 this.keyState.up = false;
                 break;
-            case "arrowdown":
-            case "s":
+            case "ArrowDown":
+            case "KeyS":
                 this.keyState.down = false;
                 break;
-            case "arrowleft":
-            case "a":
+            case "ArrowLeft":
+            case "KeyA":
                 this.keyState.left = false;
                 break;
-            case "arrowright":
-            case "d":
+            case "ArrowRight":
+            case "KeyD":
                 this.keyState.right = false;
                 break;
             default:
