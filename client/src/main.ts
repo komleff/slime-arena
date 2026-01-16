@@ -3119,6 +3119,36 @@ async function connectToServer(playerName: string, classId: number) {
                 }
             }
 
+            // === Слой: Золотое сияние Короля (рисуем ДО mouthSector) ===
+            for (const [id, player] of playersView.entries()) {
+                if (player.classId < 0) continue;
+                if (Math.abs(player.x - camera.x) > halfWorldW + 200 || Math.abs(player.y - camera.y) > halfWorldH + 200) continue;
+                const isRebel = id === room.state.rebelId || (player.flags & FLAG_IS_REBEL) !== 0;
+                if (!isRebel) continue;
+
+                const isSelf = id === room.sessionId;
+                const isInvisible = (player.flags & FLAG_INVISIBLE) !== 0;
+                if (isInvisible && !isSelf) continue;
+
+                const p = worldToScreen(player.x, player.y, scale, camera.x, camera.y, cw, ch);
+                const classRadiusMult = player.classId === 2 ? collectorRadiusMult : 1;
+                const slimeConfig = getSlimeConfigForPlayer(player.classId);
+                const baseRadius = getSlimeRadiusFromConfig(player.mass, slimeConfig);
+                const leviathanMul = (player.flags & FLAG_LEVIATHAN) !== 0 ? getLeviathanRadiusMul() : 1;
+                const r = baseRadius * classRadiusMult * leviathanMul * scale;
+
+                const glowR = r * 1.4;
+                const glowAlpha = 0.2 + 0.05 * Math.sin(time * 5);
+                const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, glowR);
+                gradient.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha})`);
+                gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
+
+                canvasCtx.beginPath();
+                canvasCtx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.fill();
+            }
+
             // === Слой: Mouth sectors ===
             if (balanceConfig.visual?.mouthSector?.enabled) {
                 const mouthConfig = balanceConfig.visual.mouthSector;
@@ -3203,20 +3233,6 @@ async function connectToServer(playerName: string, classId: number) {
                     canvasCtx.strokeStyle = `rgba(150, 220, 255, ${0.5 + 0.2 * Math.sin(time * 10)})`;
                     canvasCtx.lineWidth = 2;
                     canvasCtx.stroke();
-                }
-
-                // Визуализация золотого свечения Короля
-                if (isRebel) {
-                    const glowR = r * 1.4;
-                    const glowAlpha = 0.3 + 0.1 * Math.sin(time * 5);
-                    const gradient = canvasCtx.createRadialGradient(p.x, p.y, r, p.x, p.y, glowR);
-                    gradient.addColorStop(0, `rgba(255, 215, 0, ${glowAlpha})`);
-                    gradient.addColorStop(1, "rgba(255, 215, 0, 0)");
-                    
-                    canvasCtx.beginPath();
-                    canvasCtx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
-                    canvasCtx.fillStyle = gradient;
-                    canvasCtx.fill();
                 }
 
                 // Визуализация рывка охотника - реактивные следы
