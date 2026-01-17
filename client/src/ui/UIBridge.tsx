@@ -57,6 +57,7 @@ import { MainMenu } from './components/MainMenu';
 
 export interface UICallbacks {
   onArena: () => void; // Из MainScreen в LobbyScreen
+  onBack: () => void; // Из LobbyScreen в MainScreen
   onPlay: (name: string, classId: number) => void;
   onSelectTalent: (talentId: string, index: number) => void;
   onBootRetry?: () => void;
@@ -95,6 +96,7 @@ function UIRoot() {
       {phase === 'menu' && screen === 'lobby' && callbacks && (
         <MainMenu
           onPlay={callbacks.onPlay}
+          onBack={callbacks.onBack}
           onCancelMatchmaking={callbacks.onCancelMatchmaking}
           isConnecting={connecting}
         />
@@ -334,6 +336,14 @@ export function getPlayerName(): string {
  */
 export function goToLobby(): void {
   pushScreen('lobby');
+  renderUI();
+}
+
+/**
+ * Вернуться на главный экран (MainScreen)
+ */
+export function goToMainScreen(): void {
+  setGamePhase('menu'); // Это автоматически устанавливает currentScreen в 'main-menu'
   renderUI();
 }
 

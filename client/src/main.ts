@@ -44,6 +44,7 @@ import {
     setConnecting,
     getPlayerName,
     goToLobby,
+    goToMainScreen,
     showResults as showResultsUI,
     syncPlayerState,
     syncLeaderboard,
@@ -3352,24 +3353,39 @@ async function connectToServer(playerName: string, classId: number) {
                         // Направление ввода
                         const inputAngle = Math.atan2(input.y, input.x);
 
-                        // Длина стрелки пропорциональна интенсивности
-                        const arrowLength = arrowConfig.minLength + (arrowConfig.maxLength - arrowConfig.minLength) * intensity;
+                        // Масштаб стрелки: растёт с массой слайма (min 1x при массе 100)
+                        const initialMass = balanceConfig.slime?.initialMass ?? 100;
+                        const arrowScale = Math.max(1, Math.sqrt(player.mass / initialMass));
 
-                        // Конечная точка стрелки (в мировых координатах)
-                        const worldEndX = player.x + Math.cos(inputAngle) * arrowLength;
-                        const worldEndY = player.y + Math.sin(inputAngle) * arrowLength;
+                        // Длина стрелки пропорциональна интенсивности И размеру слайма
+                        const baseArrowLength = arrowConfig.minLength + (arrowConfig.maxLength - arrowConfig.minLength) * intensity;
+                        const arrowLength = baseArrowLength * arrowScale;
+
+                        // Стрелка начинается от края слайма (в мировых координатах)
+                        const slimeRadiusWorld = baseRadius * classRadiusMult * leviathanMul;
+                        const startOffsetWorld = slimeRadiusWorld * 0.5; // Начало чуть внутри слайма
+                        const worldStartX = player.x + Math.cos(inputAngle) * startOffsetWorld;
+                        const worldStartY = player.y + Math.sin(inputAngle) * startOffsetWorld;
+                        const startScreen = worldToScreen(worldStartX, worldStartY, scale, camera.x, camera.y, cw, ch);
+
+                        // Конечная точка стрелки
+                        const worldEndX = player.x + Math.cos(inputAngle) * (startOffsetWorld + arrowLength);
+                        const worldEndY = player.y + Math.sin(inputAngle) * (startOffsetWorld + arrowLength);
                         const endScreen = worldToScreen(worldEndX, worldEndY, scale, camera.x, camera.y, cw, ch);
+
+                        // Толщина линии тоже масштабируется
+                        const lineWidth = arrowConfig.widthBase * Math.min(arrowScale, 3);
 
                         // Рисуем линию
                         canvasCtx.strokeStyle = arrowConfig.color;
-                        canvasCtx.lineWidth = arrowConfig.widthBase;
+                        canvasCtx.lineWidth = lineWidth;
                         canvasCtx.beginPath();
-                        canvasCtx.moveTo(p.x, p.y);
+                        canvasCtx.moveTo(startScreen.x, startScreen.y);
                         canvasCtx.lineTo(endScreen.x, endScreen.y);
                         canvasCtx.stroke();
 
                         // Рисуем наконечник (треугольник)
-                        const tipLength = arrowConfig.tipLength;
+                        const tipLength = arrowConfig.tipLength * arrowScale;
                         const tipAngleRatio = arrowConfig.tipAngleRatio;
                         const tipAngle1 = inputAngle + Math.PI * tipAngleRatio;
                         const tipAngle2 = inputAngle - Math.PI * tipAngleRatio;
@@ -3785,6 +3801,9 @@ function leaveRoomFromUI(): void {
 const uiCallbacks: UICallbacks = {
     onArena: () => {
         goToLobby();
+    },
+    onBack: () => {
+        goToMainScreen();
     },
     onPlay: (name: string, classId: number) => {
         // Если уже подключены к комнате (между матчами), отправить selectClass с именем
