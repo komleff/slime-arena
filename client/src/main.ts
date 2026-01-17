@@ -604,7 +604,26 @@ const spikeRenderConfig = {
 };
 
 const camera = { x: 0, y: 0 };
-const desiredView = { width: 800, height: 800 }; // Увеличено в 2 раза для лучшего обзора
+
+// Адаптивный размер области просмотра:
+// - Desktop (>768px): 800×800 — стандартный обзор
+// - Tablet/Mobile landscape (480-768px): 600×600 — средний зум
+// - Mobile portrait (<480px): 450×450 — крупный слайм
+function getDesiredViewSize(): number {
+    const screenWidth = Math.min(window.innerWidth, window.screen.width);
+    if (screenWidth < 480) return 450;
+    if (screenWidth < 768) return 600;
+    return 800;
+}
+const desiredView = { width: getDesiredViewSize(), height: getDesiredViewSize() };
+
+// Обновлять desiredView при изменении размера экрана
+window.addEventListener("resize", () => {
+    const size = getDesiredViewSize();
+    desiredView.width = size;
+    desiredView.height = size;
+});
+
 let cameraZoom = 1;
 let cameraZoomTarget = 1;
 let lastZoomUpdateMs = 0;
