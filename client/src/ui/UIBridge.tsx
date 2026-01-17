@@ -20,6 +20,7 @@ import {
 
   // Actions
   setGamePhase,
+  setBootProgress,
   updateLocalPlayer,
   updateLeaderboard,
   updateMatchTimer,
@@ -42,6 +43,7 @@ import {
 } from './signals/gameState';
 
 // Components
+import { BootScreen } from './components/BootScreen';
 import { GameHUD } from './components/GameHUD';
 import { TalentModal } from './components/TalentModal';
 import { ResultsScreen } from './components/ResultsScreen';
@@ -53,6 +55,7 @@ import { MainMenu } from './components/MainMenu';
 export interface UICallbacks {
   onPlay: (name: string, classId: number) => void;
   onSelectTalent: (talentId: string, index: number) => void;
+  onBootRetry?: () => void;
   onActivateAbility: (slot: number, pointerId: number) => void;
   onPlayAgain: (classId: number) => void;
   onExit: () => void;
@@ -74,6 +77,11 @@ function UIRoot() {
 
   return (
     <Fragment>
+      {/* Boot Screen */}
+      {phase === 'boot' && (
+        <BootScreen onRetry={callbacks?.onBootRetry} />
+      )}
+
       {/* Main Menu */}
       {phase === 'menu' && callbacks && (
         <MainMenu
@@ -249,6 +257,18 @@ export function setConnected(connected: boolean, error?: string): void {
 export function setConnecting(connecting: boolean): void {
   isConnecting.value = connecting;
   // Принудительный перерендер для обновления состояния подключения
+  renderUI();
+}
+
+/**
+ * Обновить прогресс загрузки (BootScreen)
+ */
+export function updateBootProgress(
+  stage: 'initializing' | 'authenticating' | 'loadingConfig' | 'ready' | 'error',
+  progress: number,
+  error?: string
+): void {
+  setBootProgress(stage, progress, error);
   renderUI();
 }
 

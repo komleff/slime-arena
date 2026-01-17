@@ -51,6 +51,7 @@ import {
     syncAbilitySlots,
     syncBoost,
     clearDeadFlag,
+    updateBootProgress,
     type UICallbacks,
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
@@ -3842,25 +3843,40 @@ if (!uiContainer) {
     throw new Error('UI не инициализирован: элемент "ui-root" не найден в DOM. Добавьте <div id="ui-root"></div> в index.html.');
 }
 initUI(uiContainer, uiCallbacks);
-setPhase("menu");
+// Начинаем с фазы 'boot' (установлена по умолчанию в gameState.ts)
 
-// Инициализация сервисов MetaServer (в фоне, не блокирует UI)
+// Инициализация сервисов MetaServer с прогрессом загрузки
 (async function initializeServices() {
     try {
-        // Инициализация AuthService (восстанавливает сессию если есть)
+        // Стадия 1: Инициализация (10%)
+        updateBootProgress('initializing', 10);
+
+        // Стадия 2: Авторизация (40%)
+        updateBootProgress('authenticating', 30);
         const hasSession = await authService.initialize();
         if (hasSession) {
             console.log("[Main] Session restored from localStorage");
         }
+        updateBootProgress('authenticating', 50);
 
-        // Загрузка RuntimeConfig (с кэшированием)
+        // Стадия 3: Загрузка конфига (80%)
+        updateBootProgress('loadingConfig', 60);
         const config = await configService.loadConfig();
         if (config) {
             console.log(`[Main] RuntimeConfig v${config.configVersion} loaded`);
-            // TODO: Интегрировать с applyBalanceConfig когда API будет готов
         }
+        updateBootProgress('loadingConfig', 90);
+
+        // Готово — переход в меню
+        updateBootProgress('ready', 100);
+        // Небольшая задержка, чтобы пользователь увидел 100%
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setPhase("menu");
     } catch (err) {
         console.warn("[Main] MetaServer services initialization failed:", err);
-        // Игра продолжает работать без MetaServer
+        // При ошибке — показываем ошибку, но позволяем продолжить
+        updateBootProgress('error', 100, 'Ошибка инициализации. Игра продолжит работу.');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setPhase("menu");
     }
 })();
