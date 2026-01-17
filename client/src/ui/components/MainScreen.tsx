@@ -551,8 +551,6 @@ const styles = `
     }
 
     .arena-btn-wrapper {
-      bottom: auto;
-      top: auto;
       right: 50%;
       transform: translateX(50%);
       bottom: 100px;
@@ -687,12 +685,12 @@ export function MainScreen({ onArena }: MainScreenProps) {
       {/* Currency Panel */}
       <div class="currency-panel">
         <div class="curr-item">
-          <img src="/icons/icon_currency_coin.png" class="curr-icon-img" alt="Coins" />
+          <img src="/icons/icon_currency_coin.png" class="curr-icon-img" alt="Монеты" />
           <div class="curr-val">{coins.toLocaleString()}</div>
           <button type="button" class="btn-add" onClick={handleAddCoins}>+</button>
         </div>
         <div class="curr-item">
-          <img src="/icons/icon_currency_gem.png" class="curr-icon-img" alt="Gems" />
+          <img src="/icons/icon_currency_gem.png" class="curr-icon-img" alt="Кристаллы" />
           <div class="curr-val">{gems}</div>
           <button type="button" class="btn-add" onClick={handleAddGems}>+</button>
         </div>
@@ -709,7 +707,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
         <button type="button" class="jelly-btn" onClick={onArena}>
           <div class="jelly-btn-frame" />
           <div class="jelly-btn-content">
-            <span class="jelly-text">Arena</span>
+            <span class="jelly-text">Арена</span>
             <div class="jelly-btn-shine" />
           </div>
         </button>
