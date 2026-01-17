@@ -1458,7 +1458,7 @@ function loadSprite(name: string) {
         entry.scale = computeSpriteScale(img);
         entry.ready = true;
     };
-    img.src = `${assetBase}assets/sprites/slimes/base/${name}`;
+    img.src = `${assetBase}sprites/slimes/base/${name}`;
     return entry;
 }
 
