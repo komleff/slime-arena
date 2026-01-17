@@ -23,7 +23,7 @@ const styles = `
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     z-index: 1000;
   }
 
@@ -97,7 +97,7 @@ const styles = `
 
   /* Текст загрузки */
   .boot-text {
-    font-family: 'Titan One', cursive;
+    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     font-size: 20px;
     color: #FFF8E1;
     text-shadow:
@@ -142,7 +142,7 @@ const styles = `
     border: 2px solid #E65100;
     border-radius: 20px;
     color: white;
-    font-family: 'Titan One', cursive;
+    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     font-size: 14px;
     cursor: pointer;
     box-shadow: 0 3px 0 #BF360C;

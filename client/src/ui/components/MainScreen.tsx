@@ -15,14 +15,28 @@ const styles = `
   .main-screen {
     position: fixed;
     inset: 0;
-    background-image: url('/backgrounds/bg_main_menu.png');
+    /* Используем общий фон с BootScreen для экономии трафика */
+    background-image: url('/backgrounds/bg_loading_screen.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     overflow: hidden;
     user-select: none;
     z-index: 10;
+  }
+
+  /* Логотип отдельно поверх фона */
+  .main-logotype {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    max-width: 400px;
+    height: auto;
+    z-index: 5;
+    pointer-events: none;
   }
 
   /* === HUD PROFILE === */
@@ -116,7 +130,7 @@ const styles = `
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: 'Titan One', cursive;
+    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     color: white;
     font-size: 24px;
     padding-top: 4px;
@@ -134,7 +148,7 @@ const styles = `
   }
 
   .hud-name {
-    font-family: 'Titan One', cursive;
+    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     color: white;
     font-size: 26px;
     text-transform: uppercase;
@@ -214,7 +228,7 @@ const styles = `
 
   .curr-val {
     color: #fff;
-    font-family: 'Titan One', cursive;
+    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     font-size: 20px;
     text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
     margin-right: 5px;
@@ -363,7 +377,7 @@ const styles = `
 
   .jelly-text {
     color: white;
-    font-family: 'Titan One', cursive;
+    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     font-size: 32px;
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -434,7 +448,7 @@ const styles = `
     right: 12px;
     font-size: 11px;
     color: rgba(255,255,255,0.4);
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     z-index: 5;
   }
 
@@ -627,6 +641,9 @@ export function MainScreen({ onArena }: MainScreenProps) {
 
   return (
     <div class="main-screen">
+      {/* Логотип (общий фон без логотипа, логотип отдельно) */}
+      <img src="/icons/icon_logotype.png" class="main-logotype" alt="Slime Arena" />
+
       {/* HUD Profile */}
       <div class="hud-profile-wrapper">
         <div class="hud-container">
@@ -699,7 +716,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
       </div>
 
       {/* Version */}
-      <div class="version-tag">v0.4.7</div>
+      <div class="version-tag">v0.5.0</div>
     </div>
   );
 }
