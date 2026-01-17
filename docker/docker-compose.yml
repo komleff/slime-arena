@@ -33,7 +33,7 @@ services:
 
   meta-server:
     container_name: slime-arena-meta-server
-    image: ghcr.io/komleff/slime-arena-server:v0.3.1
+    image: ghcr.io/komleff/slime-arena-server:v0.5.0
     build:
       context: ..
       dockerfile: docker/server.Dockerfile
@@ -57,7 +57,7 @@ services:
 
   match-server:
     container_name: slime-arena-match-server
-    image: ghcr.io/komleff/slime-arena-server:v0.3.1
+    image: ghcr.io/komleff/slime-arena-server:v0.5.0
     build:
       context: ..
       dockerfile: docker/server.Dockerfile
@@ -78,7 +78,7 @@ services:
 
   client:
     container_name: slime-arena-client
-    image: ghcr.io/komleff/slime-arena-client:v0.3.1
+    image: ghcr.io/komleff/slime-arena-client:v0.5.0
     build:
       context: ..
       dockerfile: docker/client.Dockerfile
