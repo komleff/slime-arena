@@ -153,12 +153,12 @@ const styles = `
     font-size: 26px;
     font-weight: 900;
     text-transform: uppercase;
-    /* Утолщение текста для fallback шрифтов */
+    /* Утолщение текста как у .jelly-text */
     text-shadow:
-      2px 2px 0 #3E2723,
+      0 2px 0 rgba(0,0,0,0.2),
       1px 0 0 white, -1px 0 0 white,
       0 1px 0 white, 0 -1px 0 white;
-    -webkit-text-stroke: 1px #3E2723;
+    -webkit-text-stroke: 2px var(--c-dark);
     paint-order: stroke fill;
   }
 
