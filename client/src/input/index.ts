@@ -17,7 +17,6 @@ export {
 
 export {
     InputManager,
-    type KeyState,
     type MouseState,
     type InputManagerDeps,
     type InputCallbacks,

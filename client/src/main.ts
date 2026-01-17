@@ -43,6 +43,8 @@ import {
     setPhase,
     setConnecting,
     getPlayerName,
+    goToLobby,
+    goToMainScreen,
     showResults as showResultsUI,
     syncPlayerState,
     syncLeaderboard,
@@ -51,12 +53,13 @@ import {
     syncAbilitySlots,
     syncBoost,
     clearDeadFlag,
+    updateBootProgress,
     type UICallbacks,
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, matchResults, selectedClassId as selectedClassIdSignal, setLevelThresholds } from "./ui/signals/gameState";
+import { resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -110,8 +113,10 @@ document.addEventListener("gestureend", preventGestureZoom, { passive: false });
 // Legacy HUD elements (boostPanel, topCenterHud, matchTimer, killCounter) удалены — используется Preact GameHUD
 
 const canvas = document.createElement("canvas");
-canvas.style.width = "100%";
-canvas.style.height = "100vh";
+// Используем явные пиксельные размеры вместо 100%/100vh
+// чтобы избежать растяжения на мобильных (100vh может быть > innerHeight)
+canvas.style.width = `${window.innerWidth}px`;
+canvas.style.height = `${window.innerHeight}px`;
 canvas.style.display = "block";
 canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
 canvas.style.touchAction = "none";
@@ -601,7 +606,26 @@ const spikeRenderConfig = {
 };
 
 const camera = { x: 0, y: 0 };
-const desiredView = { width: 800, height: 800 }; // Увеличено в 2 раза для лучшего обзора
+
+// Адаптивный размер области просмотра:
+// - Desktop (>768px): 800×800 — стандартный обзор
+// - Tablet/Mobile landscape (480-768px): 600×600 — средний зум
+// - Mobile portrait (<480px): 450×450 — крупный слайм
+function getDesiredViewSize(): number {
+    const screenWidth = Math.min(window.innerWidth, window.screen.width);
+    if (screenWidth < 480) return 450;
+    if (screenWidth < 768) return 600;
+    return 800;
+}
+const desiredView = { width: getDesiredViewSize(), height: getDesiredViewSize() };
+
+// Обновлять desiredView при изменении размера экрана
+window.addEventListener("resize", () => {
+    const size = getDesiredViewSize();
+    desiredView.width = size;
+    desiredView.height = size;
+});
+
 let cameraZoom = 1;
 let cameraZoomTarget = 1;
 let lastZoomUpdateMs = 0;
@@ -1456,7 +1480,7 @@ function loadSprite(name: string) {
         entry.scale = computeSpriteScale(img);
         entry.ready = true;
     };
-    img.src = `${assetBase}assets/sprites/slimes/base/${name}`;
+    img.src = `${assetBase}sprites/slimes/base/${name}`;
     return entry;
 }
 
@@ -1513,8 +1537,13 @@ function getTalentRarityFromConfig(talents: BalanceConfig["talents"] | undefined
 }
 
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = w;
+    canvas.height = h;
+    // Синхронизируем CSS размеры чтобы избежать растяжения
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
     logJoystick("resize", { width: canvas.width, height: canvas.height });
     updateJoystickConfig();
 }
@@ -3350,24 +3379,39 @@ async function connectToServer(playerName: string, classId: number) {
                         // Направление ввода
                         const inputAngle = Math.atan2(input.y, input.x);
 
-                        // Длина стрелки пропорциональна интенсивности
-                        const arrowLength = arrowConfig.minLength + (arrowConfig.maxLength - arrowConfig.minLength) * intensity;
+                        // Радиус слайма в мировых координатах
+                        const slimeRadiusWorld = baseRadius * classRadiusMult * leviathanMul;
 
-                        // Конечная точка стрелки (в мировых координатах)
-                        const worldEndX = player.x + Math.cos(inputAngle) * arrowLength;
-                        const worldEndY = player.y + Math.sin(inputAngle) * arrowLength;
+                        // Длина стрелки отражает ускорение:
+                        // 100% ускорения = 1 диаметр слайма = 2 радиуса
+                        // 0% ускорения = 0 длина
+                        const maxArrowLength = slimeRadiusWorld * 2; // 1 диаметр
+                        const arrowLength = maxArrowLength * intensity;
+
+                        // Стрелка начинается на границе радиуса слайма
+                        const worldStartX = player.x + Math.cos(inputAngle) * slimeRadiusWorld;
+                        const worldStartY = player.y + Math.sin(inputAngle) * slimeRadiusWorld;
+                        const startScreen = worldToScreen(worldStartX, worldStartY, scale, camera.x, camera.y, cw, ch);
+
+                        // Конечная точка стрелки
+                        const worldEndX = worldStartX + Math.cos(inputAngle) * arrowLength;
+                        const worldEndY = worldStartY + Math.sin(inputAngle) * arrowLength;
                         const endScreen = worldToScreen(worldEndX, worldEndY, scale, camera.x, camera.y, cw, ch);
+
+                        // Толщина линии пропорциональна радиусу слайма (2-8 px)
+                        const lineWidth = Math.max(2, Math.min(8, r * 0.1));
 
                         // Рисуем линию
                         canvasCtx.strokeStyle = arrowConfig.color;
-                        canvasCtx.lineWidth = arrowConfig.widthBase;
+                        canvasCtx.lineWidth = lineWidth;
                         canvasCtx.beginPath();
-                        canvasCtx.moveTo(p.x, p.y);
+                        canvasCtx.moveTo(startScreen.x, startScreen.y);
                         canvasCtx.lineTo(endScreen.x, endScreen.y);
                         canvasCtx.stroke();
 
                         // Рисуем наконечник (треугольник)
-                        const tipLength = arrowConfig.tipLength;
+                        // Размер наконечника пропорционален радиусу слайма
+                        const tipLength = slimeRadiusWorld * 0.4;
                         const tipAngleRatio = arrowConfig.tipAngleRatio;
                         const tipAngle1 = inputAngle + Math.PI * tipAngleRatio;
                         const tipAngle2 = inputAngle - Math.PI * tipAngleRatio;
@@ -3781,6 +3825,12 @@ function leaveRoomFromUI(): void {
 
 // Initialize Preact UI
 const uiCallbacks: UICallbacks = {
+    onArena: () => {
+        goToLobby();
+    },
+    onBack: () => {
+        goToMainScreen();
+    },
     onPlay: (name: string, classId: number) => {
         // Если уже подключены к комнате (между матчами), отправить selectClass с именем
         if (activeRoom) {
@@ -3823,14 +3873,6 @@ const uiCallbacks: UICallbacks = {
     onExit: () => {
         leaveRoomFromUI();
     },
-    onSelectClass: () => {
-        // Вернуться к выбору класса БЕЗ отключения от комнаты
-        // matchTimer продолжит обновляться с сервера, MainMenu покажет таймер
-        // Очищаем устаревшие результаты предыдущего матча
-        matchResults.value = null;
-        setPhase("menu");
-        setGameViewportLock(false);
-    },
     onCancelMatchmaking: () => {
         matchmakingService.cancelQueue();
         resetMatchmaking();
@@ -3842,25 +3884,54 @@ if (!uiContainer) {
     throw new Error('UI не инициализирован: элемент "ui-root" не найден в DOM. Добавьте <div id="ui-root"></div> в index.html.');
 }
 initUI(uiContainer, uiCallbacks);
-setPhase("menu");
+// Начинаем с фазы 'boot' (установлена по умолчанию в gameState.ts)
 
-// Инициализация сервисов MetaServer (в фоне, не блокирует UI)
+// Инициализация сервисов MetaServer с прогрессом загрузки
 (async function initializeServices() {
+    const bootStartTime = Date.now();
+    const MIN_BOOT_DURATION_MS = 1500; // Минимум 1.5 секунды для BootScreen
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
     try {
-        // Инициализация AuthService (восстанавливает сессию если есть)
+        // Стадия 1: Инициализация (10%)
+        updateBootProgress('initializing', 10);
+        await delay(200);
+
+        // Стадия 2: Авторизация (40%)
+        updateBootProgress('authenticating', 30);
         const hasSession = await authService.initialize();
         if (hasSession) {
             console.log("[Main] Session restored from localStorage");
         }
+        updateBootProgress('authenticating', 50);
+        await delay(200);
 
-        // Загрузка RuntimeConfig (с кэшированием)
+        // Стадия 3: Загрузка конфига (80%)
+        updateBootProgress('loadingConfig', 60);
         const config = await configService.loadConfig();
         if (config) {
             console.log(`[Main] RuntimeConfig v${config.configVersion} loaded`);
-            // TODO: Интегрировать с applyBalanceConfig когда API будет готов
         }
+        updateBootProgress('loadingConfig', 90);
+        await delay(200);
+
+        // Готово — переход в меню
+        updateBootProgress('ready', 100);
+
+        // Гарантируем минимальное время показа BootScreen
+        const elapsed = Date.now() - bootStartTime;
+        const remaining = MIN_BOOT_DURATION_MS - elapsed;
+        if (remaining > 0) {
+            await delay(remaining);
+        }
+
+        setPhase("menu");
     } catch (err) {
         console.warn("[Main] MetaServer services initialization failed:", err);
-        // Игра продолжает работать без MetaServer
+        // При ошибке — показываем ошибку, но позволяем продолжить
+        updateBootProgress('error', 100, 'Ошибка инициализации. Игра продолжит работу.');
+        await delay(1500);
+        setPhase("menu");
     }
 })();

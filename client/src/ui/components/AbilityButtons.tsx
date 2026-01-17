@@ -140,6 +140,62 @@ const styles = `
     pointer-events: none;
     z-index: 2;
   }
+
+  /* === MOBILE: уменьшаем кнопки === */
+  @media (max-width: 768px) {
+    .ability-buttons {
+      bottom: 12px;
+      right: 12px;
+      gap: 8px;
+    }
+
+    .ability-button {
+      width: 56px;
+      height: 56px;
+      font-size: 22px;
+      border-width: 2px;
+    }
+
+    .ability-button.small {
+      width: 48px;
+      height: 48px;
+      font-size: 18px;
+    }
+
+    .ability-label {
+      font-size: 11px;
+      bottom: 1px;
+      right: 4px;
+    }
+
+    .ability-timer {
+      font-size: 12px;
+    }
+  }
+
+  /* === PORTRAIT: вертикальное расположение === */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .ability-buttons {
+      flex-direction: column;
+      bottom: auto;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      gap: 6px;
+    }
+
+    .ability-button {
+      width: 50px;
+      height: 50px;
+      font-size: 20px;
+    }
+
+    .ability-button.small {
+      width: 44px;
+      height: 44px;
+      font-size: 16px;
+    }
+  }
 `;
 
 const STYLES_ID = 'ability-buttons-styles';

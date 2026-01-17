@@ -304,6 +304,30 @@ const styles = `
     font-family: inherit;
     animation: pulse 2s infinite;
   }
+
+  .back-button {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #4a6080;
+    border-radius: 8px;
+    color: #8aa4c8;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 150ms;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .back-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #6fd6ff;
+    color: #6fd6ff;
+  }
 `;
 
 const STYLES_ID = 'main-menu-styles';
@@ -322,11 +346,12 @@ function getPlayButtonText(authenticating: boolean, isSearching: boolean, isConn
 
 interface MainMenuProps {
   onPlay: (name: string, classId: number) => void;
+  onBack?: () => void;
   onCancelMatchmaking?: () => void;
   isConnecting?: boolean;
 }
 
-export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: MainMenuProps) {
+export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = false }: MainMenuProps) {
   const [name, setName] = useState(playerName.value || '');
   const [classId, setClassId] = useState(selectedClassId.value);
   const error = connectionError.value;
@@ -409,6 +434,11 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
 
   return (
     <div class="main-menu">
+      {onBack && (
+        <button type="button" class="back-button" onClick={onBack}>
+          ← На главную
+        </button>
+      )}
       <h1 class="menu-logo">SLIME ARENA</h1>
       <p class="menu-subtitle">Съешь или будь съеден</p>
 
@@ -424,7 +454,6 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
               onInput={handleNameChange}
               onKeyDown={handleKeyDown}
               maxLength={20}
-              autoFocus
             />
             <button
               type="button"
@@ -495,7 +524,7 @@ export function MainMenu({ onPlay, onCancelMatchmaking, isConnecting = false }: 
       </div>
 
       <div class="menu-footer">
-        Slime Arena v0.4.7 • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
+        Slime Arena v0.5.0 • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
   );

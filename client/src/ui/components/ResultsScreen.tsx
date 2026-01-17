@@ -194,10 +194,9 @@ injectStyles(STYLES_ID, styles);
 interface ResultsScreenProps {
   onPlayAgain: (classId: number) => void;
   onExit: () => void;
-  onSelectClass?: () => void;
 }
 
-export function ResultsScreen({ onPlayAgain, onExit, onSelectClass }: ResultsScreenProps) {
+export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const results = matchResults.value;
   const currentClassId = selectedClassId.value;
 
@@ -209,16 +208,6 @@ export function ResultsScreen({ onPlayAgain, onExit, onSelectClass }: ResultsScr
     resetGameState();
     onExit();
   }, [onExit]);
-
-  // Вернуться к выбору класса без отключения от комнаты
-  const handleSelectClass = useCallback(() => {
-    if (onSelectClass) {
-      onSelectClass();
-    } else {
-      // Fallback: полный выход
-      handleExit();
-    }
-  }, [onSelectClass, handleExit]);
 
   if (!results) {
     return null;
@@ -286,10 +275,10 @@ export function ResultsScreen({ onPlayAgain, onExit, onSelectClass }: ResultsScr
           >
             {matchTimer.value.timeLeft > 0
               ? `⏳ ${Math.ceil(matchTimer.value.timeLeft)} сек`
-              : '▶️ Играть'}
+              : '🔄 Сыграть ещё'}
           </button>
-          <button class="results-button secondary" onClick={handleSelectClass}>
-            Выбрать другой класс
+          <button class="results-button secondary" onClick={handleExit}>
+            🏠 На главную
           </button>
         </div>
       </div>

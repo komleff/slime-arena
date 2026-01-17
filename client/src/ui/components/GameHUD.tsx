@@ -200,6 +200,97 @@ const styles = `
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
   }
+
+  /* === MOBILE: компактный HUD === */
+  @media (max-width: 768px) {
+    .hud-top-left {
+      padding: 8px 10px;
+      font-size: 11px;
+      min-width: 160px;
+      border-radius: 8px;
+    }
+
+    .hud-top-center {
+      top: calc(8px + env(safe-area-inset-top, 0px));
+    }
+
+    .hud-timer {
+      font-size: 18px;
+    }
+
+    .hud-phase {
+      font-size: 11px;
+    }
+
+    .hud-boost-panel {
+      left: auto;
+      right: calc(12px + env(safe-area-inset-right, 0px));
+      top: auto;
+      bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+      padding: 4px 8px;
+      font-size: 10px;
+    }
+
+    .boost-icon {
+      width: 22px;
+      height: 22px;
+      font-size: 12px;
+    }
+
+    .hud-level-row {
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .hud-level-text {
+      min-width: 40px;
+      font-size: 11px;
+    }
+
+    .hud-xp-bar {
+      height: 5px;
+    }
+
+    .hud-stat-row {
+      margin-bottom: 2px;
+    }
+
+    .leaderboard-entry {
+      font-size: 10px;
+    }
+
+    .leaderboard-place {
+      width: 16px;
+    }
+
+    .leaderboard-mass {
+      min-width: 40px;
+    }
+
+    .death-title {
+      font-size: 28px;
+    }
+
+    .death-respawn {
+      font-size: 14px;
+    }
+  }
+
+  /* === PORTRAIT: убираем лидерборд === */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .hud-top-left {
+      min-width: 140px;
+      font-size: 10px;
+    }
+
+    .hud-leaderboard {
+      display: none;
+    }
+
+    .hud-boost-panel {
+      bottom: calc(200px + env(safe-area-inset-bottom, 0px));
+    }
+  }
 `;
 
 const STYLES_ID = 'hud-styles';

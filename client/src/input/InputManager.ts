@@ -17,13 +17,6 @@ import {
 
 // ========== Типы ==========
 
-export interface KeyState {
-    up: boolean;
-    down: boolean;
-    left: boolean;
-    right: boolean;
-}
-
 export interface MouseState {
     active: boolean;
     screenX: number;
@@ -65,7 +58,6 @@ export class InputManager {
     private callbacks: InputCallbacks;
 
     // Состояние
-    readonly keyState: KeyState = { up: false, down: false, left: false, right: false };
     readonly mouseState: MouseState = { active: false, screenX: 0, screenY: 0, worldX: 0, worldY: 0, moveX: 0, moveY: 0 };
     private _hasFocus = false;
     private joystickPointerListenersAttached = false;
@@ -82,7 +74,6 @@ export class InputManager {
 
     // Bound handlers для корректного удаления listeners
     private boundOnKeyDown: (e: KeyboardEvent) => void;
-    private boundOnKeyUp: (e: KeyboardEvent) => void;
     private boundOnPointerDown: (e: PointerEvent) => void;
     private boundOnPointerMove: (e: PointerEvent) => void;
     private boundOnPointerUp: (e: PointerEvent) => void;
@@ -99,7 +90,6 @@ export class InputManager {
 
         // Bind all handlers
         this.boundOnKeyDown = this.onKeyDown.bind(this);
-        this.boundOnKeyUp = this.onKeyUp.bind(this);
         this.boundOnPointerDown = this.onPointerDown.bind(this);
         this.boundOnPointerMove = this.onPointerMove.bind(this);
         this.boundOnPointerUp = this.onPointerUp.bind(this);
@@ -120,7 +110,6 @@ export class InputManager {
         const { canvas } = this.deps;
 
         window.addEventListener("keydown", this.boundOnKeyDown);
-        window.addEventListener("keyup", this.boundOnKeyUp);
         canvas.addEventListener("pointerdown", this.boundOnPointerDown, { passive: false });
         canvas.addEventListener("mousemove", this.boundOnMouseMove, { passive: true });
         canvas.addEventListener("mouseleave", this.boundOnMouseLeave, { passive: true });
@@ -133,7 +122,6 @@ export class InputManager {
         const { canvas } = this.deps;
 
         window.removeEventListener("keydown", this.boundOnKeyDown);
-        window.removeEventListener("keyup", this.boundOnKeyUp);
         canvas.removeEventListener("pointerdown", this.boundOnPointerDown);
         canvas.removeEventListener("mousemove", this.boundOnMouseMove);
         canvas.removeEventListener("mouseleave", this.boundOnMouseLeave);
@@ -149,55 +137,14 @@ export class InputManager {
     getMovementInput(): { x: number; y: number } {
         const { joystickState } = this.deps;
 
-        // Приоритет: joystick > мышь + клавиатура (смешивание)
+        // Приоритет: joystick > мышь
         if (joystickState.active) {
             return { x: joystickState.moveX, y: -joystickState.moveY };
         }
 
-        // Вычисляем клавиатурный ввод (корректировка)
-        let kx = 0, ky = 0;
-        if (this.keyState.up) ky += 1;
-        if (this.keyState.down) ky -= 1;
-        if (this.keyState.left) kx -= 1;
-        if (this.keyState.right) kx += 1;
-
-        // Нормализуем клавиатурный вектор
-        const hasKeyboardInput = kx !== 0 || ky !== 0;
-        if (hasKeyboardInput) {
-            const len = Math.hypot(kx, ky);
-            kx /= len;
-            ky /= len;
-        }
-
-        // Смешивание: мышь + клавиатура (WASD даёт корректировку)
+        // Мышь
         if (this.mouseState.active) {
-            const mouseIntensity = Math.hypot(this.mouseState.moveX, this.mouseState.moveY);
-
-            // Если нет клавиатурного ввода — только мышь
-            if (!hasKeyboardInput) {
-                return { x: this.mouseState.moveX, y: this.mouseState.moveY };
-            }
-
-            // Если мышь в мёртвой зоне (нулевая интенсивность), используем чистый клавиатурный ввод
-            if (mouseIntensity < 0.01) {
-                return { x: kx, y: ky };
-            }
-
-            // Мышь — основное направление, клавиатура — корректировка
-            const keyboardWeight = this.deps.balanceConfig.visual?.keyboardMixWeight ?? 0.5;
-            const mx = this.mouseState.moveX + kx * keyboardWeight;
-            const my = this.mouseState.moveY + ky * keyboardWeight;
-            const len = Math.hypot(mx, my);
-            if (len > 0) {
-                // Сохраняем интенсивность мыши, направление корректируется
-                return { x: (mx / len) * mouseIntensity, y: (my / len) * mouseIntensity };
-            }
             return { x: this.mouseState.moveX, y: this.mouseState.moveY };
-        }
-
-        // Если нет мыши — только клавиатура
-        if (hasKeyboardInput) {
-            return { x: kx, y: ky };
         }
 
         return { x: 0, y: 0 };
@@ -251,13 +198,8 @@ export class InputManager {
         return this.deps.joystickState.active;
     }
 
-    hasKeyboardInput(): boolean {
-        return this.keyState.up || this.keyState.down || this.keyState.left || this.keyState.right;
-    }
-
     resetInputState(): void {
         this._hasFocus = false;
-        this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
         this.mouseState.active = false;
         this.mouseState.screenX = 0;
         this.mouseState.screenY = 0;
@@ -302,55 +244,6 @@ export class InputManager {
             event.preventDefault();
             return;
         }
-
-        // Movement — используем event.code для независимости от раскладки клавиатуры
-        const code = event.code;
-        switch (code) {
-            case "ArrowUp":
-            case "KeyW":
-                this.keyState.up = true;
-                break;
-            case "ArrowDown":
-            case "KeyS":
-                this.keyState.down = true;
-                break;
-            case "ArrowLeft":
-            case "KeyA":
-                this.keyState.left = true;
-                break;
-            case "ArrowRight":
-            case "KeyD":
-                this.keyState.right = true;
-                break;
-            default:
-                return;
-        }
-        event.preventDefault();
-    }
-
-    private onKeyUp(event: KeyboardEvent): void {
-        // Используем event.code для независимости от раскладки
-        switch (event.code) {
-            case "ArrowUp":
-            case "KeyW":
-                this.keyState.up = false;
-                break;
-            case "ArrowDown":
-            case "KeyS":
-                this.keyState.down = false;
-                break;
-            case "ArrowLeft":
-            case "KeyA":
-                this.keyState.left = false;
-                break;
-            case "ArrowRight":
-            case "KeyD":
-                this.keyState.right = false;
-                break;
-            default:
-                return;
-        }
-        event.preventDefault();
     }
 
     // ========== Pointer Handlers (Touch/Pen) ==========
@@ -478,10 +371,7 @@ export class InputManager {
         }
 
         this.logJoystick("pointerup", { clientX: event.clientX, clientY: event.clientY });
-
-        if (!this.hasKeyboardInput()) {
-            this.callbacks.onSendStopInput();
-        }
+        this.callbacks.onSendStopInput();
     }
 
     private onPointerCancel(event: PointerEvent): void {
@@ -509,10 +399,7 @@ export class InputManager {
         }
 
         this.logJoystick("pointercancel", { clientX: event.clientX, clientY: event.clientY });
-
-        if (!this.hasKeyboardInput()) {
-            this.callbacks.onSendStopInput();
-        }
+        this.callbacks.onSendStopInput();
     }
 
     private updateJoystickFromPointer(clientX: number, clientY: number): void {
@@ -571,7 +458,6 @@ export class InputManager {
 
     private onBlur(): void {
         this._hasFocus = false;
-        this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
         this.mouseState.active = false;
         this.mouseState.screenX = 0;
         this.mouseState.screenY = 0;
@@ -588,7 +474,6 @@ export class InputManager {
     private onVisibilityChange(): void {
         if (document.visibilityState === "hidden") {
             this._hasFocus = false;
-            this.keyState.up = this.keyState.down = this.keyState.left = this.keyState.right = false;
             this.mouseState.active = false;
             this.mouseState.screenX = 0;
             this.mouseState.screenY = 0;

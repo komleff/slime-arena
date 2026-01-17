@@ -12,11 +12,13 @@ jobs:
       contents: read
     steps:
       - name: Check if push is from merged PR
+        env:
+          COMMIT_MSG_VAL: ${{ github.event.head_commit.message }}
         run: |
           echo "Проверка источника отправки в ветку main..."
 
-          # Проверяем сообщение фиксации
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Проверяем сообщение фиксации через переменную окружения
+          COMMIT_MSG="$COMMIT_MSG_VAL"
 
           # Слияние через GitHub PR начинается с "Merge pull request"
           if [[ "$COMMIT_MSG" =~ ^Merge\ pull\ request ]]; then
