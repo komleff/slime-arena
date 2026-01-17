@@ -57,6 +57,12 @@ const styles = `
     width: 150px;
     height: 150px;
     z-index: 10;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .hud-avatar-group:hover {
+    transform: scale(1.08);
   }
 
   .frame-top {

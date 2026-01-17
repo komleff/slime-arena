@@ -278,7 +278,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
               : '🔄 Сыграть ещё'}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
-            🏠 В меню
+            🏠 На главную
           </button>
         </div>
       </div>

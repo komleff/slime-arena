@@ -436,7 +436,7 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
     <div class="main-menu">
       {onBack && (
         <button type="button" class="back-button" onClick={onBack}>
-          ← В меню
+          ← На главную
         </button>
       )}
       <h1 class="menu-logo">SLIME ARENA</h1>
