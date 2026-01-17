@@ -379,10 +379,16 @@ const styles = `
     color: white;
     font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     font-size: 32px;
+    font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 2px;
-    text-shadow: 0 2px 0 rgba(0,0,0,0.2);
-    -webkit-text-stroke: 1px var(--c-dark);
+    /* Утолщение текста для fallback шрифтов */
+    text-shadow:
+      0 2px 0 rgba(0,0,0,0.2),
+      1px 0 0 white, -1px 0 0 white,
+      0 1px 0 white, 0 -1px 0 white;
+    -webkit-text-stroke: 2px var(--c-dark);
+    paint-order: stroke fill;
     z-index: 2;
     position: relative;
     padding-bottom: 4px;
