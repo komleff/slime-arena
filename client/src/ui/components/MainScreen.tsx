@@ -151,8 +151,15 @@ const styles = `
     font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
     color: white;
     font-size: 26px;
+    font-weight: 900;
     text-transform: uppercase;
-    text-shadow: 2px 2px 0 #3E2723;
+    /* Утолщение текста для fallback шрифтов */
+    text-shadow:
+      2px 2px 0 #3E2723,
+      1px 0 0 white, -1px 0 0 white,
+      0 1px 0 white, 0 -1px 0 white;
+    -webkit-text-stroke: 1px #3E2723;
+    paint-order: stroke fill;
   }
 
   .medals-row {
