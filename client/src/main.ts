@@ -3353,9 +3353,10 @@ async function connectToServer(playerName: string, classId: number) {
                         // Направление ввода
                         const inputAngle = Math.atan2(input.y, input.x);
 
-                        // Масштаб стрелки: растёт с массой слайма (min 1x при массе 100)
+                        // Масштаб стрелки: плавно растёт с массой слайма (min 1x, max 2x)
                         const initialMass = balanceConfig.slime?.initialMass ?? 100;
-                        const arrowScale = Math.max(1, Math.sqrt(player.mass / initialMass));
+                        const rawScale = Math.sqrt(player.mass / initialMass);
+                        const arrowScale = Math.min(2, 1 + (rawScale - 1) * 0.4); // Плавный рост до 2x
 
                         // Длина стрелки пропорциональна интенсивности И размеру слайма
                         const baseArrowLength = arrowConfig.minLength + (arrowConfig.maxLength - arrowConfig.minLength) * intensity;
