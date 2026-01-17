@@ -130,11 +130,12 @@ const styles = `
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
+    font-family: 'Trebuchet MS', Verdana, 'Segoe UI', sans-serif;
     color: white;
-    font-size: 24px;
+    font-size: 22px;
+    font-weight: 700;
     padding-top: 4px;
-    text-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    text-shadow: 0 2px 3px rgba(0,0,0,0.4);
   }
 
   .hud-info {
@@ -148,18 +149,14 @@ const styles = `
   }
 
   .hud-name {
-    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
+    font-family: 'Trebuchet MS', Verdana, 'Segoe UI', sans-serif;
     color: white;
-    font-size: 26px;
-    font-weight: 900;
+    font-size: 24px;
+    font-weight: 700;
     text-transform: uppercase;
-    /* Утолщение текста как у .jelly-text */
-    text-shadow:
-      0 2px 0 rgba(0,0,0,0.2),
-      1px 0 0 white, -1px 0 0 white,
-      0 1px 0 white, 0 -1px 0 white;
-    -webkit-text-stroke: 2px var(--c-dark);
-    paint-order: stroke fill;
+    letter-spacing: 1px;
+    /* Простая тень для читаемости */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
   }
 
   .medals-row {
@@ -235,9 +232,10 @@ const styles = `
 
   .curr-val {
     color: #fff;
-    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
-    font-size: 20px;
-    text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+    font-family: 'Trebuchet MS', Verdana, 'Segoe UI', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     margin-right: 5px;
   }
 
@@ -384,18 +382,13 @@ const styles = `
 
   .jelly-text {
     color: white;
-    font-family: 'Titan One', Impact, 'Arial Black', sans-serif;
-    font-size: 32px;
-    font-weight: 900;
+    font-family: 'Trebuchet MS', Verdana, 'Segoe UI', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 2px;
-    /* Утолщение текста для fallback шрифтов */
-    text-shadow:
-      0 2px 0 rgba(0,0,0,0.2),
-      1px 0 0 white, -1px 0 0 white,
-      0 1px 0 white, 0 -1px 0 white;
-    -webkit-text-stroke: 2px var(--c-dark);
-    paint-order: stroke fill;
+    /* Простая тень для читаемости на ярком фоне */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
     z-index: 2;
     position: relative;
     padding-bottom: 4px;
