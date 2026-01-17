@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   const hmrProtocol = env.VITE_HMR_PROTOCOL || 'ws'
 
   return {
+    // Ассеты (фоны, HUD, иконки) лежат в корне проекта в папке assets/
+    publicDir: path.resolve(__dirname, '../assets'),
     server: {
       host: '0.0.0.0',
       port: 5173,

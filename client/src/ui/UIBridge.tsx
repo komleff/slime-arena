@@ -8,6 +8,7 @@ import { batch } from '@preact/signals';
 import {
   // State
   gamePhase,
+  currentScreen,
   showTalentModal,
   activeBoost,
   selectedClassId,
@@ -21,6 +22,7 @@ import {
   // Actions
   setGamePhase,
   setBootProgress,
+  pushScreen,
   updateLocalPlayer,
   updateLeaderboard,
   updateMatchTimer,
@@ -44,6 +46,7 @@ import {
 
 // Components
 import { BootScreen } from './components/BootScreen';
+import { MainScreen } from './components/MainScreen';
 import { GameHUD } from './components/GameHUD';
 import { TalentModal } from './components/TalentModal';
 import { ResultsScreen } from './components/ResultsScreen';
@@ -53,13 +56,13 @@ import { MainMenu } from './components/MainMenu';
 // ========== Типы для колбеков ==========
 
 export interface UICallbacks {
+  onArena: () => void; // Из MainScreen в LobbyScreen
   onPlay: (name: string, classId: number) => void;
   onSelectTalent: (talentId: string, index: number) => void;
   onBootRetry?: () => void;
   onActivateAbility: (slot: number, pointerId: number) => void;
   onPlayAgain: (classId: number) => void;
   onExit: () => void;
-  onSelectClass?: () => void; // Вернуться к выбору класса без отключения
   onCancelMatchmaking?: () => void;
 }
 
@@ -72,6 +75,7 @@ let cleanupMobileDetection: (() => void) | null = null;
 function UIRoot() {
   // Кэшируем значения сигналов для предотвращения множественных чтений
   const phase = gamePhase.value;
+  const screen = currentScreen.value;
   const connecting = isConnecting.value;
   const showTalent = showTalentModal.value;
 
@@ -82,8 +86,13 @@ function UIRoot() {
         <BootScreen onRetry={callbacks?.onBootRetry} />
       )}
 
-      {/* Main Menu */}
-      {phase === 'menu' && callbacks && (
+      {/* Main Screen (главный экран с кнопкой Arena) */}
+      {phase === 'menu' && screen === 'main-menu' && callbacks && (
+        <MainScreen onArena={callbacks.onArena} />
+      )}
+
+      {/* Lobby Screen (выбор класса и имени) */}
+      {phase === 'menu' && screen === 'lobby' && callbacks && (
         <MainMenu
           onPlay={callbacks.onPlay}
           onCancelMatchmaking={callbacks.onCancelMatchmaking}
@@ -111,7 +120,6 @@ function UIRoot() {
         <ResultsScreen
           onPlayAgain={callbacks.onPlayAgain}
           onExit={callbacks.onExit}
-          onSelectClass={callbacks.onSelectClass}
         />
       )}
     </Fragment>
@@ -319,6 +327,14 @@ export function getSelectedClass(): number {
  */
 export function getPlayerName(): string {
   return playerName.value;
+}
+
+/**
+ * Перейти в лобби (выбор класса)
+ */
+export function goToLobby(): void {
+  pushScreen('lobby');
+  renderUI();
 }
 
 // ========== Экспорт типов ==========

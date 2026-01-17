@@ -43,6 +43,7 @@ import {
     setPhase,
     setConnecting,
     getPlayerName,
+    goToLobby,
     showResults as showResultsUI,
     syncPlayerState,
     syncLeaderboard,
@@ -57,7 +58,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, matchResults, selectedClassId as selectedClassIdSignal, setLevelThresholds } from "./ui/signals/gameState";
+import { resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -3782,6 +3783,9 @@ function leaveRoomFromUI(): void {
 
 // Initialize Preact UI
 const uiCallbacks: UICallbacks = {
+    onArena: () => {
+        goToLobby();
+    },
     onPlay: (name: string, classId: number) => {
         // Если уже подключены к комнате (между матчами), отправить selectClass с именем
         if (activeRoom) {
@@ -3823,14 +3827,6 @@ const uiCallbacks: UICallbacks = {
     },
     onExit: () => {
         leaveRoomFromUI();
-    },
-    onSelectClass: () => {
-        // Вернуться к выбору класса БЕЗ отключения от комнаты
-        // matchTimer продолжит обновляться с сервера, MainMenu покажет таймер
-        // Очищаем устаревшие результаты предыдущего матча
-        matchResults.value = null;
-        setPhase("menu");
-        setGameViewportLock(false);
     },
     onCancelMatchmaking: () => {
         matchmakingService.cancelQueue();
