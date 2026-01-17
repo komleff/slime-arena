@@ -113,8 +113,10 @@ document.addEventListener("gestureend", preventGestureZoom, { passive: false });
 // Legacy HUD elements (boostPanel, topCenterHud, matchTimer, killCounter) удалены — используется Preact GameHUD
 
 const canvas = document.createElement("canvas");
-canvas.style.width = "100%";
-canvas.style.height = "100vh";
+// Используем явные пиксельные размеры вместо 100%/100vh
+// чтобы избежать растяжения на мобильных (100vh может быть > innerHeight)
+canvas.style.width = `${window.innerWidth}px`;
+canvas.style.height = `${window.innerHeight}px`;
 canvas.style.display = "block";
 canvas.style.background = "radial-gradient(circle at 30% 30%, #10141d, #090b10 60%)";
 canvas.style.touchAction = "none";
@@ -1535,8 +1537,13 @@ function getTalentRarityFromConfig(talents: BalanceConfig["talents"] | undefined
 }
 
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = w;
+    canvas.height = h;
+    // Синхронизируем CSS размеры чтобы избежать растяжения
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
     logJoystick("resize", { width: canvas.width, height: canvas.height });
     updateJoystickConfig();
 }
