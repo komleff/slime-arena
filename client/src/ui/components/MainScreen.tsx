@@ -437,6 +437,150 @@ const styles = `
     font-family: 'Nunito', sans-serif;
     z-index: 5;
   }
+
+  /* === MOBILE LANDSCAPE === */
+  @media (max-width: 900px) and (orientation: landscape) {
+    .hud-profile-wrapper {
+      transform: scale(0.55);
+    }
+
+    .currency-panel {
+      transform: scale(0.7);
+    }
+
+    .hero-container {
+      width: 280px;
+      height: 280px;
+    }
+
+    .arena-btn-wrapper {
+      bottom: 15px;
+      right: 20px;
+    }
+
+    .jelly-btn {
+      min-width: 180px;
+      height: 60px;
+    }
+
+    .jelly-text {
+      font-size: 26px;
+    }
+
+    .side-menu {
+      bottom: 15px;
+      left: 20px;
+      gap: 10px;
+    }
+
+    .menu-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+    }
+  }
+
+  /* === MOBILE PORTRAIT === */
+  @media (max-width: 480px) and (orientation: portrait) {
+    .hud-profile-wrapper {
+      transform: scale(0.45);
+      top: 10px;
+      left: 10px;
+    }
+
+    .currency-panel {
+      transform: scale(0.65);
+      top: 10px;
+      right: 10px;
+      gap: 8px;
+    }
+
+    .curr-item {
+      padding: 3px 10px 3px 35px;
+      height: 32px;
+    }
+
+    .curr-icon-img {
+      width: 45px;
+      height: 45px;
+      left: -12px;
+      top: -6px;
+    }
+
+    .curr-val {
+      font-size: 16px;
+    }
+
+    .btn-add {
+      width: 20px;
+      height: 20px;
+      font-size: 14px;
+    }
+
+    .hero-container {
+      width: 250px;
+      height: 250px;
+      top: 45%;
+    }
+
+    .arena-btn-wrapper {
+      bottom: auto;
+      top: auto;
+      right: 50%;
+      transform: translateX(50%);
+      bottom: 100px;
+    }
+
+    .jelly-btn {
+      min-width: 200px;
+      height: 64px;
+    }
+
+    .jelly-text {
+      font-size: 28px;
+    }
+
+    .side-menu {
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      gap: 12px;
+    }
+
+    .menu-btn {
+      width: 55px;
+      height: 55px;
+      border-radius: 14px;
+    }
+
+    .version-tag {
+      bottom: 4px;
+      right: 8px;
+      font-size: 9px;
+    }
+  }
+
+  /* === VERY SMALL SCREENS === */
+  @media (max-height: 600px) and (orientation: portrait) {
+    .hero-container {
+      width: 200px;
+      height: 200px;
+      top: 40%;
+    }
+
+    .arena-btn-wrapper {
+      bottom: 80px;
+    }
+
+    .jelly-btn {
+      min-width: 180px;
+      height: 56px;
+    }
+
+    .jelly-text {
+      font-size: 24px;
+    }
+  }
 `;
 
 interface MainScreenProps {
