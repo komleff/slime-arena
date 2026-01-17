@@ -40,3 +40,4 @@ jobs:
           echo "4. Включите 'Require status checks to pass before merging'"
           echo ""
           echo "Фиксация: $COMMIT_MSG"
+          exit 1
