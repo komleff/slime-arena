@@ -8,7 +8,16 @@ import { FLAG_IS_DEAD, DEFAULT_BALANCE_CONFIG } from '@slime-arena/shared';
 
 // ========== Типы ==========
 
-export type GamePhase = 'menu' | 'connecting' | 'waiting' | 'playing' | 'results';
+export type GamePhase = 'boot' | 'menu' | 'connecting' | 'waiting' | 'playing' | 'results';
+
+// Состояние загрузки (для BootScreen)
+export type BootStage = 'initializing' | 'authenticating' | 'loadingConfig' | 'ready' | 'error';
+
+export interface BootState {
+  stage: BootStage;
+  progress: number; // 0-100
+  error?: string;
+}
 export type ScreenType = 'main-menu' | 'lobby' | 'game' | 'results' | 'settings' | 'shop' | 'profile';
 export type ModalType = 'talent' | 'pause' | 'confirm-exit' | 'settings';
 
@@ -96,7 +105,13 @@ export type MatchmakingStatus = 'idle' | 'searching' | 'found' | 'connecting' | 
 // ========== Сигналы состояния ==========
 
 // Фаза игры
-export const gamePhase = signal<GamePhase>('menu');
+export const gamePhase = signal<GamePhase>('boot');
+
+// Состояние загрузки
+export const bootState = signal<BootState>({
+  stage: 'initializing',
+  progress: 0,
+});
 
 // Текущий экран и модальное окно
 export const currentScreen = signal<ScreenType>('main-menu');
@@ -224,12 +239,19 @@ export const currentPlace = computed(() => {
 
 // ========== Действия ==========
 
+export function setBootProgress(stage: BootStage, progress: number, error?: string) {
+  bootState.value = { stage, progress, error };
+}
+
 export function setGamePhase(phase: GamePhase) {
   batch(() => {
     gamePhase.value = phase;
 
     // Автоматически переключаем экраны при смене фазы
     switch (phase) {
+      case 'boot':
+        // BootScreen не использует currentScreen
+        break;
       case 'menu':
         currentScreen.value = 'main-menu';
         screenStack.value = ['main-menu'];
