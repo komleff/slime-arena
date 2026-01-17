@@ -3353,29 +3353,29 @@ async function connectToServer(playerName: string, classId: number) {
                         // Направление ввода
                         const inputAngle = Math.atan2(input.y, input.x);
 
-                        // Масштаб стрелки: плавно растёт с массой слайма (min 1x, max 2x)
-                        const initialMass = balanceConfig.slime?.initialMass ?? 100;
-                        const rawScale = Math.sqrt(player.mass / initialMass);
-                        const arrowScale = Math.min(2, 1 + (rawScale - 1) * 0.4); // Плавный рост до 2x
-
-                        // Длина стрелки пропорциональна интенсивности И размеру слайма
-                        const baseArrowLength = arrowConfig.minLength + (arrowConfig.maxLength - arrowConfig.minLength) * intensity;
-                        const arrowLength = baseArrowLength * arrowScale;
-
-                        // Стрелка начинается от края слайма (в мировых координатах)
+                        // Радиус слайма в мировых координатах
                         const slimeRadiusWorld = baseRadius * classRadiusMult * leviathanMul;
-                        const startOffsetWorld = slimeRadiusWorld * 0.5; // Начало чуть внутри слайма
+
+                        // Длина стрелки пропорциональна радиусу слайма и интенсивности ввода
+                        // При любом размере слайма стрелка остаётся пропорциональной
+                        const minMult = 0.3; // При минимальном вводе: 30% радиуса за слаймом
+                        const maxMult = 0.8; // При максимальном вводе: 80% радиуса за слаймом
+                        const arrowMult = minMult + (maxMult - minMult) * intensity;
+                        const arrowLength = slimeRadiusWorld * arrowMult;
+
+                        // Стрелка начинается от края слайма
+                        const startOffsetWorld = slimeRadiusWorld * 0.85;
                         const worldStartX = player.x + Math.cos(inputAngle) * startOffsetWorld;
                         const worldStartY = player.y + Math.sin(inputAngle) * startOffsetWorld;
                         const startScreen = worldToScreen(worldStartX, worldStartY, scale, camera.x, camera.y, cw, ch);
 
-                        // Конечная точка стрелки
-                        const worldEndX = player.x + Math.cos(inputAngle) * (startOffsetWorld + arrowLength);
-                        const worldEndY = player.y + Math.sin(inputAngle) * (startOffsetWorld + arrowLength);
+                        // Конечная точка стрелки (за пределами слайма)
+                        const worldEndX = player.x + Math.cos(inputAngle) * (slimeRadiusWorld + arrowLength);
+                        const worldEndY = player.y + Math.sin(inputAngle) * (slimeRadiusWorld + arrowLength);
                         const endScreen = worldToScreen(worldEndX, worldEndY, scale, camera.x, camera.y, cw, ch);
 
-                        // Толщина линии тоже масштабируется
-                        const lineWidth = arrowConfig.widthBase * Math.min(arrowScale, 3);
+                        // Толщина линии пропорциональна экранному радиусу (2-6 px)
+                        const lineWidth = Math.max(2, Math.min(6, r * 0.08));
 
                         // Рисуем линию
                         canvasCtx.strokeStyle = arrowConfig.color;
@@ -3386,7 +3386,8 @@ async function connectToServer(playerName: string, classId: number) {
                         canvasCtx.stroke();
 
                         // Рисуем наконечник (треугольник)
-                        const tipLength = arrowConfig.tipLength * arrowScale;
+                        // Размер наконечника пропорционален длине стрелки
+                        const tipLength = arrowLength * 0.3;
                         const tipAngleRatio = arrowConfig.tipAngleRatio;
                         const tipAngle1 = inputAngle + Math.PI * tipAngleRatio;
                         const tipAngle2 = inputAngle - Math.PI * tipAngleRatio;
