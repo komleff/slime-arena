@@ -3357,9 +3357,9 @@ async function connectToServer(playerName: string, classId: number) {
                         const slimeRadiusWorld = baseRadius * classRadiusMult * leviathanMul;
 
                         // Длина стрелки отражает ускорение:
-                        // 100% ускорения = 2 диаметра слайма = 4 радиуса
+                        // 100% ускорения = 1 диаметр слайма = 2 радиуса
                         // 0% ускорения = 0 длина
-                        const maxArrowLength = slimeRadiusWorld * 4; // 2 диаметра
+                        const maxArrowLength = slimeRadiusWorld * 2; // 1 диаметр
                         const arrowLength = maxArrowLength * intensity;
 
                         // Стрелка начинается на границе радиуса слайма
