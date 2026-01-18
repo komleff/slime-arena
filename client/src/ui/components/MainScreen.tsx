@@ -703,7 +703,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
       </div>
 
       {/* Version */}
-      <div class="version-tag">v0.5.0</div>
+      <div class="version-tag">v0.5.1</div>
     </div>
   );
 }
