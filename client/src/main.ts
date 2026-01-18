@@ -1499,10 +1499,7 @@ function hashString(str: string): number {
 function pickSpriteForPlayer(playerName: string): string {
     const name = playerName || 'Unknown';
     const hash = hashString(name);
-    const index = hash % slimeSpriteNames.length;
-    const sprite = slimeSpriteNames[index];
-    console.log(`[SKIN DEBUG] name="${name}" hash=${hash} index=${index} sprite="${sprite}"`);
-    return sprite;
+    return slimeSpriteNames[hash % slimeSpriteNames.length];
 }
 
 function getSlimeConfigForPlayer(classId: number) {
@@ -3266,11 +3263,7 @@ async function connectToServer(playerName: string, classId: number) {
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 const r = radius;
                 const angleRad = player.angle ?? 0;
-                const cachedSprite = playerSpriteById.get(id);
-                const spriteName = cachedSprite ?? pickSpriteForPlayer(player.name);
-                if (!cachedSprite) {
-                    console.log(`[SKIN RENDER] id=${id} NO CACHE, computed from name="${player.name}"`);
-                }
+                const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(player.name);
                 const sprite = loadSprite(spriteName);
                 let alpha = player.alpha ?? 1;
                 if (isInvisible && isSelf) {
