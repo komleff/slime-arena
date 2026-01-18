@@ -2437,31 +2437,31 @@ async function connectToServer(playerName: string, classId: number) {
         
         let wasInResultsPhase = false;
         let hasPlayedThisMatch = false; // Флаг участия в текущем матче (не показывать Results новым игрокам)
+        let userStayingOnResults = false; // Флаг: пользователь остаётся на экране результатов после таймера
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
 
             // Устанавливаем флаг участия при входе в игровые фазы (Growth/Hunt/Final)
             if (phase === "Growth" || phase === "Hunt" || phase === "Final") {
                 hasPlayedThisMatch = true;
+                // Сброс флагов: пользователь начал новый матч
+                if (userStayingOnResults) {
+                    userStayingOnResults = false;
+                    wasInResultsPhase = false;
+                }
             }
             if (phase !== "Results") {
-                // Сбрасываем Preact UI при выходе из Results
-                // НО: проверяем, нужен ли class-select (classId == -1)
-                // Если да — не переключаем на "playing", т.к. hudTimer вызовет setClassSelectMode(true) → setPhase("menu")
-                if (wasInResultsPhase) {
-                    wasInResultsPhase = false;
+                // Когда серверная фаза меняется с Results:
+                // - Если пользователь был на результатах, оставляем его там (userStayingOnResults)
+                // - Пользователь сам решит уйти через кнопки "Играть ещё" или "На главную"
+                if (wasInResultsPhase && !userStayingOnResults) {
+                    // Первый переход из Results — активируем режим ожидания
+                    userStayingOnResults = true;
                     hasPlayedThisMatch = false; // Сброс для нового матча
                     // Очистить визуальное состояние для предотвращения "призраков" между матчами
                     visualPlayers.clear();
                     visualOrbs.clear();
-                    const selfPlayer = room.state.players.get(room.sessionId);
-                    const needsClassSelect = !selfPlayer || !isValidClassId(selfPlayer.classId);
-                    if (!needsClassSelect) {
-                        // Класс уже выбран — переходим в playing
-                        clearDeadFlag(); // Сбросить isDead от предыдущего матча
-                        setPhase("playing");
-                    }
-                    // Иначе: hudTimer установит setPhase("menu") через setClassSelectMode(true)
+                    // НЕ переключаем UI — оставляем на экране результатов
                 }
                 if (isViewportUnlockedForResults) {
                     setGameViewportLock(true);
@@ -3853,6 +3853,8 @@ const uiCallbacks: UICallbacks = {
         activateAbilityFromUI(slot, pointerId);
     },
     onPlayAgain: (classId: number) => {
+        // Сбросить флаг смерти перед началом нового матча
+        clearDeadFlag();
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
         // Используем .then() для подключения после выхода, .catch() для обработки ошибок
         const name = getPlayerName() || generateRandomName();

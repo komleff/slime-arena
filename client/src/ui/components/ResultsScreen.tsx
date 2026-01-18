@@ -275,7 +275,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           >
             {matchTimer.value.timeLeft > 0
               ? `⏳ ${Math.ceil(matchTimer.value.timeLeft)} сек`
-              : '🔄 Сыграть ещё'}
+              : '▶ Играть ещё'}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
             🏠 На главную
