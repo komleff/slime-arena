@@ -569,6 +569,7 @@ function getDisplayName(name: string, classId: number, isRebel: boolean): string
 // ============================================
 
 let activeRoom: any = null;
+let arenaWaitInterval: ReturnType<typeof setInterval> | null = null; // Таймер ожидания арены
 let globalInputSeq = 0; // Единый монотонный счётчик для всех input команд
 let lastSentInput = { x: 0, y: 0 }; // Последнее отправленное направление движения
 
@@ -1788,25 +1789,40 @@ async function connectToServer(playerName: string, classId: number) {
                 });
                 activeRoom = null;
 
+                // Очищаем предыдущий таймер ожидания (если был)
+                if (arenaWaitInterval) {
+                    clearInterval(arenaWaitInterval);
+                    arenaWaitInterval = null;
+                }
+
                 // Показываем лобби с таймером ожидания
                 setArenaWaitTime(waitTime);
                 goToLobby();
                 setConnecting(false);
 
-                // Локальный обратный отсчёт (не зависит от room.state, т.к. мы вышли)
+                // Глобальный обратный отсчёт (очищается при следующем подключении)
                 let remaining = waitTime;
-                const countdownInterval = setInterval(() => {
+                arenaWaitInterval = setInterval(() => {
                     remaining -= 1;
                     if (remaining > 0) {
                         setArenaWaitTime(remaining);
                     } else {
-                        clearInterval(countdownInterval);
+                        if (arenaWaitInterval) {
+                            clearInterval(arenaWaitInterval);
+                            arenaWaitInterval = null;
+                        }
                         setArenaWaitTime(0);
                     }
                 }, 1000);
 
                 // ВАЖНО: Прерываем выполнение connectToServer, не настраиваем игровую логику
                 return;
+            }
+
+            // Очищаем таймер ожидания при успешном подключении
+            if (arenaWaitInterval) {
+                clearInterval(arenaWaitInterval);
+                arenaWaitInterval = null;
             }
 
             // Нормальное подключение — переключаем на playing
@@ -3943,6 +3959,12 @@ function leaveRoomFromUI(): void {
         activeRoom.leave();
         activeRoom = null;
     }
+    // Очищаем таймер ожидания арены
+    if (arenaWaitInterval) {
+        clearInterval(arenaWaitInterval);
+        arenaWaitInterval = null;
+    }
+    setArenaWaitTime(0);
     setPhase("menu");
     setGameViewportLock(false);
 }
@@ -3956,6 +3978,12 @@ const uiCallbacks: UICallbacks = {
         goToMainScreen();
     },
     onPlay: (name: string, classId: number) => {
+        // Очищаем таймер ожидания арены при попытке подключения
+        if (arenaWaitInterval) {
+            clearInterval(arenaWaitInterval);
+            arenaWaitInterval = null;
+        }
+        setArenaWaitTime(0);
         // Если уже подключены к комнате (между матчами), отправить selectClass с именем
         if (activeRoom) {
             activeRoom.send("selectClass", { classId, name });
@@ -3976,8 +4004,13 @@ const uiCallbacks: UICallbacks = {
         setPhase("connecting");
         // Сбросить флаг смерти перед началом нового матча
         clearDeadFlag();
-        // Сбросить результаты матча
+        // Сбросить результаты матча и таймер ожидания
         setResultsWaitTime(0);
+        if (arenaWaitInterval) {
+            clearInterval(arenaWaitInterval);
+            arenaWaitInterval = null;
+        }
+        setArenaWaitTime(0);
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
         // Используем .then() для подключения после выхода, .catch() для обработки ошибок
         const name = getPlayerName() || generateRandomName();
