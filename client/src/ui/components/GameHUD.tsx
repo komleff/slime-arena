@@ -325,17 +325,29 @@ function formatMass(mass: number): string {
 
 // ========== Компоненты ==========
 
+/**
+ * Вычисляет прогресс до следующего уровня.
+ * Формула: (масса - minMass) / порог следующего уровня * 100%
+ * minMass = 50 (минимальная масса / масса смерти из physics.minSlimeMass)
+ */
 function getLevelProgress(level: number, mass: number): number {
   const thresholds = levelThresholds.value;
-  if (!thresholds || thresholds.length === 0) return 0;
+  // thresholds = [0, 100, 180, 300, 500, 800, 1200]
+  if (!thresholds || thresholds.length < 3) return 0;
 
-  // Текущий и следующий пороги уровня
-  const currentThreshold = thresholds[level - 1] || 0;
-  const nextThreshold = thresholds[level] || thresholds[thresholds.length - 1];
+  const minMass = 50; // physics.minSlimeMass
 
-  if (nextThreshold <= currentThreshold) return 100;
+  // Порог следующего уровня
+  // level 1 → thresholds[2] = 180
+  // level 2 → thresholds[3] = 300
+  const nextThreshold = thresholds[level + 1];
 
-  const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+  // Максимальный уровень — прогресс 100%
+  if (!nextThreshold) {
+    return 100;
+  }
+
+  const progress = ((mass - minMass) / nextThreshold) * 100;
   return Math.min(100, Math.max(0, progress));
 }
 
@@ -343,7 +355,7 @@ function PlayerStats() {
   const player = localPlayer.value;
   if (!player) return null;
 
-  const levelProgress = getLevelProgress(player.level, player.mass);
+  const progress = getLevelProgress(player.level, player.mass);
 
   return (
     <div class="hud-stats">
@@ -351,7 +363,7 @@ function PlayerStats() {
       <div class="hud-level-row">
         <span class="hud-level-star">{player.level}</span>
         <div class="hud-xp-bar">
-          <div class="hud-xp-fill" style={{ width: `${levelProgress}%` }} />
+          <div class="hud-xp-fill" style={{ width: `${progress}%` }} />
         </div>
       </div>
       {/* Масса */}
