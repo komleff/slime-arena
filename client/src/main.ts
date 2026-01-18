@@ -2057,10 +2057,16 @@ async function connectToServer(playerName: string, classId: number) {
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
-            playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
-            
+            // Выбираем спрайт по имени (или обновим когда имя придёт)
+            if (player.name) {
+                playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
+            }
+
             player.onChange(() => {
-                // Обновление данных игрока
+                // Обновляем спрайт когда имя изменилось
+                if (player.name && !playerSpriteById.has(sessionId)) {
+                    playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
+                }
             });
         });
 
