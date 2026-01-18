@@ -20,6 +20,7 @@ import {
   queuePosition,
   matchmakingError,
   matchTimer,
+  arenaWaitTime,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -483,7 +484,11 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
         </div>
 
         <div class="menu-section">
-          {matchTimer.value.phase === 'Results' ? (
+          {arenaWaitTime.value > 0 ? (
+            <div class="waiting-timer">
+              ⏳ Арена не готова — {arenaWaitTime.value} сек
+            </div>
+          ) : matchTimer.value.phase === 'Results' ? (
             <div class="waiting-timer">
               ⏳ Новый матч через {Math.ceil(matchTimer.value.timeLeft)} сек
             </div>

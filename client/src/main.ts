@@ -59,7 +59,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { arenaWaitTime, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -569,6 +569,7 @@ function getDisplayName(name: string, classId: number, isRebel: boolean): string
 // ============================================
 
 let activeRoom: any = null;
+let arenaWaitInterval: ReturnType<typeof setInterval> | null = null; // Таймер ожидания арены
 let globalInputSeq = 0; // Единый монотонный счётчик для всех input команд
 let lastSentInput = { x: 0, y: 0 }; // Последнее отправленное направление движения
 
@@ -729,7 +730,8 @@ const applyBalanceConfig = (config: BalanceConfig) => {
     hotZoneRadius = config.hotZones.radius;
     collectorRadiusMult = config.classes.collector.radiusMult;
     // Обновляем пороги уровней в UI для runtime config support
-    setLevelThresholds(config.slime.levelThresholds);
+    // Передаём minSlimeMass для корректного расчёта прогресса уровня
+    setLevelThresholds(config.slime.levelThresholds, config.physics.minSlimeMass);
     camera.x = Math.min(Math.max(camera.x, -worldWidth / 2), worldWidth / 2);
     camera.y = Math.min(Math.max(camera.y, -worldHeight / 2), worldHeight / 2);
     const cameraConfig = balanceConfig.camera ?? DEFAULT_BALANCE_CONFIG.camera;
@@ -1740,9 +1742,101 @@ async function connectToServer(playerName: string, classId: number) {
                 classId,
             });
             activeRoom = room;
-            // Переключаем Preact UI на фазу "playing" ПОСЛЕ успешного подключения
+
+            // Ждём первую синхронизацию состояния перед проверкой фазы
+            // (room.state может быть не синхронизирован сразу после joinOrCreate)
+            const waitForInitialState = (): Promise<string | undefined> => {
+                return new Promise((resolve) => {
+                    // Проверяем сразу, если state уже есть
+                    if (room.state?.phase) {
+                        resolve(room.state.phase);
+                        return;
+                    }
+
+                    let resolved = false;
+                    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+                    let stateChangeSignal: ReturnType<typeof room.onStateChange> | null = null;
+
+                    const onResolve = (phase: string | undefined) => {
+                        if (resolved) return;
+                        resolved = true;
+                        // Очищаем timeout
+                        if (timeoutId) clearTimeout(timeoutId);
+                        // Отписываемся от listener (предотвращаем утечку памяти)
+                        if (stateChangeSignal) stateChangeSignal.clear();
+                        resolve(phase);
+                    };
+
+                    // Слушаем изменение состояния
+                    stateChangeSignal = room.onStateChange(() => {
+                        if (room.state?.phase) {
+                            onResolve(room.state.phase);
+                        }
+                    });
+
+                    // Fallback: если state не готов через 500ms
+                    timeoutId = setTimeout(() => {
+                        console.log("[connectToServer] Fallback check после 500ms");
+                        onResolve(room.state?.phase);
+                    }, 500);
+                });
+            };
+
+            const serverPhase = await waitForInitialState();
+            console.log(`[connectToServer] Начальная фаза: ${serverPhase}`);
+
+            if (serverPhase === "Results") {
+                // Арена завершилась — покидаем комнату и возвращаем в лобби с таймером
+                const waitTime = Math.ceil(room.state?.timeRemaining ?? 15);
+                console.log(`[connectToServer] Арена в фазе Results — покидаем и ждём ${waitTime} сек`);
+
+                // ВАЖНО: Сначала покидаем комнату, потом обновляем UI
+                room.leave().catch((err) => {
+                    console.error("[connectToServer] Ошибка при выходе из комнаты:", err);
+                });
+                activeRoom = null;
+
+                // Очищаем предыдущий таймер ожидания (если был)
+                if (arenaWaitInterval) {
+                    clearInterval(arenaWaitInterval);
+                    arenaWaitInterval = null;
+                }
+
+                // Показываем лобби с таймером ожидания
+                setArenaWaitTime(waitTime);
+                goToLobby();
+                setConnecting(false);
+
+                // Глобальный обратный отсчёт (очищается при следующем подключении)
+                let remaining = waitTime;
+                arenaWaitInterval = setInterval(() => {
+                    remaining -= 1;
+                    if (remaining > 0) {
+                        setArenaWaitTime(remaining);
+                    } else {
+                        if (arenaWaitInterval) {
+                            clearInterval(arenaWaitInterval);
+                            arenaWaitInterval = null;
+                        }
+                        setArenaWaitTime(0);
+                    }
+                }, 1000);
+
+                // ВАЖНО: Прерываем выполнение connectToServer, не настраиваем игровую логику
+                return;
+            }
+
+            // Очищаем таймер ожидания при успешном подключении
+            if (arenaWaitInterval) {
+                clearInterval(arenaWaitInterval);
+                arenaWaitInterval = null;
+            }
+
+            // Нормальное подключение — переключаем на playing
+            setArenaWaitTime(0);
             setPhase("playing");
             setConnecting(false);
+
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
                 applyBalanceConfig(config);
@@ -2447,13 +2541,43 @@ async function connectToServer(playerName: string, classId: number) {
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
 
-            // Устанавливаем флаг участия при входе в игровые фазы (Growth/Hunt/Final)
-            if (phase === "Growth" || phase === "Hunt" || phase === "Final") {
+            // Устанавливаем флаг участия при входе в игровые фазы (Spawn/Growth/Hunt/Final)
+            if (phase === "Spawn" || phase === "Growth" || phase === "Hunt" || phase === "Final") {
                 hasPlayedThisMatch = true;
                 // Сброс флагов: пользователь начал новый матч
                 if (userStayingOnResults) {
                     userStayingOnResults = false;
                     wasInResultsPhase = false;
+                }
+                // Если игрок ждал арену (arenaWaitTime > 0), арена готова — начинаем игру
+                if (arenaWaitTime.value > 0) {
+                    // Очищаем интервал обратного отсчёта
+                    if (arenaWaitInterval) {
+                        clearInterval(arenaWaitInterval);
+                        arenaWaitInterval = null;
+                    }
+                    setArenaWaitTime(0);
+                    const selfPlayer = room.state.players.get(room.sessionId);
+                    // Проверяем, нужно ли выбрать класс (classId < 0 после рестарта матча)
+                    if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
+                        // Игрок должен выбрать класс — показываем экран выбора
+                        setClassSelectMode(true);
+                        console.log("Арена готова — нужно выбрать класс");
+                    } else {
+                        setPhase("playing");
+                        console.log("Арена готова — начинаем игру");
+                    }
+                }
+                // Если игрок подключился во время Results и ждал в 'waiting' (старая логика)
+                else if (gamePhase.value === "waiting") {
+                    const selfPlayer = room.state.players.get(room.sessionId);
+                    if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
+                        setClassSelectMode(true);
+                        console.log("Сервер рестартировал матч — нужно выбрать класс");
+                    } else {
+                        setPhase("playing");
+                        console.log("Сервер рестартировал матч — переключаем из waiting в playing");
+                    }
                 }
             }
             if (phase !== "Results") {
@@ -2493,9 +2617,15 @@ async function connectToServer(playerName: string, classId: number) {
                 // Переключаем Preact UI на фазу results
                 setPhase("results");
 
-                // Запускаем клиентский таймер ожидания (15 сек до активации кнопки "Играть ещё")
-                const RESULTS_WAIT_SECONDS = 15;
-                let resultsCountdown = RESULTS_WAIT_SECONDS;
+                // Запускаем клиентский таймер ожидания до активации кнопки "Играть ещё"
+                // Время = resultsDurationSec + restartDelaySec + буфер (2 сек)
+                // Буфер гарантирует, что сервер успел рестартиться
+                const BUFFER_SECONDS = 2;
+                const resultsWaitSeconds =
+                    (balanceConfig.match.resultsDurationSec ?? 12) +
+                    (balanceConfig.match.restartDelaySec ?? 3) +
+                    BUFFER_SECONDS;
+                let resultsCountdown = resultsWaitSeconds;
                 setResultsWaitTime(resultsCountdown);
                 const resultsTimerInterval = setInterval(() => {
                     resultsCountdown--;
@@ -3844,6 +3974,12 @@ function leaveRoomFromUI(): void {
         activeRoom.leave();
         activeRoom = null;
     }
+    // Очищаем таймер ожидания арены
+    if (arenaWaitInterval) {
+        clearInterval(arenaWaitInterval);
+        arenaWaitInterval = null;
+    }
+    setArenaWaitTime(0);
     setPhase("menu");
     setGameViewportLock(false);
 }
@@ -3857,6 +3993,12 @@ const uiCallbacks: UICallbacks = {
         goToMainScreen();
     },
     onPlay: (name: string, classId: number) => {
+        // Очищаем таймер ожидания арены при попытке подключения
+        if (arenaWaitInterval) {
+            clearInterval(arenaWaitInterval);
+            arenaWaitInterval = null;
+        }
+        setArenaWaitTime(0);
         // Если уже подключены к комнате (между матчами), отправить selectClass с именем
         if (activeRoom) {
             activeRoom.send("selectClass", { classId, name });
@@ -3877,8 +4019,13 @@ const uiCallbacks: UICallbacks = {
         setPhase("connecting");
         // Сбросить флаг смерти перед началом нового матча
         clearDeadFlag();
-        // Сбросить результаты матча
+        // Сбросить результаты матча и таймер ожидания
         setResultsWaitTime(0);
+        if (arenaWaitInterval) {
+            clearInterval(arenaWaitInterval);
+            arenaWaitInterval = null;
+        }
+        setArenaWaitTime(0);
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
         // Используем .then() для подключения после выхода, .catch() для обработки ошибок
         const name = getPlayerName() || generateRandomName();

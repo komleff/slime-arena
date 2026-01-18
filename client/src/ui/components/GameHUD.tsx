@@ -325,17 +325,41 @@ function formatMass(mass: number): string {
 
 // ========== Компоненты ==========
 
+/**
+ * Вычисляет прогресс до следующего уровня.
+ * Формула: (масса - currentThreshold) / (nextThreshold - currentThreshold) * 100%
+ *
+ * thresholds = [minMass, порог_lvl2, порог_lvl3, ...]
+ * Для level N: прогресс от thresholds[N-1] до thresholds[N]
+ *
+ * Пример (thresholds = [50, 100, 180, 300]):
+ * - level 1, mass 75: (75-50)/(100-50) = 50%
+ * - level 2, mass 150: (150-100)/(180-100) = 62.5%
+ */
 function getLevelProgress(level: number, mass: number): number {
   const thresholds = levelThresholds.value;
-  if (!thresholds || thresholds.length === 0) return 0;
+  // thresholds = [minMass, threshold_lvl2, threshold_lvl3, ...]
+  // thresholds = [50, 100, 180, 300, 500, 800, 1200]
+  if (!thresholds || thresholds.length < 2) return 0;
 
-  // Текущий и следующий пороги уровня
-  const currentThreshold = thresholds[level - 1] || 0;
-  const nextThreshold = thresholds[level] || thresholds[thresholds.length - 1];
+  // Порог текущего уровня (откуда начинается прогресс)
+  // level 1 → thresholds[0] = 50 (minMass)
+  // level 2 → thresholds[1] = 100
+  const currentThreshold = thresholds[level - 1] ?? 0;
 
-  if (nextThreshold <= currentThreshold) return 100;
+  // Порог следующего уровня (куда идёт прогресс)
+  // level 1 → thresholds[1] = 100
+  // level 2 → thresholds[2] = 180
+  const nextThreshold = thresholds[level];
 
-  const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+  // Максимальный уровень — прогресс 100%
+  if (!nextThreshold || nextThreshold <= currentThreshold) {
+    return 100;
+  }
+
+  // Прогресс от текущего порога до следующего
+  const range = nextThreshold - currentThreshold;
+  const progress = ((mass - currentThreshold) / range) * 100;
   return Math.min(100, Math.max(0, progress));
 }
 
