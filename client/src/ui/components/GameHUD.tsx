@@ -14,7 +14,6 @@ import {
   showHud,
   isPlayerDead,
   gamePhase,
-  levelThresholds,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -107,31 +106,19 @@ const styles = `
     font-weight: 600;
   }
 
-  .hud-level-row {
-    display: flex;
+  .hud-level-star {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-  }
-
-  .hud-level-text {
-    font-weight: 600;
-    color: #9be070;
-    min-width: 50px;
-  }
-
-  .hud-xp-bar {
-    flex: 1;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .hud-xp-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #4ade80, #22c55e);
-    transition: width 0.3s ease;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1a1a2e;
+    background: linear-gradient(135deg, #ffd700, #ffaa00);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    box-shadow: 0 0 4px rgba(255, 215, 0, 0.5);
   }
 
   .hud-leaderboard {
@@ -237,18 +224,11 @@ const styles = `
       font-size: 12px;
     }
 
-    .hud-level-row {
-      gap: 6px;
-      margin-bottom: 4px;
-    }
-
-    .hud-level-text {
-      min-width: 40px;
-      font-size: 11px;
-    }
-
-    .hud-xp-bar {
-      height: 5px;
+    .hud-level-star {
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      margin-right: 4px;
     }
 
     .hud-stat-row {
@@ -313,60 +293,17 @@ function formatMass(mass: number): string {
   return Math.floor(mass).toString();
 }
 
-/**
- * Вычисляет прогресс до следующего уровня (0-100%)
- * Использует levelThresholds сигнал для поддержки runtime config updates.
- *
- * thresholds[0] = 0 (добавляется в setLevelThresholds)
- * thresholds[1..6] = пороги из config (100, 180, 300, 500, 800, 1200)
- * Для уровней выше 6 — экстраполяция *1.5
- */
-function getLevelProgress(mass: number, level: number): number {
-  const thresholds = levelThresholds.value;
-
-  // Защита от пустого конфига (до получения balance с сервера)
-  if (!thresholds || thresholds.length === 0) return 0;
-
-  const lastIdx = thresholds.length - 1;
-  const lastThreshold = thresholds[lastIdx];
-
-  // Получить порог для уровня (level 1 → index 1, level 6 → index 6)
-  const getThreshold = (lvl: number): number => {
-    if (lvl <= 0) return 0;
-    if (lvl <= lastIdx) return thresholds[lvl];
-    // Экстраполяция для уровней выше чем есть в конфиге
-    return lastThreshold * Math.pow(1.5, lvl - lastIdx);
-  };
-
-  const currentThreshold = getThreshold(level);
-  const nextThreshold = getThreshold(level + 1);
-
-  // Защита от деления на ноль
-  if (nextThreshold <= currentThreshold) return 100;
-
-  const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
-  return Math.max(0, Math.min(100, progress));
-}
-
 // ========== Компоненты ==========
 
 function PlayerStats() {
   const player = localPlayer.value;
   if (!player) return null;
 
-  const progress = getLevelProgress(player.mass, player.level);
-
   return (
     <div class="hud-stats">
-      {/* Уровень с прогресс-баром */}
-      <div class="hud-level-row">
-        <span class="hud-level-text">Ур. {player.level}</span>
-        <div class="hud-xp-bar">
-          <div class="hud-xp-fill" style={{ width: `${progress}%` }}></div>
-        </div>
-      </div>
-      {/* Масса */}
+      {/* Масса с уровнем в звёздочке */}
       <div class="hud-stat-row">
+        <span class="hud-level-star">{player.level}</span>
         <span class="hud-stat-label">Масса:</span>
         <span class="hud-stat-value">{formatMass(player.mass)} кг</span>
       </div>
