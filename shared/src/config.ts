@@ -258,7 +258,7 @@ export interface BalanceConfig {
         initialMass: number;
         initialLevel: number;
         initialClassId: number;
-        levelThresholds: number[];       // [100, 180, 300, 500, 800, 1200] (GDD v3.3)
+        levelThresholds: number[];       // [180, 300, 500, 800, 1200, 1800] - пороги для lvl 2, 3, 4...
         slotUnlockLevels: number[];      // [1, 3, 5]
         talentGrantLevels: number[];     // [2, 4, 6] - уровни, дающие карточки талантов
         cardChoiceTimeoutSec: number;    // 12
@@ -910,7 +910,7 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         initialMass: 100,
         initialLevel: 1,
         initialClassId: 0,
-        levelThresholds: [100, 180, 300, 500, 800, 1200],
+        levelThresholds: [180, 300, 500, 800, 1200, 1800],
         slotUnlockLevels: [1, 3, 5],
         talentGrantLevels: [2, 4, 6],
         cardChoiceTimeoutSec: 12,

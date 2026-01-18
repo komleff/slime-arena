@@ -15,6 +15,7 @@ import {
   isPlayerDead,
   gamePhase,
   levelThresholds,
+  minSlimeMass,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -327,39 +328,47 @@ function formatMass(mass: number): string {
 
 /**
  * Вычисляет прогресс до следующего уровня.
- * Формула: (масса - currentThreshold) / (nextThreshold - currentThreshold) * 100%
+ * Формула: (mass - deathMass) / (nextThreshold - deathMass) × 100%
  *
- * thresholds = [minMass, порог_lvl2, порог_lvl3, ...]
- * Для level N: прогресс от thresholds[N-1] до thresholds[N]
+ * Пороги массы:
+ *   50  — масса смерти ("ноль" для прогресса)
+ *   100 — стартовая масса, уровень 1
+ *   180 — порог уровня 2
+ *   300 — порог уровня 3
  *
- * Пример (thresholds = [50, 100, 180, 300]):
- * - level 1, mass 75: (75-50)/(100-50) = 50%
- * - level 2, mass 150: (150-100)/(180-100) = 62.5%
+ * thresholds = [50, 180, 300, 500, 800, 1200, 1800]
+ *               ^   ^    ^
+ *               |   |    порог lvl 3
+ *               |   порог lvl 2
+ *               deathMass (стартовая масса 100 НЕ в массиве)
+ *
+ * Примеры:
+ * - level 1, mass 100: (100-50)/(180-50) = 38.5% (старт)
+ * - level 1, mass 180: (180-50)/(180-50) = 100% (lvl up!)
+ * - level 2, mass 180: (180-50)/(300-50) = 52%
+ * - level 2, mass 300: (300-50)/(300-50) = 100% (lvl up!)
  */
 function getLevelProgress(level: number, mass: number): number {
   const thresholds = levelThresholds.value;
-  // thresholds = [minMass, threshold_lvl2, threshold_lvl3, ...]
-  // thresholds = [50, 100, 180, 300, 500, 800, 1200]
+  const deathMass = minSlimeMass.value;
+  // thresholds = [deathMass, порог_lvl2, порог_lvl3, ...] = [50, 180, 300, ...]
   if (!thresholds || thresholds.length < 2) return 0;
+  if (level < 1) return 0;
 
-  // Порог текущего уровня (откуда начинается прогресс)
-  // level 1 → thresholds[0] = 50 (minMass)
-  // level 2 → thresholds[1] = 100
-  const currentThreshold = thresholds[level - 1] ?? 0;
-
-  // Порог следующего уровня (куда идёт прогресс)
-  // level 1 → thresholds[1] = 100
-  // level 2 → thresholds[2] = 180
+  // Порог следующего уровня
+  // level 1 → thresholds[1] = 180
+  // level 2 → thresholds[2] = 300
   const nextThreshold = thresholds[level];
 
   // Максимальный уровень — прогресс 100%
-  if (!nextThreshold || nextThreshold <= currentThreshold) {
+  if (!nextThreshold || nextThreshold <= deathMass) {
     return 100;
   }
 
-  // Прогресс от текущего порога до следующего
-  const range = nextThreshold - currentThreshold;
-  const progress = ((mass - currentThreshold) / range) * 100;
+  // Прогресс показывает "безопасность от смерти" — сколько массы набрано
+  // относительно порога смерти (50), а не от предыдущего уровня.
+  // Формула: (mass - deathMass) / (nextThreshold - deathMass) × 100%
+  const progress = ((mass - deathMass) / (nextThreshold - deathMass)) * 100;
   return Math.min(100, Math.max(0, progress));
 }
 
