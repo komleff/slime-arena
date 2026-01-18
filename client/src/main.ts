@@ -3873,25 +3873,27 @@ const uiCallbacks: UICallbacks = {
         activateAbilityFromUI(slot, pointerId);
     },
     onPlayAgain: (classId: number) => {
+        // Сразу переключаем UI в состояние "подключение" чтобы предотвратить двойное нажатие
+        setPhase("connecting");
         // Сбросить флаг смерти перед началом нового матча
         clearDeadFlag();
+        // Сбросить результаты матча
+        setResultsWaitTime(0);
         // Сначала покидаем текущую комнату, чтобы избежать двойного подключения
         // Используем .then() для подключения после выхода, .catch() для обработки ошибок
         const name = getPlayerName() || generateRandomName();
         if (activeRoom) {
             const roomToLeave = activeRoom;
+            activeRoom = null; // Сразу сбрасываем чтобы избежать race condition
             roomToLeave
                 .leave()
                 .then(() => {
-                    // Сбрасываем activeRoom только после успешного выхода
-                    // чтобы избежать race condition при быстром переподключении
-                    activeRoom = null;
                     connectToServer(name, classId);
                 })
                 .catch((error: unknown) => {
                     console.error("Не удалось покинуть комнату перед повторным входом:", error);
-                    // Сбрасываем activeRoom даже при ошибке, чтобы не заблокировать повторное подключение
-                    activeRoom = null;
+                    // Переподключаемся даже при ошибке выхода
+                    connectToServer(name, classId);
                 });
         } else {
             connectToServer(name, classId);
