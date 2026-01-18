@@ -190,15 +190,17 @@ export const hudVisible = signal(true);
 export const isMobile = signal(false);
 export const safeAreaInsets = signal({ top: 0, bottom: 0, left: 0, right: 0 });
 
-// Конфигурация баланса (пороги уровней для HUD)
-// Обновляется через setLevelThresholds при получении runtime config
-// Первый элемент — minSlimeMass (стартовая масса), остальные — пороги уровней
+// Пороги уровней для HUD (прогресс-бар)
+// [minSlimeMass, порог_lvl2, порог_lvl3, ...] = [50, 180, 300, ...]
+// 50 — масса смерти ("ноль" для прогресса)
+// 100 — стартовая масса, уровень 1 (НЕ в массиве, это initialMass)
+// 180 — порог уровня 2, и т.д.
 export const levelThresholds = signal<number[]>([
   DEFAULT_BALANCE_CONFIG.physics.minSlimeMass,
   ...DEFAULT_BALANCE_CONFIG.slime.levelThresholds
 ]);
 
-// Минимальная масса слайма (для расчёта прогресса уровня)
+// Минимальная масса слайма (масса смерти, "ноль" для расчёта прогресса)
 export const minSlimeMass = signal<number>(DEFAULT_BALANCE_CONFIG.physics.minSlimeMass);
 
 // ========== Auth состояние ==========
@@ -546,7 +548,7 @@ export function setLevelThresholds(thresholds: number[], minMass?: number) {
   // Используем minMass из параметра или из дефолтов
   const startMass = minMass ?? DEFAULT_BALANCE_CONFIG.physics.minSlimeMass;
   minSlimeMass.value = startMass;
-  // Первый элемент — minSlimeMass (стартовая масса), остальные — пороги уровней
+  // [minSlimeMass, порог_lvl2, порог_lvl3, ...] = [50, 180, 300, ...]
   levelThresholds.value = [startMass, ...merged];
 }
 

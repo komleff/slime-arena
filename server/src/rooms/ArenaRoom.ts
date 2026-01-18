@@ -3172,10 +3172,12 @@ export class ArenaRoom extends Room<GameState> {
         const talentGrantLevels = this.balance.slime.talentGrantLevels;
         
         // Вычисляем текущий уровень по массе
+        // thresholds = [180, 300, 500, ...] - пороги для lvl 2, 3, 4...
+        // Игрок начинает с level 1 (при mass >= initialMass = 100)
         let newLevel = 1;
         for (let i = 0; i < thresholds.length; i++) {
             if (player.mass >= thresholds[i]) {
-                newLevel = i + 1;
+                newLevel = i + 2; // thresholds[0] = порог lvl 2, thresholds[1] = порог lvl 3
             }
         }
         
