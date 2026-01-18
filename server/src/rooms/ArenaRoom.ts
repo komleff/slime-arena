@@ -1467,7 +1467,7 @@ export class ArenaRoom extends Room<GameState> {
         const minSlimeMass = this.balance.physics.minSlimeMass;
         
         // PvP Bite Formula (из ТЗ):
-        // - Атакующий откусывает у жертвы 10% от СВОЕЙ массы
+        // - Атакующий получает 10% СВОЕЙ массы за счёт жертвы
         // - Жертва дополнительно теряет 10% СВОЕЙ массы в виде пузырей
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
 
@@ -1553,6 +1553,14 @@ export class ArenaRoom extends Room<GameState> {
         this.applyMassDelta(defender, -massLoss);
         const defenderMassAfter = defender.mass;
         const actualLoss = defenderMassBefore - defenderMassAfter;
+
+        // ИНВАРИАНТ: масштабируем награды по фактической потере (после clamp в applyMassDelta)
+        // Это гарантирует, что масса не создаётся из воздуха
+        if (massLoss > 0 && actualLoss < massLoss) {
+            const scale = actualLoss / massLoss;
+            attackerGain *= scale;
+            scatterMass *= scale;
+        }
 
         // Применяем прибыль атакующему
         this.applyMassDelta(attacker, attackerGain);
