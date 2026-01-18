@@ -14,6 +14,7 @@ import {
   showHud,
   isPlayerDead,
   gamePhase,
+  levelThresholds,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -106,6 +107,13 @@ const styles = `
     font-weight: 600;
   }
 
+  .hud-level-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
   .hud-level-star {
     display: inline-flex;
     align-items: center;
@@ -117,8 +125,22 @@ const styles = `
     border-radius: 50%;
     width: 20px;
     height: 20px;
-    margin-right: 6px;
     box-shadow: 0 0 4px rgba(255, 215, 0, 0.5);
+    flex-shrink: 0;
+  }
+
+  .hud-xp-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .hud-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffd700, #ffaa00);
+    transition: width 0.3s ease;
   }
 
   .hud-leaderboard {
@@ -224,11 +246,19 @@ const styles = `
       font-size: 12px;
     }
 
+    .hud-level-row {
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
     .hud-level-star {
       width: 18px;
       height: 18px;
       font-size: 10px;
-      margin-right: 4px;
+    }
+
+    .hud-xp-bar {
+      height: 5px;
     }
 
     .hud-stat-row {
@@ -295,15 +325,37 @@ function formatMass(mass: number): string {
 
 // ========== Компоненты ==========
 
+function getLevelProgress(level: number, mass: number): number {
+  const thresholds = levelThresholds.value;
+  if (!thresholds || thresholds.length === 0) return 0;
+
+  // Текущий и следующий пороги уровня
+  const currentThreshold = thresholds[level - 1] || 0;
+  const nextThreshold = thresholds[level] || thresholds[thresholds.length - 1];
+
+  if (nextThreshold <= currentThreshold) return 100;
+
+  const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+  return Math.min(100, Math.max(0, progress));
+}
+
 function PlayerStats() {
   const player = localPlayer.value;
   if (!player) return null;
 
+  const levelProgress = getLevelProgress(player.level, player.mass);
+
   return (
     <div class="hud-stats">
-      {/* Масса с уровнем в звёздочке */}
-      <div class="hud-stat-row">
+      {/* Уровень со звёздочкой и прогресс-баром */}
+      <div class="hud-level-row">
         <span class="hud-level-star">{player.level}</span>
+        <div class="hud-xp-bar">
+          <div class="hud-xp-fill" style={{ width: `${levelProgress}%` }} />
+        </div>
+      </div>
+      {/* Масса */}
+      <div class="hud-stat-row">
         <span class="hud-stat-label">Масса:</span>
         <span class="hud-stat-value">{formatMass(player.mass)} кг</span>
       </div>
