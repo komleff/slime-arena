@@ -279,6 +279,11 @@ export function updateBootProgress(
   error?: string
 ): void {
   setBootProgress(stage, progress, error);
+  // Скрыть inline boot screen при переходе в ready или error
+  if (stage === 'ready' || stage === 'error') {
+    const inlineBoot = document.getElementById('inline-boot');
+    if (inlineBoot) inlineBoot.classList.add('hidden');
+  }
   renderUI();
 }
 

@@ -15,8 +15,7 @@ const styles = `
   .main-screen {
     position: fixed;
     inset: 0;
-    /* Используем общий фон с BootScreen для экономии трафика */
-    background-image: url('/backgrounds/bg_loading_screen.png');
+    background-image: url('/backgrounds/bg_main_screen.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -24,19 +23,6 @@ const styles = `
     overflow: hidden;
     user-select: none;
     z-index: 10;
-  }
-
-  /* Логотип отдельно поверх фона */
-  .main-logotype {
-    position: absolute;
-    top: 5%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60%;
-    max-width: 400px;
-    height: auto;
-    z-index: 5;
-    pointer-events: none;
   }
 
   /* === HUD PROFILE === */
@@ -274,7 +260,7 @@ const styles = `
   .hero-model {
     width: 100%;
     height: 100%;
-    background-image: url('/skins/lobby/hero_skin_current.png');
+    background-image: url('/skins/lobby/hero_skin_current.webp');
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -645,20 +631,17 @@ export function MainScreen({ onArena }: MainScreenProps) {
 
   return (
     <div class="main-screen">
-      {/* Логотип (общий фон без логотипа, логотип отдельно) */}
-      <img src="/icons/icon_logotype.png" class="main-logotype" alt="Slime Arena" />
-
       {/* HUD Profile */}
       <div class="hud-profile-wrapper">
         <div class="hud-container">
           <div class="hud-avatar-group">
-            <img src="/hud/hud_avatar_frame_cookie.png" class="frame-top" alt="" />
-            <img src="/hud/hud_avatar_hero_01.png" class="hud-avatar-img" alt="" />
-            <img src="/hud/hud_avatar_frame_cookie.png" class="frame-bottom" alt="" />
+            <img src="/hud/hud_avatar_frame_cookie.webp" class="frame-top" alt="" />
+            <img src="/hud/hud_avatar_hero_01.webp" class="hud-avatar-img" alt="" />
+            <img src="/hud/hud_avatar_frame_cookie.webp" class="frame-bottom" alt="" />
           </div>
-          <img src="/hud/hud_profile_base_chocolate.png" class="hud-base" alt="" />
+          <img src="/hud/hud_profile_base_chocolate.webp" class="hud-base" alt="" />
           <div class="hud-star-group">
-            <img src="/hud/hud_level_badge_star_blue.png" class="hud-star" alt="" />
+            <img src="/hud/hud_level_badge_star_blue.webp" class="hud-star" alt="" />
             <div class="hud-level-text">{level}</div>
           </div>
           <div class="hud-info">
@@ -678,12 +661,12 @@ export function MainScreen({ onArena }: MainScreenProps) {
       {/* Currency Panel */}
       <div class="currency-panel">
         <div class="curr-item">
-          <img src="/icons/icon_currency_coin.png" class="curr-icon-img" alt="Монеты" />
+          <img src="/icons/icon_currency_coin.webp" class="curr-icon-img" alt="Монеты" />
           <div class="curr-val">{coins.toLocaleString()}</div>
           <button type="button" class="btn-add" onClick={handleAddCoins}>+</button>
         </div>
         <div class="curr-item">
-          <img src="/icons/icon_currency_gem.png" class="curr-icon-img" alt="Кристаллы" />
+          <img src="/icons/icon_currency_gem.webp" class="curr-icon-img" alt="Кристаллы" />
           <div class="curr-val">{gems}</div>
           <button type="button" class="btn-add" onClick={handleAddGems}>+</button>
         </div>
@@ -709,13 +692,13 @@ export function MainScreen({ onArena }: MainScreenProps) {
       {/* Side Menu */}
       <div class="side-menu">
         <button type="button" class="menu-btn" title="Настройки" onClick={handleSettings}>
-          <img src="/icons/icon_menu_settings.png" class="menu-icon-img" alt="" />
+          <img src="/icons/icon_menu_settings.webp" class="menu-icon-img" alt="" />
         </button>
         <button type="button" class="menu-btn" title="Лидеры" onClick={handleLeaderboard}>
-          <img src="/icons/icon_menu_leaderboard.png" class="menu-icon-img" alt="" />
+          <img src="/icons/icon_menu_leaderboard.webp" class="menu-icon-img" alt="" />
         </button>
         <button type="button" class="menu-btn" title="Гардероб" onClick={handleSkins}>
-          <img src="/icons/icon_menu_skins.png" class="menu-icon-img" alt="" />
+          <img src="/icons/icon_menu_skins.webp" class="menu-icon-img" alt="" />
         </button>
       </div>
 

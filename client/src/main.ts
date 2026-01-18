@@ -676,27 +676,27 @@ const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
 };
 
 const slimeSpriteNames = [
-    "slime-angrybird.png",
-    "slime-astronaut.png",
-    "slime-base.png",
-    "slime-cccp.png",
-    "slime-crazy.png",
-    "slime-crystal.png",
-    "slime-cyberneon.png",
-    "slime-frost.png",
-    "slime-greeendragon.png",
-    "slime-mecha.png",
-    "slime-pinklove.png",
-    "slime-pirate.png",
-    "slime-pumpkin.png",
-    "slime-reddragon.png",
-    "slime-redfire.png",
-    "slime-samurai.png",
-    "slime-shark.png",
-    "slime-tomato.png",
-    "slime-toxic.png",
-    "slime-wizard.png",
-    "slime-zombi.png",
+    "slime-angrybird.webp",
+    "slime-astronaut.webp",
+    "slime-base.webp",
+    "slime-cccp.webp",
+    "slime-crazy.webp",
+    "slime-crystal.webp",
+    "slime-cyberneon.webp",
+    "slime-frost.webp",
+    "slime-greeendragon.webp",
+    "slime-mecha.webp",
+    "slime-pinklove.webp",
+    "slime-pirate.webp",
+    "slime-pumpkin.webp",
+    "slime-reddragon.webp",
+    "slime-redfire.webp",
+    "slime-samurai.webp",
+    "slime-shark.webp",
+    "slime-tomato.webp",
+    "slime-toxic.webp",
+    "slime-wizard.webp",
+    "slime-zombi.webp",
 ];
 const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -3887,49 +3887,45 @@ initUI(uiContainer, uiCallbacks);
 // Начинаем с фазы 'boot' (установлена по умолчанию в gameState.ts)
 
 // Инициализация сервисов MetaServer с прогрессом загрузки
-(async function initializeServices() {
-    const bootStartTime = Date.now();
-    const MIN_BOOT_DURATION_MS = 1500; // Минимум 1.5 секунды для BootScreen
+// Минимальное время показа boot screen — если загрузка быстрее, ждём разницу
+const MIN_BOOT_DISPLAY_MS = 1000;
 
+(async function initializeServices() {
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const startTime = performance.now();
 
     try {
-        // Стадия 1: Инициализация (10%)
+        // Стадия 1: Инициализация
         updateBootProgress('initializing', 10);
-        await delay(200);
 
-        // Стадия 2: Авторизация (40%)
+        // Стадия 2: Авторизация
         updateBootProgress('authenticating', 30);
         const hasSession = await authService.initialize();
         if (hasSession) {
             console.log("[Main] Session restored from localStorage");
         }
         updateBootProgress('authenticating', 50);
-        await delay(200);
 
-        // Стадия 3: Загрузка конфига (80%)
+        // Стадия 3: Загрузка конфига
         updateBootProgress('loadingConfig', 60);
         const config = await configService.loadConfig();
         if (config) {
             console.log(`[Main] RuntimeConfig v${config.configVersion} loaded`);
         }
         updateBootProgress('loadingConfig', 90);
-        await delay(200);
+
+        // Ждём минимальное время показа (если загрузка была быстрой)
+        const elapsed = performance.now() - startTime;
+        if (elapsed < MIN_BOOT_DISPLAY_MS) {
+            await delay(MIN_BOOT_DISPLAY_MS - elapsed);
+        }
 
         // Готово — переход в меню
         updateBootProgress('ready', 100);
-
-        // Гарантируем минимальное время показа BootScreen
-        const elapsed = Date.now() - bootStartTime;
-        const remaining = MIN_BOOT_DURATION_MS - elapsed;
-        if (remaining > 0) {
-            await delay(remaining);
-        }
-
         setPhase("menu");
     } catch (err) {
         console.warn("[Main] MetaServer services initialization failed:", err);
-        // При ошибке — показываем ошибку, но позволяем продолжить
+        // При ошибке — показываем сообщение 1.5 сек, затем продолжаем
         updateBootProgress('error', 100, 'Ошибка инициализации. Игра продолжит работу.');
         await delay(1500);
         setPhase("menu");
