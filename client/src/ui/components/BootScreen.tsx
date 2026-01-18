@@ -19,7 +19,7 @@ const styles = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-image: url('/backgrounds/bg_loading_screen.png');
+    background-image: url('/backgrounds/bg_loading_screen.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

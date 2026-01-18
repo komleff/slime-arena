@@ -15,8 +15,7 @@ const styles = `
   .main-screen {
     position: fixed;
     inset: 0;
-    /* Используем общий фон с BootScreen для экономии трафика */
-    background-image: url('/backgrounds/bg_loading_screen.png');
+    background-image: url('/backgrounds/bg_main_screen.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -24,19 +23,6 @@ const styles = `
     overflow: hidden;
     user-select: none;
     z-index: 10;
-  }
-
-  /* Логотип отдельно поверх фона */
-  .main-logotype {
-    position: absolute;
-    top: 5%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60%;
-    max-width: 400px;
-    height: auto;
-    z-index: 5;
-    pointer-events: none;
   }
 
   /* === HUD PROFILE === */
@@ -645,9 +631,6 @@ export function MainScreen({ onArena }: MainScreenProps) {
 
   return (
     <div class="main-screen">
-      {/* Логотип (общий фон без логотипа, логотип отдельно) */}
-      <img src="/icons/icon_logotype.png" class="main-logotype" alt="Slime Arena" />
-
       {/* HUD Profile */}
       <div class="hud-profile-wrapper">
         <div class="hud-container">
