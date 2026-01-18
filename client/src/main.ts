@@ -1754,21 +1754,28 @@ async function connectToServer(playerName: string, classId: number) {
                     }
 
                     let resolved = false;
+                    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+                    let stateChangeSignal: ReturnType<typeof room.onStateChange> | null = null;
+
                     const onResolve = (phase: string | undefined) => {
                         if (resolved) return;
                         resolved = true;
+                        // Очищаем timeout
+                        if (timeoutId) clearTimeout(timeoutId);
+                        // Отписываемся от listener (предотвращаем утечку памяти)
+                        if (stateChangeSignal) stateChangeSignal.clear();
                         resolve(phase);
                     };
 
                     // Слушаем изменение состояния
-                    room.onStateChange(() => {
+                    stateChangeSignal = room.onStateChange(() => {
                         if (room.state?.phase) {
                             onResolve(room.state.phase);
                         }
                     });
 
                     // Fallback: если state не готов через 500ms
-                    setTimeout(() => {
+                    timeoutId = setTimeout(() => {
                         console.log("[connectToServer] Fallback check после 500ms");
                         onResolve(room.state?.phase);
                     }, 500);
@@ -2544,6 +2551,11 @@ async function connectToServer(playerName: string, classId: number) {
                 }
                 // Если игрок ждал арену (arenaWaitTime > 0), арена готова — начинаем игру
                 if (arenaWaitTime.value > 0) {
+                    // Очищаем интервал обратного отсчёта
+                    if (arenaWaitInterval) {
+                        clearInterval(arenaWaitInterval);
+                        arenaWaitInterval = null;
+                    }
                     setArenaWaitTime(0);
                     const selfPlayer = room.state.players.get(room.sessionId);
                     // Проверяем, нужно ли выбрать класс (classId < 0 после рестарта матча)

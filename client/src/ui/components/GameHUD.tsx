@@ -15,7 +15,6 @@ import {
   isPlayerDead,
   gamePhase,
   levelThresholds,
-  minSlimeMass,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -328,35 +327,39 @@ function formatMass(mass: number): string {
 
 /**
  * Вычисляет прогресс до следующего уровня.
- * Формула: (масса - minMass) / (nextThreshold - minMass) * 100%
- * minMass берётся из сигнала minSlimeMass (physics.minSlimeMass)
+ * Формула: (масса - currentThreshold) / (nextThreshold - currentThreshold) * 100%
  *
- * При достижении порога масса = nextThreshold → прогресс = 100%
+ * thresholds = [minMass, порог_lvl2, порог_lvl3, ...]
+ * Для level N: прогресс от thresholds[N-1] до thresholds[N]
+ *
+ * Пример (thresholds = [50, 100, 180, 300]):
+ * - level 1, mass 75: (75-50)/(100-50) = 50%
+ * - level 2, mass 150: (150-100)/(180-100) = 62.5%
  */
 function getLevelProgress(level: number, mass: number): number {
   const thresholds = levelThresholds.value;
-  // thresholds = [minMass, threshold1, threshold2, ...]
+  // thresholds = [minMass, threshold_lvl2, threshold_lvl3, ...]
   // thresholds = [50, 100, 180, 300, 500, 800, 1200]
   if (!thresholds || thresholds.length < 2) return 0;
 
-  const minMass = minSlimeMass.value;
+  // Порог текущего уровня (откуда начинается прогресс)
+  // level 1 → thresholds[0] = 50 (minMass)
+  // level 2 → thresholds[1] = 100
+  const currentThreshold = thresholds[level - 1] ?? 0;
 
-  // Порог следующего уровня
-  // level 1 → thresholds[2] = 180
-  // level 2 → thresholds[3] = 300
-  const nextThreshold = thresholds[level + 1];
+  // Порог следующего уровня (куда идёт прогресс)
+  // level 1 → thresholds[1] = 100
+  // level 2 → thresholds[2] = 180
+  const nextThreshold = thresholds[level];
 
   // Максимальный уровень — прогресс 100%
-  if (!nextThreshold) {
+  if (!nextThreshold || nextThreshold <= currentThreshold) {
     return 100;
   }
 
-  // Правильная формула: прогресс от minMass до nextThreshold
-  // При mass = minMass → 0%, при mass = nextThreshold → 100%
-  const range = nextThreshold - minMass;
-  if (range <= 0) return 100;
-
-  const progress = ((mass - minMass) / range) * 100;
+  // Прогресс от текущего порога до следующего
+  const range = nextThreshold - currentThreshold;
+  const progress = ((mass - currentThreshold) / range) * 100;
   return Math.min(100, Math.max(0, progress));
 }
 
