@@ -1484,17 +1484,55 @@ function loadSprite(name: string) {
     return entry;
 }
 
-function hashSessionId(sessionId: string): number {
-    let h = 0;
-    for (let i = 0; i < sessionId.length; i += 1) {
-        h = (h * 31 + sessionId.charCodeAt(i)) >>> 0;
+// ========== Система скинов по имени игрока ==========
+const SKIN_STORAGE_KEY = 'slime-arena-player-skins';
+
+/** Загрузить карту имя -> скин из localStorage */
+function loadSkinMap(): Record<string, string> {
+    try {
+        const data = localStorage.getItem(SKIN_STORAGE_KEY);
+        return data ? JSON.parse(data) : {};
+    } catch {
+        return {};
     }
-    return h;
 }
 
-function pickSpriteForPlayer(sessionId: string): string {
-    const hash = hashSessionId(sessionId);
-    return slimeSpriteNames[hash % slimeSpriteNames.length];
+/** Сохранить карту имя -> скин в localStorage */
+function saveSkinMap(map: Record<string, string>): void {
+    try {
+        localStorage.setItem(SKIN_STORAGE_KEY, JSON.stringify(map));
+    } catch {
+        // localStorage недоступен (приватный режим и т.д.)
+    }
+}
+
+/** Получить скин для имени игрока (или сгенерировать новый) */
+function getSkinForName(name: string): string {
+    const map = loadSkinMap();
+    if (map[name]) {
+        return map[name];
+    }
+    // Генерируем случайный скин для нового имени
+    const randomIndex = Math.floor(Math.random() * slimeSpriteNames.length);
+    const sprite = slimeSpriteNames[randomIndex];
+    map[name] = sprite;
+    saveSkinMap(map);
+    return sprite;
+}
+
+/** Принудительно обновить скин для имени (при смене имени) */
+function regenerateSkinForName(name: string): string {
+    const map = loadSkinMap();
+    const randomIndex = Math.floor(Math.random() * slimeSpriteNames.length);
+    const sprite = slimeSpriteNames[randomIndex];
+    map[name] = sprite;
+    saveSkinMap(map);
+    return sprite;
+}
+
+/** Выбрать спрайт для игрока по имени */
+function pickSpriteForPlayer(playerName: string): string {
+    return getSkinForName(playerName || 'Unknown');
 }
 
 function getSlimeConfigForPlayer(classId: number) {
@@ -1796,8 +1834,8 @@ async function connectToServer(playerName: string, classId: number) {
                 inputManagerCallbacks.onSendStopInput();
 
                 canvas.style.display = "none";
-                // Preact MainMenu handles menu UI
-                setPhase("menu");
+                // Показать лобби для выбора класса (не главное меню)
+                goToLobby();
                 setGameViewportLock(false);
                 return;
             }
@@ -2052,7 +2090,7 @@ async function connectToServer(playerName: string, classId: number) {
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
-            playerSpriteById.set(sessionId, pickSpriteForPlayer(sessionId));
+            playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
             
             player.onChange(() => {
                 // Обновление данных игрока
@@ -3238,7 +3276,7 @@ async function connectToServer(playerName: string, classId: number) {
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 const r = radius;
                 const angleRad = player.angle ?? 0;
-                const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(id);
+                const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(player.name);
                 const sprite = loadSprite(spriteName);
                 let alpha = player.alpha ?? 1;
                 if (isInvisible && isSelf) {
