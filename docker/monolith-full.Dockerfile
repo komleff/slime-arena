@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena Monolith Full Container
 # All-in-One: PostgreSQL + Redis + MetaServer + MatchServer + Client
-# Version: 0.4.1
+# Version: 0.5.1
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -29,6 +29,7 @@ COPY shared/ shared/
 COPY server/ server/
 COPY client/ client/
 COPY config/ config/
+COPY assets-dist/ assets-dist/
 
 # Build all packages in correct order
 # 1. shared (dependency for both server and client)
