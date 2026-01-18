@@ -524,7 +524,7 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
       </div>
 
       <div class="menu-footer">
-        Slime Arena v0.5.1 • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
+        Slime Arena v{__APP_VERSION__} • <a href="https://github.com/komleff/slime-arena" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
     </div>
   );
