@@ -1485,54 +1485,21 @@ function loadSprite(name: string) {
 }
 
 // ========== Система скинов по имени игрока ==========
-const SKIN_STORAGE_KEY = 'slime-arena-player-skins';
 
-/** Загрузить карту имя -> скин из localStorage */
-function loadSkinMap(): Record<string, string> {
-    try {
-        const data = localStorage.getItem(SKIN_STORAGE_KEY);
-        return data ? JSON.parse(data) : {};
-    } catch {
-        return {};
+/** Детерминистичный хеш строки (одинаковый результат на всех клиентах) */
+function hashString(str: string): number {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = (h * 31 + str.charCodeAt(i)) >>> 0;
     }
+    return h;
 }
 
-/** Сохранить карту имя -> скин в localStorage */
-function saveSkinMap(map: Record<string, string>): void {
-    try {
-        localStorage.setItem(SKIN_STORAGE_KEY, JSON.stringify(map));
-    } catch {
-        // localStorage недоступен (приватный режим и т.д.)
-    }
-}
-
-/** Получить скин для имени игрока (или сгенерировать новый) */
-function getSkinForName(name: string): string {
-    const map = loadSkinMap();
-    if (map[name]) {
-        return map[name];
-    }
-    // Генерируем случайный скин для нового имени
-    const randomIndex = Math.floor(Math.random() * slimeSpriteNames.length);
-    const sprite = slimeSpriteNames[randomIndex];
-    map[name] = sprite;
-    saveSkinMap(map);
-    return sprite;
-}
-
-/** Принудительно обновить скин для имени (при смене имени) */
-function regenerateSkinForName(name: string): string {
-    const map = loadSkinMap();
-    const randomIndex = Math.floor(Math.random() * slimeSpriteNames.length);
-    const sprite = slimeSpriteNames[randomIndex];
-    map[name] = sprite;
-    saveSkinMap(map);
-    return sprite;
-}
-
-/** Выбрать спрайт для игрока по имени */
+/** Выбрать спрайт для игрока по имени (детерминистично) */
 function pickSpriteForPlayer(playerName: string): string {
-    return getSkinForName(playerName || 'Unknown');
+    const name = playerName || 'Unknown';
+    const hash = hashString(name);
+    return slimeSpriteNames[hash % slimeSpriteNames.length];
 }
 
 function getSlimeConfigForPlayer(classId: number) {
