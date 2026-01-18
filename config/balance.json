@@ -343,7 +343,6 @@
     "respawnShieldSec": 5.0,
     "lastBreathDurationSec": 0.5,
     "lastBreathSpeedPenalty": 0.8,
-    "pvpBiteVictimLossPct": 0.20,
     "pvpBiteAttackerGainPct": 0.10,
     "pvpBiteScatterPct": 0.10,
     "pvpBiteScatterOrbCount": 3,

@@ -1466,19 +1466,30 @@ export class ArenaRoom extends Room<GameState> {
         const defenderClassStats = this.getClassStats(defender);
         const minSlimeMass = this.balance.physics.minSlimeMass;
         
-        // Mass-as-HP: укус отбирает % массы жертвы
+        // PvP Bite Formula (из ТЗ):
+        // - Атакующий получает 10% СВОЕЙ массы за счёт жертвы
+        // - Жертва дополнительно теряет 10% СВОЕЙ массы в виде пузырей
         // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
-        const victimMassBefore = Math.max(0, defender.mass);
+
+        // 1. Атакующий получает % от СВОЕЙ массы
+        const attackerMassBefore = attacker.mass;
         let damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
         if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
             damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
         }
+        const attackerGainBase = attackerMassBefore * this.balance.combat.pvpBiteAttackerGainPct;
+        let attackerGain = attackerGainBase * zoneMultiplier * classStats.damageMult * damageBonusMult;
+
+        // 2. Жертва теряет % СВОЕЙ массы как пузыри
+        const defenderMassBefore = defender.mass;
         const damageTakenMult = this.getDamageTakenMultiplier(defender);
-        const multiplier = zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult;
-        
         // Защита от укусов: класс + талант (cap 50%)
         const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
-        let massLoss = victimMassBefore * this.balance.combat.pvpBiteVictimLossPct * multiplier * (1 - totalResist);
+        const scatterBase = defenderMassBefore * this.balance.combat.pvpBiteScatterPct;
+        let scatterMass = scatterBase * zoneMultiplier * damageTakenMult * (1 - totalResist);
+
+        // 3. Общая потеря жертвы = attackerGain + scatterMass
+        let massLoss = attackerGain + scatterMass;
 
         attacker.lastAttackTick = this.tick;
         // GDD v3.3: GCD после укуса слайма
@@ -1495,6 +1506,30 @@ export class ArenaRoom extends Room<GameState> {
             return;
         }
 
+        // Vampire talents: перенаправляют часть scatter в attackerGain
+        if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
+            const baseGainPct = this.balance.combat.pvpBiteAttackerGainPct;
+            const vampirePct = attacker.mod_vampireSideGainPct;
+            const bonusPct = vampirePct - baseGainPct;
+            if (bonusPct > 0 && scatterMass > 0) {
+                const transferred = scatterMass * Math.min(1, bonusPct / this.balance.combat.pvpBiteScatterPct);
+                attackerGain += transferred;
+                scatterMass -= transferred;
+            }
+        } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
+            const baseGainPct = this.balance.combat.pvpBiteAttackerGainPct;
+            const vampirePct = attacker.mod_vampireTailGainPct;
+            const bonusPct = vampirePct - baseGainPct;
+            if (bonusPct > 0 && scatterMass > 0) {
+                const transferred = scatterMass * Math.min(1, bonusPct / this.balance.combat.pvpBiteScatterPct);
+                attackerGain += transferred;
+                scatterMass -= transferred;
+            }
+        }
+
+        // Пересчитываем massLoss после vampire talents
+        massLoss = attackerGain + scatterMass;
+
         // Проверка Last Breath: если масса упадёт ниже минимума
         const newDefenderMass = defender.mass - massLoss;
         const triggersLastBreath =
@@ -1503,40 +1538,28 @@ export class ArenaRoom extends Room<GameState> {
             this.lastBreathTicks > 0 &&
             !defender.isDead;
 
-        // При Last Breath ограничиваем потерю до (mass - minSlimeMass)
-        // Награды масштабируются пропорционально фактической потере
+        // При Last Breath ограничиваем потерю и масштабируем награды пропорционально
         if (triggersLastBreath) {
-            massLoss = Math.max(0, defender.mass - minSlimeMass);
+            const maxLoss = Math.max(0, defender.mass - minSlimeMass);
+            if (massLoss > 0) {
+                const scale = maxLoss / massLoss;
+                attackerGain *= scale;
+                scatterMass *= scale;
+                massLoss = maxLoss;
+            }
         }
 
-        // Рассчитываем награды от ФАКТИЧЕСКОЙ потери массы (не от массы до укуса)
-        // Это гарантирует: massLoss = attackerGain + scatterMass
-        const baseGainPct = this.balance.combat.pvpBiteAttackerGainPct * zoneMultiplier;
-        const baseScatterPct = this.balance.combat.pvpBiteScatterPct * zoneMultiplier;
-        const totalRewardPct = baseGainPct + baseScatterPct;
-        let attackerGainPct = baseGainPct;
-        let scatterPct = baseScatterPct;
-        if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
-            attackerGainPct = attacker.mod_vampireSideGainPct;
-            scatterPct = Math.max(0, totalRewardPct - attackerGainPct);
-        } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
-            attackerGainPct = attacker.mod_vampireTailGainPct;
-            scatterPct = Math.max(0, totalRewardPct - attackerGainPct);
-        }
-        // Применяем потерю массы жертвы сначала, чтобы получить ФАКТИЧЕСКУЮ потерю
-        const defenderMassBefore = defender.mass;
+        // Применяем потерю массы жертвы
         this.applyMassDelta(defender, -massLoss);
         const defenderMassAfter = defender.mass;
         const actualLoss = defenderMassBefore - defenderMassAfter;
-        
-        // ИНВАРИАНТ: награды рассчитываются от ФАКТИЧЕСКОЙ потери (после clamp)
-        // Это гарантирует, что масса не создаётся из воздуха
-        const attackerGain = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (attackerGainPct / totalRewardPct) : 0;
-        const scatterMass = totalRewardPct > 0 && actualLoss > 0 ? actualLoss * (scatterPct / totalRewardPct) : 0;
 
-        // Проверка инварианта: награды не могут превысить фактическую потерю
-        if (attackerGain + scatterMass > actualLoss + 0.001) {
-            console.warn(`[processCombat] Invariant violation: rewards ${attackerGain + scatterMass} > actualLoss ${actualLoss}`);
+        // ИНВАРИАНТ: масштабируем награды по фактической потере (после clamp в applyMassDelta)
+        // Это гарантирует, что масса не создаётся из воздуха
+        if (massLoss > 0 && actualLoss < massLoss) {
+            const scale = actualLoss / massLoss;
+            attackerGain *= scale;
+            scatterMass *= scale;
         }
 
         // Применяем прибыль атакующему

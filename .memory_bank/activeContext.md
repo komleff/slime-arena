@@ -55,6 +55,21 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
 
 ### Фокус сессии
 
+- **[ЗАВЕРШЕНО] PR #93: Level Progress Bar Formula (18 января 2026):**
+  - ✅ Исправлена формула: `(mass - deathMass) / (nextThreshold - deathMass) × 100%`
+  - ✅ levelThresholds = [180, 300, 500, 800, 1200, 1800] (без 100)
+  - ✅ minSlimeMass (50) — масса смерти, "ноль" для прогресса
+  - ✅ Сервер: newLevel = i + 2 (thresholds[0] = 180 = порог lvl 2)
+  - **Файлы:** GameHUD.tsx, gameState.ts, balance.json, config.ts, ArenaRoom.ts
+
+- **[ЗАВЕРШЕНО] PR #92: PlayAgain Race Condition (18 января 2026):**
+  - ✅ Исправлена гонка при нажатии "Play Again"
+  - ✅ Защита от присоединения к завершённым аренам
+
+- **[В РАБОТЕ] slime-arena-8q9: PvP Bite Formula (18 января 2026):**
+  - ⏳ Формула укуса: attackerGain от массы атакующего, scatter от массы жертвы
+  - **Ветка:** sprint-12/fix-pvp-bite-formula
+
 - **[ОТМЕНЕНО] PR #87: WASD относительное управление (17 января 2026):**
   - ❌ Функционал отменён пользователем
   - Удалено клавиатурное управление движением
