@@ -59,7 +59,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { arenaWaitTime, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -1741,15 +1741,29 @@ async function connectToServer(playerName: string, classId: number) {
             });
             activeRoom = room;
             // Проверяем фазу сервера перед переключением UI
-            // Если сервер в фазе Results, показываем waiting (не playing)
-            // Это предотвращает попадание игрока в старую сессию при быстром переподключении
             const serverPhase = room.state?.phase;
             if (serverPhase === "Results") {
-                // Сервер ещё не рестартился — показываем экран ожидания
-                setPhase("waiting");
-                console.log("Подключение во время фазы Results — ожидаем рестарт матча");
+                // Арена завершилась — возвращаем в лобби с таймером ожидания
+                // Комната остаётся подключённой, чтобы автоматически начать игру после рестарта
+                const waitTime = Math.ceil(room.state.timeRemaining ?? 15);
+                setArenaWaitTime(waitTime);
+                goToLobby(); // Показываем лобби
+                console.log(`Арена не готова — ожидаем ${waitTime} сек до рестарта`);
+
+                // Запускаем таймер обновления arenaWaitTime
+                const arenaWaitInterval = setInterval(() => {
+                    const remaining = Math.ceil(room.state?.timeRemaining ?? 0);
+                    if (remaining > 0) {
+                        setArenaWaitTime(remaining);
+                    } else {
+                        // Таймер истёк — арена должна рестартиться
+                        clearInterval(arenaWaitInterval);
+                        setArenaWaitTime(0);
+                    }
+                }, 1000);
             } else {
                 // Нормальное подключение — переключаем на playing
+                setArenaWaitTime(0);
                 setPhase("playing");
             }
             setConnecting(false);
@@ -2465,13 +2479,24 @@ async function connectToServer(playerName: string, classId: number) {
                     userStayingOnResults = false;
                     wasInResultsPhase = false;
                 }
-                // Если игрок подключился во время Results и ждал в 'waiting',
-                // переключаем на 'playing' когда сервер рестартирует матч
-                if (gamePhase.value === "waiting") {
+                // Если игрок ждал арену (arenaWaitTime > 0), арена готова — начинаем игру
+                if (arenaWaitTime.value > 0) {
+                    setArenaWaitTime(0);
                     const selfPlayer = room.state.players.get(room.sessionId);
                     // Проверяем, нужно ли выбрать класс (classId < 0 после рестарта матча)
                     if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
                         // Игрок должен выбрать класс — показываем экран выбора
+                        setClassSelectMode(true);
+                        console.log("Арена готова — нужно выбрать класс");
+                    } else {
+                        setPhase("playing");
+                        console.log("Арена готова — начинаем игру");
+                    }
+                }
+                // Если игрок подключился во время Results и ждал в 'waiting' (старая логика)
+                else if (gamePhase.value === "waiting") {
+                    const selfPlayer = room.state.players.get(room.sessionId);
+                    if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
                         setClassSelectMode(true);
                         console.log("Сервер рестартировал матч — нужно выбрать класс");
                     } else {

@@ -124,6 +124,10 @@ export const isConnecting = signal(false);
 export const connectionError = signal<string | null>(null);
 export const serverUrl = signal('');
 
+// Ожидание арены (когда подключились к арене в фазе Results)
+// Если > 0, показываем сообщение "Арена не готова" с таймером
+export const arenaWaitTime = signal(0);
+
 // Константы
 export const MAX_ABILITY_SLOTS = 3;
 
@@ -384,6 +388,13 @@ export function setResultsWaitTime(seconds: number) {
   resultsWaitTime.value = seconds;
 }
 
+/**
+ * Установить таймер ожидания арены (когда подключились к завершённой арене)
+ */
+export function setArenaWaitTime(seconds: number) {
+  arenaWaitTime.value = seconds;
+}
+
 export function resetGameState() {
   batch(() => {
     gamePhase.value = 'menu';
@@ -404,6 +415,7 @@ export function resetGameState() {
     activeBoost.value = null;
     matchResults.value = null;
     resultsWaitTime.value = 0; // Сброс таймера результатов
+    arenaWaitTime.value = 0; // Сброс таймера ожидания арены
     // Сбрасываем matchmaking, но НЕ auth
     matchmakingStatus.value = 'idle';
     queuePosition.value = null;
