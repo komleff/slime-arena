@@ -15,6 +15,7 @@ import {
   isPlayerDead,
   gamePhase,
   levelThresholds,
+  minSlimeMass,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -325,17 +326,37 @@ function formatMass(mass: number): string {
 
 // ========== Компоненты ==========
 
+/**
+ * Вычисляет прогресс до следующего уровня.
+ * Формула: (масса - minMass) / (nextThreshold - minMass) * 100%
+ * minMass берётся из сигнала minSlimeMass (physics.minSlimeMass)
+ *
+ * При достижении порога масса = nextThreshold → прогресс = 100%
+ */
 function getLevelProgress(level: number, mass: number): number {
   const thresholds = levelThresholds.value;
-  if (!thresholds || thresholds.length === 0) return 0;
+  // thresholds = [minMass, threshold1, threshold2, ...]
+  // thresholds = [50, 100, 180, 300, 500, 800, 1200]
+  if (!thresholds || thresholds.length < 2) return 0;
 
-  // Текущий и следующий пороги уровня
-  const currentThreshold = thresholds[level - 1] || 0;
-  const nextThreshold = thresholds[level] || thresholds[thresholds.length - 1];
+  const minMass = minSlimeMass.value;
 
-  if (nextThreshold <= currentThreshold) return 100;
+  // Порог следующего уровня
+  // level 1 → thresholds[2] = 180
+  // level 2 → thresholds[3] = 300
+  const nextThreshold = thresholds[level + 1];
 
-  const progress = ((mass - currentThreshold) / (nextThreshold - currentThreshold)) * 100;
+  // Максимальный уровень — прогресс 100%
+  if (!nextThreshold) {
+    return 100;
+  }
+
+  // Правильная формула: прогресс от minMass до nextThreshold
+  // При mass = minMass → 0%, при mass = nextThreshold → 100%
+  const range = nextThreshold - minMass;
+  if (range <= 0) return 100;
+
+  const progress = ((mass - minMass) / range) * 100;
   return Math.min(100, Math.max(0, progress));
 }
 
