@@ -4,7 +4,8 @@
 
 ## Итог аудита (янв 2026)
 Актуальные пункты технического долга:
-- **Сложные таланты**: `sense`, `regeneration`, `momentum`, `berserk`, `symbiosisBubbles`.
+- **Нереализованные таланты**: `sense` (Чутьё), `regeneration` (Регенерация) — эффекты не применяются.
+- **Сложные таланты**: `momentum`, `berserk`, `symbiosisBubbles` — запланированы в отдельном спринте.
 - **Типизация систем ArenaRoom.ts**: общий контекст для систем вместо `any`.
 - **Оптимизация зон**: хранение активной зоны игрока на тик, чтобы уменьшить повторные проверки.
 - **Тесты**: нет проверок для новых модулей (кроме генерации арены).
@@ -365,10 +366,72 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 ## Приоритет: Низкий
 
+### Талант sense (Чутьё) — эффект не реализован
+**Задача:** Реализовать эффект `chestSense` для таланта sense
+
+**Контекст:**
+- Талант определён в `config/balance.json`:
+  ```json
+  "sense": { "name": "Чутьё", "maxLevel": 2, "values": [2, 5], "effect": "chestSense", "category": "gather" }
+  ```
+- Эффект `chestSense` **отсутствует** в `TalentModifierCalculator.ts`
+- Талант можно выбрать в игре, но он **ничего не делает**
+
+**Требуемые изменения:**
+1. Добавить `mod_chestSenseRadius: number = 0` в `server/src/rooms/schema/GameState.ts`
+2. Добавить case `chestSense` в `applyTalentEffect()` в `TalentModifierCalculator.ts`
+3. Реализовать логику подсветки/индикации сундуков в радиусе на клиенте
+
+**Альтернатива:** Удалить талант из `talentPool.common` в balance.json
+
+**Файлы:**
+- `config/balance.json`
+- `server/src/rooms/systems/talent/TalentModifierCalculator.ts`
+- `server/src/rooms/schema/GameState.ts`
+- `client/src/main.ts` (UI)
+
+**Статус:** Открыто. Низкий приоритет.
+
+---
+
+### Талант regeneration (Регенерация) — эффект не реализован
+**Задача:** Реализовать эффект `outOfCombatRegen` для таланта regeneration
+
+**Контекст:**
+- Талант определён в `config/balance.json`:
+  ```json
+  "regeneration": { "name": "Регенерация", "maxLevel": 2, "values": [[0.01, 5], [0.01, 4]], "effect": "outOfCombatRegen", "category": "defense" }
+  ```
+- Эффект `outOfCombatRegen` **отсутствует** в `TalentModifierCalculator.ts`
+- Талант можно выбрать в игре, но он **ничего не делает**
+
+**Требуемые изменения:**
+1. Добавить модификаторы в `GameState.ts`:
+   - `mod_regenPctPerSec: number = 0` — % массы в секунду
+   - `mod_regenOutOfCombatSec: number = 0` — задержка "вне боя"
+2. Добавить case `outOfCombatRegen` в `applyTalentEffect()`
+3. Создать систему регенерации в `ArenaRoom.ts`:
+   - Отслеживать `lastDamagedAtTick` для каждого игрока
+   - После N секунд без урона начать восстанавливать % массы в секунду
+
+**Альтернатива:** Удалить талант из `talentPool.common` в balance.json
+
+**Файлы:**
+- `config/balance.json`
+- `server/src/rooms/systems/talent/TalentModifierCalculator.ts`
+- `server/src/rooms/schema/GameState.ts`
+- `server/src/rooms/ArenaRoom.ts`
+
+**Статус:** Открыто. Низкий приоритет.
+
+---
+
 ### Unit тесты для новых модулей
 **Задача:** Написать тесты для `nameGenerator.ts` и `mathUtils.ts`
 
 **Статус:** Планируется в отдельном PR
+
+---
 
 ### Дрифт механика (TASK-05)
 **Задача:** Реализовать дрифт при развороте > 120°
