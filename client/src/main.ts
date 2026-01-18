@@ -1740,33 +1740,79 @@ async function connectToServer(playerName: string, classId: number) {
                 classId,
             });
             activeRoom = room;
-            // Проверяем фазу сервера перед переключением UI
-            const serverPhase = room.state?.phase;
-            if (serverPhase === "Results") {
-                // Арена завершилась — возвращаем в лобби с таймером ожидания
-                // Комната остаётся подключённой, чтобы автоматически начать игру после рестарта
-                const waitTime = Math.ceil(room.state.timeRemaining ?? 15);
-                setArenaWaitTime(waitTime);
-                goToLobby(); // Показываем лобби
-                console.log(`Арена не готова — ожидаем ${waitTime} сек до рестарта`);
 
-                // Запускаем таймер обновления arenaWaitTime
-                const arenaWaitInterval = setInterval(() => {
-                    const remaining = Math.ceil(room.state?.timeRemaining ?? 0);
+            // Ждём первую синхронизацию состояния перед проверкой фазы
+            // (room.state может быть не синхронизирован сразу после joinOrCreate)
+            const waitForInitialState = (): Promise<string | undefined> => {
+                return new Promise((resolve) => {
+                    // Проверяем сразу, если state уже есть
+                    if (room.state?.phase) {
+                        resolve(room.state.phase);
+                        return;
+                    }
+
+                    let resolved = false;
+                    const onResolve = (phase: string | undefined) => {
+                        if (resolved) return;
+                        resolved = true;
+                        resolve(phase);
+                    };
+
+                    // Слушаем изменение состояния
+                    room.onStateChange(() => {
+                        if (room.state?.phase) {
+                            onResolve(room.state.phase);
+                        }
+                    });
+
+                    // Fallback: если state не готов через 500ms
+                    setTimeout(() => {
+                        console.log("[connectToServer] Fallback check после 500ms");
+                        onResolve(room.state?.phase);
+                    }, 500);
+                });
+            };
+
+            const serverPhase = await waitForInitialState();
+            console.log(`[connectToServer] Начальная фаза: ${serverPhase}`);
+
+            if (serverPhase === "Results") {
+                // Арена завершилась — покидаем комнату и возвращаем в лобби с таймером
+                const waitTime = Math.ceil(room.state?.timeRemaining ?? 15);
+                console.log(`[connectToServer] Арена в фазе Results — покидаем и ждём ${waitTime} сек`);
+
+                // ВАЖНО: Сначала покидаем комнату, потом обновляем UI
+                room.leave().catch((err) => {
+                    console.error("[connectToServer] Ошибка при выходе из комнаты:", err);
+                });
+                activeRoom = null;
+
+                // Показываем лобби с таймером ожидания
+                setArenaWaitTime(waitTime);
+                goToLobby();
+                setConnecting(false);
+
+                // Локальный обратный отсчёт (не зависит от room.state, т.к. мы вышли)
+                let remaining = waitTime;
+                const countdownInterval = setInterval(() => {
+                    remaining -= 1;
                     if (remaining > 0) {
                         setArenaWaitTime(remaining);
                     } else {
-                        // Таймер истёк — арена должна рестартиться
-                        clearInterval(arenaWaitInterval);
+                        clearInterval(countdownInterval);
                         setArenaWaitTime(0);
                     }
                 }, 1000);
-            } else {
-                // Нормальное подключение — переключаем на playing
-                setArenaWaitTime(0);
-                setPhase("playing");
+
+                // ВАЖНО: Прерываем выполнение connectToServer, не настраиваем игровую логику
+                return;
             }
+
+            // Нормальное подключение — переключаем на playing
+            setArenaWaitTime(0);
+            setPhase("playing");
             setConnecting(false);
+
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
                 applyBalanceConfig(config);
