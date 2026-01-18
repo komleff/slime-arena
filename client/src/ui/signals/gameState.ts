@@ -403,6 +403,7 @@ export function resetGameState() {
     abilitySlots.value = { slot0: null, slot1: null, slot2: null };
     activeBoost.value = null;
     matchResults.value = null;
+    resultsWaitTime.value = 0; // Сброс таймера результатов
     // Сбрасываем matchmaking, но НЕ auth
     matchmakingStatus.value = 'idle';
     queuePosition.value = null;

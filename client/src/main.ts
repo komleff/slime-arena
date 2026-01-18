@@ -2468,8 +2468,16 @@ async function connectToServer(playerName: string, classId: number) {
                 // Если игрок подключился во время Results и ждал в 'waiting',
                 // переключаем на 'playing' когда сервер рестартирует матч
                 if (gamePhase.value === "waiting") {
-                    setPhase("playing");
-                    console.log("Сервер рестартировал матч — переключаем из waiting в playing");
+                    const selfPlayer = room.state.players.get(room.sessionId);
+                    // Проверяем, нужно ли выбрать класс (classId < 0 после рестарта матча)
+                    if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
+                        // Игрок должен выбрать класс — показываем экран выбора
+                        setClassSelectMode(true);
+                        console.log("Сервер рестартировал матч — нужно выбрать класс");
+                    } else {
+                        setPhase("playing");
+                        console.log("Сервер рестартировал матч — переключаем из waiting в playing");
+                    }
                 }
             }
             if (phase !== "Results") {
