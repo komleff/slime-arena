@@ -239,8 +239,18 @@ export const currentPlace = computed(() => {
 
 // ========== Действия ==========
 
+// Максимальный достигнутый прогресс загрузки (не откатывается назад)
+let maxBootProgress = 0;
+
 export function setBootProgress(stage: BootStage, progress: number, error?: string) {
-  bootState.value = { stage, progress, error };
+  // Прогресс может только расти, не откатываться
+  maxBootProgress = Math.max(maxBootProgress, progress);
+  bootState.value = { stage, progress: maxBootProgress, error };
+}
+
+export function resetBootProgress() {
+  maxBootProgress = 0;
+  bootState.value = { stage: 'initializing', progress: 0, error: undefined };
 }
 
 export function setGamePhase(phase: GamePhase) {

@@ -30,7 +30,7 @@
   height: 200%;
 
   /* Тайловая текстура пола (512x512, seamless) */
-  background-image: url('/backgrounds/bg_gameplay_floor_tile.png');
+  background-image: url('/backgrounds/bg_gameplay_floor_tile.webp');
   background-repeat: repeat;
   background-size: 512px 512px;
 

@@ -8,6 +8,7 @@
     "shared"
   ],
   "scripts": {
+    "dev": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"meta,match,client\" \"npm run dev:meta --workspace=server\" \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
     "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
     "start:servers": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"server,client\" \"npm run dev:server\" \"npm run dev:client\"",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "pngjs": "^7.0.0",
+    "sharp": "^0.34.5",
     "tsconfig-paths": "^4.2.0"
   }
 }
