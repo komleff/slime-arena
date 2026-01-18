@@ -59,7 +59,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -1740,8 +1740,18 @@ async function connectToServer(playerName: string, classId: number) {
                 classId,
             });
             activeRoom = room;
-            // Переключаем Preact UI на фазу "playing" ПОСЛЕ успешного подключения
-            setPhase("playing");
+            // Проверяем фазу сервера перед переключением UI
+            // Если сервер в фазе Results, показываем waiting (не playing)
+            // Это предотвращает попадание игрока в старую сессию при быстром переподключении
+            const serverPhase = room.state?.phase;
+            if (serverPhase === "Results") {
+                // Сервер ещё не рестартился — показываем экран ожидания
+                setPhase("waiting");
+                console.log("Подключение во время фазы Results — ожидаем рестарт матча");
+            } else {
+                // Нормальное подключение — переключаем на playing
+                setPhase("playing");
+            }
             setConnecting(false);
             room.onMessage("balance", (config: BalanceConfig) => {
                 if (!config) return;
@@ -2447,13 +2457,19 @@ async function connectToServer(playerName: string, classId: number) {
         const updateResultsOverlay = () => {
             const phase = room.state.phase;
 
-            // Устанавливаем флаг участия при входе в игровые фазы (Growth/Hunt/Final)
-            if (phase === "Growth" || phase === "Hunt" || phase === "Final") {
+            // Устанавливаем флаг участия при входе в игровые фазы (Spawn/Growth/Hunt/Final)
+            if (phase === "Spawn" || phase === "Growth" || phase === "Hunt" || phase === "Final") {
                 hasPlayedThisMatch = true;
                 // Сброс флагов: пользователь начал новый матч
                 if (userStayingOnResults) {
                     userStayingOnResults = false;
                     wasInResultsPhase = false;
+                }
+                // Если игрок подключился во время Results и ждал в 'waiting',
+                // переключаем на 'playing' когда сервер рестартирует матч
+                if (gamePhase.value === "waiting") {
+                    setPhase("playing");
+                    console.log("Сервер рестартировал матч — переключаем из waiting в playing");
                 }
             }
             if (phase !== "Results") {
@@ -2493,8 +2509,11 @@ async function connectToServer(playerName: string, classId: number) {
                 // Переключаем Preact UI на фазу results
                 setPhase("results");
 
-                // Запускаем клиентский таймер ожидания (15 сек до активации кнопки "Играть ещё")
-                const RESULTS_WAIT_SECONDS = 15;
+                // Запускаем клиентский таймер ожидания до активации кнопки "Играть ещё"
+                // Сервер: 12 сек (resultsDurationSec) + 3 сек (restartDelaySec) = 15 сек
+                // Клиент: 17 сек — добавляем 2 сек буфера для гарантии, что сервер рестартился
+                // Это предотвращает race condition при быстром нажатии кнопки
+                const RESULTS_WAIT_SECONDS = 17;
                 let resultsCountdown = RESULTS_WAIT_SECONDS;
                 setResultsWaitTime(resultsCountdown);
                 const resultsTimerInterval = setInterval(() => {
