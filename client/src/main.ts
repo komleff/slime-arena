@@ -2606,11 +2606,14 @@ async function connectToServer(playerName: string, classId: number) {
                 setPhase("results");
 
                 // Запускаем клиентский таймер ожидания до активации кнопки "Играть ещё"
-                // Сервер: 12 сек (resultsDurationSec) + 3 сек (restartDelaySec) = 15 сек
-                // Клиент: 17 сек — добавляем 2 сек буфера для гарантии, что сервер рестартился
-                // Это предотвращает race condition при быстром нажатии кнопки
-                const RESULTS_WAIT_SECONDS = 17;
-                let resultsCountdown = RESULTS_WAIT_SECONDS;
+                // Время = resultsDurationSec + restartDelaySec + буфер (2 сек)
+                // Буфер гарантирует, что сервер успел рестартиться
+                const BUFFER_SECONDS = 2;
+                const resultsWaitSeconds =
+                    (balanceConfig.match.resultsDurationSec ?? 12) +
+                    (balanceConfig.match.restartDelaySec ?? 3) +
+                    BUFFER_SECONDS;
+                let resultsCountdown = resultsWaitSeconds;
                 setResultsWaitTime(resultsCountdown);
                 const resultsTimerInterval = setInterval(() => {
                     resultsCountdown--;

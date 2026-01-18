@@ -11,13 +11,13 @@
     "abilityQueueSize": 1
   },
   "match": {
-    "durationSec": 30,
+    "durationSec": 180,
     "resultsDurationSec": 12,
     "restartDelaySec": 3,
     "phases": [
-      { "id": "Growth", "startSec": 0, "endSec": 10 },
-      { "id": "Hunt", "startSec": 10, "endSec": 20 },
-      { "id": "Final", "startSec": 20, "endSec": 30 }
+      { "id": "Growth", "startSec": 0, "endSec": 60 },
+      { "id": "Hunt", "startSec": 60, "endSec": 120 },
+      { "id": "Final", "startSec": 120, "endSec": 180 }
     ]
   },
   "physics": {
