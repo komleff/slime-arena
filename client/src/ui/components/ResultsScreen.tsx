@@ -8,7 +8,7 @@ import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
 import {
   matchResults,
-  matchTimer,
+  resultsWaitTime,
   selectedClassId,
   resetGameState,
 } from '../signals/gameState';
@@ -269,12 +269,12 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
         {/* Кнопки */}
         <div class="results-buttons">
           <button
-            class={`results-button ${matchTimer.value.timeLeft > 0 ? 'primary' : 'play'}`}
+            class={`results-button ${resultsWaitTime.value > 0 ? 'primary' : 'play'}`}
             onClick={handlePlayAgain}
-            disabled={matchTimer.value.timeLeft > 0}
+            disabled={resultsWaitTime.value > 0}
           >
-            {matchTimer.value.timeLeft > 0
-              ? `⏳ ${Math.ceil(matchTimer.value.timeLeft)} сек`
+            {resultsWaitTime.value > 0
+              ? `⏳ ${Math.ceil(resultsWaitTime.value)} сек`
               : '▶ Играть ещё'}
           </button>
           <button class="results-button secondary" onClick={handleExit}>

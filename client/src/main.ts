@@ -59,7 +59,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds } from "./ui/signals/gameState";
+import { resetMatchmaking, selectedClassId as selectedClassIdSignal, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -1499,7 +1499,10 @@ function hashString(str: string): number {
 function pickSpriteForPlayer(playerName: string): string {
     const name = playerName || 'Unknown';
     const hash = hashString(name);
-    return slimeSpriteNames[hash % slimeSpriteNames.length];
+    const index = hash % slimeSpriteNames.length;
+    const sprite = slimeSpriteNames[index];
+    console.log(`[SKIN DEBUG] name="${name}" hash=${hash} index=${index} sprite="${sprite}"`);
+    return sprite;
 }
 
 function getSlimeConfigForPlayer(classId: number) {
@@ -2493,6 +2496,20 @@ async function connectToServer(playerName: string, classId: number) {
                 // Переключаем Preact UI на фазу results
                 setPhase("results");
 
+                // Запускаем клиентский таймер ожидания (15 сек до активации кнопки "Играть ещё")
+                const RESULTS_WAIT_SECONDS = 15;
+                let resultsCountdown = RESULTS_WAIT_SECONDS;
+                setResultsWaitTime(resultsCountdown);
+                const resultsTimerInterval = setInterval(() => {
+                    resultsCountdown--;
+                    if (resultsCountdown <= 0) {
+                        clearInterval(resultsTimerInterval);
+                        setResultsWaitTime(0);
+                    } else {
+                        setResultsWaitTime(resultsCountdown);
+                    }
+                }, 1000);
+
                 // Получаем победителя
                 const leaderId = room.state.leaderboard?.[0];
                 const winner = leaderId ? room.state.players.get(leaderId) : null;
@@ -3249,7 +3266,11 @@ async function connectToServer(playerName: string, classId: number) {
                 const stroke = player.flags & FLAG_IS_DEAD ? "#555" : isSelf ? "#1ea6ff" : "#6ac96f";
                 const r = radius;
                 const angleRad = player.angle ?? 0;
-                const spriteName = playerSpriteById.get(id) ?? pickSpriteForPlayer(player.name);
+                const cachedSprite = playerSpriteById.get(id);
+                const spriteName = cachedSprite ?? pickSpriteForPlayer(player.name);
+                if (!cachedSprite) {
+                    console.log(`[SKIN RENDER] id=${id} NO CACHE, computed from name="${player.name}"`);
+                }
                 const sprite = loadSprite(spriteName);
                 let alpha = player.alpha ?? 1;
                 if (isInvisible && isSelf) {

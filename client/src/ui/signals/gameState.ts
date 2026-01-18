@@ -177,6 +177,10 @@ export const matchResults = signal<{
   nextMatchTimer: number;
 } | null>(null);
 
+// Таймер ожидания на экране результатов (клиентский, не серверный)
+// Когда 0 — можно нажать "Играть ещё"
+export const resultsWaitTime = signal<number>(0);
+
 // UI состояние
 export const hudVisible = signal(true);
 export const isMobile = signal(false);
@@ -371,6 +375,13 @@ export function setMatchResults(results: typeof matchResults.value) {
   if (results) {
     setGamePhase('results');
   }
+}
+
+/**
+ * Установить таймер ожидания на экране результатов (в секундах)
+ */
+export function setResultsWaitTime(seconds: number) {
+  resultsWaitTime.value = seconds;
 }
 
 export function resetGameState() {
