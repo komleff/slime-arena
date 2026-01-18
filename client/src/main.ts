@@ -729,7 +729,8 @@ const applyBalanceConfig = (config: BalanceConfig) => {
     hotZoneRadius = config.hotZones.radius;
     collectorRadiusMult = config.classes.collector.radiusMult;
     // Обновляем пороги уровней в UI для runtime config support
-    setLevelThresholds(config.slime.levelThresholds);
+    // Передаём minSlimeMass для корректного расчёта прогресса уровня 1
+    setLevelThresholds(config.slime.levelThresholds, config.physics.minSlimeMass);
     camera.x = Math.min(Math.max(camera.x, -worldWidth / 2), worldWidth / 2);
     camera.y = Math.min(Math.max(camera.y, -worldHeight / 2), worldHeight / 2);
     const cameraConfig = balanceConfig.camera ?? DEFAULT_BALANCE_CONFIG.camera;

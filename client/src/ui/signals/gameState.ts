@@ -192,7 +192,12 @@ export const safeAreaInsets = signal({ top: 0, bottom: 0, left: 0, right: 0 });
 
 // Конфигурация баланса (пороги уровней для HUD)
 // Обновляется через setLevelThresholds при получении runtime config
-export const levelThresholds = signal<number[]>([0, ...DEFAULT_BALANCE_CONFIG.slime.levelThresholds]);
+export const levelThresholds = signal<number[]>([
+  DEFAULT_BALANCE_CONFIG.physics.minSlimeMass,
+  ...DEFAULT_BALANCE_CONFIG.slime.levelThresholds
+]);
+// Минимальная масса слайма (начало уровня 1)
+export const minSlimeMass = signal<number>(DEFAULT_BALANCE_CONFIG.physics.minSlimeMass);
 
 // ========== Auth состояние ==========
 
@@ -523,18 +528,23 @@ export function resetMatchmaking() {
  * Обновить пороги уровней из runtime конфигурации.
  * Вызывается из main.ts при получении balanceConfig с сервера.
  *
+ * @param thresholds - массив порогов массы для уровней 2, 3, 4, ...
+ * @param minMass - минимальная масса слайма (начало уровня 1)
+ *
  * Merge: сохраняем переданные пороги и дополняем недостающие из дефолтов.
  * Это обеспечивает согласованность client/server при коротком массиве.
  */
-export function setLevelThresholds(thresholds: number[]) {
+export function setLevelThresholds(thresholds: number[], minMass?: number) {
   const defaults = DEFAULT_BALANCE_CONFIG.slime.levelThresholds;
   // Merge: используем переданные значения, дополняем недостающие из defaults
   // Если thresholds длиннее defaults - сохраняем все значения из thresholds
   const merged = thresholds.length >= defaults.length
     ? thresholds
     : [...thresholds, ...defaults.slice(thresholds.length)];
-  // Добавляем 0 в начало для расчёта прогресса уровня 1
-  levelThresholds.value = [0, ...merged];
+  // Используем minSlimeMass как начало уровня 1 (не 0!)
+  const startMass = minMass ?? DEFAULT_BALANCE_CONFIG.physics.minSlimeMass;
+  minSlimeMass.value = startMass;
+  levelThresholds.value = [startMass, ...merged];
 }
 
 // ========== Инициализация ==========
