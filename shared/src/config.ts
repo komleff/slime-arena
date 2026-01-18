@@ -274,7 +274,6 @@ export interface BalanceConfig {
         respawnShieldSec: number;
         lastBreathDurationSec: number;
         lastBreathSpeedPenalty: number;
-        pvpBiteVictimLossPct: number;
         pvpBiteAttackerGainPct: number;
         pvpBiteScatterPct: number;
         pvpBiteScatterOrbCount: number;
@@ -926,7 +925,6 @@ export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
         respawnShieldSec: 5,
         lastBreathDurationSec: 0.5,
         lastBreathSpeedPenalty: 0.8,
-        pvpBiteVictimLossPct: 0.20,
         pvpBiteAttackerGainPct: 0.10,
         pvpBiteScatterPct: 0.10,
         pvpBiteScatterOrbCount: 3,
@@ -2048,11 +2046,6 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                 combat.lastBreathSpeedPenalty ?? combat.lastBreathSpeedMult,
                 DEFAULT_BALANCE_CONFIG.combat.lastBreathSpeedPenalty,
                 "combat.lastBreathSpeedPenalty"
-            ),
-            pvpBiteVictimLossPct: readNumber(
-                combat.pvpBiteVictimLossPct,
-                DEFAULT_BALANCE_CONFIG.combat.pvpBiteVictimLossPct,
-                "combat.pvpBiteVictimLossPct"
             ),
             pvpBiteAttackerGainPct: readNumber(
                 combat.pvpBiteAttackerGainPct,
