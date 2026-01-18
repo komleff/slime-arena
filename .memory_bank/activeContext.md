@@ -66,9 +66,12 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
   - ✅ Исправлена гонка при нажатии "Play Again"
   - ✅ Защита от присоединения к завершённым аренам
 
-- **[В РАБОТЕ] slime-arena-8q9: PvP Bite Formula (18 января 2026):**
-  - ⏳ Формула укуса: attackerGain от массы атакующего, scatter от массы жертвы
-  - **Ветка:** sprint-12/fix-pvp-bite-formula
+- **[ЗАВЕРШЕНО] PR #94: PvP Bite Formula (18 января 2026):**
+  - ✅ attackerGain = 10% массы атакующего
+  - ✅ scatterMass = 10% массы жертвы
+  - ✅ Удалён pvpBiteVictimLossPct
+  - ✅ GDD-Combat.md обновлён (v3.4)
+  - **Beads:** slime-arena-8q9 (closed)
 
 - **[ОТМЕНЕНО] PR #87: WASD относительное управление (17 января 2026):**
   - ❌ Функционал отменён пользователем
