@@ -2757,7 +2757,7 @@ export class ArenaRoom extends Room<GameState> {
         };
     }
 
-    private clampPointToWorld(x: number, y: number) {
+    clampPointToWorld(x: number, y: number) {
         const world = this.balance.worldPhysics;
         if (world.worldShape === "circle") {
             const radius = world.radiusM ?? this.balance.world.mapSize / 2;
@@ -2846,7 +2846,7 @@ export class ArenaRoom extends Room<GameState> {
         this.matchId = randomUUID();
     }
 
-    private logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
+    logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
         if (!this.telemetry) return;
         this.telemetry.log({
             event,

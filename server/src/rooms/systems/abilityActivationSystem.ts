@@ -264,7 +264,7 @@ function activateDash(
     const rawTargetX = player.x + Math.cos(angle) * distance;
     const rawTargetY = player.y + Math.sin(angle) * distance;
 
-    // Clamp к границам мира
+    // Ограничение к границам мира
     const clamped = room.clampPointToWorld(rawTargetX, rawTargetY);
     player.dashTargetX = clamped.x;
     player.dashTargetY = clamped.y;
