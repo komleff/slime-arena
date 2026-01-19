@@ -110,6 +110,11 @@ import {
     addObstacle as addObstacleModule,
     spawnInitialOrbs as spawnInitialOrbsModule,
 } from "./systems/arenaGenerator";
+import {
+    handlePlayerDeath as handlePlayerDeathModule,
+    handlePlayerRespawn as handlePlayerRespawnModule,
+    updatePlayerLevel as updatePlayerLevelModule,
+} from "./systems/playerStateManager";
 import { getMatchResultService } from "../services/MatchResultService";
 import { MatchSummary, PlayerResult } from "@slime-arena/shared/src/types";
 import { joinTokenService, JoinTokenPayload } from "../meta/services/JoinTokenService";
@@ -638,7 +643,7 @@ export class ArenaRoom extends Room<GameState> {
         return false;
     }
 
-    private clearBoost(player: Player) {
+    clearBoost(player: Player) {
         player.boostType = "";
         player.boostEndTick = 0;
         player.boostCharges = 0;
@@ -1222,75 +1227,10 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private handlePlayerDeath(player: Player) {
-        player.isDead = true;
-        player.isLastBreath = false;
-        player.lastBreathEndTick = 0;
-        player.respawnAtTick = this.tick + this.respawnDelayTicks;
-        player.vx = 0;
-        player.vy = 0;
-        player.inputX = 0;
-        player.inputY = 0;
-        player.invisibleEndTick = 0;
-        player.doubleAbilityWindowEndTick = 0;
-        player.doubleAbilitySlot = null;
-        player.doubleAbilitySecondUsed = false;
-        this.clearBoost(player);
-
-        const killerId = player.lastDamagedById;
-        if (killerId) {
-            const killer = this.state.players.get(killerId);
-            if (killer && !killer.isDead && killer.id !== player.id) {
-                killer.killCount++;
-                this.awardKillMass(killer);
-            }
-        }
-        this.logTelemetry("player_death", {
-            killerId: killerId || null,
-            mass: player.mass,
-            classId: player.classId,
-        }, player);
-        player.lastDamagedById = "";
-        player.lastDamagedAtTick = 0;
-
-        this.spawnDeathExplosion(player);
-        this.spawnDeathNeedles(player);
-        this.spawnToxicPool(player);
-
-        const massForOrbs = player.mass * this.balance.death.massToOrbsPercent;
-        let orbsCount = this.balance.death.orbsCount;
-        
-        // Минимальная масса орба (issue 11.4)
-        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
-        if (massForOrbs < minOrbMass) return;
-        let perOrbMass = massForOrbs / Math.max(1, orbsCount);
-        if (perOrbMass < minOrbMass) {
-            orbsCount = Math.floor(massForOrbs / minOrbMass);
-            if (orbsCount <= 0) return;
-            perOrbMass = massForOrbs / orbsCount;
-        }
-
-        const count = Math.min(
-            orbsCount,
-            this.balance.orbs.maxCount - this.state.orbs.size
-        );
-        if (count <= 0) return;
-        const deathOrbColorId = this.getDamageOrbColorId(player);
-
-        for (let i = 0; i < count; i += 1) {
-            const angle = (i / count) * Math.PI * 2;
-            const spread = 30;
-            const orbX = player.x + Math.cos(angle) * spread;
-            const orbY = player.y + Math.sin(angle) * spread;
-            const orb = this.forceSpawnOrb(orbX, orbY, perOrbMass, deathOrbColorId);
-            if (orb) {
-                const spreadSpeed = 150;
-                orb.vx = Math.cos(angle) * spreadSpeed;
-                orb.vy = Math.sin(angle) * spreadSpeed;
-            }
-        }
+        handlePlayerDeathModule(this, player);
     }
 
-    private awardKillMass(player: Player) {
+    awardKillMass(player: Player) {
         const baseReward = this.balance.slime.initialMass;
         const reward = baseReward * (1 + Math.max(0, player.mod_killMassBonus));
         if (reward > 0) {
@@ -1298,7 +1238,7 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private spawnDeathExplosion(player: Player) {
+    spawnDeathExplosion(player: Player) {
         const radius = player.mod_deathExplosionRadiusM;
         const damagePct = player.mod_deathExplosionDamagePct;
         if (radius <= 0 || damagePct <= 0) return;
@@ -1370,7 +1310,7 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private spawnDeathNeedles(player: Player) {
+    spawnDeathNeedles(player: Player) {
         const count = player.mod_deathNeedlesCount;
         const damagePct = player.mod_deathNeedlesDamagePct;
         if (count <= 0 || damagePct <= 0) return;
@@ -1401,7 +1341,7 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private spawnToxicPool(player: Player) {
+    spawnToxicPool(player: Player) {
         const baseRadius = this.balance.toxicPools.radiusM;
         const durationSec = this.balance.toxicPools.durationSec;
         if (baseRadius <= 0 || durationSec <= 0) return;
@@ -1419,43 +1359,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private handlePlayerRespawn(player: Player) {
-        player.isDead = false;
-        player.isLastBreath = false;
-        player.lastBreathEndTick = 0;
-        const baseRespawn = Math.max(this.balance.death.minRespawnMass, player.mod_respawnMass);
-        const respawnMass = Math.max(
-            baseRespawn,
-            player.mass * (1 - this.balance.death.massLostPercent)
-        );
-        player.mass = respawnMass;
-        const spawn = this.findSpawnPoint(
-            this.getPlayerRadius(player),
-            this.balance.obstacles.spacing,
-            this.balance.obstacles.placementRetries
-        );
-        player.x = spawn.x;
-        player.y = spawn.y;
-        player.vx = 0;
-        player.vy = 0;
-        player.angVel = 0;
-        player.stunEndTick = 0;
-        player.frostEndTick = 0;
-        player.frostSlowPct = 0;
-        player.poisonEndTick = 0;
-        player.poisonDamagePctPerSec = 0;
-        player.poisonTickAccumulator = 0;
-        player.invisibleEndTick = 0;
-        player.slowPct = 0;
-        this.clearBoost(player);
-        player.doubleAbilityWindowEndTick = 0;
-        player.doubleAbilitySlot = null;
-        player.doubleAbilitySecondUsed = false;
-        player.lastDamagedById = "";
-        player.lastDamagedAtTick = 0;
-        player.pendingLavaScatterMass = 0;
-        player.invulnerableUntilTick = this.tick + this.respawnShieldTicks;
-        player.gcdReadyTick = this.tick;
-        player.queuedAbilitySlot = null;
+        handlePlayerRespawnModule(this, player);
     }
 
     private updateOrbs() {
@@ -1908,7 +1812,7 @@ export class ArenaRoom extends Room<GameState> {
         return { x: x + Math.cos(angle) * r, y: y + Math.sin(angle) * r };
     }
 
-    private findSpawnPoint(
+    findSpawnPoint(
         radius: number,
         padding: number,
         retries: number,
@@ -2144,7 +2048,7 @@ export class ArenaRoom extends Room<GameState> {
         this.state.chests.set(chest.id, chest);
     }
 
-    private getPlayerRadius(player: Player): number {
+    getPlayerRadius(player: Player): number {
         const slimeConfig = this.getSlimeConfig(player);
         const classStats = this.getClassStats(player);
         const leviathanMul = player.mod_leviathanRadiusMul > 0 ? player.mod_leviathanRadiusMul : 1;
@@ -2299,71 +2203,13 @@ export class ArenaRoom extends Room<GameState> {
      * При достижении level 2/4/6/7+ показывается карточка выбора таланта
      */
     private updatePlayerLevel(player: Player) {
-        const thresholds = this.balance.slime.levelThresholds;
-        const slotUnlockLevels = this.balance.slime.slotUnlockLevels;
-        const talentGrantLevels = this.balance.slime.talentGrantLevels;
-        
-        // Вычисляем текущий уровень по массе
-        // thresholds = [180, 300, 500, ...] - пороги для lvl 2, 3, 4...
-        // Игрок начинает с level 1 (при mass >= initialMass = 100)
-        let newLevel = 1;
-        for (let i = 0; i < thresholds.length; i++) {
-            if (player.mass >= thresholds[i]) {
-                newLevel = i + 2; // thresholds[0] = порог lvl 2, thresholds[1] = порог lvl 3
-            }
-        }
-        
-        // GDD v3.3 5.1: уровни 7+ дают карточки талантов за каждый уровень
-        // Пороги после базовых: 1800 * 1.5^n
-        if (thresholds.length > 0) {
-            const lastThreshold = thresholds[thresholds.length - 1];
-            let dynamicThreshold = lastThreshold * 1.5;
-            if (player.mass >= dynamicThreshold) {
-                let dynamicLevel = thresholds.length + 1;
-                while (player.mass >= dynamicThreshold) {
-                    newLevel = dynamicLevel;
-                    dynamicLevel += 1;
-                    dynamicThreshold *= 1.5;
-                }
-            }
-        }
-        
-        if (newLevel <= player.level) return;
-        
-        const oldLevel = player.level;
-        player.level = newLevel;
-        
-        // Обрабатываем каждый пройденный уровень
-        for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
-            // Проверяем разблокировку слотов умений (уровни 3, 5)
-            for (let slotIdx = 1; slotIdx < slotUnlockLevels.length; slotIdx++) {
-                const unlockLevel = slotUnlockLevels[slotIdx];
-                if (lvl === unlockLevel) {
-                    const slotProp = slotIdx === 1 ? "abilitySlot1" : "abilitySlot2";
-                    if (player[slotProp] === "") {
-                        if (!player.pendingCardSlots.includes(slotIdx)) {
-                            player.pendingCardSlots.push(slotIdx);
-                            player.pendingCardCount = player.pendingCardSlots.length;
-                        }
-                    }
-                }
-            }
-            
-            // Проверяем выдачу таланта (уровни 2, 4, 6, 7+)
-            const isTalentLevel = talentGrantLevels.includes(lvl) || lvl > thresholds.length;
-            if (isTalentLevel) {
-                this.awardTalentToPlayer(player);
-            }
-        }
-        
-        // Генерируем карточку для первого слота в очереди (если нет активной)
-        this.tryGenerateNextCard(player);
+        updatePlayerLevelModule(this, player);
     }
     
     /**
      * Пытается сгенерировать следующую карточку из очереди
      */
-    private tryGenerateNextCard(player: Player) {
+    tryGenerateNextCard(player: Player) {
         if (player.pendingAbilityCard !== null) return;
         if (player.pendingCardSlots.length === 0) return;
         
@@ -2672,7 +2518,7 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Выдаёт игроку талант (например, из сундука)
      */
-    private awardTalentToPlayer(player: Player) {
+    awardTalentToPlayer(player: Player) {
         const cardQueueMax = this.balance.talents.cardQueueMax || 3;
         
         // GDD 7.4: При переполнении очереди - принудительный автовыбор
