@@ -3,11 +3,12 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (20 января 2026)
-**Релиз:** v0.5.2
+**База:** main (20 января 2026, коммит 4f427b8)
+**Релиз:** v0.6.0 ✅
 **GDD версия:** 3.3.2
 **Текущая ветка:** main
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
+**Sprint 12 Status:** ✅ ЗАВЕРШЁН (20 января 2026)
 
 ---
 
@@ -73,10 +74,18 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
   | #95 | RenderingSystem | draw.ts | 88 | ✅ Merged |
   | #95 | GameLoopManager | GameLoopManager.ts | 144 | ✅ Merged |
   | #100 | VisualEffects | VisualEffects.ts | 204 | ✅ Merged |
+  | #102 | SmoothingSystem | SmoothingSystem.ts | 338 | ✅ Merged |
+  | #103 | PlayerStateManager | playerStateManager.ts | 181 | ✅ Merged |
 
-  **Результат:**
-  - ArenaRoom.ts: 3749 → 2807 LOC (−942, −25%)
-  - main.ts: 4109 → 3960 LOC (−149, −4%)
+  **Финальный результат (v0.6.0):**
+  - **Server:** ArenaRoom.ts 3749 → ~2480 LOC (−34%)
+  - **Client:** main.ts 4109 → ~3330 LOC (−19%)
+  - **Всего извлечено:** 2043 строки в 8 модулей
+  - **Детерминизм:** ✅ Проверен и сохранён
+  - **Тесты:** ✅ Все 4 набора проходят (determinism, orb-bite, arena-generation)
+  - **Бандл:** gzip 77.38 кБ (< 150 кБ ✅)
+  - **Время выполнения:** ~4 часа ИИ-командой vs 2-3 недели ручного разработки
+  - **Ускорение:** 30-40x
 
   **Оставшиеся модули (P3):**
   - PlayerStateManager (server)

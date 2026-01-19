@@ -2,15 +2,16 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 19 января 2026 (94068b1)
+- **last_checked_commit**: main @ 20 января 2026 (4f427b8)
 - **Текущая ветка**: `main`
-- **Релиз:** v0.5.2
+- **Релиз:** v0.6.0 ✅
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
 - **GDD версия**: v3.3.2
 
-## Последние изменения (19 января 2026)
-- **Docker Port Fix:** порт клиента в supervisord.conf исправлен с 5174 на 5173
-- v0.5.2 релиз: PvP Balance, Combat Fixes, Level Progress Bar
+## Последние изменения (20 января 2026)
+- **Sprint 12 COMPLETED:** Декомпозиция God Objects (ArenaRoom.ts, main.ts)
+- **v0.6.0 Released:** 8 модулей извлечено, 2043 LOC рефакторено, все тесты пройдены
+- **Результат:** ArenaRoom −34%, main.ts −19%, детерминизм ✅, тесты ✅
 
 ## Открытые PR
 - **PR #91:** fix(hud): correct level progress bar formula — устаревший (работа завершена в PR #93)
