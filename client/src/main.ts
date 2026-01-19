@@ -22,8 +22,6 @@ import {
     OBSTACLE_TYPE_PILLAR,
     OBSTACLE_TYPE_SPIKES,
     clamp,
-    lerp,
-    wrapAngle,
     generateRandomName,
 } from "@slime-arena/shared";
 import {
@@ -69,7 +67,7 @@ import {
     screenToWorld as screenToWorldRender,
     drawGrid as drawGridRender,
 } from "./rendering";
-import { GameLoopManager } from "./game";
+import { GameLoopManager, SmoothingSystem } from "./game";
 import { VisualEffects } from "./effects";
 
 const root = document.createElement("div");
@@ -916,20 +914,6 @@ type RenderState = {
 // U2-стиль: храним только последний снапшот
 let latestSnapshot: Snapshot | null = null;
 
-// === Visual State System (U2-style predictive smoothing) ===
-// Visual state is what we actually draw - it smoothly catches up to server state
-type VisualEntity = {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    angle: number;
-};
-const visualPlayers = new Map<string, VisualEntity>();
-const visualOrbs = new Map<string, VisualEntity>();
-const visualChests = new Map<string, VisualEntity>();
-let lastRenderMs = 0;
-
 // Тип награды сундука (для обработки сообщений)
 type ChestRewardPayload = {
     chestId: string;
@@ -948,104 +932,23 @@ const lastChestPositions = new Map<string, { x: number; y: number; type: number 
 const pendingChestRewards = new Map<string, { text: string; color: string; x: number; y: number; createdAt: number }>();
 const pendingChestRewardsMax = 64;
 
-// Флаг для заморозки визуального состояния при Results
-// При true: smoothStep не применяется, орбы остаются на месте
-// (сундуки также замораживаются в getSmoothedRenderState)
-let freezeVisualState = false;
-
-// Smoothing config - читаем из balance.json
-// velocityWeight: 0 = только catch-up, 1 = только интеграция velocity
-// Оптимально 0.6-0.8 для Slime Arena: хороший баланс между точностью и плавностью
-const getSmoothingConfig = () => balanceConfig?.clientNetSmoothing ?? {
+// Система сглаживания позиций (U2-style predictive smoothing)
+const smoothingSystem = new SmoothingSystem(() => balanceConfig?.clientNetSmoothing ?? {
     lookAheadMs: 150,
     velocityWeight: 0.7,
     catchUpSpeed: 10.0,
     maxCatchUpSpeed: 800,
     teleportThreshold: 100,
-    angleCatchUpSpeed: 12.0
-};
+    angleCatchUpSpeed: 12.0,
+});
 
 const resetSnapshotBuffer = () => {
     latestSnapshot = null;
-    visualPlayers.clear();
-    visualOrbs.clear();
-    visualChests.clear();
-    lastRenderMs = 0;
+    smoothingSystem.clear();
     visualEffects.clear();
     lastChestPositions.clear();
     pendingChestRewards.clear();
 };
-
-// Smoothly move visual state towards target with velocity integration
-// Гибрид: интегрируем velocity для предсказуемости + catch-up для коррекции ошибки
-const smoothStep = (
-    visual: VisualEntity,
-    targetX: number,
-    targetY: number,
-    targetVx: number,
-    targetVy: number,
-    targetAngle: number,
-    dtSec: number
-): void => {
-    const cfg = getSmoothingConfig();
-    
-    // Calculate position error
-    const dx = targetX - visual.x;
-    const dy = targetY - visual.y;
-    const error = Math.sqrt(dx * dx + dy * dy);
-    
-    // Teleport if error is too large (e.g., respawn)
-    if (error > cfg.teleportThreshold) {
-        visual.x = targetX;
-        visual.y = targetY;
-        visual.vx = targetVx;
-        visual.vy = targetVy;
-        visual.angle = targetAngle;
-        return;
-    }
-    
-    // Интегрируем целевую velocity (предсказуемое движение по серверной скорости)
-    // Используем targetVx, а не visual.vx, чтобы первый кадр после телепорта был корректным
-    const velocityMoveX = targetVx * dtSec;
-    const velocityMoveY = targetVy * dtSec;
-    
-    // Затем вычисляем catch-up коррекцию (устранение ошибки)
-    let correctionX = 0;
-    let correctionY = 0;
-    if (error > 0.01) {
-        const catchUpSpeed = Math.min(error * cfg.catchUpSpeed, cfg.maxCatchUpSpeed);
-        correctionX = (dx / error) * catchUpSpeed * dtSec;
-        correctionY = (dy / error) * catchUpSpeed * dtSec;
-        
-        // Don't overshoot with correction
-        if (Math.abs(correctionX) > Math.abs(dx)) correctionX = dx;
-        if (Math.abs(correctionY) > Math.abs(dy)) correctionY = dy;
-    }
-    
-    // Комбинируем: velocity движение + взвешенная коррекция
-    // velocityWeight контролирует баланс: при 0.7 это 70% velocity + 30% коррекция
-    visual.x += velocityMoveX * cfg.velocityWeight + correctionX * (1 - cfg.velocityWeight);
-    visual.y += velocityMoveY * cfg.velocityWeight + correctionY * (1 - cfg.velocityWeight);
-    
-    // Плавно приближаем visual velocity к серверной (для следующей итерации сглаживания)
-    const velocityLerp = clamp(dtSec * 8, 0, 1);
-    visual.vx = lerp(visual.vx, targetVx, velocityLerp);
-    visual.vy = lerp(visual.vy, targetVy, velocityLerp);
-    
-    // Smooth angle interpolation
-    const angleDelta = wrapAngle(targetAngle - visual.angle);
-    const angleError = Math.abs(angleDelta);
-    if (angleError > 0.001) {
-        const angleCatchUp = Math.min(angleError * cfg.angleCatchUpSpeed, Math.PI * 4) * dtSec;
-        if (angleCatchUp >= angleError) {
-            visual.angle = targetAngle;
-        } else {
-            visual.angle = wrapAngle(visual.angle + Math.sign(angleDelta) * angleCatchUp);
-        }
-    }
-};
-
-// clamp, lerp, wrapAngle теперь импортируются из @slime-arena/shared
 
 type CollectionLike<T> = {
     entries(): IterableIterator<[string, T]>;
@@ -1210,49 +1113,33 @@ const captureSnapshot = (state: GameStateLike) => {
 const getSmoothedRenderState = (nowMs: number): RenderState | null => {
     // U2-стиль: используем только последний снапшот
     if (!latestSnapshot) return null;
-    
+
     const newest = latestSnapshot;
-    
-    // Calculate frame delta
-    const dtSec = lastRenderMs > 0 ? Math.min((nowMs - lastRenderMs) / 1000, 0.1) : 0;
-    lastRenderMs = nowMs;
-    
-    // Predict target position: last known position + velocity * lookAhead
-    const lookAheadSec = getSmoothingConfig().lookAheadMs / 1000;
-    
+
+    // Вычисляем дельту времени через SmoothingSystem
+    const dtSec = smoothingSystem.updateDeltaTime(nowMs);
+    const lookAheadSec = smoothingSystem.getConfig().lookAheadMs / 1000;
+
     // Result maps
     const players = new Map<string, RenderPlayer>();
     const orbs = new Map<string, RenderOrb>();
     const chests = new Map<string, RenderChest>();
     const hotZones = new Map<string, RenderHotZone>();
     const projectiles = new Map<string, RenderProjectile>();
-    
-    // Process players with visual smoothing
+
+    // Сглаживание игроков через SmoothingSystem
     for (const [id, player] of newest.players.entries()) {
-        // Get or create visual state
-        let visual = visualPlayers.get(id);
-        if (!visual) {
-            visual = {
-                x: player.x,
-                y: player.y,
-                vx: player.vx,
-                vy: player.vy,
-                angle: player.angle,
-            };
-            visualPlayers.set(id, visual);
-        }
-        
-        // Calculate target position (server pos + velocity * lookAhead)
-        const targetX = player.x + player.vx * lookAheadSec;
-        const targetY = player.y + player.vy * lookAheadSec;
-        const targetAngle = wrapAngle(player.angle + player.angVel * lookAheadSec);
-        
-        // Smooth visual towards target
-        if (dtSec > 0) {
-            smoothStep(visual, targetX, targetY, player.vx, player.vy, targetAngle, dtSec);
-        }
-        
-        // Build render player from visual state
+        const visual = smoothingSystem.smoothPlayer(
+            id,
+            player.x,
+            player.y,
+            player.vx,
+            player.vy,
+            player.angle,
+            player.angVel,
+            dtSec
+        );
+
         players.set(id, {
             ...player,
             x: visual.x,
@@ -1262,53 +1149,25 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
             angle: visual.angle,
         });
     }
-    
-    // Clean up removed players
-    for (const id of visualPlayers.keys()) {
+
+    // Удаление отсутствующих игроков
+    for (const id of smoothingSystem.getPlayerIds()) {
         if (!newest.players.has(id)) {
-            visualPlayers.delete(id);
+            smoothingSystem.removePlayer(id);
         }
     }
-    
-    // Process orbs with visual smoothing (simplified - less critical)
+
+    // Сглаживание орбов через SmoothingSystem
     for (const [id, orb] of newest.orbs.entries()) {
-        let visual = visualOrbs.get(id);
-        if (!visual) {
-            visual = {
-                x: orb.x,
-                y: orb.y,
-                vx: orb.vx,
-                vy: orb.vy,
-                angle: 0,
-            };
-            visualOrbs.set(id, visual);
-        }
-        
-        // Orbs use simpler smoothing (just position)
-        const targetX = orb.x + orb.vx * lookAheadSec;
-        const targetY = orb.y + orb.vy * lookAheadSec;
-        
-        // При Results заморозить орбы на месте
-        if (dtSec > 0 && !freezeVisualState) {
-            // Faster catch-up for orbs
-            const cfg = getSmoothingConfig();
-            const dx = targetX - visual.x;
-            const dy = targetY - visual.y;
-            const error = Math.sqrt(dx * dx + dy * dy);
-            
-            if (error > cfg.teleportThreshold) {
-                visual.x = targetX;
-                visual.y = targetY;
-            } else if (error > 0.01) {
-                const catchUpSpeed = Math.min(error * cfg.catchUpSpeed * 1.5, cfg.maxCatchUpSpeed);
-                const t = Math.min(catchUpSpeed * dtSec / error, 1);
-                visual.x = lerp(visual.x, targetX, t);
-                visual.y = lerp(visual.y, targetY, t);
-            }
-            visual.vx = orb.vx;
-            visual.vy = orb.vy;
-        }
-        
+        const visual = smoothingSystem.smoothOrb(
+            id,
+            orb.x,
+            orb.y,
+            orb.vx,
+            orb.vy,
+            dtSec
+        );
+
         orbs.set(id, {
             ...orb,
             x: visual.x,
@@ -1317,52 +1176,25 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
             vy: visual.vy,
         });
     }
-    
-    // Clean up removed orbs
-    for (const id of visualOrbs.keys()) {
+
+    // Удаление отсутствующих орбов
+    for (const id of smoothingSystem.getOrbIds()) {
         if (!newest.orbs.has(id)) {
-            visualOrbs.delete(id);
+            smoothingSystem.removeOrb(id);
         }
     }
-    
-    // Chests - smoothing similar to orbs (they can move from push)
+
+    // Сглаживание сундуков через SmoothingSystem
     for (const [id, chest] of newest.chests.entries()) {
-        let visual = visualChests.get(id);
-        if (!visual) {
-            visual = {
-                x: chest.x,
-                y: chest.y,
-                vx: chest.vx,
-                vy: chest.vy,
-                angle: 0,
-            };
-            visualChests.set(id, visual);
-        }
-        
-        const targetX = chest.x + chest.vx * lookAheadSec;
-        const targetY = chest.y + chest.vy * lookAheadSec;
-        
-        // При Results заморозить сундуки на месте (как орбы)
-        if (dtSec > 0 && !freezeVisualState) {
-            const cfg = getSmoothingConfig();
-            const dx = targetX - visual.x;
-            const dy = targetY - visual.y;
-            const error = Math.sqrt(dx * dx + dy * dy);
-            
-            if (error > cfg.teleportThreshold) {
-                visual.x = targetX;
-                visual.y = targetY;
-            } else if (error > 0.01) {
-                // Slower catch-up for chests (they're heavy)
-                const catchUpSpeed = Math.min(error * cfg.catchUpSpeed * 0.8, cfg.maxCatchUpSpeed * 0.5);
-                const t = Math.min(catchUpSpeed * dtSec / error, 1);
-                visual.x = lerp(visual.x, targetX, t);
-                visual.y = lerp(visual.y, targetY, t);
-            }
-            visual.vx = chest.vx;
-            visual.vy = chest.vy;
-        }
-        
+        const visual = smoothingSystem.smoothChest(
+            id,
+            chest.x,
+            chest.y,
+            chest.vx,
+            chest.vy,
+            dtSec
+        );
+
         chests.set(id, {
             ...chest,
             x: visual.x,
@@ -1371,32 +1203,32 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
             vy: visual.vy,
         });
     }
-    
-    // Clean up removed chests
-    for (const id of visualChests.keys()) {
+
+    // Удаление отсутствующих сундуков
+    for (const id of smoothingSystem.getChestIds()) {
         if (!newest.chests.has(id)) {
-            visualChests.delete(id);
+            smoothingSystem.removeChest(id);
         }
     }
-    
-    // Hot zones - use direct values
+
+    // Hot zones - без сглаживания
     for (const [id, zone] of newest.hotZones.entries()) {
         hotZones.set(id, { ...zone });
     }
-    
-    // Slow zones - use direct values
+
+    // Slow zones - без сглаживания
     const slowZones = new Map<string, RenderSlowZone>();
     for (const [id, zone] of newest.slowZones.entries()) {
         slowZones.set(id, { ...zone });
     }
 
-    // Toxic pools - use direct values
+    // Toxic pools - без сглаживания
     const toxicPools = new Map<string, RenderToxicPool>();
     for (const [id, pool] of newest.toxicPools.entries()) {
         toxicPools.set(id, { ...pool });
     }
-    
-    // Projectiles - simple interpolation (they move fast)
+
+    // Projectiles - простая интерполяция (они быстрые)
     for (const [id, proj] of newest.projectiles.entries()) {
         const targetX = proj.x + proj.vx * lookAheadSec;
         const targetY = proj.y + proj.vy * lookAheadSec;
@@ -1406,13 +1238,13 @@ const getSmoothedRenderState = (nowMs: number): RenderState | null => {
             y: targetY,
         });
     }
-    
-    // Mines - use direct values (они не двигаются)
+
+    // Mines - без сглаживания (они не двигаются)
     const mines = new Map<string, RenderMine>();
     for (const [id, mine] of newest.mines.entries()) {
         mines.set(id, { ...mine });
     }
-    
+
     return {
         players,
         orbs,
@@ -2478,8 +2310,7 @@ async function connectToServer(playerName: string, classId: number) {
                     userStayingOnResults = true;
                     hasPlayedThisMatch = false; // Сброс для нового матча
                     // Очистить визуальное состояние для предотвращения "призраков" между матчами
-                    visualPlayers.clear();
-                    visualOrbs.clear();
+                    smoothingSystem.clear();
                     // НЕ переключаем UI — оставляем на экране результатов
                 }
                 if (isViewportUnlockedForResults) {
@@ -2873,7 +2704,7 @@ async function connectToServer(playerName: string, classId: number) {
             const safeZonesActive = currentPhase === "Final" && elapsedSec >= safeZonesConfig.finalStartSec;
             
             // Устанавливаем флаг заморозки визуала при Results
-            freezeVisualState = currentPhase === "Results";
+            smoothingSystem.setFrozen(currentPhase === "Results");
             
             if ((currentPhase === "Hunt" || currentPhase === "Final") && hotZonesView.size > 0) {
                 // Рисуем красный фон на весь экран
@@ -3761,8 +3592,7 @@ async function connectToServer(playerName: string, classId: number) {
             // Очистка визуальных сущностей для предотвращения "призраков"
             // Проверяем что это та же комната, чтобы избежать race condition при reconnect
             if (room === activeRoom) {
-                visualPlayers.clear();
-                visualOrbs.clear();
+                smoothingSystem.clear();
             }
 
             // Сброс направления движения для предотвращения "фантомного движения" после респауна
