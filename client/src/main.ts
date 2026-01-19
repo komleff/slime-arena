@@ -70,6 +70,7 @@ import {
     drawGrid as drawGridRender,
 } from "./rendering";
 import { GameLoopManager } from "./game";
+import { VisualEffects } from "./effects";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -929,24 +930,7 @@ const visualOrbs = new Map<string, VisualEntity>();
 const visualChests = new Map<string, VisualEntity>();
 let lastRenderMs = 0;
 
-// Система всплывающих текстов и эффектов
-type FloatingText = {
-    x: number;
-    y: number;
-    text: string;
-    color: string;
-    startMs: number;
-    durationMs: number;
-    fontSize: number;
-};
-type FlashEffect = {
-    x: number;
-    y: number;
-    color: string;
-    startMs: number;
-    durationMs: number;
-    radius: number;
-};
+// Тип награды сундука (для обработки сообщений)
 type ChestRewardPayload = {
     chestId: string;
     x: number;
@@ -955,16 +939,9 @@ type ChestRewardPayload = {
     rewardKind: "talent" | "boost" | "none";
     rewardId: string;
 };
-const floatingTexts: FloatingText[] = [];
-const flashEffects: FlashEffect[] = [];
 
-function addFloatingText(x: number, y: number, text: string, color: string, fontSize = 20, durationMs = 1200) {
-    floatingTexts.push({ x, y, text, color, startMs: performance.now(), durationMs, fontSize });
-}
-
-function addFlashEffect(x: number, y: number, color: string, radius: number, durationMs = 400) {
-    flashEffects.push({ x, y, color, startMs: performance.now(), durationMs, radius });
-}
+// Визуальные эффекты (всплывающие тексты, вспышки)
+const visualEffects = new VisualEffects();
 
 // Кэш последних позиций сундуков для эффектов при удалении
 const lastChestPositions = new Map<string, { x: number; y: number; type: number }>();
@@ -994,8 +971,7 @@ const resetSnapshotBuffer = () => {
     visualOrbs.clear();
     visualChests.clear();
     lastRenderMs = 0;
-    floatingTexts.length = 0;
-    flashEffects.length = 0;
+    visualEffects.clear();
     lastChestPositions.clear();
     pendingChestRewards.clear();
 };
@@ -2117,15 +2093,15 @@ async function connectToServer(playerName: string, classId: number) {
             if (pos) {
                 const style = chestStyles[pos.type] ?? chestStyles[0];
                 // Вспышка
-                addFlashEffect(pos.x, pos.y, style.glow, chestRadius * 4, 500);
+                visualEffects.addFlashEffect(pos.x, pos.y, style.glow, chestRadius * 4, 500);
                 const reward = pendingChestRewards.get(key);
                 if (reward) {
-                    addFloatingText(reward.x, reward.y, reward.text, reward.color, 18, 1500);
+                    visualEffects.addFloatingText(reward.x, reward.y, reward.text, reward.color, 18, 1500);
                     pendingChestRewards.delete(key);
                 } else {
                     // Всплывающий текст по умолчанию
                     const rewardText = pos.type === 2 ? "💰 Сокровище!" : pos.type === 1 ? "💎 Награда!" : "🎁 +Талант";
-                    addFloatingText(pos.x, pos.y, rewardText, style.fill, 18, 1500);
+                    visualEffects.addFloatingText(pos.x, pos.y, rewardText, style.fill, 18, 1500);
                 }
                 lastChestPositions.delete(key);
             }
@@ -2266,7 +2242,7 @@ async function connectToServer(playerName: string, classId: number) {
                 return;
             }
             pendingChestRewards.delete(payload.chestId);
-            addFloatingText(entry.x, entry.y, entry.text, entry.color, 18, 1500);
+            visualEffects.addFloatingText(entry.x, entry.y, entry.text, entry.color, 18, 1500);
         });
 
         const trimPendingChestRewards = () => {
@@ -3610,60 +3586,8 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Legacy updateCooldownUi удалён — кулдауны обновляются через Preact syncAbilityCooldown
 
-            // Отрисовка эффектов вспышки (в мировых координатах)
-            const nowMs = performance.now();
-            for (let i = flashEffects.length - 1; i >= 0; i--) {
-                const fx = flashEffects[i];
-                const elapsed = nowMs - fx.startMs;
-                if (elapsed > fx.durationMs) {
-                    flashEffects.splice(i, 1);
-                    continue;
-                }
-                const progress = elapsed / fx.durationMs;
-                const alpha = 1 - progress;
-                const currentRadius = fx.radius * (1 + progress * 0.5);
-                const screenPos = worldToScreen(fx.x, fx.y, scale, camera.x, camera.y, cw, ch);
-                canvasCtx.save();
-                canvasCtx.globalAlpha = alpha * 0.8;
-                const gradient = canvasCtx.createRadialGradient(
-                    screenPos.x, screenPos.y, 0,
-                    screenPos.x, screenPos.y, currentRadius * scale
-                );
-                gradient.addColorStop(0, fx.color);
-                gradient.addColorStop(1, "transparent");
-                canvasCtx.fillStyle = gradient;
-                canvasCtx.beginPath();
-                canvasCtx.arc(screenPos.x, screenPos.y, currentRadius * scale, 0, Math.PI * 2);
-                canvasCtx.fill();
-                canvasCtx.restore();
-            }
-
-            // Отрисовка всплывающих текстов
-            for (let i = floatingTexts.length - 1; i >= 0; i--) {
-                const ft = floatingTexts[i];
-                const elapsed = nowMs - ft.startMs;
-                if (elapsed > ft.durationMs) {
-                    floatingTexts.splice(i, 1);
-                    continue;
-                }
-                const progress = elapsed / ft.durationMs;
-                const alpha = 1 - progress;
-                const yOffset = -30 * progress; // Поднимается вверх
-                const screenPos = worldToScreen(ft.x, ft.y + yOffset, scale, camera.x, camera.y, cw, ch);
-                canvasCtx.save();
-                canvasCtx.globalAlpha = alpha;
-                canvasCtx.font = `bold ${ft.fontSize}px Arial, sans-serif`;
-                canvasCtx.textAlign = "center";
-                canvasCtx.textBaseline = "middle";
-                // Тень для читаемости
-                canvasCtx.shadowColor = "rgba(0,0,0,0.8)";
-                canvasCtx.shadowBlur = 4;
-                canvasCtx.shadowOffsetX = 1;
-                canvasCtx.shadowOffsetY = 1;
-                canvasCtx.fillStyle = ft.color;
-                canvasCtx.fillText(ft.text, screenPos.x, screenPos.y);
-                canvasCtx.restore();
-            }
+            // Отрисовка визуальных эффектов (вспышки и всплывающие тексты)
+            visualEffects.draw(canvasCtx, scale, camera.x, camera.y, cw, ch);
 
             // Minimap
             drawMinimap(
