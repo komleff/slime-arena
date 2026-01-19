@@ -3,7 +3,7 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (19 января 2026)
+**База:** main (20 января 2026)
 **Релиз:** v0.5.2
 **GDD версия:** 3.3.2
 **Текущая ветка:** main
@@ -59,6 +59,31 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
 - **Версия контейнера:** 0.5.2
 
 ### Фокус сессии
+
+- **[ЗАВЕРШЕНО] Sprint 12: God Objects Decomposition (19-20 января 2026):**
+  - **Architect:** Claude Opus 4.5
+  - **План:** `.claude/plans/wondrous-bubbling-hollerith.md`
+  - **Worktrees:** ar1 (server), mt1 (client) — удалены после завершения
+
+  | PR | Модуль | Файл | LOC | Статус |
+  |----|--------|------|-----|--------|
+  | #96 | CombatSystem | combatSystem.ts | 413 | ✅ Merged |
+  | #98 | AbilityActivationSystem | abilityActivationSystem.ts | 599 | ✅ Merged |
+  | #99 | ArenaGenerator | arenaGenerator.ts | 76 | ✅ Merged |
+  | #95 | RenderingSystem | draw.ts | 88 | ✅ Merged |
+  | #95 | GameLoopManager | GameLoopManager.ts | 144 | ✅ Merged |
+  | #100 | VisualEffects | VisualEffects.ts | 204 | ✅ Merged |
+
+  **Результат:**
+  - ArenaRoom.ts: 3749 → 2807 LOC (−942, −25%)
+  - main.ts: 4109 → 3960 LOC (−149, −4%)
+
+  **Оставшиеся модули (P3):**
+  - PlayerStateManager (server)
+  - SmoothingSystem (client)
+
+  **Документация обновлена:**
+  - AGENT_ROLES.md v1.5 — формат ревью в PR с именем модели
 
 - **[ЗАВЕРШЕНО] Docker Port Fix (19 января 2026):**
   - ✅ Исправлено несоответствие портов клиента (5174 → 5173) в supervisord.conf
