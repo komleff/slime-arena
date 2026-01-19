@@ -63,6 +63,14 @@ import { chestSystem, updateChests } from "./systems/chestSystem";
 import { collisionSystem } from "./systems/collisionSystem";
 import { deathSystem } from "./systems/deathSystem";
 import {
+    processCombat as processCombatModule,
+    applyShieldReflection as applyShieldReflectionModule,
+    spawnPvPBiteOrbs as spawnPvPBiteOrbsModule,
+    applyProjectileDamage as applyProjectileDamageModule,
+    applySelfDamage as applySelfDamageModule,
+    explodeBomb as explodeBombModule,
+} from "./systems/combatSystem";
+import {
     slowZoneSystem,
     statusEffectSystem,
     toxicPoolSystem,
@@ -741,14 +749,14 @@ export class ArenaRoom extends Room<GameState> {
         console.warn(`[setAbilityLevelForSlot] invalid slot ${slot}`);
     }
 
-    private getAbilityLevelForAbility(player: Player, abilityId: string): number {
+    getAbilityLevelForAbility(player: Player, abilityId: string): number {
         if (player.abilitySlot0 === abilityId) return this.getAbilityLevelForSlot(player, 0);
         if (player.abilitySlot1 === abilityId) return this.getAbilityLevelForSlot(player, 1);
         if (player.abilitySlot2 === abilityId) return this.getAbilityLevelForSlot(player, 2);
         return 0;
     }
 
-    private getAbilityConfigById(abilityId: string, level: number) {
+    getAbilityConfigById(abilityId: string, level: number) {
         const abilities = this.balance.abilities as any;
         const safeLevel = Math.max(1, Math.min(3, Math.floor(level)));
         const resolveLevel = (config: any) => {
@@ -826,7 +834,7 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(0, this.balance.boosts.haste.speedMul);
     }
 
-    private tryConsumeGuard(player: Player): boolean {
+    tryConsumeGuard(player: Player): boolean {
         if (!this.isBoostActive(player, "guard")) return false;
         if (player.boostCharges <= 0) {
             this.clearBoost(player);
@@ -914,18 +922,18 @@ export class ArenaRoom extends Room<GameState> {
         );
     }
 
-    private getDamageBonusMultiplier(attacker: Player, includeBiteBonus: boolean): number {
+    getDamageBonusMultiplier(attacker: Player, includeBiteBonus: boolean): number {
         const bonus = attacker.mod_damageBonus + (includeBiteBonus ? attacker.mod_biteDamageBonus : 0);
         return Math.max(0, (1 + bonus) * this.getRageDamageMultiplier(attacker));
     }
 
-    private getDamageTakenMultiplier(defender: Player): number {
+    getDamageTakenMultiplier(defender: Player): number {
         const reduction = this.clamp(defender.mod_allDamageReduction, 0, 0.9);
         const takenMultiplier = Math.max(0, 1 + defender.mod_damageTakenBonus);
         return takenMultiplier * (1 - reduction);
     }
 
-    private clearInvisibility(player: Player) {
+    clearInvisibility(player: Player) {
         if (this.tick < player.invisibleEndTick) {
             player.invisibleEndTick = 0;
         }
@@ -1431,222 +1439,12 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private processCombat(attacker: Player, defender: Player, dx: number, dy: number) {
-        if (attacker.isDead || defender.isDead) return;
-        if (attacker.stunEndTick > this.tick) return;
-        if (this.tick < attacker.lastAttackTick + this.attackCooldownTicks) return;
-        // GDD v3.3: GCD между умениями и укусами
-        if (this.tick < attacker.gcdReadyTick) return;
-        
-        // Неуязвимость защитника - укус не проходит, но GCD применяется
-        if (this.tick < defender.invulnerableUntilTick) {
-            attacker.lastAttackTick = this.tick;
-            attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-            return;
-        }
-        
-        const attackerZone = this.getContactZone(attacker, dx, dy);
-        if (attackerZone !== "mouth") return;
-
-        const defenderZone = this.getContactZone(defender, -dx, -dy);
-        let zoneMultiplier = 1;
-        if (defenderZone === "tail") {
-            zoneMultiplier = this.balance.combat.tailDamageMultiplier;
-        } else if (defenderZone === "mouth") {
-            const attackerMass = attacker.mass;
-            const defenderMass = defender.mass;
-            if (!(attackerMass > defenderMass * 1.1)) {
-                attacker.lastAttackTick = this.tick;
-                attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-                return;
-            }
-        }
-
-        const classStats = this.getClassStats(attacker);
-        const defenderClassStats = this.getClassStats(defender);
-        const minSlimeMass = this.balance.physics.minSlimeMass;
-        
-        // PvP Bite Formula (из ТЗ):
-        // - Атакующий получает 10% СВОЕЙ массы за счёт жертвы
-        // - Жертва дополнительно теряет 10% СВОЕЙ массы в виде пузырей
-        // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
-
-        // 1. Атакующий получает % от СВОЕЙ массы
-        const attackerMassBefore = attacker.mass;
-        let damageBonusMult = this.getDamageBonusMultiplier(attacker, true);
-        if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
-            damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
-        }
-        const attackerGainBase = attackerMassBefore * this.balance.combat.pvpBiteAttackerGainPct;
-        let attackerGain = attackerGainBase * zoneMultiplier * classStats.damageMult * damageBonusMult;
-
-        // 2. Жертва теряет % СВОЕЙ массы как пузыри
-        const defenderMassBefore = defender.mass;
-        const damageTakenMult = this.getDamageTakenMultiplier(defender);
-        // Защита от укусов: класс + талант (cap 50%)
-        const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
-        const scatterBase = defenderMassBefore * this.balance.combat.pvpBiteScatterPct;
-        let scatterMass = scatterBase * zoneMultiplier * damageTakenMult * (1 - totalResist);
-
-        // 3. Общая потеря жертвы = attackerGain + scatterMass
-        let massLoss = attackerGain + scatterMass;
-
-        attacker.lastAttackTick = this.tick;
-        // GDD v3.3: GCD после укуса слайма
-        attacker.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-
-        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
-            this.applyShieldReflection(defender, attacker, massLoss);
-            this.clearInvisibility(attacker);
-            return;
-        }
-
-        if (this.tryConsumeGuard(defender)) {
-            this.clearInvisibility(attacker);
-            return;
-        }
-
-        // Vampire talents: перенаправляют часть scatter в attackerGain
-        if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
-            const baseGainPct = this.balance.combat.pvpBiteAttackerGainPct;
-            const vampirePct = attacker.mod_vampireSideGainPct;
-            const bonusPct = vampirePct - baseGainPct;
-            if (bonusPct > 0 && scatterMass > 0) {
-                const transferred = scatterMass * Math.min(1, bonusPct / this.balance.combat.pvpBiteScatterPct);
-                attackerGain += transferred;
-                scatterMass -= transferred;
-            }
-        } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
-            const baseGainPct = this.balance.combat.pvpBiteAttackerGainPct;
-            const vampirePct = attacker.mod_vampireTailGainPct;
-            const bonusPct = vampirePct - baseGainPct;
-            if (bonusPct > 0 && scatterMass > 0) {
-                const transferred = scatterMass * Math.min(1, bonusPct / this.balance.combat.pvpBiteScatterPct);
-                attackerGain += transferred;
-                scatterMass -= transferred;
-            }
-        }
-
-        // Пересчитываем massLoss после vampire talents
-        massLoss = attackerGain + scatterMass;
-
-        // Проверка Last Breath: если масса упадёт ниже минимума
-        const newDefenderMass = defender.mass - massLoss;
-        const triggersLastBreath =
-            newDefenderMass <= minSlimeMass &&
-            !defender.isLastBreath &&
-            this.lastBreathTicks > 0 &&
-            !defender.isDead;
-
-        // При Last Breath ограничиваем потерю и масштабируем награды пропорционально
-        if (triggersLastBreath) {
-            const maxLoss = Math.max(0, defender.mass - minSlimeMass);
-            if (massLoss > 0) {
-                const scale = maxLoss / massLoss;
-                attackerGain *= scale;
-                scatterMass *= scale;
-                massLoss = maxLoss;
-            }
-        }
-
-        // Применяем потерю массы жертвы
-        this.applyMassDelta(defender, -massLoss);
-        const defenderMassAfter = defender.mass;
-        const actualLoss = defenderMassBefore - defenderMassAfter;
-
-        // ИНВАРИАНТ: масштабируем награды по фактической потере (после clamp в applyMassDelta)
-        // Это гарантирует, что масса не создаётся из воздуха
-        if (massLoss > 0 && actualLoss < massLoss) {
-            const scale = actualLoss / massLoss;
-            attackerGain *= scale;
-            scatterMass *= scale;
-        }
-
-        // Применяем прибыль атакующему
-        this.applyMassDelta(attacker, attackerGain);
-        defender.lastDamagedById = attacker.id;
-        defender.lastDamagedAtTick = this.tick;
-        
-        // Талант "Шипы" (Warrior): отражение урона атакующему
-        if (defender.mod_thornsDamage > 0 && actualLoss > 0) {
-            const reflectedDamage = actualLoss * defender.mod_thornsDamage;
-            if (reflectedDamage > 0 && !this.tryConsumeGuard(attacker)) {
-                this.applyMassDelta(attacker, -reflectedDamage);
-                // Scatter orbs цвета атакующего от отражённого урона
-                const scatterReflected = reflectedDamage * this.balance.combat.pvpBiteScatterPct;
-                this.spawnPvPBiteOrbs(attacker.x, attacker.y, scatterReflected, this.getDamageOrbColorId(attacker));
-            }
-        }
-        
-        // Талант "Паразит" (Collector): кража массы при нанесении урона
-        if (attacker.mod_parasiteMass > 0 && actualLoss > 0) {
-            const stolenMass = actualLoss * attacker.mod_parasiteMass;
-            this.applyMassDelta(attacker, stolenMass);
-        }
-        
-        // Scatter orbs: разлёт пузырей цвета жертвы
-        if (scatterMass > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, scatterMass, this.getDamageOrbColorId(defender));
-        }
-
-        if (attacker.mod_poisonDamagePctPerSec > 0 && attacker.mod_poisonDurationSec > 0) {
-            defender.poisonDamagePctPerSec = Math.max(
-                defender.poisonDamagePctPerSec,
-                attacker.mod_poisonDamagePctPerSec
-            );
-            defender.poisonEndTick = Math.max(
-                defender.poisonEndTick,
-                this.tick + this.secondsToTicks(attacker.mod_poisonDurationSec)
-            );
-        }
-
-        if (attacker.mod_frostSlowPct > 0 && attacker.mod_frostDurationSec > 0) {
-            defender.frostSlowPct = Math.max(defender.frostSlowPct, attacker.mod_frostSlowPct);
-            defender.frostEndTick = Math.max(
-                defender.frostEndTick,
-                this.tick + this.secondsToTicks(attacker.mod_frostDurationSec)
-            );
-        }
-
-        if (attacker.mod_lightningStunSec > 0) {
-            defender.stunEndTick = Math.max(
-                defender.stunEndTick,
-                this.tick + this.secondsToTicks(attacker.mod_lightningStunSec)
-            );
-        }
-
-        this.clearInvisibility(attacker);
-
-        // Активируем Last Breath после применения массы
-        if (triggersLastBreath) {
-            defender.isLastBreath = true;
-            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
-            defender.invulnerableUntilTick = defender.lastBreathEndTick;
-            return;
-        }
-
-        defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+    processCombat(attacker: Player, defender: Player, dx: number, dy: number) {
+        processCombatModule(this, attacker, defender, dx, dy);
     }
 
-    private applyShieldReflection(defender: Player, attacker: Player, incomingLoss: number) {
-        if (incomingLoss <= 0) return;
-        if (attacker.isDead || attacker.isLastBreath) return;
-        if (this.tick < attacker.invulnerableUntilTick) return;
-
-        const shieldLevel = this.getAbilityLevelForAbility(defender, "shield") || 1;
-        const shieldConfig = this.getAbilityConfigById("shield", shieldLevel);
-        const reflectPct = Math.max(0, Number(shieldConfig.reflectDamagePct ?? 0));
-        if (reflectPct <= 0) return;
-
-        const reflectedDamage = incomingLoss * reflectPct;
-        if (reflectedDamage <= 0) return;
-
-        if (this.tryConsumeGuard(attacker)) return;
-
-        this.applyMassDelta(attacker, -reflectedDamage);
-        attacker.lastDamagedById = defender.id;
-        attacker.lastDamagedAtTick = this.tick;
-        this.spawnPvPBiteOrbs(attacker.x, attacker.y, reflectedDamage * 0.5, this.getDamageOrbColorId(attacker));
+    applyShieldReflection(defender: Player, attacker: Player, incomingLoss: number) {
+        applyShieldReflectionModule(this, defender, attacker, incomingLoss);
     }
 
     /**
@@ -1654,42 +1452,8 @@ export class ArenaRoom extends Room<GameState> {
      * Эти орбы игнорируют maxCount - боевая механика важнее лимита.
      * @param colorId - colorId орбов (classId + 10 или золотой для Короля)
      */
-    private spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
-        const count = this.balance.combat.pvpBiteScatterOrbCount;
-        const minOrbMass = this.balance.combat.scatterOrbMinMass ?? 5;
-        if (count <= 0 || totalMass <= 0) return;
-        if (totalMass < minOrbMass) return;
-        
-        // Если общая масса слишком мала - не создаём мелкие орбы
-        const perOrbMass = totalMass / count;
-        if (perOrbMass < minOrbMass) {
-            // Объединяем в меньшее количество орбов с минимальной массой
-            const actualCount = Math.floor(totalMass / minOrbMass);
-            if (actualCount <= 0) return; // Масса слишком мала даже для 1 орба
-            
-            const actualPerOrb = totalMass / actualCount;
-            const angleStep = (Math.PI * 2) / actualCount;
-            const speed = this.balance.combat.pvpBiteScatterSpeed;
-            
-            for (let i = 0; i < actualCount; i++) {
-                const angle = i * angleStep + this.rng.range(-0.3, 0.3);
-                const orb = this.forceSpawnOrb(x, y, actualPerOrb, colorId);
-                orb.vx = Math.cos(angle) * speed;
-                orb.vy = Math.sin(angle) * speed;
-            }
-            return;
-        }
-        
-        const angleStep = (Math.PI * 2) / count;
-        const speed = this.balance.combat.pvpBiteScatterSpeed;
-        
-        for (let i = 0; i < count; i++) {
-            const angle = i * angleStep + this.rng.range(-0.3, 0.3);
-            // Force spawn: scatter orbs игнорируют maxCount
-            const orb = this.forceSpawnOrb(x, y, perOrbMass, colorId);
-            orb.vx = Math.cos(angle) * speed;
-            orb.vy = Math.sin(angle) * speed;
-        }
+    spawnPvPBiteOrbs(x: number, y: number, totalMass: number, colorId?: number): void {
+        spawnPvPBiteOrbsModule(this, x, y, totalMass, colorId);
     }
     
     private projectileSystem() {
@@ -1699,25 +1463,8 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Взрыв бомбы - AoE урон всем в радиусе
      */
-    private explodeBomb(proj: Projectile) {
-        const owner = this.state.players.get(proj.ownerId);
-        if (!owner || owner.isDead) return;
-        
-        const radiusSq = proj.explosionRadiusM * proj.explosionRadiusM;
-        
-        for (const player of this.state.players.values()) {
-            if (player.isDead || player.id === proj.ownerId) continue;
-            if (player.isLastBreath) continue;
-            if (this.tick < player.invulnerableUntilTick) continue;
-            
-            const dx = player.x - proj.x;
-            const dy = player.y - proj.y;
-            const distSq = dx * dx + dy * dy;
-            
-            if (distSq <= radiusSq) {
-                this.applyProjectileDamage(owner, player, proj.damagePct);
-            }
-        }
+    explodeBomb(proj: Projectile) {
+        explodeBombModule(this, proj);
     }
     
     /**
@@ -1727,93 +1474,15 @@ export class ArenaRoom extends Room<GameState> {
         mineSystem(this);
     }
     
-    private applyProjectileDamage(attacker: Player, defender: Player, damagePct: number) {
-        const minSlimeMass = this.balance.physics.minSlimeMass;
-        
-        // Защита от укусов применяется и к снарядам
-        const defenderClassStats = this.getClassStats(defender);
-        const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
-        
-        const damageBonusMult = this.getDamageBonusMultiplier(attacker, false);
-        const damageTakenMult = this.getDamageTakenMultiplier(defender);
-        let massLoss = defender.mass * damagePct * damageBonusMult * damageTakenMult * (1 - totalResist);
-        
-        // Last Breath check
-        const newDefenderMass = defender.mass - massLoss;
-        const triggersLastBreath =
-            newDefenderMass <= minSlimeMass &&
-            !defender.isLastBreath &&
-            this.lastBreathTicks > 0 &&
-            !defender.isDead;
-        
-        if (triggersLastBreath) {
-            massLoss = Math.max(0, defender.mass - minSlimeMass);
-        }
-
-        if ((defender.flags & FLAG_ABILITY_SHIELD) !== 0) {
-            this.applyShieldReflection(defender, attacker, massLoss);
-            return;
-        }
-
-        if (this.tryConsumeGuard(defender)) {
-            return;
-        }
-
-        // Снаряд не даёт массу атакующему (только урон)
-        this.applyMassDelta(defender, -massLoss);
-        defender.lastDamagedById = attacker.id;
-        defender.lastDamagedAtTick = this.tick;
-        
-        // Scatter orbs цвета жертвы от урона снаряда
-        if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(defender.x, defender.y, massLoss * 0.5, this.getDamageOrbColorId(defender));
-        }
-        
-        if (triggersLastBreath) {
-            defender.isLastBreath = true;
-            defender.lastBreathEndTick = this.tick + this.lastBreathTicks;
-            defender.invulnerableUntilTick = defender.lastBreathEndTick;
-            return;
-        }
-        
-        defender.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+    applyProjectileDamage(attacker: Player, defender: Player, damagePct: number) {
+        applyProjectileDamageModule(this, attacker, defender, damagePct);
     }
 
     /**
      * Самоурон (от своей мины) - без передачи массы, но с Last Breath
      */
-    private applySelfDamage(player: Player, damagePct: number) {
-        const minSlimeMass = this.balance.physics.minSlimeMass;
-        
-        let massLoss = player.mass * damagePct;
-        
-        // Last Breath check
-        const newMass = player.mass - massLoss;
-        const triggersLastBreath =
-            newMass <= minSlimeMass &&
-            !player.isLastBreath &&
-            this.lastBreathTicks > 0 &&
-            !player.isDead;
-        
-        if (triggersLastBreath) {
-            massLoss = Math.max(0, player.mass - minSlimeMass);
-        }
-        
-        this.applyMassDelta(player, -massLoss);
-        
-        // Scatter orbs от самоурона
-        if (massLoss > 0) {
-            this.spawnPvPBiteOrbs(player.x, player.y, massLoss * 0.5, this.getDamageOrbColorId(player));
-        }
-        
-        if (triggersLastBreath) {
-            player.isLastBreath = true;
-            player.lastBreathEndTick = this.tick + this.lastBreathTicks;
-            player.invulnerableUntilTick = player.lastBreathEndTick;
-            return;
-        }
-        
-        player.invulnerableUntilTick = this.tick + this.invulnerableTicks;
+    applySelfDamage(player: Player, damagePct: number) {
+        applySelfDamageModule(this, player, damagePct);
     }
 
     private chestSystem() {
@@ -2057,7 +1726,7 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(0, types.length - 1);
     }
 
-    private getDamageOrbColorId(player: Player): number {
+    getDamageOrbColorId(player: Player): number {
         if (this.state.rebelId && player.id === this.state.rebelId) {
             return this.getOrbTypeIndexById("gold");
         }
@@ -2952,7 +2621,7 @@ export class ArenaRoom extends Room<GameState> {
     /**
      * Создаёт орб без проверки maxCount (для scatter orbs и death orbs).
      */
-    private forceSpawnOrb(x?: number, y?: number, massOverride?: number, colorId?: number): Orb {
+    forceSpawnOrb(x?: number, y?: number, massOverride?: number, colorId?: number): Orb {
         const typePick = this.pickOrbType();
         const mass =
             massOverride ??
@@ -3052,7 +2721,7 @@ export class ArenaRoom extends Room<GameState> {
         };
     }
 
-    private getClassStats(player: Player): ClassStats {
+    getClassStats(player: Player): ClassStats {
         switch (player.classId) {
             case 1:
                 return {
@@ -3085,7 +2754,7 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private getContactZone(attacker: Player, dx: number, dy: number): ContactZone {
+    getContactZone(attacker: Player, dx: number, dy: number): ContactZone {
         const angleToTarget = Math.atan2(dy, dx);
         const diff = this.normalizeAngle(angleToTarget - attacker.angle);
         const mouthHalf = this.getMouthHalfAngle(attacker);
@@ -3170,14 +2839,14 @@ export class ArenaRoom extends Room<GameState> {
      * @param player - игрок
      * @param delta - изменение массы (может быть отрицательным)
      */
-    private applyMassDelta(player: Player, delta: number) {
+    applyMassDelta(player: Player, delta: number) {
         if (!Number.isFinite(delta) || delta === 0) return;
         const minMass = this.balance.physics.minSlimeMass;
         const nextMass = Math.max(minMass, player.mass + delta);
         if (nextMass === player.mass) return;
         const oldMass = player.mass;
         player.mass = nextMass;
-        
+
         // Проверяем изменение уровня при росте массы
         if (nextMass > oldMass) {
             this.updatePlayerLevel(player);
@@ -3584,7 +3253,7 @@ export class ArenaRoom extends Room<GameState> {
         return Math.max(min, Math.min(max, value));
     }
 
-    private secondsToTicks(seconds: number): number {
+    secondsToTicks(seconds: number): number {
         if (!Number.isFinite(seconds) || seconds <= 0) return 0;
         return Math.max(1, Math.round(seconds * this.balance.server.tickRate));
     }
