@@ -2,7 +2,16 @@
 # Slime Arena Monolith Container
 # Multi-stage production build for MetaServer + MatchServer + Client
 # Version: 0.5.2
+# Platforms: linux/amd64, linux/arm64
 # =============================================================================
+
+# OCI Image Labels
+LABEL org.opencontainers.image.title="Slime Arena App"
+LABEL org.opencontainers.image.description="Slime Arena game server bundle: MetaServer + MatchServer + Client. Multi-platform support: AMD64 (Intel/AMD) and ARM64 (Apple Silicon M1-M4, AWS Graviton)."
+LABEL org.opencontainers.image.vendor="komleff"
+LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
+LABEL org.opencontainers.image.documentation="https://github.com/komleff/slime-arena#docker"
+LABEL org.opencontainers.image.licenses="MIT"
 
 # -----------------------------------------------------------------------------
 # Stage 1: Builder
