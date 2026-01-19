@@ -104,7 +104,8 @@ export function drawSprite(
 }
 
 /**
- * Конвертирует мировые координаты в экранные
+ * Конвертирует мировые координаты в экранные.
+ * Ось Y инвертирована: мировая Y растёт вверх, экранная — вниз.
  */
 export function worldToScreen(
     x: number,
@@ -117,8 +118,90 @@ export function worldToScreen(
 ): { x: number; y: number } {
     return {
         x: (x - camX) * scale + canvasWidth / 2,
-        y: (y - camY) * scale + canvasHeight / 2,
+        y: (camY - y) * scale + canvasHeight / 2,
     };
+}
+
+/**
+ * Конвертирует экранные координаты в мировые.
+ * Ось Y инвертирована: мировая Y растёт вверх, экранная — вниз.
+ */
+export function screenToWorld(
+    screenX: number,
+    screenY: number,
+    scale: number,
+    camX: number,
+    camY: number,
+    canvasWidth: number,
+    canvasHeight: number
+): { x: number; y: number } {
+    return {
+        x: (screenX - canvasWidth / 2) / scale + camX,
+        y: camY - (screenY - canvasHeight / 2) / scale,
+    };
+}
+
+/**
+ * Рисует сетку арены
+ */
+export function drawGrid(
+    ctx: CanvasRenderingContext2D,
+    scale: number,
+    camX: number,
+    camY: number,
+    canvasWidth: number,
+    canvasHeight: number,
+    worldWidth: number,
+    worldHeight: number
+): void {
+    const step = 200;
+    const majorStep = step * 5;
+    const halfW = canvasWidth / scale / 2;
+    const halfH = canvasHeight / scale / 2;
+    const worldHalfW = worldWidth / 2;
+    const worldHalfH = worldHeight / 2;
+    const startX = Math.max(-worldHalfW, Math.floor((camX - halfW) / step) * step);
+    const endX = Math.min(worldHalfW, Math.ceil((camX + halfW) / step) * step);
+    const startY = Math.max(-worldHalfH, Math.floor((camY - halfH) / step) * step);
+    const endY = Math.min(worldHalfH, Math.ceil((camY + halfH) / step) * step);
+
+    // Обычные линии сетки
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1;
+    for (let x = startX; x <= endX; x += step) {
+        if (x % majorStep === 0) continue;
+        const screen = worldToScreen(x, 0, scale, camX, camY, canvasWidth, canvasHeight);
+        ctx.beginPath();
+        ctx.moveTo(screen.x, 0);
+        ctx.lineTo(screen.x, canvasHeight);
+        ctx.stroke();
+    }
+    for (let y = startY; y <= endY; y += step) {
+        if (y % majorStep === 0) continue;
+        const screen = worldToScreen(0, y, scale, camX, camY, canvasWidth, canvasHeight);
+        ctx.beginPath();
+        ctx.moveTo(0, screen.y);
+        ctx.lineTo(canvasWidth, screen.y);
+        ctx.stroke();
+    }
+
+    // Основные линии (каждые 5 клеток) — ярче и толще
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 2;
+    for (let x = Math.ceil(startX / majorStep) * majorStep; x <= endX; x += majorStep) {
+        const screen = worldToScreen(x, 0, scale, camX, camY, canvasWidth, canvasHeight);
+        ctx.beginPath();
+        ctx.moveTo(screen.x, 0);
+        ctx.lineTo(screen.x, canvasHeight);
+        ctx.stroke();
+    }
+    for (let y = Math.ceil(startY / majorStep) * majorStep; y <= endY; y += majorStep) {
+        const screen = worldToScreen(0, y, scale, camX, camY, canvasWidth, canvasHeight);
+        ctx.beginPath();
+        ctx.moveTo(0, screen.y);
+        ctx.lineTo(canvasWidth, screen.y);
+        ctx.stroke();
+    }
 }
 
 /**
