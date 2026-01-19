@@ -2,11 +2,18 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 12 января 2026
-- **Текущая ветка**: `feat/ui-arena-improvements`
-- **Релиз игрового прототипа:** v0.4.0
+- **last_checked_commit**: main @ 19 января 2026 (94068b1)
+- **Текущая ветка**: `main`
+- **Релиз:** v0.5.2
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
 - **GDD версия**: v3.3.2
+
+## Последние изменения (19 января 2026)
+- **Docker Port Fix:** порт клиента в supervisord.conf исправлен с 5174 на 5173
+- v0.5.2 релиз: PvP Balance, Combat Fixes, Level Progress Bar
+
+## Открытые PR
+- **PR #91:** fix(hud): correct level progress bar formula — устаревший (работа завершена в PR #93)
 
 ## Последние изменения (dev config)
 - client/vite.config.ts: HMR host/protocol теперь задаются через `VITE_HMR_HOST` и `VITE_HMR_PROTOCOL` для корректной работы по локальной сети.

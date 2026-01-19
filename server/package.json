@@ -7,9 +7,9 @@
     "dev": "ts-node-dev -r tsconfig-paths/register --respawn src/index.ts",
     "dev:meta": "ts-node-dev -r tsconfig-paths/register --respawn src/meta/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "start:meta": "node dist/meta/server.js",
-    "db:migrate": "ts-node src/db/migrate.ts",
+    "start": "node dist/server/src/index.js",
+    "start:meta": "node dist/server/src/meta/server.js",
+    "db:migrate": "node dist/server/src/db/migrate.js",
     "test": "npm run build && node tests/determinism.test.js && node tests/orb-bite.test.js && node tests/arena-generation.test.js"
   },
   "dependencies": {

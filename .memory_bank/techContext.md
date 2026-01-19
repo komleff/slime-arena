@@ -68,9 +68,16 @@
 - **GitHub Actions**:
     - `ci.yml`: Автоматическая сборка (`npm run build`) при создании Pull Request в ветку `main`.
     - `branch-protection.yml`: Проверка на прямые пуши в `main`. Рекомендуется использовать PR.
-- **Docker**:
-    - Имеется `docker/docker-compose.yml` для локального развертывания.
-    - *Примечание*: Файлы `docker/server.Dockerfile` и `docker/client.Dockerfile` на данный момент отсутствуют в репозитории, что требует исправления для работы Docker-окружения.
+- **Docker** (v0.5.2):
+    - `docker/docker-compose.yml` — разделённая архитектура (db + app).
+    - `docker/docker-compose.monolith-full.yml` — полный monolith (PostgreSQL + Redis + MetaServer + MatchServer + Client).
+    - `docker/monolith-full.Dockerfile` — сборка monolith-контейнера.
+    - `docker/supervisord.conf` — управление процессами внутри monolith.
+    - **Порты:**
+        - 3000: MetaServer (HTTP API)
+        - 2567: MatchServer (WebSocket/Colyseus)
+        - 5173: Client (статический сервер)
+    - **Важно:** порт клиента должен быть 5173 везде (Dockerfile, docker-compose, supervisord.conf).
 
 ## Технические ограничения
 - **Тикрейт**: 30 тиков в секунду (фиксированный).

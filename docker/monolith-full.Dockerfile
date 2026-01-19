@@ -39,6 +39,10 @@ RUN npm run build --workspace=shared && \
     npm run build --workspace=server && \
     npm run build --workspace=client
 
+# Copy SQL migration files (not compiled by tsc)
+RUN mkdir -p server/dist/server/src/db/migrations && \
+    cp server/src/db/migrations/*.sql server/dist/server/src/db/migrations/
+
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime
 # Full production image with PostgreSQL, Redis, and Application
