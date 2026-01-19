@@ -1941,7 +1941,7 @@ export class ArenaRoom extends Room<GameState> {
         return preferred ?? randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
     }
 
-    addObstacle(type: number, x: number, y: number, radius: number) {
+    private addObstacle(type: number, x: number, y: number, radius: number) {
         addObstacleModule(this, type, x, y, radius);
     }
 
