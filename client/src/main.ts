@@ -69,6 +69,7 @@ import {
     screenToWorld as screenToWorldRender,
     drawGrid as drawGridRender,
 } from "./rendering";
+import { GameLoopManager } from "./game";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -2598,11 +2599,11 @@ async function connectToServer(playerName: string, classId: number) {
 
         // lastSentInput теперь на уровне модуля для доступа из activateAbilityFromUI
         lastSentInput = { x: 0, y: 0 }; // Сброс при новом подключении
-        let isRendering = true;
-        let rafId: number | null = null;
 
         const inputIntervalMs = Math.max(16, Math.round(1000 / balanceConfig.server.tickRate));
-        const inputTimer = setInterval(() => {
+
+        // Колбэк для обработки ввода
+        const handleInputTick = () => {
             if (!inputManager.hasFocus) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
@@ -2615,7 +2616,7 @@ async function connectToServer(playerName: string, classId: number) {
             inputManager.setLastSentInput(x, y);
             globalInputSeq += 1;
             room.send("input", { seq: globalInputSeq, moveX: x, moveY: y });
-        }, inputIntervalMs);
+        };
 
         const drawMinimap = (
             ctx: CanvasRenderingContext2D,
@@ -2801,7 +2802,6 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const render = () => {
-            if (!isRendering) return;
             const now = performance.now();
             const cw = canvas.width;
             const ch = canvas.height;
@@ -3684,7 +3684,6 @@ async function connectToServer(playerName: string, classId: number) {
                 room.state.rebelId
             );
 
-            rafId = requestAnimationFrame(render);
         };
 
         // Обработчики кнопок карточки умений (legacy DOM buttons)
@@ -3697,13 +3696,8 @@ async function connectToServer(playerName: string, classId: number) {
             });
         }
 
-        updateHud();
-        updateResultsOverlay();
-        refreshTalentModal();
-        updateAbilityCardUI();
-        render();
-
-        const hudTimer = setInterval(() => {
+        // Колбэк для обновления HUD
+        const handleHudTick = () => {
             updateHud();
             updateResultsOverlay();
             refreshTalentModal();
@@ -3807,17 +3801,38 @@ async function connectToServer(playerName: string, classId: number) {
                     setClassSelectMode(false);
                 }
             }
-        }, 200);
+        };
+
+        // Создание и запуск GameLoopManager
+        const gameLoop = new GameLoopManager(
+            {
+                onInputTick: handleInputTick,
+                onHudTick: handleHudTick,
+                onRender: render,
+                onStop: () => {
+                    inputManager.detach();
+                    resetSnapshotBuffer();
+                },
+            },
+            {
+                inputIntervalMs,
+                hudIntervalMs: 200,
+            }
+        );
+
+        // Начальное обновление UI
+        updateHud();
+        updateResultsOverlay();
+        refreshTalentModal();
+        updateAbilityCardUI();
+
+        // Запуск игровых циклов
+        gameLoop.start();
 
         room.onLeave(() => {
-            clearInterval(inputTimer);
-            clearInterval(hudTimer);
-            isRendering = false;
-            if (rafId !== null) {
-                cancelAnimationFrame(rafId);
-            }
-            inputManager.detach();
-            resetSnapshotBuffer();
+            // Остановка всех игровых циклов (inputTimer, hudTimer, render loop)
+            // onStop колбэк вызовет inputManager.detach() и resetSnapshotBuffer()
+            gameLoop.stop();
 
             // Очистка визуальных сущностей для предотвращения "призраков"
             // Проверяем что это та же комната, чтобы избежать race condition при reconnect
