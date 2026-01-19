@@ -1,6 +1,9 @@
-я сделал проксирование 
-u2-client	u2.overmobile.space	http://192.168.77.122:5174 
-u2-server	u2-server.overmobile.space	http://192.168.77.122:8080
+Проксирование настроено:
 
-u2-client	slime-arena.overmobile.space	http://192.168.77.122:5174
-u2-server	u2-server.overmobile.space	http://192.168.77.122:8080
+# Проект U2
+u2-client	u2.overmobile.space              → http://192.168.77.122:5174
+u2-server	u2-server.overmobile.space       → http://192.168.77.122:8080
+
+# Проект Slime Arena
+slime-arena-client	slime-arena.overmobile.space         → http://192.168.77.122:5173
+slime-arena-server	slime-arena-server.overmobile.space  → http://192.168.77.122:2567
