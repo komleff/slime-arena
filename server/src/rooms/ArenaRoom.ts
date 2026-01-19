@@ -76,6 +76,13 @@ import {
     toxicPoolSystem,
     zoneEffectSystem,
 } from "./systems/effectSystems";
+import {
+    activateAbility as activateAbilityModule,
+    resetAbilityCooldowns as resetAbilityCooldownsModule,
+    setAbilityLevelForSlot as setAbilityLevelForSlotModule,
+    getAbilityLevelForSlot as getAbilityLevelForSlotModule,
+    applyPushWave as applyPushWaveModule,
+} from "./systems/abilityActivationSystem";
 import { hungerSystem } from "./systems/hungerSystem";
 import { flightAssistSystem, physicsSystem } from "./systems/movementSystems";
 import { updateOrbs, updateOrbsVisual } from "./systems/orbSystem";
@@ -563,190 +570,20 @@ export class ArenaRoom extends Room<GameState> {
         abilitySystem(this);
     }
 
-    private activateAbility(player: Player, slot: number) {
-        // GDD v3.3 1.3: Слоты 0-2, проверяем наличие умения в слоте
-        if (slot < 0 || slot > 2) return;
-
-        // Получаем ID умения из слота
-        const slotAbilities = [player.abilitySlot0, player.abilitySlot1, player.abilitySlot2];
-        const abilityId = slotAbilities[slot];
-
-        // Слот пустой - не активируем
-        if (!abilityId) return;
-
-        const canDoubleActivate = this.isDoubleAbilityAvailable(player, slot);
-        const cooldownEndTick = this.getAbilityCooldownEndTick(player, slot);
-        if (!canDoubleActivate && this.tick < cooldownEndTick) return;
-
-        const abilityLevel = this.getAbilityLevelForSlot(player, slot) || 1;
-        const tickRate = this.balance.server.tickRate;
-        let activated = false;
-        let cooldownSec = 0;
-        const costMultiplier = canDoubleActivate
-            ? Math.max(player.mod_doubleAbilitySecondCostMult || 0, 0)
-            : 1;
-
-        // Активация по ID умения
-        switch (abilityId) {
-            case "dash":
-                {
-                    const config = this.getAbilityConfigById("dash", abilityLevel);
-                    activated = this.activateDash(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "shield":
-                {
-                    const config = this.getAbilityConfigById("shield", abilityLevel);
-                    activated = this.activateShield(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "slow":
-                {
-                    const config = this.getAbilityConfigById("slow", abilityLevel);
-                    activated = this.activateSlow(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "projectile":
-                {
-                    const config = this.getAbilityConfigById("projectile", abilityLevel);
-                    activated = this.activateProjectile(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "pull":
-                {
-                    const config = this.getAbilityConfigById("pull", abilityLevel);
-                    activated = this.activateMagnet(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "spit":
-                {
-                    const config = this.getAbilityConfigById("spit", abilityLevel);
-                    activated = this.activateSpit(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "bomb":
-                {
-                    const config = this.getAbilityConfigById("bomb", abilityLevel);
-                    activated = this.activateBomb(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "push":
-                {
-                    const config = this.getAbilityConfigById("push", abilityLevel);
-                    activated = this.activatePush(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            case "mine":
-                {
-                    const config = this.getAbilityConfigById("mine", abilityLevel);
-                    activated = this.activateMine(player, config, tickRate, costMultiplier);
-                    cooldownSec = this.getAbilityCooldownSec(player, config.cooldownSec);
-                }
-                break;
-            default:
-                return;  // Неизвестное умение
-        }
-
-        if (!activated) return;
-
-        this.logTelemetry("ability_used", { abilityId, slot, level: abilityLevel });
-
-        if (abilityId !== "dash") {
-            this.clearInvisibility(player);
-        }
-
-        const cooldownTicks = this.secondsToTicks(cooldownSec);
-        this.setAbilityCooldown(player, slot, this.tick, this.tick + cooldownTicks);
-        player.gcdReadyTick = this.tick + this.balance.server.globalCooldownTicks;
-        player.queuedAbilitySlot = null;
-
-        if (canDoubleActivate) {
-            this.completeDoubleAbility(player);
-        } else {
-            this.startDoubleAbilityWindow(player, slot);
-        }
+    activateAbility(player: Player, slot: number) {
+        activateAbilityModule(this, player, slot);
     }
 
-    private getAbilityCooldownEndTick(player: Player, slot: number): number {
-        switch (slot) {
-            case 0:
-                return player.abilityCooldownEndTick0;
-            case 1:
-                return player.abilityCooldownEndTick1;
-            case 2:
-                return player.abilityCooldownEndTick2;
-            default:
-                return 0;
-        }
-    }
-
-    private setAbilityCooldown(player: Player, slot: number, startTick: number, endTick: number) {
-        const start = Math.max(0, Math.floor(startTick));
-        const end = Math.max(start, Math.floor(endTick));
-        switch (slot) {
-            case 0:
-                player.abilityCooldownStartTick0 = start;
-                player.abilityCooldownEndTick0 = end;
-                break;
-            case 1:
-                player.abilityCooldownStartTick1 = start;
-                player.abilityCooldownEndTick1 = end;
-                break;
-            case 2:
-                player.abilityCooldownStartTick2 = start;
-                player.abilityCooldownEndTick2 = end;
-                break;
-            default:
-                return;
-        }
-        this.updateLegacyAbilityCooldownTick(player);
-    }
-
-    private resetAbilityCooldowns(player: Player, tick: number) {
-        const safeTick = Math.max(0, Math.floor(tick));
-        player.abilityCooldownStartTick0 = safeTick;
-        player.abilityCooldownEndTick0 = safeTick;
-        player.abilityCooldownStartTick1 = safeTick;
-        player.abilityCooldownEndTick1 = safeTick;
-        player.abilityCooldownStartTick2 = safeTick;
-        player.abilityCooldownEndTick2 = safeTick;
-        this.updateLegacyAbilityCooldownTick(player);
-    }
-
-    private updateLegacyAbilityCooldownTick(player: Player) {
-        player.abilityCooldownTick = player.abilityCooldownEndTick0;
+    resetAbilityCooldowns(player: Player, tick: number) {
+        resetAbilityCooldownsModule(player, tick);
     }
 
     private getAbilityLevelForSlot(player: Player, slot: number): number {
-        if (slot === 0) return Math.max(0, Math.floor(player.abilityLevel0));
-        if (slot === 1) return Math.max(0, Math.floor(player.abilityLevel1));
-        if (slot === 2) return Math.max(0, Math.floor(player.abilityLevel2));
-        return 0;
+        return getAbilityLevelForSlotModule(player, slot);
     }
 
-    private setAbilityLevelForSlot(player: Player, slot: number, level: number) {
-        const value = Math.max(1, Math.min(3, Math.floor(level)));
-        if (slot === 0) {
-            player.abilityLevel0 = value;
-            return;
-        }
-        if (slot === 1) {
-            player.abilityLevel1 = value;
-            return;
-        }
-        if (slot === 2) {
-            player.abilityLevel2 = value;
-            return;
-        }
-        console.warn(`[setAbilityLevelForSlot] invalid slot ${slot}`);
+    setAbilityLevelForSlot(player: Player, slot: number, level: number) {
+        setAbilityLevelForSlotModule(player, slot, level);
     }
 
     getAbilityLevelForAbility(player: Player, abilityId: string): number {
@@ -787,18 +624,6 @@ export class ArenaRoom extends Room<GameState> {
             default:
                 return resolveLevel(abilities.dash);
         }
-    }
-
-    private getAbilityCostPct(player: Player, basePct: number, extraMultiplier = 1): number {
-        const reduction = this.clamp(player.mod_abilityCostReduction, 0, 0.9);
-        const multiplier = Math.max(0, extraMultiplier);
-        const reducedPct = basePct * (1 - reduction) * multiplier;
-        return Math.max(reducedPct, 0.01);
-    }
-
-    private getAbilityCooldownSec(player: Player, baseCooldownSec: number): number {
-        const reduction = this.clamp(player.mod_cooldownReduction, 0, 0.9);
-        return Math.max(0.1, baseCooldownSec * (1 - reduction));
     }
 
     private isBoostActive(player: Player, boostType: BoostType): boolean {
@@ -939,246 +764,7 @@ export class ArenaRoom extends Room<GameState> {
         }
     }
 
-    private isDoubleAbilityAvailable(player: Player, slot: number): boolean {
-        return (
-            player.mod_doubleAbilityWindowSec > 0 &&
-            player.doubleAbilityWindowEndTick > this.tick &&
-            player.doubleAbilitySlot === slot &&
-            !player.doubleAbilitySecondUsed
-        );
-    }
-
-    private startDoubleAbilityWindow(player: Player, slot: number) {
-        if (player.mod_doubleAbilityWindowSec <= 0) return;
-        player.doubleAbilityWindowEndTick = this.tick + this.secondsToTicks(player.mod_doubleAbilityWindowSec);
-        player.doubleAbilitySlot = slot;
-        player.doubleAbilitySecondUsed = false;
-    }
-
-    private completeDoubleAbility(player: Player) {
-        player.doubleAbilityWindowEndTick = 0;
-        player.doubleAbilitySlot = null;
-        player.doubleAbilitySecondUsed = true;
-    }
-
-    private activateDash(
-        player: Player,
-        config: typeof this.balance.abilities.dash,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Расчёт направления рывка (по текущему углу слайма)
-        const angle = player.angle;
-        const distance = config.distanceM * (1 + player.mod_dashDistanceBonus);
-        const rawTargetX = player.x + Math.cos(angle) * distance;
-        const rawTargetY = player.y + Math.sin(angle) * distance;
-        
-        // Clamp к границам мира (учитывает worldShape: rectangle/circle и width/height)
-        const clamped = this.clampPointToWorld(rawTargetX, rawTargetY);
-        player.dashTargetX = clamped.x;
-        player.dashTargetY = clamped.y;
-        player.dashEndTick = this.tick + Math.round(config.durationSec * tickRate);
-        
-        // Устанавливаем флаг
-        player.flags |= FLAG_DASHING;
-
-        if (player.mod_invisibleDurationSec > 0) {
-            player.invisibleEndTick = this.tick + this.secondsToTicks(player.mod_invisibleDurationSec);
-        }
-        return true;
-    }
-    
-    private activateShield(
-        player: Player,
-        config: typeof this.balance.abilities.shield,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем длительность щита
-        player.shieldEndTick = this.tick + Math.round(config.durationSec * tickRate);
-        
-        // Устанавливаем флаг
-        player.flags |= FLAG_ABILITY_SHIELD;
-        return true;
-    }
-    
-    private activateMagnet(
-        player: Player,
-        config: typeof this.balance.abilities.magnet,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Устанавливаем длительность притяжения
-        player.magnetEndTick = this.tick + Math.round(config.durationSec * tickRate);
-        
-        // Устанавливаем флаг
-        player.flags |= FLAG_MAGNETIZING;
-        return true;
-    }
-    
-    private activateSlow(
-        player: Player,
-        config: typeof this.balance.abilities.slow,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Создаём зону замедления
-        const zone = new SlowZone();
-        zone.id = `slow_${++this.slowZoneIdCounter}`;
-        zone.ownerId = player.id;
-        zone.x = player.x;
-        zone.y = player.y;
-        zone.radius = config.radiusM;
-        zone.slowPct = config.slowPct;
-        zone.endTick = this.tick + Math.round(config.durationSec * tickRate);
-        
-        this.state.slowZones.set(zone.id, zone);
-        return true;
-    }
-    
-    private activateProjectile(
-        player: Player,
-        config: typeof this.balance.abilities.projectile,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Создаём снаряд
-        const proj = new Projectile();
-        proj.id = `proj_${++this.projectileIdCounter}`;
-        proj.ownerId = player.id;
-        proj.x = player.x;
-        proj.y = player.y;
-        proj.startX = player.x;
-        proj.startY = player.y;
-        proj.vx = Math.cos(player.angle) * config.speedMps;
-        proj.vy = Math.sin(player.angle) * config.speedMps;
-        proj.radius = config.radiusM;
-        proj.damagePct = config.damagePct;
-        proj.spawnTick = this.tick;
-        proj.maxRangeM = config.rangeM;
-        if (player.mod_projectileRicochet > 0) {
-            proj.remainingRicochets = Math.round(player.mod_projectileRicochet);
-        }
-        const basePierceHits = Math.max(0, Math.round(config.piercingHits ?? 0));
-        const basePierceDamagePct = Math.max(0, Number(config.piercingDamagePct ?? 0));
-        const talentPierceHits = Math.max(0, Math.round(player.mod_projectilePiercingHits || 0));
-        const talentPierceDamagePct = Math.max(0, Number(player.mod_projectilePiercingDamagePct || 0));
-        // Пробивание берётся как максимум между умением и талантом, без суммирования.
-        const totalPierceHits = Math.max(basePierceHits, talentPierceHits);
-        const totalPierceDamagePct = Math.max(basePierceDamagePct, talentPierceDamagePct);
-        if (totalPierceHits > 1) {
-            proj.remainingPierces = totalPierceHits;
-            proj.piercingDamagePct = totalPierceDamagePct;
-        }
-        
-        this.state.projectiles.set(proj.id, proj);
-        return true;
-    }
-
-    private activateSpit(
-        player: Player,
-        config: typeof this.balance.abilities.spit,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Создаём веер снарядов
-        const count = config.projectileCount;
-        const spreadRad = (config.spreadAngleDeg * Math.PI) / 180;
-        const startAngle = player.angle - spreadRad / 2;
-        const angleStep = count > 1 ? spreadRad / (count - 1) : 0;
-        
-        for (let i = 0; i < count; i++) {
-            const angle = startAngle + angleStep * i;
-            const proj = new Projectile();
-            proj.id = `proj_${++this.projectileIdCounter}`;
-            proj.ownerId = player.id;
-            proj.x = player.x;
-            proj.y = player.y;
-            proj.startX = player.x;
-            proj.startY = player.y;
-            proj.vx = Math.cos(angle) * config.speedMps;
-            proj.vy = Math.sin(angle) * config.speedMps;
-            proj.radius = config.radiusM;
-            proj.damagePct = config.damagePct;
-            proj.spawnTick = this.tick;
-            proj.maxRangeM = config.rangeM;
-            proj.projectileType = 0;
-            
-            this.state.projectiles.set(proj.id, proj);
-        }
-        return true;
-    }
-
-    private activateBomb(
-        player: Player,
-        config: typeof this.balance.abilities.bomb,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Создаём бомбу (медленный снаряд с AoE)
-        const proj = new Projectile();
-        proj.id = `proj_${++this.projectileIdCounter}`;
-        proj.ownerId = player.id;
-        proj.x = player.x;
-        proj.y = player.y;
-        proj.startX = player.x;
-        proj.startY = player.y;
-        proj.vx = Math.cos(player.angle) * config.speedMps;
-        proj.vy = Math.sin(player.angle) * config.speedMps;
-        proj.radius = config.radiusM;
-        proj.damagePct = config.damagePct;
-        proj.spawnTick = this.tick;
-        proj.maxRangeM = config.rangeM;
-        proj.projectileType = 1;  // Bomb type
-        proj.explosionRadiusM = config.explosionRadiusM;
-        
-        this.state.projectiles.set(proj.id, proj);
-        return true;
-    }
-
-    private applyPushWave(
+    applyPushWave(
         sourceX: number,
         sourceY: number,
         radiusM: number,
@@ -1187,120 +773,7 @@ export class ArenaRoom extends Room<GameState> {
         maxSpeedMps: number,
         excludeId?: string
     ) {
-        if (radiusM <= 0 || impulseNs <= 0) return;
-        const radiusSq = radiusM * radiusM;
-
-        for (const other of this.state.players.values()) {
-            if (excludeId && other.id === excludeId) continue;
-            if (other.isDead) continue;
-            const dx = other.x - sourceX;
-            const dy = other.y - sourceY;
-            const distSq = dx * dx + dy * dy;
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            const otherMass = Math.max(other.mass, this.balance.physics.minSlimeMass);
-            const speed = this.clamp(impulseNs / otherMass, minSpeedMps, maxSpeedMps);
-            other.vx += nx * speed;
-            other.vy += ny * speed;
-        }
-
-        for (const orb of this.state.orbs.values()) {
-            const dx = orb.x - sourceX;
-            const dy = orb.y - sourceY;
-            const distSq = dx * dx + dy * dy;
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            const orbMass = Math.max(orb.mass, 1);
-            const speed = this.clamp(impulseNs / orbMass, 50, 200);
-            orb.vx += nx * speed;
-            orb.vy += ny * speed;
-        }
-
-        for (const chest of this.state.chests.values()) {
-            const dx = chest.x - sourceX;
-            const dy = chest.y - sourceY;
-            const distSq = dx * dx + dy * dy;
-            if (distSq > radiusSq || distSq < 0.01) continue;
-            const dist = Math.sqrt(distSq);
-            const nx = dx / dist;
-            const ny = dy / dist;
-            const chestTypeId = chest.type === 0 ? "rare" : chest.type === 1 ? "epic" : "gold";
-            const chestMass = Math.max(this.balance.chests.types?.[chestTypeId]?.mass ?? 250, 100);
-            const speed = this.clamp(impulseNs / chestMass, 20, 80);
-            chest.vx += nx * speed;
-            chest.vy += ny * speed;
-        }
-    }
-
-    private activatePush(
-        player: Player,
-        config: typeof this.balance.abilities.push,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        player.pushEndTick = this.tick + Math.max(1, Math.round(0.25 * tickRate));
-        this.applyPushWave(
-            player.x,
-            player.y,
-            config.radiusM,
-            config.impulseNs,
-            config.minSpeedMps,
-            config.maxSpeedMps,
-            player.id
-        );
-        return true;
-    }
-
-    private activateMine(
-        player: Player,
-        config: typeof this.balance.abilities.mine,
-        tickRate: number,
-        costMultiplier = 1
-    ): boolean {
-        const massCost = player.mass * this.getAbilityCostPct(player, config.massCostPct, costMultiplier);
-        if (player.mass - massCost < this.balance.physics.minSlimeMass) return false;
-        
-        // Проверяем лимит мин
-        let mineCount = 0;
-        for (const mine of this.state.mines.values()) {
-            if (mine.ownerId === player.id) mineCount++;
-        }
-        
-        // Удаляем старую мину если достигнут лимит
-        if (mineCount >= config.maxMines) {
-            for (const [id, mine] of this.state.mines.entries()) {
-                if (mine.ownerId === player.id) {
-                    this.state.mines.delete(id);
-                    break;
-                }
-            }
-        }
-        
-        // Списываем массу
-        this.applyMassDelta(player, -massCost);
-        
-        // Создаём мину
-        const mine = new Mine();
-        mine.id = `mine_${++this.mineIdCounter}`;
-        mine.ownerId = player.id;
-        mine.x = player.x;
-        mine.y = player.y;
-        mine.radius = config.radiusM;
-        mine.damagePct = config.damagePct;
-        mine.endTick = this.tick + Math.round(config.durationSec * tickRate);
-        
-        this.state.mines.set(mine.id, mine);
-        return true;
+        applyPushWaveModule(this, sourceX, sourceY, radiusM, impulseNs, minSpeedMps, maxSpeedMps, excludeId);
     }
 
     private applyTalentChoice(player: Player, choice: number) {
@@ -3284,7 +2757,7 @@ export class ArenaRoom extends Room<GameState> {
         };
     }
 
-    private clampPointToWorld(x: number, y: number) {
+    clampPointToWorld(x: number, y: number) {
         const world = this.balance.worldPhysics;
         if (world.worldShape === "circle") {
             const radius = world.radiusM ?? this.balance.world.mapSize / 2;
@@ -3373,7 +2846,7 @@ export class ArenaRoom extends Room<GameState> {
         this.matchId = randomUUID();
     }
 
-    private logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
+    logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {
         if (!this.telemetry) return;
         this.telemetry.log({
             event,
