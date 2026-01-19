@@ -60,6 +60,16 @@ import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
 import { arenaWaitTime, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import {
+    getOrbColor,
+    drawCircle as drawCircleRender,
+    drawCrown as drawCrownRender,
+    drawSprite as drawSpriteRender,
+    worldToScreen as worldToScreenRender,
+    screenToWorld as screenToWorldRender,
+    drawGrid as drawGridRender,
+} from "./rendering";
+import { GameLoopManager } from "./game";
 
 const root = document.createElement("div");
 root.style.fontFamily = "monospace";
@@ -1557,82 +1567,22 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
+// Обёртки для функций из rendering/ — используют глобальный canvasCtx
 function worldToScreen(x: number, y: number, scale: number, camX: number, camY: number, cw: number, ch: number) {
-    return {
-        x: (x - camX) * scale + cw / 2,
-        y: (camY - y) * scale + ch / 2,
-    };
+    return worldToScreenRender(x, y, scale, camX, camY, cw, ch);
 }
 
 function screenToWorld(screenX: number, screenY: number, scale: number, camX: number, camY: number, cw: number, ch: number) {
-    return {
-        x: (screenX - cw / 2) / scale + camX,
-        y: camY - (screenY - ch / 2) / scale,
-    };
+    return screenToWorldRender(screenX, screenY, scale, camX, camY, cw, ch);
 }
 
 function drawGrid(scale: number, camX: number, camY: number, cw: number, ch: number) {
-    const step = 200;
-    const majorStep = step * 5; // Каждые 5 клеток — толстая линия
-    const halfW = cw / scale / 2;
-    const halfH = ch / scale / 2;
-    const worldHalfW = worldWidth / 2;
-    const worldHalfH = worldHeight / 2;
-    const startX = Math.max(-worldHalfW, Math.floor((camX - halfW) / step) * step);
-    const endX = Math.min(worldHalfW, Math.ceil((camX + halfW) / step) * step);
-    const startY = Math.max(-worldHalfH, Math.floor((camY - halfH) / step) * step);
-    const endY = Math.min(worldHalfH, Math.ceil((camY + halfH) / step) * step);
-    
-    // Обычные линии сетки
-    canvasCtx.strokeStyle = "rgba(255,255,255,0.12)";
-    canvasCtx.lineWidth = 1;
-    for (let x = startX; x <= endX; x += step) {
-        if (x % majorStep === 0) continue; // Major линии рисуем отдельно
-        const screen = worldToScreen(x, 0, scale, camX, camY, cw, ch);
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(screen.x, 0);
-        canvasCtx.lineTo(screen.x, ch);
-        canvasCtx.stroke();
-    }
-    for (let y = startY; y <= endY; y += step) {
-        if (y % majorStep === 0) continue;
-        const screen = worldToScreen(0, y, scale, camX, camY, cw, ch);
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(0, screen.y);
-        canvasCtx.lineTo(cw, screen.y);
-        canvasCtx.stroke();
-    }
-    
-    // Major линии (каждые 5 клеток) — ярче и толще
-    canvasCtx.strokeStyle = "rgba(255,255,255,0.25)";
-    canvasCtx.lineWidth = 2;
-    for (let x = Math.ceil(startX / majorStep) * majorStep; x <= endX; x += majorStep) {
-        const screen = worldToScreen(x, 0, scale, camX, camY, cw, ch);
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(screen.x, 0);
-        canvasCtx.lineTo(screen.x, ch);
-        canvasCtx.stroke();
-    }
-    for (let y = Math.ceil(startY / majorStep) * majorStep; y <= endY; y += majorStep) {
-        const screen = worldToScreen(0, y, scale, camX, camY, cw, ch);
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(0, screen.y);
-        canvasCtx.lineTo(cw, screen.y);
-        canvasCtx.stroke();
-    }
+    drawGridRender(canvasCtx, scale, camX, camY, cw, ch, worldWidth, worldHeight);
 }
 
 function orbColor(colorId: number): string {
+    // Рассыпанные орбы от слаймов (classId + 10) — специфичны для main.ts
     switch (colorId) {
-        case 0:
-            return "#6ddc6a";
-        case 1:
-            return "#53c7ff";
-        case 2:
-            return "#ff6f6f";
-        case 3:
-            return "#ffd166";
-        // Scatter orbs от слаймов (classId + 10)
         case 10:
             return "#4ade80"; // Hunter green
         case 11:
@@ -1640,44 +1590,16 @@ function orbColor(colorId: number): string {
         case 12:
             return "#60a5fa"; // Collector blue
         default:
-            return "#b0b0b0";
+            return getOrbColor(colorId);
     }
 }
 
 function drawCircle(x: number, y: number, radius: number, fill: string, stroke?: string) {
-    canvasCtx.beginPath();
-    canvasCtx.arc(x, y, radius, 0, Math.PI * 2);
-    canvasCtx.fillStyle = fill;
-    canvasCtx.fill();
-    if (stroke) {
-        canvasCtx.lineWidth = 2;
-        canvasCtx.strokeStyle = stroke;
-        canvasCtx.stroke();
-    }
+    drawCircleRender(canvasCtx, x, y, radius, fill, stroke);
 }
 
 function drawCrown(x: number, y: number, size: number, fill: string, stroke?: string) {
-    const w = size;
-    const h = size * 0.7;
-    const half = w / 2;
-
-    canvasCtx.save();
-    canvasCtx.translate(x, y);
-    canvasCtx.beginPath();
-    canvasCtx.moveTo(-half, 0);
-    canvasCtx.lineTo(-half + w * 0.2, -h);
-    canvasCtx.lineTo(0, -h * 0.55);
-    canvasCtx.lineTo(half - w * 0.2, -h);
-    canvasCtx.lineTo(half, 0);
-    canvasCtx.closePath();
-    canvasCtx.fillStyle = fill;
-    canvasCtx.fill();
-    if (stroke) {
-        canvasCtx.lineWidth = 2;
-        canvasCtx.strokeStyle = stroke;
-        canvasCtx.stroke();
-    }
-    canvasCtx.restore();
+    drawCrownRender(canvasCtx, x, y, size, fill, stroke);
 }
 
 function drawSprite(
@@ -1691,16 +1613,7 @@ function drawSprite(
     fallbackStroke: string,
     spriteScale = 1
 ) {
-    if (ready) {
-        const size = radius * 2 * spriteScale;
-        canvasCtx.save();
-        canvasCtx.translate(x, y);
-        canvasCtx.rotate(-angleRad);
-        canvasCtx.drawImage(img, -size / 2, -size / 2, size, size);
-        canvasCtx.restore();
-    } else {
-        drawCircle(x, y, radius, fallbackFill, fallbackStroke);
-    }
+    drawSpriteRender(canvasCtx, img, ready, x, y, radius, angleRad, fallbackFill, fallbackStroke, spriteScale);
 }
 
 async function connectToServer(playerName: string, classId: number) {
@@ -2686,11 +2599,11 @@ async function connectToServer(playerName: string, classId: number) {
 
         // lastSentInput теперь на уровне модуля для доступа из activateAbilityFromUI
         lastSentInput = { x: 0, y: 0 }; // Сброс при новом подключении
-        let isRendering = true;
-        let rafId: number | null = null;
 
         const inputIntervalMs = Math.max(16, Math.round(1000 / balanceConfig.server.tickRate));
-        const inputTimer = setInterval(() => {
+
+        // Колбэк для обработки ввода
+        const handleInputTick = () => {
             if (!inputManager.hasFocus) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
@@ -2703,7 +2616,7 @@ async function connectToServer(playerName: string, classId: number) {
             inputManager.setLastSentInput(x, y);
             globalInputSeq += 1;
             room.send("input", { seq: globalInputSeq, moveX: x, moveY: y });
-        }, inputIntervalMs);
+        };
 
         const drawMinimap = (
             ctx: CanvasRenderingContext2D,
@@ -2889,7 +2802,6 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const render = () => {
-            if (!isRendering) return;
             const now = performance.now();
             const cw = canvas.width;
             const ch = canvas.height;
@@ -3772,7 +3684,6 @@ async function connectToServer(playerName: string, classId: number) {
                 room.state.rebelId
             );
 
-            rafId = requestAnimationFrame(render);
         };
 
         // Обработчики кнопок карточки умений (legacy DOM buttons)
@@ -3785,13 +3696,8 @@ async function connectToServer(playerName: string, classId: number) {
             });
         }
 
-        updateHud();
-        updateResultsOverlay();
-        refreshTalentModal();
-        updateAbilityCardUI();
-        render();
-
-        const hudTimer = setInterval(() => {
+        // Колбэк для обновления HUD
+        const handleHudTick = () => {
             updateHud();
             updateResultsOverlay();
             refreshTalentModal();
@@ -3895,17 +3801,38 @@ async function connectToServer(playerName: string, classId: number) {
                     setClassSelectMode(false);
                 }
             }
-        }, 200);
+        };
+
+        // Создание и запуск GameLoopManager
+        const gameLoop = new GameLoopManager(
+            {
+                onInputTick: handleInputTick,
+                onHudTick: handleHudTick,
+                onRender: render,
+                onStop: () => {
+                    inputManager.detach();
+                    resetSnapshotBuffer();
+                },
+            },
+            {
+                inputIntervalMs,
+                hudIntervalMs: 200,
+            }
+        );
+
+        // Начальное обновление UI
+        updateHud();
+        updateResultsOverlay();
+        refreshTalentModal();
+        updateAbilityCardUI();
+
+        // Запуск игровых циклов
+        gameLoop.start();
 
         room.onLeave(() => {
-            clearInterval(inputTimer);
-            clearInterval(hudTimer);
-            isRendering = false;
-            if (rafId !== null) {
-                cancelAnimationFrame(rafId);
-            }
-            inputManager.detach();
-            resetSnapshotBuffer();
+            // Остановка всех игровых циклов (inputTimer, hudTimer, render loop)
+            // onStop колбэк вызовет inputManager.detach() и resetSnapshotBuffer()
+            gameLoop.stop();
 
             // Очистка визуальных сущностей для предотвращения "призраков"
             // Проверяем что это та же комната, чтобы избежать race condition при reconnect

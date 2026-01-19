@@ -8,6 +8,8 @@ export {
     drawCrown,
     drawSprite,
     worldToScreen,
+    screenToWorld,
+    drawGrid,
     clamp,
     lerp,
     smoothStep,
