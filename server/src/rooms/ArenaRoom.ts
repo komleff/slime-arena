@@ -105,6 +105,11 @@ import {
     isInsideWorld,
     randomPointInMapWithMargin,
 } from "./helpers/arenaGeneration";
+import {
+    generateArena as generateArenaModule,
+    addObstacle as addObstacleModule,
+    spawnInitialOrbs as spawnInitialOrbsModule,
+} from "./systems/arenaGenerator";
 import { getMatchResultService } from "../services/MatchResultService";
 import { MatchSummary, PlayerResult } from "@slime-arena/shared/src/types";
 import { joinTokenService, JoinTokenPayload } from "../meta/services/JoinTokenService";
@@ -1867,36 +1872,7 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private generateArena() {
-        this.state.obstacles.clear();
-        this.state.safeZones.splice(0, this.state.safeZones.length);
-        this.state.zones.clear();
-        this.obstacleIdCounter = 0;
-        this.zoneIdCounter = 0;
-        const mapSize = this.balance.world.mapSize;
-        const world = this.balance.worldPhysics;
-        const safeZoneSeeds = generateSafeZoneSeeds(this.rng, world, mapSize, this.balance.safeZones);
-        for (const zoneSeed of safeZoneSeeds) {
-            const zone = new SafeZone();
-            zone.x = zoneSeed.x;
-            zone.y = zoneSeed.y;
-            zone.radius = zoneSeed.radius;
-            this.state.safeZones.push(zone);
-        }
-        const zoneSeeds = generateZoneSeeds(this.rng, world, mapSize, this.balance.zones, safeZoneSeeds);
-        for (const zoneSeed of zoneSeeds) {
-            const zone = new Zone();
-            zone.id = `zone_${this.zoneIdCounter++}`;
-            zone.x = zoneSeed.x;
-            zone.y = zoneSeed.y;
-            zone.radius = zoneSeed.radius;
-            zone.type = zoneSeed.type;
-            this.state.zones.set(zone.id, zone);
-        }
-        // Препятствия могут пересекаться с зонами, это допустимо по дизайну.
-        const obstacles = generateObstacleSeeds(this.rng, world, mapSize, this.balance.obstacles);
-        for (const obstacle of obstacles) {
-            this.addObstacle(obstacle.type, obstacle.x, obstacle.y, obstacle.radius);
-        }
+        generateArenaModule(this);
     }
 
     private isPointFreeOfObstacles(x: number, y: number, radius: number, padding: number): boolean {
@@ -1965,14 +1941,8 @@ export class ArenaRoom extends Room<GameState> {
         return preferred ?? randomPointInMapWithMargin(this.rng, world, mapSize, safeRadius + safePadding);
     }
 
-    private addObstacle(type: number, x: number, y: number, radius: number) {
-        const obstacle = new Obstacle();
-        obstacle.id = `obs_${this.obstacleIdCounter++}`;
-        obstacle.x = x;
-        obstacle.y = y;
-        obstacle.radius = radius;
-        obstacle.type = type;
-        this.state.obstacles.set(obstacle.id, obstacle);
+    addObstacle(type: number, x: number, y: number, radius: number) {
+        addObstacleModule(this, type, x, y, radius);
     }
 
     private spawnHotZones(count: number, spawnMultiplier: number, centerFirst = false) {
@@ -2080,13 +2050,10 @@ export class ArenaRoom extends Room<GameState> {
     }
 
     private spawnInitialOrbs() {
-        const count = Math.min(this.balance.orbs.initialCount, this.balance.orbs.maxCount);
-        for (let i = 0; i < count; i += 1) {
-            this.spawnOrb();
-        }
+        spawnInitialOrbsModule(this);
     }
 
-    private spawnOrb(x?: number, y?: number, massOverride?: number): Orb | null {
+    spawnOrb(x?: number, y?: number, massOverride?: number): Orb | null {
         if (this.state.orbs.size >= this.balance.orbs.maxCount) return null;
         return this.forceSpawnOrb(x, y, massOverride);
     }
