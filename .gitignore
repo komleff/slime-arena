@@ -30,3 +30,4 @@ backups/*.sql
 .beads/file.tmp
 .beads/*.tmp
 tmpclaude-*-cwd
+nul
