@@ -346,9 +346,8 @@ git worktree remove ../project-agent2
 
 **Статьи (рекомендуемое чтение):**
 
-- [Habr: Vibe Coding — как я перестал бояться и полюбил AI](https://habr.com/ru/articles/979624/) — ключевая статья о методологии
-- [Habr: AI-агенты в разработке](https://habr.com/ru/articles/964368/)
-- [Habr: Memory Bank и управление контекстом](https://habr.com/ru/articles/983498/) — важнейшая статья о сохранении контекста
+- [Живая документация проекта через VS Code + Codex + Memory Bank](https://habr.com/ru/articles/979624/) — ключевая статья о методологии
+- [Представляем Beads: система памяти для кодинг-агентов](https://habr.com/ru/articles/983498/) — важнейшая статья о сохранении контекста
 
 **Инструменты:**
 
