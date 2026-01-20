@@ -179,8 +179,30 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
   - ✅ 11.3: InputManager module created (558 строк)
   - ✅ 11.4: TalentSystem module created
 
+### ✅ Code Freeze Ревизия (21 января 2026)
+
+**Пересмотренные приоритеты:**
+
+| Задача | Было | Стало | Причина |
+|--------|:----:|:-----:|---------|
+| slime-arena-zmf (джойстик) | P2 | P1 | Критично: перекрывает обзор |
+| slime-arena-4sf (WebP) | P2 | P1 | Критично: 27MB → 5MB |
+| slime-arena-4xh (Вампир) | P1 | P2 | Таланты пересмотрим в комплексе |
+| slime-arena-pgf (реклама) | P1 | P3 | Реклама не подключена |
+| slime-arena-n5p (MiniMap) | P0 | P2 | Рабочая версия есть |
+| slime-arena-1t8 (Countdown) | P0 | P2 | Не критично для demo |
+| slime-arena-0nu (Confirm) | P0 | P3 | Пока нечего подтверждать |
+| slime-arena-3lx (Disconnect) | P0 | P2 | Полезно, но не блокер |
+| slime-arena-vbp (Error) | P0 | P2 | Полезно, но не блокер |
+| slime-arena-x33 (Pause) | P0 | CLOSED | Не применимо (реалтайм PvP) |
+
+**Текущие P1 задачи:**
+- slime-arena-zmf: Адаптивный джойстик смещает базу
+- slime-arena-4sf: WebP конвертация спрайтов (27MB → 5MB)
+
 ### ✅ Аудит технического долга (сессия)
+
 Уточнён и актуализирован список техдолга:
-- Декомпозиция God Objects (ArenaRoom, main.ts)
+- Декомпозиция God Objects (ArenaRoom, main.ts) — ✅ Sprint 12
 - Порог ДХП теперь грузится из balance.json
 - Рефакторинг: TalentSystem, InputManager модули созданы
