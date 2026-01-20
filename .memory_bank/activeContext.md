@@ -3,12 +3,14 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (20 января 2026, коммит 4f427b8)
+**База:** main (21 января 2026, коммит 6a5af0b)
 **Релиз:** v0.6.0 ✅
 **GDD версия:** 3.3.2
 **Текущая ветка:** main
 **Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
 **Sprint 12 Status:** ✅ ЗАВЕРШЁН (20 января 2026)
+**Code Freeze:** 23 января 2026
+**Презентация:** 24 января 2026
 
 ---
 
@@ -57,7 +59,7 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
 ### Docker Monolith (19 января 2026)
 - **Исправлена ошибка:** порт клиента в `supervisord.conf` был 5174, а в Dockerfile/docker-compose — 5173.
 - **Решение:** порт унифицирован на 5173 для всех конфигов.
-- **Версия контейнера:** 0.5.2
+- **Версия контейнера:** 0.6.0
 
 ### Фокус сессии
 
@@ -78,18 +80,13 @@ BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen →
   | #103 | PlayerStateManager | playerStateManager.ts | 181 | ✅ Merged |
 
   **Финальный результат (v0.6.0):**
-  - **Server:** ArenaRoom.ts 3749 → ~2480 LOC (−34%)
-  - **Client:** main.ts 4109 → ~3330 LOC (−19%)
+  - **Server:** ArenaRoom.ts 3749 → 2704 LOC (−28%)
+  - **Client:** main.ts 4109 → 3790 LOC (−8%)
   - **Всего извлечено:** 2043 строки в 8 модулей
   - **Детерминизм:** ✅ Проверен и сохранён
-  - **Тесты:** ✅ Все 4 набора проходят (determinism, orb-bite, arena-generation)
+  - **Тесты:** ✅ Все 3 набора проходят (determinism, orb-bite, arena-generation)
   - **Бандл:** gzip 77.38 кБ (< 150 кБ ✅)
-  - **Время выполнения:** ~4 часа ИИ-командой vs 2-3 недели ручного разработки
-  - **Ускорение:** 30-40x
-
-  **Оставшиеся модули (P3):**
-  - PlayerStateManager (server)
-  - SmoothingSystem (client)
+  - **Beads:** slime-arena-ar1, slime-arena-mt1 — ✅ CLOSED
 
   **Документация обновлена:**
   - AGENT_ROLES.md v1.5 — формат ревью в PR с именем модели
