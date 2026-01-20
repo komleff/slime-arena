@@ -344,6 +344,13 @@ git worktree remove ../project-agent2
 
 ## Ссылки
 
+**Статьи (рекомендуемое чтение):**
+
+- [Habr: Vibe Coding — как я перестал бояться и полюбил AI](https://habr.com/ru/articles/979624/) — ключевая статья о методологии
+- [Habr: AI-агенты в разработке](https://habr.com/ru/articles/964368/)
+
+**Инструменты:**
+
 - [Claude Code](https://claude.ai/claude-code) — CLI для Claude
 - [Cursor](https://cursor.sh) — AI-first редактор
 - [Beads](https://github.com/hyperdrive-systems/beads) — Git-native таск-менеджер
