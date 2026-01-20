@@ -324,6 +324,7 @@ git worktree add ../project-agent2 -b feature/task2
 **Статьи (рекомендуемое чтение):**
 - [Habr: Vibe Coding — как я перестал бояться и полюбил AI](https://habr.com/ru/articles/979624/) — ключевая статья о методологии
 - [Habr: AI-агенты в разработке](https://habr.com/ru/articles/964368/)
+- [Habr: Memory Bank и управление контекстом](https://habr.com/ru/articles/983498/) — важнейшая статья о сохранении контекста
 
 **Инструменты:**
 - [Slime Arena (GitHub)](https://github.com/komleff/slime-arena)
