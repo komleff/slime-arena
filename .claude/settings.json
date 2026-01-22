@@ -69,7 +69,5 @@
       "Bash(gh pr merge *)"
     ]
   },
-  "enableAllProjectMcpServers": true,
-  "alwaysThinkingEnabled": true,
-  "autoUpdatesChannel": "latest"
+  "enableAllProjectMcpServers": true
 }
