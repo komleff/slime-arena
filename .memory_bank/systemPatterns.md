@@ -1,8 +1,8 @@
 # System Patterns
 Архитектурные решения и паттерны проектирования.
 
-**Версия GDD:** 3.3  
-**Архитектура:** SlimeArena-Architecture-v3.3.md
+**Версия GDD:** 3.3.2
+**Архитектура:** SlimeArena-Architecture-v4.2.5 (4 части, Soft Launch)
 
 ## Границы подсистем
 - **Runtime (Server)**: `server/src/index.ts` (точка входа), `server/src/rooms/` (игровая логика).
