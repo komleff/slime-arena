@@ -1,0 +1,88 @@
+{
+  "skins": [
+    {
+      "id": "slime_green",
+      "name": "Зелёный слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#10b981"
+    },
+    {
+      "id": "slime_blue",
+      "name": "Синий слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#3b82f6"
+    },
+    {
+      "id": "slime_red",
+      "name": "Красный слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#ef4444"
+    },
+    {
+      "id": "slime_yellow",
+      "name": "Жёлтый слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#fbbf24"
+    },
+    {
+      "id": "slime_pink",
+      "name": "Розовый слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#ec4899"
+    },
+    {
+      "id": "slime_purple",
+      "name": "Фиолетовый слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#a855f7"
+    },
+    {
+      "id": "slime_orange",
+      "name": "Оранжевый слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#f97316"
+    },
+    {
+      "id": "slime_cyan",
+      "name": "Бирюзовый слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#06b6d4"
+    },
+    {
+      "id": "slime_lime",
+      "name": "Лаймовый слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#84cc16"
+    },
+    {
+      "id": "slime_teal",
+      "name": "Бирюзово-зелёный слайм",
+      "tier": "basic",
+      "price": 0,
+      "color": "#14b8a6"
+    },
+    {
+      "id": "slime_gold",
+      "name": "Золотой слайм",
+      "tier": "rare",
+      "price": 500,
+      "color": "#f59e0b"
+    },
+    {
+      "id": "slime_rainbow",
+      "name": "Радужный слайм",
+      "tier": "epic",
+      "price": 1000,
+      "color": "#ff00ff"
+    }
+  ]
+}
