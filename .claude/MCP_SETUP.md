@@ -29,120 +29,39 @@ pip install beads-mcp
 
 ---
 
-### 2. GitHub MCP Server ⚠️
+## Использование GitHub
 
-**Статус:** Требует настройки токена
+Для работы с GitHub используй **GitHub CLI (`gh`)** вместо MCP сервера:
 
-**Текущая конфигурация (неверная):**
-```json
-{
-  "github": {
-    "url": "https://api.githubcopilot.com/mcp/",
-    "type": "http"
-  }
-}
-```
-
-**Правильная конфигурация:**
-```json
-{
-  "github": {
-    "type": "stdio",
-    "command": "npx",
-    "args": [
-      "-y",
-      "@modelcontextprotocol/server-github"
-    ],
-    "env": {
-      "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-    }
-  }
-}
-```
-
----
-
-## Настройка GitHub MCP Server
-
-### Шаг 1: Создать Personal Access Token
-
-1. Перейти: https://github.com/settings/tokens
-2. Нажать "Generate new token" → "Generate new token (classic)"
-3. Выбрать scopes:
-   - `repo` (полный доступ к репозиториям)
-   - `read:org` (опционально, для организаций)
-4. Скопировать токен
-
-### Шаг 2: Установить переменную окружения
-
-**Windows (PowerShell):**
-```powershell
-[System.Environment]::SetEnvironmentVariable('GITHUB_TOKEN', 'ghp_your_token_here', 'User')
-```
-
-**Windows (cmd):**
-```cmd
-setx GITHUB_TOKEN "ghp_your_token_here"
-```
-
-**Linux/Mac:**
 ```bash
-echo 'export GITHUB_TOKEN="ghp_your_token_here"' >> ~/.bashrc
-source ~/.bashrc
+gh pr create            # Создать PR
+gh pr list              # Список PR
+gh issue list           # Список issues
+gh api repos/...        # GitHub API
 ```
 
-### Шаг 3: Обновить конфигурацию MCP
-
-Отредактировать файл:
-- **Windows:** `%APPDATA%\Code\User\mcp.json`
-- **Linux/Mac:** `~/.config/Code/User/mcp.json`
-
-Заменить секцию `"github"` на правильную конфигурацию (см. выше).
-
-### Шаг 4: Перезапустить VS Code
-
-После изменения конфигурации необходимо перезапустить VS Code.
+GitHub CLI уже настроен и используется в проекте.
 
 ---
 
 ## Проверка работоспособности
 
-### Проверить beads-mcp:
 ```bash
-beads-mcp --version
-```
-
-### Проверить GitHub token:
-```bash
-echo $GITHUB_TOKEN  # Linux/Mac
-echo %GITHUB_TOKEN%  # Windows cmd
-$env:GITHUB_TOKEN    # Windows PowerShell
-```
-
-### Проверить GitHub MCP:
-```bash
-npx -y @modelcontextprotocol/server-github
+beads-mcp --version    # Проверить версию
+bd ready               # Показать готовые задачи
 ```
 
 ---
 
-## Доступные инструменты
+## Доступные команды Beads
 
-### Beads MCP:
-- `bd_ready` - показать готовые задачи
-- `bd_create` - создать задачу
-- `bd_update` - обновить задачу
-- `bd_close` - закрыть задачу
-- `bd_show` - показать детали задачи
-
-### GitHub MCP:
-- `create_issue` - создать issue
-- `create_pull_request` - создать PR
-- `get_file_contents` - получить содержимое файла
-- `push_files` - закоммитить файлы
-- `search_repositories` - поиск репозиториев
-- `create_repository` - создать репозиторий
-- `fork_repository` - форкнуть репозиторий
+- `bd ready` — показать готовые задачи
+- `bd create` — создать задачу
+- `bd update` — обновить задачу
+- `bd close` — закрыть задачу
+- `bd show` — показать детали задачи
+- `bd dep` — управление зависимостями
+- `bd sync` — синхронизация с Git
 
 ---
 
@@ -162,14 +81,7 @@ npx -y @modelcontextprotocol/server-github
 
 ## Troubleshooting
 
-### GitHub MCP не работает:
-
-1. Проверить токен: `echo $GITHUB_TOKEN`
-2. Проверить права токена на GitHub
-3. Проверить установку пакета: `npm list -g @modelcontextprotocol/server-github`
-4. Проверить логи в VS Code: View → Output → MCP
-
-### Beads MCP не работает:
+### Beads MCP не работает
 
 1. Проверить установку: `pip list | grep beads`
 2. Переустановить: `pip install --upgrade beads-mcp`
@@ -177,7 +89,9 @@ npx -y @modelcontextprotocol/server-github
 
 ---
 
-## Полная конфигурация mcp.json
+## Конфигурация mcp.json
+
+**Путь:** `%APPDATA%\Code\User\mcp.json` (Windows)
 
 ```json
 {
@@ -186,17 +100,6 @@ npx -y @modelcontextprotocol/server-github
       "type": "stdio",
       "command": "beads-mcp",
       "args": []
-    },
-    "github": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-github"
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-      }
     }
   },
   "inputs": []
