@@ -10,6 +10,10 @@ export interface User {
   nickname: string;
   avatarUrl?: string;
   locale: string;
+  isAnonymous: boolean;
+  registrationSkinId?: string;
+  registrationMatchId?: string;
+  nicknameSetAt?: Date;
 }
 
 export interface Session {
@@ -61,7 +65,9 @@ export class AuthService {
 
       // Find or create user
       let userResult = await client.query(
-        'SELECT id, platform_type, platform_id, nickname, avatar_url, locale FROM users WHERE platform_type = $1 AND platform_id = $2',
+        `SELECT id, platform_type, platform_id, nickname, avatar_url, locale,
+                is_anonymous, registration_skin_id, registration_match_id, nickname_set_at
+         FROM users WHERE platform_type = $1 AND platform_id = $2`,
         [platformType, platformUserId]
       );
 
@@ -70,9 +76,10 @@ export class AuthService {
       if (userResult.rows.length === 0) {
         // Create new user
         const insertUserResult = await client.query(
-          `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, last_login_at) 
-           VALUES ($1, $2, $3, $4, NOW()) 
-           RETURNING id, platform_type, platform_id, nickname, avatar_url, locale`,
+          `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, last_login_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
+                     is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
           [platformType, platformUserId, nickname, avatarUrl || null]
         );
         user = this.mapUserRow(insertUserResult.rows[0]);
@@ -137,10 +144,11 @@ export class AuthService {
     const tokenHash = this.hashToken(accessToken);
 
     const result = await this.pool.query(
-      `SELECT u.id, u.platform_type, u.platform_id, u.nickname, u.avatar_url, u.locale
+      `SELECT u.id, u.platform_type, u.platform_id, u.nickname, u.avatar_url, u.locale,
+              u.is_anonymous, u.registration_skin_id, u.registration_match_id, u.nickname_set_at
        FROM users u
        INNER JOIN sessions s ON s.user_id = u.id
-       WHERE s.token_hash = $1 
+       WHERE s.token_hash = $1
          AND s.expires_at > NOW()
          AND s.revoked_at IS NULL
          AND u.is_banned = FALSE`,
@@ -182,6 +190,10 @@ export class AuthService {
       nickname: row.nickname,
       avatarUrl: row.avatar_url,
       locale: row.locale,
+      isAnonymous: row.is_anonymous ?? false,
+      registrationSkinId: row.registration_skin_id,
+      registrationMatchId: row.registration_match_id,
+      nicknameSetAt: row.nickname_set_at,
     };
   }
 }
