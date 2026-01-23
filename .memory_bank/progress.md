@@ -2,11 +2,39 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 20 января 2026 (4f427b8)
-- **Текущая ветка**: `main`
-- **Релиз:** v0.6.0 ✅
+- **last_checked_commit**: sprint-13/meta-gameplay @ 23 января 2026 (919299c)
+- **Текущая ветка**: `sprint-13/meta-gameplay` (worktree: d:/slime-arena-meta/)
+- **Релиз:** v0.6.0 ✅ → **Целевой релиз:** v0.7.0 (Sprint 13)
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
 - **GDD версия**: v3.3.2
+
+## Sprint 13 Progress — 23 января 2026
+
+### Фаза 1: База данных и инфраструктура ✅ ЗАВЕРШЕНА
+
+**Завершено сегодня:**
+- [x] Задача 1.1: Migration 007 — новые таблицы (leaderboard_total_mass, leaderboard_best_mass, rating_awards, oauth_links)
+- [x] Задача 1.2: Migration 008 — изменение существующих таблиц (users: is_anonymous + регистрация, match_results: guest_subject_id + claim_consumed_at)
+- [x] Задача 1.3: Модели данных — TypeScript интерфейсы (Leaderboard, Rating, OAuth)
+- [x] Задача 1.4: Генераторы — skinGenerator + nicknameValidator + config/skins.json
+
+**Коммиты (sprint-13/meta-gameplay):**
+- `aa03142` feat(db): add migration 007 for meta-gameplay tables
+- `cf04c4d` feat(db): add migration 008 for meta-gameplay columns
+- `11e17d0` feat(utils): add skinGenerator and nicknameValidator
+- `919299c` feat(meta): add data models for meta-gameplay
+
+**Прогресс:**
+- Фаза 1: [████] 4/4 задач (100%) ✅
+- Фаза 2: [░░░░] 0/9 задач (0%)
+- Фаза 3: [░░░░] 0/9 задач (0%)
+- **Всего:** [██░░] 4/25 задач (16%)
+
+**Следующий шаг:**
+- Начать Фазу 2: API и серверная логика
+- Первые задачи: JWT utilities (2.1), POST /auth/guest (2.2), POST /auth/telegram (2.3)
+
+---
 
 ## Последние изменения (20 января 2026)
 - **Sprint 12 COMPLETED:** Декомпозиция God Objects (ArenaRoom.ts, main.ts)
