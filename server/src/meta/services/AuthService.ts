@@ -11,9 +11,9 @@ export interface User {
   avatarUrl?: string;
   locale: string;
   isAnonymous: boolean;
-  registrationSkinId?: string;
-  registrationMatchId?: string;
-  nicknameSetAt?: Date;
+  registrationSkinId: string | null;
+  registrationMatchId: string | null;
+  nicknameSetAt: Date | null;
 }
 
 export interface Session {

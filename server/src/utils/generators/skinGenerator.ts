@@ -3,7 +3,7 @@
  * Использует конфигурацию из config/skins.json.
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { Rng } from '../rng.js';
 
@@ -21,14 +21,35 @@ interface SkinsConfig {
 
 let skinsConfig: SkinsConfig | null = null;
 
+// Candidates for skins.json location (works for both src and dist)
+const SKINS_CANDIDATES = [
+  // dev: server/src/utils/generators → 4 levels up to project root
+  join(__dirname, '..', '..', '..', '..', 'config', 'skins.json'),
+  // prod: server/dist/server/src/utils/generators → 6 levels up to project root
+  join(__dirname, '..', '..', '..', '..', '..', '..', 'config', 'skins.json'),
+  // fallback: cwd-based
+  join(process.cwd(), 'config', 'skins.json'),
+  join(process.cwd(), '..', 'config', 'skins.json'),
+];
+
+function findSkinsConfig(): string {
+  for (const candidate of SKINS_CANDIDATES) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    `skins.json not found. Searched:\n${SKINS_CANDIDATES.join('\n')}`
+  );
+}
+
 /**
  * Загружает конфигурацию скинов из config/skins.json.
  * Результат кешируется для последующих вызовов.
  */
 function loadSkinsConfig(): SkinsConfig {
   if (skinsConfig === null) {
-    // 6 levels up from dist/server/src/utils/generators/ to project root
-    const configPath = join(__dirname, '..', '..', '..', '..', '..', '..', 'config', 'skins.json');
+    const configPath = findSkinsConfig();
     const configData = readFileSync(configPath, 'utf-8');
     skinsConfig = JSON.parse(configData) as SkinsConfig;
   }
