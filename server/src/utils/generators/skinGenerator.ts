@@ -27,7 +27,8 @@ let skinsConfig: SkinsConfig | null = null;
  */
 function loadSkinsConfig(): SkinsConfig {
   if (skinsConfig === null) {
-    const configPath = join(__dirname, '../../../../config', 'skins.json');
+    // 6 levels up from dist/server/src/utils/generators/ to project root
+    const configPath = join(__dirname, '..', '..', '..', '..', '..', '..', 'config', 'skins.json');
     const configData = readFileSync(configPath, 'utf-8');
     skinsConfig = JSON.parse(configData) as SkinsConfig;
   }
