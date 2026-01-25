@@ -15,7 +15,7 @@ shared/dist/
 _ext/u2/
 legacy/
 logs/
-.claude/
+.claude/settings.local.json
 
 # Test artifacts and local logs
 local/test-logs/
