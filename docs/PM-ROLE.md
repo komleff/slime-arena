@@ -132,28 +132,63 @@ Fixed by Claude Opus 4.5 (Attempt 1/5)
 \`\`\`"
 ```
 
-### 2.3 Review coordination
+### 2.3 Review coordination (Hybrid Workflow)
 
-PM автоматизирует параллельный review через `pm-orchestrator.py`:
+PM использует **гибридный подход** для code review:
+
+**Архитектура:**
+
+| Ревьювер | Способ вызова | Преимущества |
+|----------|---------------|--------------|
+| **Opus 4.5** | Task tool (нативно) | Доступ к файлам, без API ключей |
+| **Codex 5.2** | Python (OpenAI API) | Независимая верификация |
+| **Gemini Pro** | Python (Google API) | Независимая верификация |
+| **Copilot** | GitHub (автоматически) | Встроенный в GitHub |
 
 **Процесс:**
 
-1. PM запускает 3 ревьювера параллельно:
-   - Claude Opus 4.5 (Anthropic API)
-   - ChatGPT 5.2 Codex (OpenAI API)
-   - Gemini 3 Pro (Google AI API)
+1. PM вызывает **Opus через Task tool** (нативно):
 
-2. Ожидает GitHub Copilot (встроенный review GitHub)
+```typescript
+<invoke name="Task">
+  <parameter name="subagent_type">general-purpose</parameter>
+  <parameter name="model">opus</parameter>
+  <parameter name="prompt">
+    Проведи code review PR #105 в репозитории komleff/slime-arena.
+    Следуй формату из docs/sprint-13/universal-review-prompt.md
+    Выдай вердикт: APPROVED или CHANGES_REQUESTED
+  </parameter>
+</invoke>
+```
 
-3. Собирает все отчёты и публикует в PR
-
-4. Анализирует консенсус (требуется 3+ APPROVED)
-
-**Команда запуска:**
+2. PM запускает **внешних ревьюверов через Python**:
 
 ```bash
-# Запустить review cycle для PR
-python tools/pm-orchestrator.py --pr=105 --cycle --max-iterations=5
+# Запустить Codex и Gemini параллельно
+python tools/external_reviewers.py --pr=105 --reviewers codex gemini --post
+```
+
+3. Ожидает **GitHub Copilot** (встроенный review)
+
+4. **Собирает все отчёты** и анализирует консенсус
+
+**Файлы инструментов:**
+
+- `tools/external_reviewers.py` — Codex/Gemini через API
+- `tools/pm-orchestrator.py` — Полный цикл (legacy, все через API)
+
+**Полный hybrid workflow:**
+
+```bash
+# 1. Opus review (нативно через Task tool в Claude Code)
+# PM выполняет это как часть своей сессии
+
+# 2. Внешние ревьюверы (параллельно)
+python tools/external_reviewers.py --pr=105 --post --iteration=1
+
+# 3. Ждать Copilot (автоматически)
+
+# 4. PM собирает результаты и делает synthesis
 ```
 
 **Формат отчёта ревьювера:**
