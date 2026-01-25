@@ -8,71 +8,51 @@
 ## Чеклист
 
 - [x] Сборка проходит
-- [x] Тесты генераторов проходят (374/374 — nickname-validator: 80, skin-generator: 294)
-- [x] Детерминизм сохранён (Math.random используется только в мета-сервере)
-- [x] Архитектура в целом соответствует ТЗ
+- [x] Тесты проходят (374/374 — nickname-validator: 80, skin-generator: 294)
+- [ ] Детерминизм сохранён
+- [x] Архитектура соответствует ТЗ
 - [x] Найдены проблемы (см. ниже)
 
 ## Замечания
 
+### [P0] Критические проблемы
+
+Нет.
+
 ### [P1] Важные проблемы
 
-1. **[P1]** `server/src/db/migrations/008_meta_gameplay_columns.sql` — **Не добавлено поле `auth_provider`**
-   - ТЗ (раздел 1.2): указано, что `platform_type` переименовано в `auth_provider` (VARCHAR(20))
-   - Текущее состояние: миграция 008 не содержит `auth_provider` в таблице `users`
-   - Влияние: AuthService.ts использует `platform_type`, что соответствует текущей миграции, но не соответствует ТЗ
-   - Решение: либо добавить поле и переименовать (`ALTER TABLE users RENAME COLUMN platform_type TO auth_provider`), либо согласовать с ТЗ что используется `platform_type`
+1. **[P1]** `server/src/utils/generators/skinGenerator.ts:30` — путь к `config/skins.json` зависит от `process.cwd()`
+   - Проблема: при запуске `npm run dev --workspace=server` рабочая директория = `server/`, файл `config/skins.json` не найден → ошибка чтения и срыв гостевого/первичного профиля.
+   - Решение: вычислять путь относительно файла (`__dirname`) или передавать путь через переменную окружения.
 
-2. **[P1]** `server/src/utils/generators/skinGenerator.ts:47-59` — **Неравномерное распределение скинов**
-   - Проблема: тест показал, что 5 из 10 скинов никогда не выбираются при seeds 0-999
-   - Распределение: slime_red (16.5%), slime_yellow (25.8%), slime_pink (25.9%), slime_purple (25.8%), slime_orange (6.0%)
-   - Причина: LCG-генератор с малым диапазоном seeds даёт неравномерное распределение
-   - Влияние: новые игроки получают только 5 из 10 базовых скинов
-   - Решение: использовать seed из большего диапазона (timestamp, UUID hash) или улучшить алгоритм
+2. **[P1]** `server/tests/determinism.test.js:6` — `npm run test` падает из-за неверного пути к `ArenaRoom.js`
+   - Проблема: тест ожидает `server/dist/rooms/ArenaRoom.js`, но сборка кладёт файл в `server/dist/server/src/rooms/ArenaRoom.js`.
+   - Последствия: детерминизм не проверяется, тестовый контур красный.
+   - Решение: поправить путь в тесте или унифицировать `outDir` в `tsconfig`.
 
 ### [P2] Желательные улучшения
 
-3. **[P2]** `server/src/meta/services/AuthService.ts` — **Захардкоженная продолжительность сессии**
-   - Строка: `SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000`
-   - Рекомендация: вынести в `config/balance.json` или отдельный конфиг
-   - Причина: соответствие принципу «Баланс = конфигурация» из AGENT_ROLES.md
+3. **[P2]** `server/src/utils/generators/nicknameValidator.ts:128` — `validateAndNormalize()` принимает `null/undefined` и превращает в строку
+   - Проблема: `normalizeNickname()` делает `String(null)` → `'null'`, `String(undefined)` → `'undefined'`, после чего валидация проходит.
+   - Последствия: в БД могут появиться технические никнеймы.
+   - Решение: проверять `null/undefined` до нормализации или вызывать `validateNicknameDetailed()` на исходном значении.
 
-4. **[P2]** `server/src/utils/generators/nicknameValidator.ts` — **BANNED_WORDS захардкожен**
-   - Строки 26-33: базовый список запрещённых слов в коде
-   - Комментарий говорит «В production должен загружаться из внешнего источника»
-   - Рекомендация: создать `config/banned-words.json` или загружать из БД
-
-5. **[P2]** `server/src/meta/models/Leaderboard.ts` — **Отсутствует LeaderboardEntry для API**
-   - Тип `LeaderboardEntry` определён, но ТЗ также требует `LeaderboardResponse` с полями `mode`, `entries`, `myPosition`, `myValue`
-   - Рекомендация: добавить интерфейс ответа API
-
-6. **[P2]** SQL-миграции — **Нет миграции для отката (down)**
-   - Миграции 007 и 008 не содержат скриптов отката
-   - Рекомендация: добавить `007_meta_gameplay_tables_down.sql` и `008_meta_gameplay_columns_down.sql`
+4. **[P2]** `server/src/utils/generators/skinGenerator.ts:59` — `Math.random()` в серверном коде
+   - Проблема: нарушает правило детерминизма для серверного кода, если функция будет использована вне мета-сервера.
+   - Решение: изолировать функцию в мета-слое или заменить на `Rng` с явным seed.
 
 ## Позитивные моменты
 
-1. **Идемпотентность миграций** — все `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS` корректно используют условия
-2. **Foreign Keys** — правильно настроены `ON DELETE CASCADE` для зависимых таблиц и `ON DELETE SET NULL` для опциональных связей
-3. **Индексы** — созданы для всех полей, по которым будет поиск (`total_mass DESC`, `best_mass DESC`, `guest_subject_id`, `oauth_links(user_id)`)
-4. **UNIQUE constraints** — `rating_awards(user_id, match_id)` и `oauth_links(auth_provider, provider_user_id)` предотвращают дубликаты
-5. **Детерминированный генератор скинов** — `generateBasicSkin(seed)` корректно использует класс `Rng`
-6. **Валидатор никнеймов** — хорошее покрытие edge cases (null, undefined, Unicode, эмодзи, HTML-теги)
-7. **Типизация** — все модели корректно типизированы, соответствие схеме БД (UUID → string, TIMESTAMP → Date)
-8. **Триггеры** — `update_updated_at_column()` корректно применён к таблицам лидерборда
-9. **Тесты** — 374 теста для генераторов с хорошим покрытием edge cases
+- Миграции идемпотентны и безопасны для повторного запуска: `IF NOT EXISTS` в таблицах и индексах. (`server/src/db/migrations/007_meta_gameplay_tables.sql:6`, `server/src/db/migrations/008_meta_gameplay_columns.sql:6`)
+- Корректные внешние ключи и индексы под запросы лидербордов и idempotency. (`server/src/db/migrations/007_meta_gameplay_tables.sql:13`, `server/src/db/migrations/007_meta_gameplay_tables.sql:35`)
+- SQL в AuthService параметризован, новые поля пользователя выбираются и маппятся без строковой конкатенации. (`server/src/meta/services/AuthService.ts:67`, `server/src/meta/services/AuthService.ts:185`)
+- Юнит‑тесты новых генераторов прошли полностью (80 + 294). (`server/tests/nickname-validator.test.js:1`, `server/tests/skin-generator.test.js:1`)
 
 ## Вердикт
 
 **CHANGES_REQUESTED** — требуется исправить P1 замечания.
 
-### Критические замечания для исправления:
-1. Согласовать поле `auth_provider` в миграции 008 с ТЗ
-2. Исправить распределение скинов в `generateBasicSkin()`
-
 ## Рекомендации для PM
 
-1. **P1 #1**: Уточнить с Architect, должен ли `platform_type` быть переименован в `auth_provider` или это две разные концепции (`platform_type` для старых пользователей, `auth_provider` для OAuth)
-2. **P1 #2**: Создать задачу на улучшение seed-генерации для скинов (использовать timestamp или hash от userId)
-3. **P2**: Можно перенести на следующую фазу или в технический долг
-4. После исправления P1 — запросить повторное ревью перед мержем
+- Починить тестовый путь в `determinism.test.js`, иначе CI не подтверждает детерминизм.
+- После фикса пути к `config/skins.json` перепроверить `POST /api/v1/auth/guest` и `POST /api/v1/profile/complete` в окружении, где `cwd = server/`.
