@@ -3,6 +3,13 @@ import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
 import { requireServerToken } from '../middleware/auth';
 import { MatchSummary, PlayerResult } from '@slime-arena/shared/src/types';
+import {
+  verifyAccessToken,
+  verifyGuestToken,
+  generateClaimToken,
+  calculateExpiresAt,
+  TOKEN_EXPIRATION,
+} from '../utils/jwtUtils';
 
 const router = express.Router();
 
@@ -182,5 +189,160 @@ function calculateCoinsGain(playerResult: PlayerResult): number {
 
   return coins;
 }
+
+/**
+ * POST /api/v1/match-results/claim
+ * Get claimToken for a match (used in auth/upgrade flow)
+ *
+ * Requires: Authorization: Bearer <accessToken or guestToken>
+ *
+ * Body: { matchId: string }
+ *
+ * Returns: { claimToken: string, expiresAt: string }
+ */
+router.post('/claim', async (req: Request, res: Response) => {
+  try {
+    const { matchId } = req.body;
+
+    if (!matchId) {
+      return res.status(400).json({
+        error: 'validation_error',
+        message: 'matchId is required',
+      });
+    }
+
+    // Extract and verify token
+    const authHeader = req.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Authorization header required',
+      });
+    }
+
+    const token = authHeader.substring(7);
+
+    // Try to verify as accessToken first, then as guestToken
+    const accessPayload = verifyAccessToken(token);
+    const guestPayload = verifyGuestToken(token);
+
+    if (!accessPayload && !guestPayload) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Invalid or expired token',
+      });
+    }
+
+    // Determine subject ID based on token type
+    const isGuest = !!guestPayload;
+    const subjectId = isGuest ? guestPayload!.sub : accessPayload!.sub;
+
+    const pool = getPool();
+
+    // Fetch match result
+    const matchResult = await pool.query(
+      `SELECT
+         match_id,
+         summary,
+         guest_subject_id,
+         claim_consumed_at,
+         ended_at
+       FROM match_results
+       WHERE match_id = $1`,
+      [matchId]
+    );
+
+    if (matchResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: 'Match not found',
+      });
+    }
+
+    const match = matchResult.rows[0];
+
+    // Check ownership
+    const summary = typeof match.summary === 'string' ? JSON.parse(match.summary) : match.summary;
+    const playerResults = summary?.playerResults || [];
+
+    let playerData: PlayerResult | undefined;
+
+    if (isGuest) {
+      // For guest: check if match has guest_subject_id matching
+      // Or check playerResults for a player without userId
+      if (match.guest_subject_id !== subjectId) {
+        // Also check if there's a player in results that could be this guest
+        // Guest players don't have userId in playerResults
+        const guestPlayers = playerResults.filter((p: PlayerResult) => !p.userId);
+        if (guestPlayers.length === 0) {
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'Match does not belong to this guest',
+          });
+        }
+        // Take the first guest player (in a guest match there should be one)
+        playerData = guestPlayers[0];
+      }
+    } else {
+      // For registered user: check playerResults for matching userId
+      playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
+      if (!playerData) {
+        return res.status(403).json({
+          error: 'forbidden',
+          message: 'Match does not belong to this user',
+        });
+      }
+    }
+
+    // Check if already claimed
+    if (match.claim_consumed_at) {
+      return res.status(409).json({
+        error: 'already_claimed',
+        message: 'Match result has already been claimed',
+      });
+    }
+
+    // Get final mass from player data
+    const finalMass = playerData?.finalMass ?? 0;
+
+    // Get skinId: for registered users fetch from profile, for guests use default
+    let skinId = 'basic_green';
+    if (!isGuest && subjectId) {
+      const profileResult = await pool.query(
+        'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
+        [subjectId]
+      );
+      if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id) {
+        skinId = profileResult.rows[0].selected_skin_id;
+      }
+    }
+
+    // Generate claimToken
+    const claimToken = generateClaimToken({
+      matchId,
+      subjectId,
+      finalMass,
+      skinId,
+    });
+
+    const expiresAt = calculateExpiresAt(TOKEN_EXPIRATION.CLAIM_TOKEN);
+
+    console.log(
+      `[MatchResults] Claim token generated for ${isGuest ? 'guest' : 'user'} ` +
+      `${subjectId.slice(0, 8)}..., match: ${matchId.slice(0, 8)}..., mass: ${finalMass}`
+    );
+
+    res.json({
+      claimToken,
+      expiresAt: expiresAt.toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[MatchResults] Claim error:', error);
+    res.status(500).json({
+      error: 'internal_error',
+      message: error.message || 'Failed to generate claim token',
+    });
+  }
+});
 
 export default router;
