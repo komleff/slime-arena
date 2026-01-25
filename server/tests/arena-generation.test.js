@@ -3,13 +3,13 @@ const path = require("path");
 const serverRoot = path.resolve(__dirname, "..");
 process.chdir(serverRoot);
 
-const { ArenaRoom } = require(path.resolve(__dirname, "../dist/rooms/ArenaRoom.js"));
-const { Rng } = require(path.resolve(__dirname, "../dist/utils/rng.js"));
+const { ArenaRoom } = require(path.resolve(__dirname, "../dist/server/src/rooms/ArenaRoom.js"));
+const { Rng } = require(path.resolve(__dirname, "../dist/server/src/utils/rng.js"));
 const {
     generateObstacleSeeds,
     generateSafeZoneSeeds,
     generateZoneSeeds,
-} = require(path.resolve(__dirname, "../dist/rooms/helpers/arenaGeneration.js"));
+} = require(path.resolve(__dirname, "../dist/server/src/rooms/helpers/arenaGeneration.js"));
 const { ZONE_TYPE_LAVA } = require("@slime-arena/shared");
 
 function assert(condition, message) {

@@ -3,8 +3,8 @@ const path = require("path");
 const serverRoot = path.resolve(__dirname, "..");
 process.chdir(serverRoot);
 
-const { ArenaRoom } = require(path.resolve(__dirname, "../dist/rooms/ArenaRoom.js"));
-const { Orb } = require(path.resolve(__dirname, "../dist/rooms/schema/GameState.js"));
+const { ArenaRoom } = require(path.resolve(__dirname, "../dist/server/src/rooms/ArenaRoom.js"));
+const { Orb } = require(path.resolve(__dirname, "../dist/server/src/rooms/schema/GameState.js"));
 
 function createRoom(seed = 12345) {
     const room = new ArenaRoom();
