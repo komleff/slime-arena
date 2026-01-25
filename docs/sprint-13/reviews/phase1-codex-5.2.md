@@ -1,7 +1,7 @@
-# Review by Claude Opus 4.5
+# Review by ChatGPT Codex 5.2
 
 **Дата:** 2026-01-25
-**Ревьювер:** Claude Opus 4.5
+**Ревьювер:** ChatGPT Codex 5.2
 **Фаза:** Sprint 13, Phase 1 (Database & Infrastructure)
 **Коммиты:** aa03142, cf04c4d, 11e17d0, 919299c
 
