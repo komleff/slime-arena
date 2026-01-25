@@ -59,7 +59,7 @@ router.post('/guest', async (req: Request, res: Response) => {
     console.error('[Auth] Guest token error:', error);
     res.status(500).json({
       error: 'guest_token_failed',
-      message: error.message || 'Failed to create guest token',
+      message: 'Failed to create guest token',
     });
   }
 });
@@ -134,7 +134,7 @@ router.post('/telegram', async (req: Request, res: Response) => {
 
     res.status(401).json({
       error: 'telegram_auth_failed',
-      message: error.message || 'Telegram authentication failed',
+      message: 'Telegram authentication failed',
     });
   }
 });
@@ -176,7 +176,7 @@ router.post('/verify', async (req: Request, res: Response) => {
     console.error('[Auth] Verification error:', error);
     res.status(401).json({
       error: 'auth_failed',
-      message: error.message || 'Authentication failed',
+      message: 'Authentication failed',
     });
   }
 });
@@ -278,7 +278,7 @@ router.post('/oauth', async (req: Request, res: Response) => {
     console.error('[Auth] OAuth error:', error);
     res.status(401).json({
       error: 'oauth_failed',
-      message: error.message || 'OAuth authentication failed',
+      message: 'OAuth authentication failed',
     });
   }
 });
@@ -415,21 +415,36 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
-      // Create registered user
-      const user = await authService.createUserFromGuest(
-        provider as AuthProvider,
-        providerUserId,
-        nickname,
-        avatarUrl,
-        matchId,
-        skinId
-      );
+      // Execute all operations in a single transaction to prevent race conditions
+      const client = await authService.getClient();
+      let user;
+      try {
+        await client.query('BEGIN');
 
-      // Initialize ratings
-      await ratingService.initializeRating(user.id, claimPayload, 1); // playersInMatch = 1 for initial
+        // Create registered user
+        user = await authService.createUserFromGuest(
+          provider as AuthProvider,
+          providerUserId,
+          nickname,
+          avatarUrl,
+          matchId,
+          skinId,
+          client
+        );
 
-      // Mark claim as consumed
-      await authService.markClaimConsumed(matchId, subjectId);
+        // Initialize ratings
+        await ratingService.initializeRating(user.id, claimPayload, 1, client);
+
+        // Mark claim as consumed
+        await authService.markClaimConsumed(matchId, subjectId, client);
+
+        await client.query('COMMIT');
+      } catch (txError) {
+        await client.query('ROLLBACK');
+        throw txError;
+      } finally {
+        client.release();
+      }
 
       // Generate access token
       const accessTokenNew = generateAccessToken(user.id, false);
@@ -480,18 +495,33 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
-      // Complete profile
-      const user = await authService.completeAnonymousProfile(
-        accessPayload.sub,
-        matchId,
-        skinId
-      );
+      // Execute all operations in a single transaction to prevent race conditions
+      const client = await authService.getClient();
+      let user;
+      try {
+        await client.query('BEGIN');
 
-      // Initialize ratings
-      await ratingService.initializeRating(user.id, claimPayload, 1);
+        // Complete profile
+        user = await authService.completeAnonymousProfile(
+          accessPayload.sub,
+          matchId,
+          skinId,
+          client
+        );
 
-      // Mark claim as consumed
-      await authService.markClaimConsumed(matchId, subjectId);
+        // Initialize ratings
+        await ratingService.initializeRating(user.id, claimPayload, 1, client);
+
+        // Mark claim as consumed
+        await authService.markClaimConsumed(matchId, subjectId, client);
+
+        await client.query('COMMIT');
+      } catch (txError) {
+        await client.query('ROLLBACK');
+        throw txError;
+      } finally {
+        client.release();
+      }
 
       // Generate new access token (with isAnonymous = false)
       const accessTokenNew = generateAccessToken(user.id, false);
@@ -517,7 +547,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     console.error('[Auth] Upgrade error:', error);
     res.status(500).json({
       error: 'upgrade_failed',
-      message: error.message || 'Upgrade failed',
+      message: 'Upgrade failed',
     });
   }
 });
@@ -544,7 +574,7 @@ router.post('/logout', async (req: Request, res: Response) => {
     console.error('[Auth] Logout error:', error);
     res.status(500).json({
       error: 'logout_failed',
-      message: error.message || 'Logout failed',
+      message: 'Logout failed',
     });
   }
 });

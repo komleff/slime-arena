@@ -162,61 +162,77 @@ export class RatingService {
    * @param userId - New user ID
    * @param claimToken - Decoded claim token with match data
    * @param playersInMatch - Number of players in the match
+   * @param externalClient - Optional external DB client for transaction support
    */
   async initializeRating(
     userId: string,
     claimToken: ClaimTokenPayload,
-    playersInMatch: number
+    playersInMatch: number,
+    externalClient?: any
   ): Promise<InitializeRatingResult> {
     const { matchId, finalMass } = claimToken;
 
-    const client = await this.pool.connect();
+    // If external client provided, use it without managing transaction
+    if (externalClient) {
+      return this.initializeRatingInternal(externalClient, userId, matchId, finalMass, playersInMatch);
+    }
 
+    // Otherwise manage our own transaction
+    const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-
-      // Create leaderboard_total_mass entry
-      await client.query(
-        `INSERT INTO leaderboard_total_mass (user_id, total_mass, matches_played, updated_at)
-         VALUES ($1, $2, 1, NOW())
-         ON CONFLICT (user_id) DO NOTHING`,
-        [userId, finalMass]
-      );
-
-      // Create leaderboard_best_mass entry
-      await client.query(
-        `INSERT INTO leaderboard_best_mass (user_id, best_mass, best_match_id, players_in_match, achieved_at, updated_at)
-         VALUES ($1, $2, $3, $4, NOW(), NOW())
-         ON CONFLICT (user_id) DO NOTHING`,
-        [userId, finalMass, matchId, playersInMatch]
-      );
-
-      // Record the award for idempotency (first match)
-      await client.query(
-        `INSERT INTO rating_awards (user_id, match_id, awarded_at)
-         VALUES ($1, $2, NOW())
-         ON CONFLICT (user_id, match_id) DO NOTHING`,
-        [userId, matchId]
-      );
-
+      const result = await this.initializeRatingInternal(client, userId, matchId, finalMass, playersInMatch);
       await client.query('COMMIT');
-
-      console.log(
-        `[RatingService] Initialized rating for user ${userId.slice(0, 8)}...: ` +
-        `total: ${finalMass}, best: ${finalMass}, matches: 1`
-      );
-
-      return {
-        totalMass: finalMass,
-        bestMass: finalMass,
-        matchesPlayed: 1,
-      };
+      return result;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  private async initializeRatingInternal(
+    client: any,
+    userId: string,
+    matchId: string,
+    finalMass: number,
+    playersInMatch: number
+  ): Promise<InitializeRatingResult> {
+    // Create leaderboard_total_mass entry
+    await client.query(
+      `INSERT INTO leaderboard_total_mass (user_id, total_mass, matches_played, updated_at)
+       VALUES ($1, $2, 1, NOW())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userId, finalMass]
+    );
+
+    // Create leaderboard_best_mass entry
+    await client.query(
+      `INSERT INTO leaderboard_best_mass (user_id, best_mass, best_match_id, players_in_match, achieved_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userId, finalMass, matchId, playersInMatch]
+    );
+
+    // Record the award for idempotency (first match)
+    await client.query(
+      `INSERT INTO rating_awards (user_id, match_id, awarded_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id, match_id) DO NOTHING`,
+      [userId, matchId]
+    );
+
+    console.log(
+      `[RatingService] Initialized rating for user ${userId.slice(0, 8)}...: ` +
+      `total: ${finalMass}, best: ${finalMass}, matches: 1`
+    );
+
+    return {
+      totalMass: finalMass,
+      bestMass: finalMass,
+      matchesPlayed: 1,
+    };
   }
 
   /**

@@ -120,7 +120,7 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
     console.error('[MatchResults] Error submitting results:', error);
     res.status(500).json({
       error: 'internal_error',
-      message: error.message || 'Failed to save match results',
+      message: 'Failed to save match results',
     });
   }
 });
@@ -268,19 +268,16 @@ router.post('/claim', async (req: Request, res: Response) => {
     let playerData: PlayerResult | undefined;
 
     if (isGuest) {
-      // For guest: check if match has guest_subject_id matching
-      // Or check playerResults for a player without userId
+      // For guest: MUST have matching guest_subject_id (strict ownership check)
       if (match.guest_subject_id !== subjectId) {
-        // Also check if there's a player in results that could be this guest
-        // Guest players don't have userId in playerResults
-        const guestPlayers = playerResults.filter((p: PlayerResult) => !p.userId);
-        if (guestPlayers.length === 0) {
-          return res.status(403).json({
-            error: 'forbidden',
-            message: 'Match does not belong to this guest',
-          });
-        }
-        // Take the first guest player (in a guest match there should be one)
+        return res.status(403).json({
+          error: 'forbidden',
+          message: 'Match does not belong to this guest',
+        });
+      }
+      // Get guest player data for mass calculation
+      const guestPlayers = playerResults.filter((p: PlayerResult) => !p.userId);
+      if (guestPlayers.length > 0) {
         playerData = guestPlayers[0];
       }
     } else {
@@ -340,7 +337,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     console.error('[MatchResults] Claim error:', error);
     res.status(500).json({
       error: 'internal_error',
-      message: error.message || 'Failed to generate claim token',
+      message: 'Failed to generate claim token',
     });
   }
 });

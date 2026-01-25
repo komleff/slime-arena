@@ -41,6 +41,8 @@ export interface GuestTokenPayload {
 
 /** Payload for claimToken (match result claiming) */
 export interface ClaimTokenPayload {
+  /** Token type */
+  type: 'claim';
   /** Match ID (UUID) */
   matchId: string;
   /** Subject ID (userId or guestSubjectId) */
@@ -143,10 +145,14 @@ export function generateGuestToken(
  * @returns JWT claim token
  */
 export function generateClaimToken(
-  payload: Omit<ClaimTokenPayload, 'iat' | 'exp'>,
+  payload: Omit<ClaimTokenPayload, 'type' | 'iat' | 'exp'>,
   expiresInSeconds: number = CLAIM_TOKEN_EXPIRES_SECONDS
 ): string {
-  return jwt.sign(payload, getJwtSecret(), {
+  const fullPayload: Omit<ClaimTokenPayload, 'iat' | 'exp'> = {
+    type: 'claim',
+    ...payload,
+  };
+  return jwt.sign(fullPayload, getJwtSecret(), {
     expiresIn: expiresInSeconds,
     algorithm: 'HS256',
   });
@@ -243,7 +249,8 @@ export function verifyGuestToken(token: string): GuestTokenPayload | null {
 export function verifyClaimToken(token: string): ClaimTokenPayload | null {
   const result = verifyToken<ClaimTokenPayload>(token);
   if (!result.valid) return null;
-  // claimToken doesn't have type field, check for matchId instead
+  // Verify type and required fields to prevent token confusion
+  if (result.payload.type !== 'claim') return null;
   if (!result.payload.matchId || !result.payload.subjectId) return null;
   return result.payload;
 }
@@ -261,7 +268,7 @@ export function getTokenType(token: string): 'user' | 'guest' | 'claim' | null {
   const payload = result.payload as any;
   if (payload.type === 'user') return 'user';
   if (payload.type === 'guest') return 'guest';
-  if (payload.matchId && payload.subjectId) return 'claim';
+  if (payload.type === 'claim') return 'claim';
   return null;
 }
 

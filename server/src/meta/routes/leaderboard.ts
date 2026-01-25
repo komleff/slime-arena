@@ -96,7 +96,7 @@ router.get('/', async (req: Request, res: Response) => {
     console.error('[Leaderboard] Error:', error);
     res.status(500).json({
       error: 'leaderboard_error',
-      message: error.message || 'Failed to fetch leaderboard',
+      message: 'Failed to fetch leaderboard',
     });
   }
 });

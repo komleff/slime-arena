@@ -299,6 +299,7 @@ export class AuthService {
   /**
    * Create registered user from guest
    * Called during convert_guest upgrade flow
+   * @param externalClient - Optional external DB client for transaction support
    */
   async createUserFromGuest(
     provider: AuthProvider,
@@ -306,47 +307,36 @@ export class AuthService {
     nickname: string,
     avatarUrl: string | undefined,
     registrationMatchId: string,
-    registrationSkinId: string
+    registrationSkinId: string,
+    externalClient?: any
   ): Promise<User> {
-    const client = await this.pool.connect();
+    // If external client provided, use it without managing transaction
+    if (externalClient) {
+      return this.createUserFromGuestInternal(
+        externalClient,
+        provider,
+        providerUserId,
+        nickname,
+        avatarUrl,
+        registrationMatchId,
+        registrationSkinId
+      );
+    }
 
+    // Otherwise manage our own transaction
+    const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-
-      // Create user with is_anonymous = false
-      const userResult = await client.query(
-        `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, is_anonymous,
-                            registration_skin_id, registration_match_id, last_login_at)
-         VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW())
-         RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
-                   is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
-        [provider, providerUserId, nickname, avatarUrl || null, registrationSkinId, registrationMatchId]
+      const user = await this.createUserFromGuestInternal(
+        client,
+        provider,
+        providerUserId,
+        nickname,
+        avatarUrl,
+        registrationMatchId,
+        registrationSkinId
       );
-
-      const user = this.mapUserRow(userResult.rows[0]);
-
-      // Create oauth_links entry
-      await client.query(
-        'INSERT INTO oauth_links (user_id, auth_provider, provider_user_id) VALUES ($1, $2, $3)',
-        [user.id, provider, providerUserId]
-      );
-
-      // Create profile with selected skin
-      await client.query(
-        'INSERT INTO profiles (user_id, selected_skin_id) VALUES ($1, $2)',
-        [user.id, registrationSkinId]
-      );
-
-      // Create wallet
-      await client.query(
-        'INSERT INTO wallets (user_id) VALUES ($1)',
-        [user.id]
-      );
-
       await client.query('COMMIT');
-
-      console.log(`[AuthService] Created registered user ${user.id.slice(0, 8)}... from guest via ${provider}`);
-
       return user;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -356,16 +346,63 @@ export class AuthService {
     }
   }
 
+  private async createUserFromGuestInternal(
+    client: any,
+    provider: AuthProvider,
+    providerUserId: string,
+    nickname: string,
+    avatarUrl: string | undefined,
+    registrationMatchId: string,
+    registrationSkinId: string
+  ): Promise<User> {
+    // Create user with is_anonymous = false
+    const userResult = await client.query(
+      `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, is_anonymous,
+                          registration_skin_id, registration_match_id, last_login_at)
+       VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW())
+       RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
+                 is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
+      [provider, providerUserId, nickname, avatarUrl || null, registrationSkinId, registrationMatchId]
+    );
+
+    const user = this.mapUserRow(userResult.rows[0]);
+
+    // Create oauth_links entry
+    await client.query(
+      'INSERT INTO oauth_links (user_id, auth_provider, provider_user_id) VALUES ($1, $2, $3)',
+      [user.id, provider, providerUserId]
+    );
+
+    // Create profile with selected skin
+    await client.query(
+      'INSERT INTO profiles (user_id, selected_skin_id) VALUES ($1, $2)',
+      [user.id, registrationSkinId]
+    );
+
+    // Create wallet
+    await client.query(
+      'INSERT INTO wallets (user_id) VALUES ($1)',
+      [user.id]
+    );
+
+    console.log(`[AuthService] Created registered user ${user.id.slice(0, 8)}... from guest via ${provider}`);
+
+    return user;
+  }
+
   /**
    * Complete anonymous profile (Telegram-anonymous → registered)
    * Updates is_anonymous to false
+   * @param client - Optional external DB client for transaction support
    */
   async completeAnonymousProfile(
     userId: string,
     registrationMatchId: string,
-    registrationSkinId: string
+    registrationSkinId: string,
+    client?: any
   ): Promise<User> {
-    const result = await this.pool.query(
+    const db = client || this.pool;
+    const result = await db.query(
       `UPDATE users
        SET is_anonymous = FALSE,
            registration_skin_id = $2,
@@ -387,9 +424,13 @@ export class AuthService {
 
   /**
    * Mark claim as consumed (one-time use)
+   * @param matchId - Match ID
+   * @param subjectId - User/guest subject ID (for logging)
+   * @param client - Optional DB client for transaction support
    */
-  async markClaimConsumed(matchId: string, subjectId: string): Promise<void> {
-    await this.pool.query(
+  async markClaimConsumed(matchId: string, subjectId: string, client?: any): Promise<void> {
+    const db = client || this.pool;
+    await db.query(
       `UPDATE match_results
        SET claim_consumed_at = NOW()
        WHERE match_id = $1`,
@@ -397,6 +438,14 @@ export class AuthService {
     );
 
     console.log(`[AuthService] Claim consumed for match ${matchId.slice(0, 8)}... by ${subjectId.slice(0, 8)}...`);
+  }
+
+  /**
+   * Get a database client for transaction management
+   * Allows external code to manage transactions across services
+   */
+  async getClient(): Promise<any> {
+    return this.pool.connect();
   }
 
   private generateAccessToken(): string {
