@@ -27,7 +27,7 @@ let skinsConfig: SkinsConfig | null = null;
  */
 function loadSkinsConfig(): SkinsConfig {
   if (skinsConfig === null) {
-    const configPath = join(process.cwd(), 'config', 'skins.json');
+    const configPath = join(__dirname, '../../../../config', 'skins.json');
     const configData = readFileSync(configPath, 'utf-8');
     skinsConfig = JSON.parse(configData) as SkinsConfig;
   }
