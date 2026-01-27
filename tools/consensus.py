@@ -75,8 +75,15 @@ def extract_blocking_issues(reviews: Dict[str, ReviewData]) -> List[Issue]:
                 continue
 
             seen_issues.add(issue_key)
-            issue.reviewer = reviewer
-            blocking_issues.append(issue)
+            # Создаём копию с установленным reviewer (не мутируем оригинал)
+            blocking_issue = Issue(
+                priority=issue.priority,
+                file=issue.file,
+                line=issue.line,
+                problem=issue.problem,
+                reviewer=reviewer,
+            )
+            blocking_issues.append(blocking_issue)
 
     # Сортировка: P0 перед P1, затем по файлу
     blocking_issues.sort(key=lambda x: (x.priority, x.file, x.line or 0))

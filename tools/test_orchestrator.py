@@ -1,12 +1,10 @@
 """
 Unit-тесты для PM Orchestrator
 
-TODO: Переписать тесты под новый API (review_state.py, consensus.py)
-
-Старые тесты использовали:
-- ReviewState (теперь ReviewStatus)
-- status="APPROVED" (теперь status=ReviewStatus.APPROVED)
-- calculate_consensus возвращал объект (теперь возвращает tuple)
+Тестирует:
+- calculate_consensus: расчёт консенсуса (3+ APPROVED от основных ревьюверов)
+- extract_blocking_issues: извлечение P0/P1 проблем
+- Исключение copilot из расчёта консенсуса
 """
 
 import sys
