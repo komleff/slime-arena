@@ -2,37 +2,54 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: sprint-13/meta-gameplay @ 23 января 2026 (919299c)
+- **last_checked_commit**: sprint-13/meta-gameplay @ 27 января 2026 (411a47f)
 - **Текущая ветка**: `sprint-13/meta-gameplay` (worktree: d:/slime-arena-meta/)
 - **Релиз:** v0.6.0 ✅ → **Целевой релиз:** v0.7.0 (Sprint 13)
 - **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
 - **GDD версия**: v3.3.2
 
-## Sprint 13 Progress — 23 января 2026
+## Sprint 13 Progress — 27 января 2026
 
 ### Фаза 1: База данных и инфраструктура ✅ ЗАВЕРШЕНА
 
-**Завершено сегодня:**
+**Завершено 23 января:**
 - [x] Задача 1.1: Migration 007 — новые таблицы (leaderboard_total_mass, leaderboard_best_mass, rating_awards, oauth_links)
 - [x] Задача 1.2: Migration 008 — изменение существующих таблиц (users: is_anonymous + регистрация, match_results: guest_subject_id + claim_consumed_at)
 - [x] Задача 1.3: Модели данных — TypeScript интерфейсы (Leaderboard, Rating, OAuth)
 - [x] Задача 1.4: Генераторы — skinGenerator + nicknameValidator + config/skins.json
 
-**Коммиты (sprint-13/meta-gameplay):**
-- `aa03142` feat(db): add migration 007 for meta-gameplay tables
-- `cf04c4d` feat(db): add migration 008 for meta-gameplay columns
-- `11e17d0` feat(utils): add skinGenerator and nicknameValidator
-- `919299c` feat(meta): add data models for meta-gameplay
+### Фаза 2: API и серверная логика ✅ ЗАВЕРШЕНА (PR #109)
+
+**Завершено 27 января:**
+
+- [x] Задача 2.1: JWT utilities — jwtUtils.ts (accessToken, guestToken, claimToken)
+- [x] Задача 2.2: POST /auth/guest — гостевая авторизация
+- [x] Задача 2.3: POST /auth/telegram — Telegram-авторизация с is_anonymous
+- [x] Задача 2.4: POST /auth/oauth — OAuth для Google/Yandex
+- [x] Задача 2.5: POST /match-results/claim — получение claimToken
+- [x] Задача 2.6: POST /auth/upgrade — convert_guest + complete_profile
+- [x] Задача 2.7: RatingService.awardRating — начисление после матча
+- [x] Задача 2.8: RatingService.initializeRating — при регистрации
+- [x] Задача 2.9: GET /leaderboard — лидерборд total/best
+
+**Ревью (10 итераций):**
+
+- Codex 5.2: APPROVED ✅
+- Opus 4.5: APPROVED ✅
+- Исправлены P1 баги: guestSubjectId в matchmaking, guest claim flow
+
+**Ожидает merge:** PR #109 → main (человек-оператор)
 
 **Прогресс:**
 - Фаза 1: [████] 4/4 задач (100%) ✅
-- Фаза 2: [░░░░] 0/9 задач (0%)
+- Фаза 2: [████] 9/9 задач (100%) ✅
 - Фаза 3: [░░░░] 0/9 задач (0%)
-- **Всего:** [██░░] 4/25 задач (16%)
+- **Всего:** [████░] 13/22 задач (59%)
 
 **Следующий шаг:**
-- Начать Фазу 2: API и серверная логика
-- Первые задачи: JWT utilities (2.1), POST /auth/guest (2.2), POST /auth/telegram (2.3)
+
+- Merge PR #109 (человек-оператор)
+- Начать Фазу 3: Клиентская интеграция
 
 ---
 
