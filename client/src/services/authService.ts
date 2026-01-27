@@ -135,9 +135,13 @@ class AuthService {
       }
     }
 
+    // Copilot P1: Автоматически авторизуем новых пользователей
+    // Если нет существующей сессии, запускаем login flow
+    console.log('[AuthService] No existing session, starting login flow');
+    const loginSuccess = await this.login();
     this.initialized = true;
     setAuthenticating(false);
-    return false;
+    return loginSuccess;
   }
 
   /**
@@ -228,6 +232,10 @@ class AuthService {
         initData: credentials.platformData,
       });
 
+      // Copilot P1: Очищаем guest данные при успешной Telegram авторизации
+      // Иначе isAnonymous() будет возвращать неверное значение
+      this.clearGuestData();
+
       // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('access_token', response.accessToken);
       localStorage.setItem('token_expires_at', response.expiresAt);
@@ -261,8 +269,10 @@ class AuthService {
    * Генерация случайного никнейма для гостя.
    */
   private generateGuestNickname(): string {
+    // Copilot P1: Слова должны быть безопасными для BANNED_WORDS на сервере
+    // 'slime' и 'arena' в BANNED_WORDS, поэтому используем альтернативы
     const adjectives = ['Быстрый', 'Хитрый', 'Весёлый', 'Храбрый', 'Ловкий'];
-    const nouns = ['Слайм', 'Охотник', 'Воин', 'Странник', 'Игрок'];
+    const nouns = ['Охотник', 'Воин', 'Странник', 'Игрок', 'Боец'];
     const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
     const noun = nouns[Math.floor(Math.random() * nouns.length)];
     const num = Math.floor(Math.random() * 1000);
@@ -275,6 +285,16 @@ class AuthService {
   private generateGuestSkinId(): string {
     const basicSkins = ['slime_green', 'slime_blue', 'slime_red', 'slime_yellow'];
     return basicSkins[Math.floor(Math.random() * basicSkins.length)];
+  }
+
+  /**
+   * Очистить гостевые данные из localStorage.
+   * Вызывается при успешной авторизации через Telegram или upgrade.
+   */
+  private clearGuestData(): void {
+    localStorage.removeItem('guest_token');
+    localStorage.removeItem('guest_nickname');
+    localStorage.removeItem('guest_skin_id');
   }
 
   /**
@@ -368,9 +388,20 @@ class AuthService {
 
   /**
    * Проверить, является ли пользователь анонимным (гость или анонимный Telegram).
+   * Copilot P1: Учитываем приоритет access_token над guest_token
    */
   isAnonymous(): boolean {
-    return localStorage.getItem('is_anonymous') === 'true' || !!localStorage.getItem('guest_token');
+    const hasAccessToken = !!localStorage.getItem('access_token');
+    const hasGuestToken = !!localStorage.getItem('guest_token');
+    const isAnonymousFlag = localStorage.getItem('is_anonymous') === 'true';
+
+    // Если есть access_token, проверяем флаг is_anonymous
+    if (hasAccessToken) {
+      return isAnonymousFlag;
+    }
+
+    // Если только guest_token — пользователь анонимный
+    return hasGuestToken;
   }
 
   /**

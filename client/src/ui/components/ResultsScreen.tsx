@@ -348,13 +348,17 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const error = claimError.value;
 
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-  const claimAttemptedRef = useRef(false);
+  // Copilot P1: Используем matchId для отслеживания, а не boolean флаг
+  // Это позволяет корректно обрабатывать повторные матчи
+  const lastClaimedMatchRef = useRef<string | null>(null);
 
   const isAnonymous = authService.isAnonymous();
+  const currentMatchId = matchAssignment.value?.matchId;
 
   // Вычисляем награды локально и запрашиваем claimToken для гостей
   useEffect(() => {
-    if (!results || claimAttemptedRef.current) return;
+    // Проверяем по matchId, а не по boolean флагу
+    if (!results || !currentMatchId || lastClaimedMatchRef.current === currentMatchId) return;
 
     // Вычисляем place из finalLeaderboard
     const localEntry = results.finalLeaderboard.find(e => e.isLocal);
@@ -367,20 +371,23 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
       return;
     }
 
-    claimAttemptedRef.current = true;
+    // Помечаем этот матч как обработанный
+    lastClaimedMatchRef.current = currentMatchId;
+
+    // Сбрасываем состояние сервиса для нового матча (Copilot P2)
+    matchResultsService.reset();
 
     // Вычисляем награды локально для мгновенного отображения
     // Серверные награды начисляются автоматически через /match-results/submit
     matchResultsService.setLocalRewards(place, stats.kills);
 
     // Для гостей запрашиваем claimToken (используется в upgrade flow)
-    const assignment = matchAssignment.value;
-    if (isAnonymous && assignment?.matchId) {
-      matchResultsService.getClaimToken(assignment.matchId).catch((err) => {
+    if (isAnonymous && currentMatchId) {
+      matchResultsService.getClaimToken(currentMatchId).catch((err) => {
         console.warn('[ResultsScreen] Failed to get claim token:', err);
       });
     }
-  }, [results, isAnonymous]);
+  }, [results, isAnonymous, currentMatchId]);
 
   const handlePlayAgain = useCallback(() => {
     onPlayAgain(currentClassId);

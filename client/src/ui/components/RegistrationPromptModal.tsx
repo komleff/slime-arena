@@ -7,6 +7,8 @@
 import { useCallback, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { platformManager } from '../../platform';
+import { claimToken } from '../../services/matchResultsService';
+import { metaServerClient } from '../../api/metaServerClient';
 
 // ========== Стили ==========
 
@@ -205,17 +207,26 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
       setIsLoading(true);
       setError(null);
 
-      // Запрашиваем авторизацию через Telegram
-      const adapter = platformManager.getAdapter();
-      if (adapter.requestAuth) {
-        await adapter.requestAuth();
-        // После успешной авторизации закрываем модал
-        onClose();
-      } else {
-        setError('Авторизация через Telegram недоступна');
+      // Copilot P1: Для Telegram используем upgrade flow напрямую через API
+      // (adapter.requestAuth() не работает для Telegram Mini App)
+      const token = claimToken.value;
+      if (!token) {
+        setError('Нет данных для сохранения прогресса. Сыграйте матч.');
+        return;
       }
+
+      // Вызываем /auth/upgrade для привязки результатов к профилю
+      await metaServerClient.post('/api/v1/auth/upgrade', {
+        claimToken: token,
+      });
+
+      // Обновляем флаг is_anonymous
+      localStorage.setItem('is_anonymous', 'false');
+
+      // После успешного upgrade закрываем модал
+      onClose();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ошибка авторизации';
+      const message = err instanceof Error ? err.message : 'Ошибка сохранения прогресса';
       setError(message);
     } finally {
       setIsLoading(false);
