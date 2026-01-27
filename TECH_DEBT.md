@@ -562,3 +562,35 @@ ALTER TABLE oauth_links ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
 
 
 
+
+---
+
+## Приоритет: Низкий (P3)
+
+### PM Orchestrator: sys.path хаки в tools/*.py
+**Beads:** `slime-arena-b6s`
+
+**Контекст:**
+- В `tools/consensus.py:18` и `tools/test_orchestrator.py:17` меняется `sys.path` на уровне импорта
+- Это даёт побочный эффект для любого кода, который просто импортирует модуль
+
+**Решение:**
+- Запускать точку входа как модуль (`python -m tools.pm_orchestrator`)
+- Или настроить `PYTHONPATH` / пакетную установку
+
+**Источник:** PR #110, ревьювер: Copilot
+
+---
+
+### PM Orchestrator: комментарий о дедупликации не соответствует коду
+**Beads:** `slime-arena-dc8`
+
+**Контекст:**
+- В `tools/consensus.py:72` комментарий говорит «дедупликация по файлу и строке»
+- Но ключ включает ещё `issue.problem[:50]`
+
+**Решение:**
+- Либо поправить комментарий
+- Либо изменить логику дедупликации на строго `(file, line)`
+
+**Источник:** PR #110, ревьювер: Copilot
