@@ -169,7 +169,8 @@ function getRewardsConfig() {
   try {
     const balance = loadBalanceConfig();
     return balance.rewards || DEFAULT_REWARDS;
-  } catch {
+  } catch (error) {
+    console.error('[matchResults] Failed to load rewards config from balance.json, using defaults', error);
     return DEFAULT_REWARDS;
   }
 }

@@ -50,7 +50,13 @@ async function getMatchResultInfo(matchId: string): Promise<{
 
   const row = result.rows[0];
   const summary = typeof row.summary === 'string' ? JSON.parse(row.summary) : row.summary;
-  const playersCount = summary?.playerResults?.length ?? 1;
+
+  // Проверяем наличие playerResults - это обязательное поле для корректных матчей
+  if (!summary || !Array.isArray(summary.playerResults)) {
+    throw new Error(`Invalid match summary for match_id=${matchId}: playerResults is missing or invalid`);
+  }
+
+  const playersCount = summary.playerResults.length;
 
   return {
     playersCount,
@@ -246,17 +252,13 @@ router.post('/oauth', async (req: Request, res: Response) => {
     }
 
     let providerUserId: string;
-    let nickname: string;
-    let avatarUrl: string | undefined;
 
-    // Exchange code for user info
+    // Exchange code for user info (только для получения providerUserId)
     if (provider === 'google') {
       try {
         const googleProvider = getGoogleOAuthProvider();
         const userInfo = await googleProvider.exchangeCode(code);
         providerUserId = userInfo.id;
-        nickname = userInfo.name || userInfo.email.split('@')[0];
-        avatarUrl = userInfo.picture;
       } catch (err: any) {
         if (err.message.includes('must be set')) {
           return res.status(500).json({
@@ -271,8 +273,6 @@ router.post('/oauth', async (req: Request, res: Response) => {
         const yandexProvider = getYandexOAuthProvider();
         const userInfo = await yandexProvider.exchangeCode(code);
         providerUserId = userInfo.id;
-        nickname = userInfo.display_name || userInfo.login;
-        avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
       } catch (err: any) {
         if (err.message.includes('must be set')) {
           return res.status(500).json({
