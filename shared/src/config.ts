@@ -576,6 +576,28 @@ export interface BalanceConfig {
         };
         keyboardMixWeight?: number;
     };
+    rewards?: {
+        xp: {
+            base: number;
+            placement: {
+                "1": number;
+                "2": number;
+                "3": number;
+                top5: number;
+            };
+            perKill: number;
+        };
+        coins: {
+            base: number;
+            placement: {
+                "1": number;
+                "2": number;
+                "3": number;
+                top5: number;
+            };
+            perKill: number;
+        };
+    };
 }
 
 // Конфиг отдельного таланта

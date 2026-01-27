@@ -697,5 +697,27 @@
         "magnet": { "name": "Магнит", "maxLevel": 1, "values": [[50, 10]], "effect": "magnetOrbs", "rarity": "rare", "category": "gather" }
       }
     }
+  },
+  "rewards": {
+    "xp": {
+      "base": 10,
+      "placement": {
+        "1": 50,
+        "2": 30,
+        "3": 20,
+        "top5": 10
+      },
+      "perKill": 5
+    },
+    "coins": {
+      "base": 5,
+      "placement": {
+        "1": 25,
+        "2": 15,
+        "3": 10,
+        "top5": 5
+      },
+      "perKill": 2
+    }
   }
 }

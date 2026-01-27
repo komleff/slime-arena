@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { Pool } from 'pg';
 import { AuthService } from '../services/AuthService';
 import { TelegramAuthProvider } from '../platform/TelegramAuthProvider';
 import { getGoogleOAuthProvider } from '../platform/GoogleOAuthProvider';
@@ -15,9 +16,47 @@ import {
   TOKEN_EXPIRATION,
 } from '../utils/jwtUtils';
 import { ratingService } from '../services/RatingService';
+import { getPostgresPool } from '../../db/pool';
 
 const router = express.Router();
 const authService = new AuthService();
+
+// Lazy pool accessor for match_results queries
+let _pool: Pool | null = null;
+function getPool(): Pool {
+  if (!_pool) {
+    _pool = getPostgresPool();
+  }
+  return _pool;
+}
+
+/**
+ * Get match result info for claim validation
+ * Returns players count and claim_consumed_at status
+ */
+async function getMatchResultInfo(matchId: string): Promise<{
+  playersCount: number;
+  claimConsumedAt: Date | null;
+} | null> {
+  const pool = getPool();
+  const result = await pool.query(
+    `SELECT summary, claim_consumed_at FROM match_results WHERE match_id = $1`,
+    [matchId]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  const summary = typeof row.summary === 'string' ? JSON.parse(row.summary) : row.summary;
+  const playersCount = summary?.playerResults?.length ?? 1;
+
+  return {
+    playersCount,
+    claimConsumedAt: row.claim_consumed_at,
+  };
+}
 
 // Telegram auth provider (lazy init to avoid startup errors if not configured)
 let telegramProvider: TelegramAuthProvider | null = null;
@@ -320,6 +359,25 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
     const { matchId, subjectId, finalMass, skinId } = claimPayload;
 
+    // Check if claim has already been consumed (P1-5: prevent claimToken reuse)
+    const matchInfo = await getMatchResultInfo(matchId);
+    if (!matchInfo) {
+      return res.status(404).json({
+        error: 'match_not_found',
+        message: 'Match not found',
+      });
+    }
+
+    if (matchInfo.claimConsumedAt) {
+      return res.status(409).json({
+        error: 'claim_already_consumed',
+        message: 'This claim token has already been used',
+      });
+    }
+
+    // Get actual players count from match_results (P1-4)
+    const playersInMatch = matchInfo.playersCount;
+
     // Extract auth header
     const authHeader = req.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -432,8 +490,8 @@ router.post('/upgrade', async (req: Request, res: Response) => {
           client
         );
 
-        // Initialize ratings
-        await ratingService.initializeRating(user.id, claimPayload, 1, client);
+        // Initialize ratings with actual players count from match_results (P1-4)
+        await ratingService.initializeRating(user.id, claimPayload, playersInMatch, client);
 
         // Mark claim as consumed
         await authService.markClaimConsumed(matchId, subjectId, client);
@@ -449,7 +507,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       // Generate access token
       const accessTokenNew = generateAccessToken(user.id, false);
 
-      console.log(`[Auth] Upgrade convert_guest: guest ${subjectId.slice(0, 8)}... -> user ${user.id.slice(0, 8)}...`);
+      console.log(`[Auth] Upgrade convert_guest: guest ${subjectId.slice(0, 8)}... -> user ${user.id.slice(0, 8)}... (${playersInMatch} players)`);
 
       res.json({
         accessToken: accessTokenNew,
@@ -509,8 +567,8 @@ router.post('/upgrade', async (req: Request, res: Response) => {
           client
         );
 
-        // Initialize ratings
-        await ratingService.initializeRating(user.id, claimPayload, 1, client);
+        // Initialize ratings with actual players count from match_results (P1-4)
+        await ratingService.initializeRating(user.id, claimPayload, playersInMatch, client);
 
         // Mark claim as consumed
         await authService.markClaimConsumed(matchId, subjectId, client);
@@ -526,7 +584,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       // Generate new access token (with isAnonymous = false)
       const accessTokenNew = generateAccessToken(user.id, false);
 
-      console.log(`[Auth] Upgrade complete_profile: user ${user.id.slice(0, 8)}... completed profile`);
+      console.log(`[Auth] Upgrade complete_profile: user ${user.id.slice(0, 8)}... completed profile (${playersInMatch} players)`);
 
       res.json({
         accessToken: accessTokenNew,

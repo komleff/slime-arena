@@ -118,7 +118,7 @@ async function getLeaderboardEntries(
        ROW_NUMBER() OVER (ORDER BY lb.${valueColumn} DESC) as position,
        lb.user_id,
        u.nickname,
-       COALESCE(p.selected_skin_id, 'basic_green') as skin_id,
+       COALESCE(p.selected_skin_id, 'slime_green') as skin_id,
        lb.${valueColumn} as value
      FROM ${table} lb
      INNER JOIN users u ON u.id = lb.user_id

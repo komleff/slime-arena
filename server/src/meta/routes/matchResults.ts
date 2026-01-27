@@ -10,6 +10,7 @@ import {
   calculateExpiresAt,
   TOKEN_EXPIRATION,
 } from '../utils/jwtUtils';
+import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 
 const router = express.Router();
 
@@ -67,8 +68,8 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
       // This handles concurrent requests atomically without SELECT→INSERT race
       const insertResult = await client.query(
         `INSERT INTO match_results
-         (match_id, mode, started_at, ended_at, config_version, build_version, summary)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (match_id, mode, started_at, ended_at, config_version, build_version, summary, guest_subject_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (match_id) DO NOTHING
          RETURNING match_id`,
         [
@@ -79,6 +80,7 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
           matchSummary.configVersion,
           matchSummary.buildVersion,
           JSON.stringify(summary),
+          matchSummary.guestSubjectId || null,
         ]
       );
 
@@ -154,40 +156,62 @@ async function updatePlayerStats(client: any, playerResult: PlayerResult): Promi
   }
 }
 
+// Default rewards config (fallback if not in balance.json)
+const DEFAULT_REWARDS = {
+  xp: { base: 10, placement: { '1': 50, '2': 30, '3': 20, top5: 10 }, perKill: 5 },
+  coins: { base: 5, placement: { '1': 25, '2': 15, '3': 10, top5: 5 }, perKill: 2 },
+};
+
+/**
+ * Get rewards config from balance.json with fallback to defaults
+ */
+function getRewardsConfig() {
+  try {
+    const balance = loadBalanceConfig();
+    return balance.rewards || DEFAULT_REWARDS;
+  } catch {
+    return DEFAULT_REWARDS;
+  }
+}
+
 /**
  * Calculate XP gain based on match performance
+ * Values loaded from config/balance.json
  */
 function calculateXpGain(playerResult: PlayerResult): number {
-  let xp = 10; // Base XP for completing a match
+  const { xp } = getRewardsConfig();
+  let result = xp.base;
 
   // Placement bonus
-  if (playerResult.placement === 1) xp += 50;
-  else if (playerResult.placement === 2) xp += 30;
-  else if (playerResult.placement === 3) xp += 20;
-  else if (playerResult.placement <= 5) xp += 10;
+  if (playerResult.placement === 1) result += xp.placement['1'];
+  else if (playerResult.placement === 2) result += xp.placement['2'];
+  else if (playerResult.placement === 3) result += xp.placement['3'];
+  else if (playerResult.placement <= 5) result += xp.placement.top5;
 
   // Kill bonus
-  xp += playerResult.killCount * 5;
+  result += playerResult.killCount * xp.perKill;
 
-  return xp;
+  return result;
 }
 
 /**
  * Calculate coins gain based on match performance
+ * Values loaded from config/balance.json
  */
 function calculateCoinsGain(playerResult: PlayerResult): number {
-  let coins = 5; // Base coins for completing a match
+  const { coins } = getRewardsConfig();
+  let result = coins.base;
 
   // Placement bonus
-  if (playerResult.placement === 1) coins += 25;
-  else if (playerResult.placement === 2) coins += 15;
-  else if (playerResult.placement === 3) coins += 10;
-  else if (playerResult.placement <= 5) coins += 5;
+  if (playerResult.placement === 1) result += coins.placement['1'];
+  else if (playerResult.placement === 2) result += coins.placement['2'];
+  else if (playerResult.placement === 3) result += coins.placement['3'];
+  else if (playerResult.placement <= 5) result += coins.placement.top5;
 
   // Kill bonus
-  coins += playerResult.killCount * 2;
+  result += playerResult.killCount * coins.perKill;
 
-  return coins;
+  return result;
 }
 
 /**
@@ -303,7 +327,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     const finalMass = playerData?.finalMass ?? 0;
 
     // Get skinId: for registered users fetch from profile, for guests use default
-    let skinId = 'basic_green';
+    let skinId = 'slime_green';
     if (!isGuest && subjectId) {
       const profileResult = await pool.query(
         'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
