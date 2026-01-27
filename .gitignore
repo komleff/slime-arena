@@ -31,3 +31,15 @@ backups/*.sql
 .beads/*.tmp
 tmpclaude-*-cwd
 nul
+
+# Secrets (API keys, credentials)
+setup-api-keys.ps1
+*.secret
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Temp files
+tmp_*.md
