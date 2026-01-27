@@ -1,6 +1,11 @@
 /**
  * ResultsScreen — экран результатов матча
  * Отображает результаты, награды и предлагает сохранить прогресс гостям.
+ *
+ * Архитектура:
+ * - Награды (XP, coins) начисляются сервером автоматически при завершении матча
+ * - Клиент вычисляет награды локально для мгновенного отображения в UI
+ * - claimToken запрашивается только для гостей (используется в upgrade flow)
  */
 
 // JSX runtime imported automatically via jsxImportSource
@@ -13,7 +18,6 @@ import {
   selectedClassId,
   resetGameState,
   matchAssignment,
-  matchTimer,
 } from '../signals/gameState';
 import {
   matchResultsService,
@@ -348,15 +352,9 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
 
   const isAnonymous = authService.isAnonymous();
 
-  // Автоматически отправляем результат на сервер при появлении matchResults
+  // Вычисляем награды локально и запрашиваем claimToken для гостей
   useEffect(() => {
     if (!results || claimAttemptedRef.current) return;
-
-    const assignment = matchAssignment.value;
-    if (!assignment) {
-      console.warn('[ResultsScreen] No matchAssignment available for claim');
-      return;
-    }
 
     // Вычисляем place из finalLeaderboard
     const localEntry = results.finalLeaderboard.find(e => e.isLocal);
@@ -365,23 +363,24 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     // Получаем данные из personalStats
     const stats = results.personalStats;
     if (!stats) {
-      console.warn('[ResultsScreen] No personalStats available for claim');
+      console.warn('[ResultsScreen] No personalStats available');
       return;
     }
 
     claimAttemptedRef.current = true;
 
-    // Вызываем claimResult
-    matchResultsService.claimResult({
-      matchId: assignment.matchId,
-      claimToken: assignment.joinToken, // joinToken используется как claimToken
-      place,
-      kills: stats.kills,
-      maxMass: stats.maxMass,
-      survivalTimeMs: (matchTimer.value?.totalTime ?? 0) * 1000,
-      classId: stats.classId,
-    });
-  }, [results]);
+    // Вычисляем награды локально для мгновенного отображения
+    // Серверные награды начисляются автоматически через /match-results/submit
+    matchResultsService.setLocalRewards(place, stats.kills);
+
+    // Для гостей запрашиваем claimToken (используется в upgrade flow)
+    const assignment = matchAssignment.value;
+    if (isAnonymous && assignment?.matchId) {
+      matchResultsService.getClaimToken(assignment.matchId).catch((err) => {
+        console.warn('[ResultsScreen] Failed to get claim token:', err);
+      });
+    }
+  }, [results, isAnonymous]);
 
   const handlePlayAgain = useCallback(() => {
     onPlayAgain(currentClassId);
@@ -477,7 +476,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           </div>
         )}
 
-        {/* Награды */}
+        {/* Награды (локальный расчёт, серверное начисление происходит автоматически) */}
         {status === 'success' && rewards && (
           <div class="results-rewards">
             <div class="results-rewards-title">Награды</div>
@@ -501,13 +500,6 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
                 <span class="results-reward-label">рейтинг</span>
               </div>
             </div>
-            {rewards.levelUp && rewards.newLevel && (
-              <div class="results-level-up">
-                <span class="results-level-up-text">
-                  Новый уровень: {rewards.newLevel}!
-                </span>
-              </div>
-            )}
           </div>
         )}
 

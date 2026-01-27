@@ -11,8 +11,10 @@ export {
   claimStatus,
   claimError,
   claimRewards,
-  type MatchResultPayload,
-  type ClaimResultResponse,
+  claimToken,
+  calculateLocalRewards,
+  type ClaimTokenResponse,
+  type MatchRewards,
   type ClaimStatus,
 } from './matchResultsService';
 export {
