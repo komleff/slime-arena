@@ -3,6 +3,15 @@ import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
 import { requireServerToken } from '../middleware/auth';
 import { MatchSummary, PlayerResult } from '@slime-arena/shared/src/types';
+import {
+  verifyAccessToken,
+  verifyGuestToken,
+  generateClaimToken,
+  calculateExpiresAt,
+  TOKEN_EXPIRATION,
+} from '../utils/jwtUtils';
+import { loadBalanceConfig } from '../../config/loadBalanceConfig';
+import { ratingService } from '../services/RatingService';
 
 const router = express.Router();
 
@@ -60,8 +69,8 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
       // This handles concurrent requests atomically without SELECT→INSERT race
       const insertResult = await client.query(
         `INSERT INTO match_results
-         (match_id, mode, started_at, ended_at, config_version, build_version, summary)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (match_id, mode, started_at, ended_at, config_version, build_version, summary, guest_subject_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (match_id) DO NOTHING
          RETURNING match_id`,
         [
@@ -72,6 +81,7 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
           matchSummary.configVersion,
           matchSummary.buildVersion,
           JSON.stringify(summary),
+          matchSummary.guestSubjectId || null,
         ]
       );
 
@@ -87,7 +97,8 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
         });
       }
 
-      // Update authenticated players' stats (XP and coins only)
+      // Update authenticated players' stats (XP, coins, and rating)
+      const playersInMatch = matchSummary.playerResults.length;
       for (const playerResult of matchSummary.playerResults) {
         if (playerResult.userId) {
           await updatePlayerStats(client, playerResult);
@@ -95,6 +106,21 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
       }
 
       await client.query('COMMIT');
+
+      // Award rating to registered players (after commit, non-blocking)
+      // RatingService handles its own transaction and idempotency
+      for (const playerResult of matchSummary.playerResults) {
+        if (playerResult.userId) {
+          ratingService.awardRating(
+            playerResult.userId,
+            matchSummary.matchId,
+            playerResult.finalMass,
+            playersInMatch
+          ).catch((error) => {
+            console.error(`[MatchResults] Failed to award rating for user ${playerResult.userId?.slice(0, 8)}...:`, error);
+          });
+        }
+      }
 
       console.log(`[MatchResults] Saved match ${matchSummary.matchId} with ${matchSummary.playerResults.length} players`);
 
@@ -113,7 +139,7 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
     console.error('[MatchResults] Error submitting results:', error);
     res.status(500).json({
       error: 'internal_error',
-      message: error.message || 'Failed to save match results',
+      message: 'Failed to save match results',
     });
   }
 });
@@ -147,40 +173,212 @@ async function updatePlayerStats(client: any, playerResult: PlayerResult): Promi
   }
 }
 
+// Default rewards config (fallback if not in balance.json)
+const DEFAULT_REWARDS = {
+  xp: { base: 10, placement: { '1': 50, '2': 30, '3': 20, top5: 10 }, perKill: 5 },
+  coins: { base: 5, placement: { '1': 25, '2': 15, '3': 10, top5: 5 }, perKill: 2 },
+};
+
+/**
+ * Get rewards config from balance.json with fallback to defaults
+ */
+function getRewardsConfig() {
+  try {
+    const balance = loadBalanceConfig();
+    return balance.rewards || DEFAULT_REWARDS;
+  } catch (error) {
+    console.error('[matchResults] Failed to load rewards config from balance.json, using defaults', error);
+    return DEFAULT_REWARDS;
+  }
+}
+
 /**
  * Calculate XP gain based on match performance
+ * Values loaded from config/balance.json
  */
 function calculateXpGain(playerResult: PlayerResult): number {
-  let xp = 10; // Base XP for completing a match
+  const { xp } = getRewardsConfig();
+  let result = xp.base;
 
   // Placement bonus
-  if (playerResult.placement === 1) xp += 50;
-  else if (playerResult.placement === 2) xp += 30;
-  else if (playerResult.placement === 3) xp += 20;
-  else if (playerResult.placement <= 5) xp += 10;
+  if (playerResult.placement === 1) result += xp.placement['1'];
+  else if (playerResult.placement === 2) result += xp.placement['2'];
+  else if (playerResult.placement === 3) result += xp.placement['3'];
+  else if (playerResult.placement <= 5) result += xp.placement.top5;
 
   // Kill bonus
-  xp += playerResult.killCount * 5;
+  result += playerResult.killCount * xp.perKill;
 
-  return xp;
+  return result;
 }
 
 /**
  * Calculate coins gain based on match performance
+ * Values loaded from config/balance.json
  */
 function calculateCoinsGain(playerResult: PlayerResult): number {
-  let coins = 5; // Base coins for completing a match
+  const { coins } = getRewardsConfig();
+  let result = coins.base;
 
   // Placement bonus
-  if (playerResult.placement === 1) coins += 25;
-  else if (playerResult.placement === 2) coins += 15;
-  else if (playerResult.placement === 3) coins += 10;
-  else if (playerResult.placement <= 5) coins += 5;
+  if (playerResult.placement === 1) result += coins.placement['1'];
+  else if (playerResult.placement === 2) result += coins.placement['2'];
+  else if (playerResult.placement === 3) result += coins.placement['3'];
+  else if (playerResult.placement <= 5) result += coins.placement.top5;
 
   // Kill bonus
-  coins += playerResult.killCount * 2;
+  result += playerResult.killCount * coins.perKill;
 
-  return coins;
+  return result;
 }
+
+/**
+ * POST /api/v1/match-results/claim
+ * Get claimToken for a match (used in auth/upgrade flow)
+ *
+ * Requires: Authorization: Bearer <accessToken or guestToken>
+ *
+ * Body: { matchId: string }
+ *
+ * Returns: { claimToken: string, expiresAt: string }
+ */
+router.post('/claim', async (req: Request, res: Response) => {
+  try {
+    const { matchId } = req.body;
+
+    if (!matchId) {
+      return res.status(400).json({
+        error: 'validation_error',
+        message: 'matchId is required',
+      });
+    }
+
+    // Extract and verify token
+    const authHeader = req.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Authorization header required',
+      });
+    }
+
+    const token = authHeader.substring(7);
+
+    // Try to verify as accessToken first, then as guestToken
+    const accessPayload = verifyAccessToken(token);
+    const guestPayload = verifyGuestToken(token);
+
+    if (!accessPayload && !guestPayload) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Invalid or expired token',
+      });
+    }
+
+    // Determine subject ID based on token type
+    const isGuest = !!guestPayload;
+    const subjectId = isGuest ? guestPayload!.sub : accessPayload!.sub;
+
+    const pool = getPool();
+
+    // Fetch match result
+    const matchResult = await pool.query(
+      `SELECT
+         match_id,
+         summary,
+         guest_subject_id,
+         claim_consumed_at,
+         ended_at
+       FROM match_results
+       WHERE match_id = $1`,
+      [matchId]
+    );
+
+    if (matchResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'not_found',
+        message: 'Match not found',
+      });
+    }
+
+    const match = matchResult.rows[0];
+
+    // Check ownership
+    const summary = typeof match.summary === 'string' ? JSON.parse(match.summary) : match.summary;
+    const playerResults = summary?.playerResults || [];
+
+    let playerData: PlayerResult | undefined;
+
+    if (isGuest) {
+      // For guest: MUST have matching guest_subject_id (strict ownership check)
+      if (match.guest_subject_id !== subjectId) {
+        return res.status(403).json({
+          error: 'forbidden',
+          message: 'Match does not belong to this guest',
+        });
+      }
+      // Get guest player data for mass calculation (search by guestSubjectId)
+      playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
+    } else {
+      // For registered user: check playerResults for matching userId
+      playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
+      if (!playerData) {
+        return res.status(403).json({
+          error: 'forbidden',
+          message: 'Match does not belong to this user',
+        });
+      }
+    }
+
+    // Check if already claimed
+    if (match.claim_consumed_at) {
+      return res.status(409).json({
+        error: 'already_claimed',
+        message: 'Match result has already been claimed',
+      });
+    }
+
+    // Get final mass from player data
+    const finalMass = playerData?.finalMass ?? 0;
+
+    // Get skinId: for registered users fetch from profile, for guests use default
+    let skinId = 'slime_green';
+    if (!isGuest && subjectId) {
+      const profileResult = await pool.query(
+        'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
+        [subjectId]
+      );
+      if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id) {
+        skinId = profileResult.rows[0].selected_skin_id;
+      }
+    }
+
+    // Generate claimToken
+    const claimToken = generateClaimToken({
+      matchId,
+      subjectId,
+      finalMass,
+      skinId,
+    });
+
+    const expiresAt = calculateExpiresAt(TOKEN_EXPIRATION.CLAIM_TOKEN);
+
+    console.log(
+      `[MatchResults] Claim token generated for ${isGuest ? 'guest' : 'user'} ` +
+      `${subjectId.slice(0, 8)}..., match: ${matchId.slice(0, 8)}..., mass: ${finalMass}`
+    );
+
+    res.json({
+      claimToken,
+      expiresAt: expiresAt.toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[MatchResults] Claim error:', error);
+    res.status(500).json({
+      error: 'internal_error',
+      message: 'Failed to generate claim token',
+    });
+  }
+});
 
 export default router;

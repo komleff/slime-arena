@@ -576,6 +576,28 @@ export interface BalanceConfig {
         };
         keyboardMixWeight?: number;
     };
+    rewards?: {
+        xp: {
+            base: number;
+            placement: {
+                "1": number;
+                "2": number;
+                "3": number;
+                top5: number;
+            };
+            perKill: number;
+        };
+        coins: {
+            base: number;
+            placement: {
+                "1": number;
+                "2": number;
+                "3": number;
+                top5: number;
+            };
+            perKill: number;
+        };
+    };
 }
 
 // Конфиг отдельного таланта
@@ -3032,6 +3054,37 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         })(),
         // Передаём visual как есть (клиентская визуализация)
         visual: isRecord(data.visual) ? data.visual as BalanceConfig["visual"] : undefined,
+        // Разбираем rewards для мета-геймплея (XP, coins)
+        rewards: (() => {
+            const rewards = isRecord(data.rewards) ? data.rewards : undefined;
+            if (!rewards) return undefined;
+            const xp = isRecord(rewards.xp) ? rewards.xp : {};
+            const coins = isRecord(rewards.coins) ? rewards.coins : {};
+            const xpPlacement = isRecord(xp.placement) ? xp.placement : {};
+            const coinsPlacement = isRecord(coins.placement) ? coins.placement : {};
+            return {
+                xp: {
+                    base: typeof xp.base === "number" ? xp.base : 10,
+                    placement: {
+                        "1": typeof xpPlacement["1"] === "number" ? xpPlacement["1"] : 50,
+                        "2": typeof xpPlacement["2"] === "number" ? xpPlacement["2"] : 30,
+                        "3": typeof xpPlacement["3"] === "number" ? xpPlacement["3"] : 20,
+                        top5: typeof xpPlacement.top5 === "number" ? xpPlacement.top5 : 10,
+                    },
+                    perKill: typeof xp.perKill === "number" ? xp.perKill : 5,
+                },
+                coins: {
+                    base: typeof coins.base === "number" ? coins.base : 5,
+                    placement: {
+                        "1": typeof coinsPlacement["1"] === "number" ? coinsPlacement["1"] : 25,
+                        "2": typeof coinsPlacement["2"] === "number" ? coinsPlacement["2"] : 15,
+                        "3": typeof coinsPlacement["3"] === "number" ? coinsPlacement["3"] : 10,
+                        top5: typeof coinsPlacement.top5 === "number" ? coinsPlacement.top5 : 5,
+                    },
+                    perKill: typeof coins.perKill === "number" ? coins.perKill : 2,
+                },
+            };
+        })(),
     };
 
     const globalCooldownTicks = Math.max(

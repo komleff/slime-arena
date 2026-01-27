@@ -45,4 +45,6 @@ export interface MatchSummary {
     buildVersion: string;
     playerResults: PlayerResult[];
     matchStats?: MatchStats;
+    /** Guest subject ID for claim ownership verification (set by MatchServer for guest players) */
+    guestSubjectId?: string;
 }

@@ -369,11 +369,21 @@ export class ArenaRoom extends Room<GameState> {
         const player = new Player();
         player.id = client.sessionId;
 
-        // If client authenticated with token, use nickname from payload (trusted source)
+        // If client authenticated with token, use nickname and userId from payload (trusted source)
         const authPayload = client.auth as JoinTokenPayload | boolean;
         const tokenNickname = authPayload && typeof authPayload === 'object' && authPayload.nickname
             ? authPayload.nickname
             : null;
+
+        // Extract userId and guestSubjectId from joinToken for match results (server-only)
+        if (authPayload && typeof authPayload === 'object') {
+            if (authPayload.userId) {
+                player.userId = authPayload.userId;
+            }
+            if (authPayload.guestSubjectId) {
+                player.guestSubjectId = authPayload.guestSubjectId;
+            }
+        }
 
         // Priority: token nickname > options.name > generated name
         if (tokenNickname) {
@@ -1620,7 +1630,7 @@ export class ArenaRoom extends Room<GameState> {
             for (const [sessionId, player] of this.state.players.entries()) {
                 const placement = leaderboard.indexOf(sessionId) + 1;
                 playerResults.push({
-                    userId: undefined, // TODO: получить userId из joinToken
+                    userId: player.userId || undefined,  // From joinToken (registered users)
                     sessionId,
                     placement: placement > 0 ? placement : leaderboard.length + 1,
                     finalMass: player.mass,
@@ -1630,6 +1640,16 @@ export class ArenaRoom extends Room<GameState> {
                     classId: player.classId,
                     isDead: player.isDead,
                 });
+            }
+
+            // Find guestSubjectId if any guest player exists in the match
+            // Note: guestSubjectId is set per-match for claim verification (one guest per match supported)
+            let guestSubjectId: string | undefined;
+            for (const player of this.state.players.values()) {
+                if (player.guestSubjectId) {
+                    guestSubjectId = player.guestSubjectId;
+                    break;
+                }
             }
 
             // Формируем MatchSummary
@@ -1646,6 +1666,7 @@ export class ArenaRoom extends Room<GameState> {
                     totalBubblesCollected: 0, // TODO: добавить счётчик
                     matchDurationMs: Math.floor((this.tick / this.balance.server.tickRate) * 1000),
                 },
+                guestSubjectId,  // For guest claim verification
             };
 
             // Отправляем асинхронно, не блокируем игровой цикл

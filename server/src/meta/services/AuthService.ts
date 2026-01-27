@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
 import * as crypto from 'crypto';
 import { AuthProviderFactory } from '../platform/AuthProviderFactory';
+import { AuthProvider } from '../models/OAuth';
 
 export interface User {
   id: string;
@@ -23,9 +24,34 @@ export interface Session {
   expiresAt: Date;
 }
 
+/**
+ * Database row type for users table
+ * Maps to PostgreSQL column names (snake_case)
+ */
+interface UserRow {
+  id: string;
+  platform_type: string;
+  platform_id: string;
+  nickname: string;
+  avatar_url: string | null;
+  locale: string;
+  is_anonymous: boolean;
+  registration_skin_id: string | null;
+  registration_match_id: string | null;
+  nickname_set_at: Date | null;
+}
+
 export class AuthService {
   private _pool: Pool | null = null;
-  private readonly SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+  /**
+   * Get session duration in milliseconds
+   * Reads from SESSION_DURATION_DAYS env variable, defaults to 30 days
+   */
+  private getSessionDurationMs(): number {
+    const days = parseInt(process.env.SESSION_DURATION_DAYS || '30', 10);
+    return days * 24 * 60 * 60 * 1000;
+  }
 
   /**
    * Lazy initialization: получаем пул только при первом обращении,
@@ -108,7 +134,7 @@ export class AuthService {
       // Generate access token
       const accessToken = this.generateAccessToken();
       const tokenHash = this.hashToken(accessToken);
-      const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
+      const expiresAt = new Date(Date.now() + this.getSessionDurationMs());
 
       // Create session
       const sessionResult = await client.query(
@@ -174,6 +200,288 @@ export class AuthService {
     );
   }
 
+  /**
+   * Find user by OAuth link (provider + provider_user_id)
+   * Used for Telegram and OAuth logins
+   */
+  async findUserByOAuthLink(
+    provider: AuthProvider,
+    providerUserId: string
+  ): Promise<User | null> {
+    const result = await this.pool.query(
+      `SELECT u.id, u.platform_type, u.platform_id, u.nickname, u.avatar_url, u.locale,
+              u.is_anonymous, u.registration_skin_id, u.registration_match_id, u.nickname_set_at
+       FROM users u
+       INNER JOIN oauth_links ol ON ol.user_id = u.id
+       WHERE ol.auth_provider = $1 AND ol.provider_user_id = $2
+         AND u.is_banned = FALSE`,
+      [provider, providerUserId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return this.mapUserRow(result.rows[0]);
+  }
+
+  /**
+   * Create Telegram anonymous user
+   * Creates user with is_anonymous=true and oauth_link entry
+   * Returns { user, isNewUser: true }
+   */
+  async createTelegramAnonymousUser(
+    telegramId: string,
+    nickname: string,
+    avatarUrl?: string,
+    metadata?: Record<string, unknown>
+  ): Promise<{ user: User; isNewUser: boolean }> {
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Create user with is_anonymous = true
+      const userResult = await client.query(
+        `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, is_anonymous, last_login_at)
+         VALUES ($1, $2, $3, $4, TRUE, NOW())
+         RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
+                   is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
+        ['telegram', telegramId, nickname, avatarUrl || null]
+      );
+
+      const user = this.mapUserRow(userResult.rows[0]);
+
+      // Create oauth_links entry
+      await client.query(
+        `INSERT INTO oauth_links (user_id, auth_provider, provider_user_id)
+         VALUES ($1, $2, $3)`,
+        [user.id, 'telegram', telegramId]
+      );
+
+      // Create profile
+      await client.query(
+        'INSERT INTO profiles (user_id) VALUES ($1)',
+        [user.id]
+      );
+
+      // Create wallet
+      await client.query(
+        'INSERT INTO wallets (user_id) VALUES ($1)',
+        [user.id]
+      );
+
+      await client.query('COMMIT');
+
+      return { user, isNewUser: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Update last login for existing user
+   */
+  async updateLastLogin(userId: string): Promise<void> {
+    await this.pool.query(
+      'UPDATE users SET last_login_at = NOW() WHERE id = $1',
+      [userId]
+    );
+  }
+
+  /**
+   * Get user by ID
+   */
+  async getUserById(userId: string): Promise<User | null> {
+    const result = await this.pool.query(
+      `SELECT id, platform_type, platform_id, nickname, avatar_url, locale,
+              is_anonymous, registration_skin_id, registration_match_id, nickname_set_at
+       FROM users WHERE id = $1 AND is_banned = FALSE`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return this.mapUserRow(result.rows[0]);
+  }
+
+  /**
+   * Check if OAuth link already exists
+   */
+  async oauthLinkExists(provider: AuthProvider, providerUserId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      'SELECT 1 FROM oauth_links WHERE auth_provider = $1 AND provider_user_id = $2',
+      [provider, providerUserId]
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Create registered user from guest
+   * Called during convert_guest upgrade flow
+   * @param externalClient - Optional external DB client for transaction support
+   */
+  async createUserFromGuest(
+    provider: AuthProvider,
+    providerUserId: string,
+    nickname: string,
+    avatarUrl: string | undefined,
+    registrationMatchId: string,
+    registrationSkinId: string,
+    externalClient?: any
+  ): Promise<User> {
+    // If external client provided, use it without managing transaction
+    if (externalClient) {
+      return this.createUserFromGuestInternal(
+        externalClient,
+        provider,
+        providerUserId,
+        nickname,
+        avatarUrl,
+        registrationMatchId,
+        registrationSkinId
+      );
+    }
+
+    // Otherwise manage our own transaction
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const user = await this.createUserFromGuestInternal(
+        client,
+        provider,
+        providerUserId,
+        nickname,
+        avatarUrl,
+        registrationMatchId,
+        registrationSkinId
+      );
+      await client.query('COMMIT');
+      return user;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async createUserFromGuestInternal(
+    client: any,
+    provider: AuthProvider,
+    providerUserId: string,
+    nickname: string,
+    avatarUrl: string | undefined,
+    registrationMatchId: string,
+    registrationSkinId: string
+  ): Promise<User> {
+    // Create user with is_anonymous = false and nickname_set_at
+    const userResult = await client.query(
+      `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, is_anonymous,
+                          registration_skin_id, registration_match_id, nickname_set_at, last_login_at)
+       VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW(), NOW())
+       RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
+                 is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
+      [provider, providerUserId, nickname, avatarUrl || null, registrationSkinId, registrationMatchId]
+    );
+
+    const user = this.mapUserRow(userResult.rows[0]);
+
+    // Create oauth_links entry
+    await client.query(
+      'INSERT INTO oauth_links (user_id, auth_provider, provider_user_id) VALUES ($1, $2, $3)',
+      [user.id, provider, providerUserId]
+    );
+
+    // Create profile with selected skin
+    await client.query(
+      'INSERT INTO profiles (user_id, selected_skin_id) VALUES ($1, $2)',
+      [user.id, registrationSkinId]
+    );
+
+    // Create wallet
+    await client.query(
+      'INSERT INTO wallets (user_id) VALUES ($1)',
+      [user.id]
+    );
+
+    console.log(`[AuthService] Created registered user ${user.id.slice(0, 8)}... from guest via ${provider}`);
+
+    return user;
+  }
+
+  /**
+   * Complete anonymous profile (Telegram-anonymous → registered)
+   * Updates is_anonymous to false
+   * @param client - Optional external DB client for transaction support
+   */
+  async completeAnonymousProfile(
+    userId: string,
+    registrationMatchId: string,
+    registrationSkinId: string,
+    client?: any
+  ): Promise<User> {
+    const db = client || this.pool;
+    const result = await db.query(
+      `UPDATE users
+       SET is_anonymous = FALSE,
+           registration_skin_id = $2,
+           registration_match_id = $3,
+           nickname_set_at = COALESCE(nickname_set_at, NOW())
+       WHERE id = $1
+       RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
+                 is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
+      [userId, registrationSkinId, registrationMatchId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('User not found');
+    }
+
+    console.log(`[AuthService] Completed profile for user ${userId.slice(0, 8)}...`);
+
+    return this.mapUserRow(result.rows[0]);
+  }
+
+  /**
+   * Mark claim as consumed (one-time use) with atomic check.
+   * Uses WHERE claim_consumed_at IS NULL to prevent race conditions.
+   * @param matchId - Match ID
+   * @param subjectId - User/guest subject ID (for logging)
+   * @param client - Optional DB client for transaction support
+   * @returns true if claim was successfully consumed, false if already consumed
+   */
+  async markClaimConsumed(matchId: string, subjectId: string, client?: any): Promise<boolean> {
+    const db = client || this.pool;
+    const result = await db.query(
+      `UPDATE match_results
+       SET claim_consumed_at = NOW()
+       WHERE match_id = $1 AND claim_consumed_at IS NULL`,
+      [matchId]
+    );
+
+    const consumed = result.rowCount === 1;
+    if (consumed) {
+      console.log(`[AuthService] Claim consumed for match ${matchId.slice(0, 8)}... by ${subjectId.slice(0, 8)}...`);
+    } else {
+      console.log(`[AuthService] Claim already consumed for match ${matchId.slice(0, 8)}... (attempted by ${subjectId.slice(0, 8)}...)`);
+    }
+    return consumed;
+  }
+
+  /**
+   * Get a database client for transaction management
+   * Allows external code to manage transactions across services
+   */
+  async getClient(): Promise<any> {
+    return this.pool.connect();
+  }
+
   private generateAccessToken(): string {
     return crypto.randomBytes(32).toString('base64url');
   }
@@ -182,13 +490,13 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  private mapUserRow(row: any): User {
+  private mapUserRow(row: UserRow): User {
     return {
       id: row.id,
       platformType: row.platform_type,
       platformId: row.platform_id,
       nickname: row.nickname,
-      avatarUrl: row.avatar_url,
+      avatarUrl: row.avatar_url ?? undefined,
       locale: row.locale,
       isAnonymous: row.is_anonymous ?? false,
       registrationSkinId: row.registration_skin_id,

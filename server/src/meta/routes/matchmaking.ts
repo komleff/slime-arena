@@ -1,20 +1,83 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { MatchmakingService } from '../services/MatchmakingService';
+import { verifyAccessToken, verifyGuestToken } from '../utils/jwtUtils';
 
 const router = Router();
 const matchmakingService = new MatchmakingService();
 
+// Extend Express Request type to include guest info
+declare global {
+  namespace Express {
+    interface Request {
+      /** Guest subject ID (for standalone guests) */
+      guestSubjectId?: string;
+      /** Effective nickname (from user or body for guests) */
+      effectiveNickname?: string;
+    }
+  }
+}
+
+/**
+ * Middleware that accepts both accessToken and guestToken
+ * For guests: sets req.userId to guestSubjectId (unique guest identifier)
+ * For registered users: delegates to authMiddleware
+ */
+async function authOrGuestMiddleware(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.get('authorization');
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      error: 'unauthorized',
+      message: 'Missing or invalid authorization header',
+    });
+  }
+
+  const token = authHeader.substring(7);
+
+  // Try to verify as guestToken first (type='guest')
+  const guestPayload = verifyGuestToken(token);
+  if (guestPayload) {
+    // Guest token is valid
+    // Use guestSubjectId as unique identifier for guests (fixes P1: guest conflicts in matchmaking)
+    req.userId = guestPayload.sub;
+    req.guestSubjectId = guestPayload.sub;
+    // Guest nickname comes from request body
+    req.effectiveNickname = req.body.nickname || `Guest_${guestPayload.sub.slice(0, 6)}`;
+    return next();
+  }
+
+  // Try to verify as accessToken (type='user')
+  const accessPayload = verifyAccessToken(token);
+  if (accessPayload) {
+    // Delegate to standard authMiddleware for user lookup
+    return authMiddleware(req, res, next);
+  }
+
+  // Neither token type is valid
+  return res.status(401).json({
+    error: 'unauthorized',
+    message: 'Invalid or expired token',
+  });
+}
+
 /**
  * POST /api/v1/matchmaking/join
  * Join matchmaking queue
+ *
+ * Supports both registered users (accessToken) and guests (guestToken)
+ * For guests: nickname should be provided in request body
  */
-router.post('/join', authMiddleware, async (req, res) => {
+router.post('/join', authOrGuestMiddleware, async (req, res) => {
   try {
     const userId = req.userId!;
     const { rating } = req.body;
 
-    await matchmakingService.joinQueue(userId, req.user!.nickname, rating || 1500);
+    // Determine nickname: from user profile or from request (guests)
+    const nickname = req.user?.nickname || req.effectiveNickname || 'Guest';
+
+    // Pass guestSubjectId for standalone guests
+    await matchmakingService.joinQueue(userId, nickname, rating || 1500, req.guestSubjectId);
 
     const position = await matchmakingService.getQueuePosition(userId);
 
@@ -35,8 +98,10 @@ router.post('/join', authMiddleware, async (req, res) => {
 /**
  * POST /api/v1/matchmaking/cancel
  * Leave matchmaking queue
+ *
+ * Supports both registered users and guests
  */
-router.post('/cancel', authMiddleware, async (req, res) => {
+router.post('/cancel', authOrGuestMiddleware, async (req, res) => {
   try {
     const userId = req.userId!;
 
@@ -59,8 +124,10 @@ router.post('/cancel', authMiddleware, async (req, res) => {
  * POST /api/v1/matchmaking/joined
  * Notify that user has successfully joined the match room
  * Clears the user's match assignment from Redis (no longer needed for polling)
+ *
+ * Supports both registered users and guests
  */
-router.post('/joined', authMiddleware, async (req, res) => {
+router.post('/joined', authOrGuestMiddleware, async (req, res) => {
   try {
     const userId = req.userId!;
 
@@ -82,8 +149,10 @@ router.post('/joined', authMiddleware, async (req, res) => {
 /**
  * GET /api/v1/matchmaking/status
  * Get matchmaking status for current user
+ *
+ * Supports both registered users and guests
  */
-router.get('/status', authMiddleware, async (req, res) => {
+router.get('/status', authOrGuestMiddleware, async (req, res) => {
   try {
     const userId = req.userId!;
 

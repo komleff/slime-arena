@@ -69,6 +69,8 @@ export class Player extends Schema {
     @type("number") pendingLavaScatterMass: number = 0;
 
     // Server-only state (not synced)
+    userId: string = "";  // User ID from joinToken (for registered users)
+    guestSubjectId: string = "";  // Guest subject ID from joinToken (for standalone guests)
     inputX: number = 0;
     inputY: number = 0;
     lastProcessedSeq: number = 0;
