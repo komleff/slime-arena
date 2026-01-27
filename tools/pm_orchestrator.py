@@ -177,7 +177,6 @@ def publish_consensus_summary(pr_number: int, repo: str = DEFAULT_REPO) -> None:
 
     # Записываем во временный файл (обход лимита командной строки)
     # Уникальное имя с pr_number и pid для избежания гонок при параллельных запусках
-    import os
     tmp_file = Path(__file__).parent / f"tmp_consensus_pr{pr_number}_pid{os.getpid()}.md"
     try:
         tmp_file.write_text(summary, encoding="utf-8")
