@@ -1,0 +1,140 @@
+import os
+import sys
+import json
+import subprocess
+import argparse
+from datetime import datetime
+import google.generativeai as genai
+
+# Конфигурация
+# Требуется: pip install google-generativeai
+# Требуется: gh auth login
+REPO_OWNER = "komleff"
+REPO_NAME = "slime-arena"
+
+class GeminiReviewer:
+    def __init__(self, pr_number, iteration=1):
+        self.pr_number = pr_number
+        self.iteration = iteration
+        
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            print("[ERROR] Не задана переменная окружения GEMINI_API_KEY")
+            sys.exit(1)
+            
+        genai.configure(api_key=api_key)
+        # Используем актуальную модель, соответствующую персоне "Gemini 3 Pro" (High-end)
+        self.model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        
+        self.check_dependencies()
+
+    def check_dependencies(self):
+        """Проверка окружения перед запуском"""
+        try:
+            subprocess.run(["gh", "--version"], check=True, capture_output=True, encoding='utf-8')
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("[ERROR] GitHub CLI (gh) не найден. Установите его и выполните `gh auth login`.")
+            sys.exit(1)
+
+    def get_pr_data(self):
+        """Получение diff и деталей PR через GitHub CLI"""
+        print(f"[INFO] Получение данных для PR #{self.pr_number}...")
+        
+        # Получаем Diff
+        diff_proc = subprocess.run(
+            ["gh", "pr", "diff", str(self.pr_number), "--repo", f"{REPO_OWNER}/{REPO_NAME}"],
+            capture_output=True, text=True, check=True, encoding='utf-8'
+        )
+        
+        # Получаем описание
+        view_proc = subprocess.run(
+            ["gh", "pr", "view", str(self.pr_number), "--repo", f"{REPO_OWNER}/{REPO_NAME}", "--json", "title,body,author"],
+            capture_output=True, text=True, check=True, encoding='utf-8'
+        )
+        
+        return diff_proc.stdout, json.loads(view_proc.stdout)
+
+    def analyze_code(self, diff, pr_details):
+        """Анализ кода через Gemini API"""
+        print("[INFO] Gemini 3 Pro анализирует код...")
+        
+        system_prompt = """
+        Ты — Gemini 3 Pro, элитный AI-ревьювер кода для проекта Slime Arena.
+        Твоя специализация: UX, Производительность (Performance), Безопасность и Оптимистичные находки.
+        
+        Твоя задача:
+        1. Найти проблемы, влияющие на опыт игрока (задержки, лаги, непонятный UI).
+        2. Найти узкие места производительности (лишние ререндеры, тяжелые вычисления).
+        3. Проверить безопасность (утечки токенов, SQL-инъекции, XSS).
+        4. Отметить хорошие решения (будь позитивным, но строгим к ошибкам).
+        5. Игнорировать мелкие придирки к стилю (это задача Copilot).
+        
+        Формат ответа (Markdown):
+        ## Review by Gemini 3 Pro
+
+        ### Чеклист
+        - [ ] Сборка проходит (предполагаем)
+        - [ ] Тесты проходят (предполагаем)
+        - [ ] Детерминизм сохранён (для серверного кода)
+
+        ### Позитивные моменты
+        (Кратко, что сделано хорошо)
+
+        ### Замечания
+        1. **[P0]** `файл:строка` — Критическая проблема (UX блок, краш, утечка памяти).
+        2. **[P1]** `файл:строка` — Важная проблема (плохая производительность, баг логики).
+        3. **[P2]** `файл:строка` — Рекомендация по улучшению.
+
+        ### Вердикт
+        **APPROVED** ✅ или **CHANGES_REQUESTED** ❌ (если есть P0/P1).
+        """
+
+        user_prompt = f"""
+        PR Title: {pr_details['title']}
+        Author: {pr_details['author']['login']}
+        Description: {pr_details['body']}
+        
+        Code Diff:
+        ```diff
+        {diff[:100000]} 
+        ```
+        """
+        # Ограничиваем diff 100к символов, хотя 1.5 Pro может больше
+
+        response = self.model.generate_content([system_prompt, user_prompt])
+        return response.text
+
+    def publish_report(self, report):
+        """Публикация отчета в PR"""
+        print("[INFO] Публикация отчета в GitHub...")
+        
+        metadata = {
+            "reviewer": "gemini",
+            "iteration": self.iteration,
+            "timestamp": datetime.now().isoformat(),
+            "type": "review"
+        }
+        
+        body = f"<!-- {json.dumps(metadata)} -->\n{report}"
+        
+        subprocess.run([
+            "gh", "pr", "comment", str(self.pr_number),
+            "--repo", f"{REPO_OWNER}/{REPO_NAME}",
+            "--body", body
+        ], check=True, encoding='utf-8')
+        print(f"[OK] Отчет успешно опубликован в PR #{self.pr_number}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Gemini 3 Pro Agent Reviewer")
+    parser.add_argument("--pr", type=int, required=True, help="Номер PR")
+    parser.add_argument("--iteration", type=int, default=1, help="Номер итерации ревью")
+    args = parser.parse_args()
+
+    try:
+        agent = GeminiReviewer(args.pr, args.iteration)
+        diff, details = agent.get_pr_data()
+        report = agent.analyze_code(diff, details)
+        agent.publish_report(report)
+    except Exception as e:
+        print(f"[ERROR] Критическая ошибка агента: {e}")
+        sys.exit(1)
