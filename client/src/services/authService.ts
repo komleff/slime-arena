@@ -165,7 +165,7 @@ class AuthService {
    * 3. При регистрации (auth/upgrade) сервер выдаёт настоящий никнейм
    * 4. Упрощает API и снижает нагрузку (меньше запросов к БД)
    *
-   * TODO: Рассмотреть серверную генерацию если потребуется уникальность гостевых никнеймов.
+   * See slime-arena-o4y for potential server-side generation improvements.
    */
   async loginAsGuest(): Promise<boolean> {
     try {

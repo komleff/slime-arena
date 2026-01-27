@@ -4,7 +4,7 @@
  */
 
 // JSX runtime imported automatically via jsxImportSource
-import { useCallback, useState } from 'preact/hooks';
+import { useCallback, useState, useEffect, useRef } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
 import {
@@ -12,8 +12,11 @@ import {
   resultsWaitTime,
   selectedClassId,
   resetGameState,
+  matchAssignment,
+  matchTimer,
 } from '../signals/gameState';
 import {
+  matchResultsService,
   claimStatus,
   claimRewards,
   claimError,
@@ -341,8 +344,44 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const error = claimError.value;
 
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const claimAttemptedRef = useRef(false);
 
   const isAnonymous = authService.isAnonymous();
+
+  // Автоматически отправляем результат на сервер при появлении matchResults
+  useEffect(() => {
+    if (!results || claimAttemptedRef.current) return;
+
+    const assignment = matchAssignment.value;
+    if (!assignment) {
+      console.warn('[ResultsScreen] No matchAssignment available for claim');
+      return;
+    }
+
+    // Вычисляем place из finalLeaderboard
+    const localEntry = results.finalLeaderboard.find(e => e.isLocal);
+    const place = localEntry?.place ?? results.finalLeaderboard.length;
+
+    // Получаем данные из personalStats
+    const stats = results.personalStats;
+    if (!stats) {
+      console.warn('[ResultsScreen] No personalStats available for claim');
+      return;
+    }
+
+    claimAttemptedRef.current = true;
+
+    // Вызываем claimResult
+    matchResultsService.claimResult({
+      matchId: assignment.matchId,
+      claimToken: assignment.joinToken, // joinToken используется как claimToken
+      place,
+      kills: stats.kills,
+      maxMass: stats.maxMass,
+      survivalTimeMs: (matchTimer.value?.totalTime ?? 0) * 1000,
+      classId: stats.classId,
+    });
+  }, [results]);
 
   const handlePlayAgain = useCallback(() => {
     onPlayAgain(currentClassId);
