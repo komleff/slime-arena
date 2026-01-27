@@ -15,15 +15,23 @@ import {
 } from '../ui/signals/gameState';
 
 /**
- * Ответ сервера на /auth/verify
- * Формат от MetaServer DevAuthProvider
+ * Ответ сервера на /auth/guest
  */
-interface AuthResponse {
+interface GuestAuthResponse {
+  guestToken: string;
+  expiresAt: string;
+}
+
+/**
+ * Ответ сервера на /auth/telegram
+ */
+interface TelegramAuthResponse {
   accessToken: string;
-  userId: string;
-  profile: {
+  expiresAt: string;
+  user: {
+    id: string;
     nickname: string;
-    locale: string;
+    isAnonymous: boolean;
   };
 }
 
@@ -128,44 +136,130 @@ class AuthService {
 
   /**
    * Авторизация через платформу.
+   * Автоматически выбирает метод в зависимости от платформы.
    */
   async login(): Promise<boolean> {
+    const adapter = platformManager.getAdapter();
+    const platformType = adapter.getPlatformType();
+
+    if (platformType === 'telegram') {
+      return this.loginViaTelegram();
+    } else {
+      return this.loginAsGuest();
+    }
+  }
+
+  /**
+   * Авторизация как гость (для Standalone / dev режима).
+   */
+  async loginAsGuest(): Promise<boolean> {
     try {
       setAuthenticating(true);
       setAuthError(null);
 
-      // Получаем credentials от платформы
-      const adapter = platformManager.getAdapter();
-      const credentials = await adapter.getCredentials();
+      console.log('[AuthService] Logging in as guest');
 
-      console.log(`[AuthService] Logging in via ${credentials.platformType}`);
+      const response = await metaServerClient.post<GuestAuthResponse>('/api/v1/auth/guest', {});
 
-      // Отправляем на сервер (P0-1: platformAuthToken вместо platformData)
-      const response = await metaServerClient.post<AuthResponse>('/api/v1/auth/verify', {
-        platformType: credentials.platformType,
-        platformAuthToken: credentials.platformData, // Сервер ожидает platformAuthToken, передаём platformData
-      });
+      // Сохраняем гостевой токен
+      localStorage.setItem('guest_token', response.guestToken);
+      localStorage.setItem('token_expires_at', response.expiresAt);
 
-      // Конвертируем ответ сервера в User и Profile для signals
-      const user = createUser(
-        response.userId,
-        response.profile.nickname,
-        credentials.platformType
-      );
+      // Генерируем локальный никнейм и скин для UI
+      const nickname = this.generateGuestNickname();
+      const skinId = this.generateGuestSkinId();
+      localStorage.setItem('guest_nickname', nickname);
+      localStorage.setItem('guest_skin_id', skinId);
+
+      // Создаём локальный User для UI (без полноценной серверной сессии)
+      const user = createUser('guest', nickname, 'dev');
       const profile = createDefaultProfile();
 
-      // Сохраняем токен и обновляем состояние
-      metaServerClient.setToken(response.accessToken);
-      setAuthState(user, profile, response.accessToken);
+      // Устанавливаем токен в metaServerClient для последующих запросов
+      metaServerClient.setToken(response.guestToken);
+      setAuthState(user, profile, response.guestToken);
 
-      console.log('[AuthService] Login successful');
+      console.log('[AuthService] Guest login successful');
       return true;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ошибка аутентификации';
-      console.error('[AuthService] Login failed:', message);
+      const message = err instanceof Error ? err.message : 'Ошибка гостевой авторизации';
+      console.error('[AuthService] Guest login failed:', message);
       setAuthError(message);
       return false;
     }
+  }
+
+  /**
+   * Авторизация через Telegram (Silent Auth).
+   */
+  async loginViaTelegram(): Promise<boolean> {
+    try {
+      setAuthenticating(true);
+      setAuthError(null);
+
+      const adapter = platformManager.getAdapter();
+      if (adapter.getPlatformType() !== 'telegram') {
+        throw new Error('Not running in Telegram');
+      }
+
+      const credentials = await adapter.getCredentials();
+      if (!credentials?.platformData) {
+        throw new Error('No Telegram initData available');
+      }
+
+      console.log('[AuthService] Logging in via Telegram');
+
+      const response = await metaServerClient.post<TelegramAuthResponse>('/api/v1/auth/telegram', {
+        initData: credentials.platformData,
+      });
+
+      // Сохраняем токен и данные пользователя
+      localStorage.setItem('access_token', response.accessToken);
+      localStorage.setItem('token_expires_at', response.expiresAt);
+      localStorage.setItem('user_id', response.user.id);
+      localStorage.setItem('user_nickname', response.user.nickname);
+      localStorage.setItem('is_anonymous', String(response.user.isAnonymous));
+
+      // Создаём User для UI
+      const user = createUser(
+        response.user.id,
+        response.user.nickname,
+        'telegram'
+      );
+      const profile = createDefaultProfile();
+
+      // Устанавливаем токен в metaServerClient
+      metaServerClient.setToken(response.accessToken);
+      setAuthState(user, profile, response.accessToken);
+
+      console.log('[AuthService] Telegram login successful');
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Ошибка авторизации Telegram';
+      console.error('[AuthService] Telegram login failed:', message);
+      setAuthError(message);
+      return false;
+    }
+  }
+
+  /**
+   * Генерация случайного никнейма для гостя.
+   */
+  private generateGuestNickname(): string {
+    const adjectives = ['Быстрый', 'Хитрый', 'Весёлый', 'Храбрый', 'Ловкий'];
+    const nouns = ['Слайм', 'Охотник', 'Воин', 'Странник', 'Игрок'];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const num = Math.floor(Math.random() * 1000);
+    return `${adj}${noun}${num}`;
+  }
+
+  /**
+   * Генерация случайного скина для гостя.
+   */
+  private generateGuestSkinId(): string {
+    const basicSkins = ['slime_green', 'slime_blue', 'slime_red', 'slime_yellow'];
+    return basicSkins[Math.floor(Math.random() * basicSkins.length)];
   }
 
   /**
@@ -240,6 +334,42 @@ class AuthService {
    */
   getToken(): string | null {
     return metaServerClient.getToken();
+  }
+
+  /**
+   * Получить токен для подключения к матчу.
+   * Возвращает access_token (для зарегистрированных/Telegram) или guest_token.
+   */
+  getJoinToken(): string | null {
+    return localStorage.getItem('access_token') || localStorage.getItem('guest_token');
+  }
+
+  /**
+   * Проверить, авторизован ли пользователь (есть любой токен).
+   */
+  isAuthenticated(): boolean {
+    return !!this.getJoinToken();
+  }
+
+  /**
+   * Проверить, является ли пользователь анонимным (гость или анонимный Telegram).
+   */
+  isAnonymous(): boolean {
+    return localStorage.getItem('is_anonymous') === 'true' || !!localStorage.getItem('guest_token');
+  }
+
+  /**
+   * Получить никнейм пользователя.
+   */
+  getNickname(): string {
+    return localStorage.getItem('user_nickname') || localStorage.getItem('guest_nickname') || 'Игрок';
+  }
+
+  /**
+   * Получить ID выбранного скина.
+   */
+  getSkinId(): string {
+    return localStorage.getItem('selected_skin_id') || localStorage.getItem('guest_skin_id') || 'slime_green';
   }
 }
 
