@@ -25,6 +25,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Добавляем корень репозитория в sys.path для импортов
 _REPO_ROOT = Path(__file__).parent.parent
@@ -87,20 +88,26 @@ def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
         return False
 
 
-def check_consensus(pr_number: int, repo: str = DEFAULT_REPO) -> bool:
+def check_consensus(
+    pr_number: int,
+    repo: str = DEFAULT_REPO,
+    iteration: Optional[int] = None
+) -> bool:
     """
     Проверить консенсус для PR.
 
     Args:
         pr_number: Номер PR
         repo: Репозиторий
+        iteration: Фильтр по итерации (None = все итерации)
 
     Returns:
         bool: True если консенсус достигнут
     """
-    print(f"[INFO] Проверка консенсуса для PR #{pr_number}...")
+    iter_info = f" (iteration {iteration})" if iteration else ""
+    print(f"[INFO] Проверка консенсуса для PR #{pr_number}{iter_info}...")
 
-    reviews = get_latest_reviews(pr_number, repo)
+    reviews = get_latest_reviews(pr_number, repo, iteration=iteration)
 
     if not reviews:
         print("[WARN] Ревью не найдены. Убедитесь, что ревьюверы опубликовали комментарии.")
@@ -250,7 +257,9 @@ def main():
             success = False
 
     if args.check_consensus:
-        if not check_consensus(args.pr, args.repo):
+        # Передаём iteration для фильтрации ревью (None = все итерации)
+        iter_filter = args.iteration if args.iteration > 1 else None
+        if not check_consensus(args.pr, args.repo, iteration=iter_filter):
             success = False
 
     if args.publish_summary:

@@ -33,23 +33,21 @@ def calculate_consensus(reviews: Dict[str, ReviewData]) -> Tuple[bool, int, int]
         reviews: Словарь {reviewer_name: ReviewData}
 
     Returns:
-        Tuple[bool, int, int]: (консенсус достигнут, кол-во APPROVED, кол-во основных ревьюверов)
+        Tuple[bool, int, int]: (консенсус достигнут, кол-во APPROVED, общее кол-во основных ревьюверов)
     """
     approved_count = 0
-    main_reviewers_count = 0
 
     for reviewer, data in reviews.items():
         # Считаем только основных ревьюверов (используем set для O(1) lookup)
         if reviewer not in MAIN_REVIEWERS_SET:
             continue
 
-        main_reviewers_count += 1
-
         if data.status == ReviewStatus.APPROVED:
             approved_count += 1
 
+    # Возвращаем общее число основных ревьюверов (не найденных, а всего)
     consensus_reached = approved_count >= CONSENSUS_THRESHOLD
-    return consensus_reached, approved_count, main_reviewers_count
+    return consensus_reached, approved_count, len(MAIN_REVIEWERS)
 
 
 def extract_blocking_issues(reviews: Dict[str, ReviewData]) -> List[Issue]:

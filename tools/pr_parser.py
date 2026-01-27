@@ -57,6 +57,7 @@ def parse_pr_comments(
         result = subprocess.run(
             [
                 "gh", "api",
+                "--paginate",  # Получить все страницы (>30 комментариев)
                 f"repos/{repo}/issues/{pr_number}/comments",
             ],
             capture_output=True,
@@ -135,17 +136,19 @@ def parse_single_comment(body: str, pr_number: int) -> Optional[ReviewData]:
         verdict_match = VERDICT_PATTERN.search(body)
         status_str = verdict_match.group(1) if verdict_match else "COMMENTED"
 
+    # Нормализуем к uppercase для корректного поиска в Enum
     try:
-        status = ReviewStatus[status_str]
-    except KeyError:
+        status = ReviewStatus[status_str.upper()]
+    except (KeyError, AttributeError):
         status = ReviewStatus.COMMENTED
 
-    # Парсим timestamp
+    # Парсим timestamp (некритично, оставляем None при ошибке)
     timestamp = None
     if "timestamp" in metadata:
         try:
             timestamp = datetime.fromisoformat(metadata["timestamp"].replace("Z", "+00:00"))
         except (ValueError, AttributeError):
+            # Некорректный формат timestamp — не критично, пропускаем
             pass
 
     # Извлекаем проблемы
@@ -196,18 +199,18 @@ def extract_issues_from_body(body: str, reviewer: str) -> List[Issue]:
 
 def get_latest_reviews(
     pr_number: int,
-    repo: str = DEFAULT_REPO
+    repo: str = DEFAULT_REPO,
+    iteration: Optional[int] = None
 ) -> Dict[str, ReviewData]:
     """
     Получить последние ревью от каждого ревьювера.
 
-    Shortcut для parse_pr_comments с iteration=None.
-
     Args:
         pr_number: Номер PR
         repo: Репозиторий
+        iteration: Фильтр по итерации (None = все итерации, берём последнее от каждого)
 
     Returns:
         Dict[str, ReviewData]: Последние ревью
     """
-    return parse_pr_comments(pr_number, repo, iteration=None)
+    return parse_pr_comments(pr_number, repo, iteration=iteration)
