@@ -80,6 +80,7 @@ def extract_blocking_issues(reviews: Dict[str, ReviewData]) -> List[Issue]:
                 file=issue.file,
                 line=issue.line,
                 problem=issue.problem,
+                solution=issue.solution,  # Сохраняем предлагаемое решение
                 reviewer=reviewer,
             )
             blocking_issues.append(blocking_issue)
@@ -102,28 +103,30 @@ def get_consensus_summary(reviews: Dict[str, ReviewData]) -> str:
     consensus, approved, total = calculate_consensus(reviews)
     blocking = extract_blocking_issues(reviews)
 
+    # Формируем summary на русском (согласно AGENT_ROLES.md)
+    status_text = "КОНСЕНСУС ДОСТИГНУТ" if consensus else "КОНСЕНСУС НЕ ДОСТИГНУТ"
     lines = [
-        "## Consensus Summary",
+        "## Итоги консенсуса",
         "",
-        f"**Status:** {'CONSENSUS REACHED' if consensus else 'NO CONSENSUS'}",
-        f"**Approved:** {approved}/{total} main reviewers",
+        f"**Статус:** {status_text}",
+        f"**Одобрено:** {approved}/{total} основных ревьюверов",
         "",
-        "### Reviewer Verdicts",
+        "### Вердикты ревьюверов",
         "",
     ]
 
     for reviewer in MAIN_REVIEWERS:
         if reviewer in reviews:
             data = reviews[reviewer]
-            status_emoji = "✅" if data.status == ReviewStatus.APPROVED else "❌"
+            status_emoji = "[OK]" if data.status == ReviewStatus.APPROVED else "[X]"
             lines.append(f"- **{reviewer}**: {data.status.value} {status_emoji}")
         else:
-            lines.append(f"- **{reviewer}**: NOT RECEIVED ⏳")
+            lines.append(f"- **{reviewer}**: НЕ ПОЛУЧЕНО [?]")
 
     if blocking:
         lines.extend([
             "",
-            f"### Blocking Issues ({len(blocking)})",
+            f"### Блокирующие проблемы ({len(blocking)})",
             "",
         ])
         for issue in blocking:
