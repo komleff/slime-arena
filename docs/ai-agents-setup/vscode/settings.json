@@ -1,0 +1,9 @@
+{
+  "[beads]": {
+    "editor.defaultFormatter": "planet57.vscode-beads"
+  },
+  "beads.showStatusBar": true,
+  "beads.groupBy": "priority",
+  "beads.autoRefresh": true,
+  "beads.refreshInterval": 5000
+}
