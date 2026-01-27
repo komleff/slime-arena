@@ -4,28 +4,30 @@ import json
 import subprocess
 import argparse
 from datetime import datetime
-import google.generativeai as genai
+from google import genai
 
 # Конфигурация
-# Требуется: pip install google-generativeai
+# Требуется: pip install google-genai
 # Требуется: gh auth login
 REPO_OWNER = "komleff"
 REPO_NAME = "slime-arena"
+
+# Модель Gemini для ревью (gemini-2.5-flash — быстрая и качественная)
+GEMINI_MODEL = "gemini-2.5-flash"
 
 class GeminiReviewer:
     def __init__(self, pr_number, iteration=1):
         self.pr_number = pr_number
         self.iteration = iteration
-        
+
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             print("[ERROR] Не задана переменная окружения GEMINI_API_KEY")
             sys.exit(1)
-            
-        genai.configure(api_key=api_key)
-        # Используем актуальную модель, соответствующую персоне "Gemini 3 Pro" (High-end)
-        self.model = genai.GenerativeModel('gemini-1.5-pro-latest')
-        
+
+        # Новый API: используем Client
+        self.client = genai.Client(api_key=api_key)
+
         self.check_dependencies()
 
     def check_dependencies(self):
@@ -101,7 +103,11 @@ class GeminiReviewer:
         """
         # Ограничиваем diff 100к символов, хотя 1.5 Pro может больше
 
-        response = self.model.generate_content([system_prompt, user_prompt])
+        # Новый API: используем client.models.generate_content
+        response = self.client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=f"{system_prompt}\n\n{user_prompt}"
+        )
         return response.text
 
     def publish_report(self, report):
