@@ -24,9 +24,34 @@ export interface Session {
   expiresAt: Date;
 }
 
+/**
+ * Database row type for users table
+ * Maps to PostgreSQL column names (snake_case)
+ */
+interface UserRow {
+  id: string;
+  platform_type: string;
+  platform_id: string;
+  nickname: string;
+  avatar_url: string | null;
+  locale: string;
+  is_anonymous: boolean;
+  registration_skin_id: string | null;
+  registration_match_id: string | null;
+  nickname_set_at: Date | null;
+}
+
 export class AuthService {
   private _pool: Pool | null = null;
-  private readonly SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+  /**
+   * Get session duration in milliseconds
+   * Reads from SESSION_DURATION_DAYS env variable, defaults to 30 days
+   */
+  private getSessionDurationMs(): number {
+    const days = parseInt(process.env.SESSION_DURATION_DAYS || '30', 10);
+    return days * 24 * 60 * 60 * 1000;
+  }
 
   /**
    * Lazy initialization: получаем пул только при первом обращении,
@@ -109,7 +134,7 @@ export class AuthService {
       // Generate access token
       const accessToken = this.generateAccessToken();
       const tokenHash = this.hashToken(accessToken);
-      const expiresAt = new Date(Date.now() + this.SESSION_DURATION_MS);
+      const expiresAt = new Date(Date.now() + this.getSessionDurationMs());
 
       // Create session
       const sessionResult = await client.query(
@@ -465,13 +490,13 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  private mapUserRow(row: any): User {
+  private mapUserRow(row: UserRow): User {
     return {
       id: row.id,
       platformType: row.platform_type,
       platformId: row.platform_id,
       nickname: row.nickname,
-      avatarUrl: row.avatar_url,
+      avatarUrl: row.avatar_url ?? undefined,
       locale: row.locale,
       isAnonymous: row.is_anonymous ?? false,
       registrationSkinId: row.registration_skin_id,

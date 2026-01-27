@@ -1,6 +1,11 @@
 /**
  * Yandex OAuth Provider
  * Exchanges authorization code for user info via Yandex OAuth API
+ *
+ * TODO: Implement OAuth state parameter for CSRF protection (P2)
+ * - Generate random state on auth URL creation
+ * - Store state in Redis/memory with TTL 10 min
+ * - Verify state on callback before exchanging code
  */
 
 export interface YandexUserInfo {
