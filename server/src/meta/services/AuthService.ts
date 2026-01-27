@@ -423,21 +423,29 @@ export class AuthService {
   }
 
   /**
-   * Mark claim as consumed (one-time use)
+   * Mark claim as consumed (one-time use) with atomic check.
+   * Uses WHERE claim_consumed_at IS NULL to prevent race conditions.
    * @param matchId - Match ID
    * @param subjectId - User/guest subject ID (for logging)
    * @param client - Optional DB client for transaction support
+   * @returns true if claim was successfully consumed, false if already consumed
    */
-  async markClaimConsumed(matchId: string, subjectId: string, client?: any): Promise<void> {
+  async markClaimConsumed(matchId: string, subjectId: string, client?: any): Promise<boolean> {
     const db = client || this.pool;
-    await db.query(
+    const result = await db.query(
       `UPDATE match_results
        SET claim_consumed_at = NOW()
-       WHERE match_id = $1`,
+       WHERE match_id = $1 AND claim_consumed_at IS NULL`,
       [matchId]
     );
 
-    console.log(`[AuthService] Claim consumed for match ${matchId.slice(0, 8)}... by ${subjectId.slice(0, 8)}...`);
+    const consumed = result.rowCount === 1;
+    if (consumed) {
+      console.log(`[AuthService] Claim consumed for match ${matchId.slice(0, 8)}... by ${subjectId.slice(0, 8)}...`);
+    } else {
+      console.log(`[AuthService] Claim already consumed for match ${matchId.slice(0, 8)}... (attempted by ${subjectId.slice(0, 8)}...)`);
+    }
+    return consumed;
   }
 
   /**

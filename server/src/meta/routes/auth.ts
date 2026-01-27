@@ -359,19 +359,13 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
     const { matchId, subjectId, finalMass, skinId } = claimPayload;
 
-    // Check if claim has already been consumed (P1-5: prevent claimToken reuse)
+    // Get match info for player count (P1-4)
+    // Note: claim consumption check moved to atomic markClaimConsumed inside transaction
     const matchInfo = await getMatchResultInfo(matchId);
     if (!matchInfo) {
       return res.status(404).json({
         error: 'match_not_found',
         message: 'Match not found',
-      });
-    }
-
-    if (matchInfo.claimConsumedAt) {
-      return res.status(409).json({
-        error: 'claim_already_consumed',
-        message: 'This claim token has already been used',
       });
     }
 
@@ -479,6 +473,17 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       try {
         await client.query('BEGIN');
 
+        // Atomically mark claim as consumed first to prevent race conditions (P1-5)
+        const claimConsumed = await authService.markClaimConsumed(matchId, subjectId, client);
+        if (!claimConsumed) {
+          await client.query('ROLLBACK');
+          client.release();
+          return res.status(409).json({
+            error: 'claim_already_consumed',
+            message: 'This claim token has already been used',
+          });
+        }
+
         // Create registered user
         user = await authService.createUserFromGuest(
           provider as AuthProvider,
@@ -492,9 +497,6 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
         // Initialize ratings with actual players count from match_results (P1-4)
         await ratingService.initializeRating(user.id, claimPayload, playersInMatch, client);
-
-        // Mark claim as consumed
-        await authService.markClaimConsumed(matchId, subjectId, client);
 
         await client.query('COMMIT');
       } catch (txError) {
@@ -559,6 +561,17 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       try {
         await client.query('BEGIN');
 
+        // Atomically mark claim as consumed first to prevent race conditions (P1-5)
+        const claimConsumed = await authService.markClaimConsumed(matchId, subjectId, client);
+        if (!claimConsumed) {
+          await client.query('ROLLBACK');
+          client.release();
+          return res.status(409).json({
+            error: 'claim_already_consumed',
+            message: 'This claim token has already been used',
+          });
+        }
+
         // Complete profile
         user = await authService.completeAnonymousProfile(
           accessPayload.sub,
@@ -569,9 +582,6 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
         // Initialize ratings with actual players count from match_results (P1-4)
         await ratingService.initializeRating(user.id, claimPayload, playersInMatch, client);
-
-        // Mark claim as consumed
-        await authService.markClaimConsumed(matchId, subjectId, client);
 
         await client.query('COMMIT');
       } catch (txError) {
