@@ -43,3 +43,4 @@ __pycache__/
 
 # Temp files
 tmp_*.md
+setup-bash.ps1
