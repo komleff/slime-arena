@@ -9,16 +9,16 @@ from google import genai
 # Конфигурация
 # Требуется: pip install google-genai
 # Требуется: gh auth login
-REPO_OWNER = "komleff"
-REPO_NAME = "slime-arena"
+DEFAULT_REPO = os.getenv("SLIME_ARENA_REPO", "komleff/slime-arena")
 
 # Модель Gemini для ревью (gemini-2.5-flash — быстрая и качественная)
 GEMINI_MODEL = "gemini-2.5-flash"
 
 class GeminiReviewer:
-    def __init__(self, pr_number, iteration=1):
+    def __init__(self, pr_number, iteration=1, repo=DEFAULT_REPO):
         self.pr_number = pr_number
         self.iteration = iteration
+        self.repo = repo
 
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
@@ -40,20 +40,20 @@ class GeminiReviewer:
 
     def get_pr_data(self):
         """Получение diff и деталей PR через GitHub CLI"""
-        print(f"[INFO] Получение данных для PR #{self.pr_number}...")
-        
+        print(f"[INFO] Получение данных для PR #{self.pr_number} из {self.repo}...")
+
         # Получаем Diff
         diff_proc = subprocess.run(
-            ["gh", "pr", "diff", str(self.pr_number), "--repo", f"{REPO_OWNER}/{REPO_NAME}"],
+            ["gh", "pr", "diff", str(self.pr_number), "--repo", self.repo],
             capture_output=True, text=True, check=True, encoding='utf-8'
         )
-        
+
         # Получаем описание
         view_proc = subprocess.run(
-            ["gh", "pr", "view", str(self.pr_number), "--repo", f"{REPO_OWNER}/{REPO_NAME}", "--json", "title,body,author"],
+            ["gh", "pr", "view", str(self.pr_number), "--repo", self.repo, "--json", "title,body,author"],
             capture_output=True, text=True, check=True, encoding='utf-8'
         )
-        
+
         return diff_proc.stdout, json.loads(view_proc.stdout)
 
     def analyze_code(self, diff, pr_details):
@@ -125,19 +125,20 @@ class GeminiReviewer:
         
         subprocess.run([
             "gh", "pr", "comment", str(self.pr_number),
-            "--repo", f"{REPO_OWNER}/{REPO_NAME}",
+            "--repo", self.repo,
             "--body", body
         ], check=True, encoding='utf-8')
-        print(f"[OK] Отчет успешно опубликован в PR #{self.pr_number}")
+        print(f"[OK] Отчет успешно опубликован в PR #{self.pr_number} ({self.repo})")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Gemini 3 Pro Agent Reviewer")
     parser.add_argument("--pr", type=int, required=True, help="Номер PR")
     parser.add_argument("--iteration", type=int, default=1, help="Номер итерации ревью")
+    parser.add_argument("--repo", type=str, default=DEFAULT_REPO, help=f"Репозиторий (по умолчанию: {DEFAULT_REPO})")
     args = parser.parse_args()
 
     try:
-        agent = GeminiReviewer(args.pr, args.iteration)
+        agent = GeminiReviewer(args.pr, args.iteration, args.repo)
         diff, details = agent.get_pr_data()
         report = agent.analyze_code(diff, details)
         agent.publish_report(report)

@@ -127,6 +127,86 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 ## Приоритет: Средний
 
+### [P2] normalizeNickname() не защищает от null/undefined
+**Задача:** Добавить проверку на null/undefined в функцию normalizeNickname()
+
+**Источник:** PR#109 Code Review (Codex 5.2)
+
+**Контекст:**
+- В `server/src/utils/generators/nicknameValidator.ts` функция `normalizeNickname()` вызывает `String(nickname)`
+- `String(null)` → `'null'`, `String(undefined)` → `'undefined'`
+- После нормализации эти значения могут пройти валидацию
+- Примечание: `validateNicknameDetailed()` уже проверяет на null/undefined, но `validateAndNormalize()` вызывает `normalizeNickname()` **до** этой проверки
+
+**Решение:**
+```typescript
+export function normalizeNickname(nickname: string | null | undefined): string {
+  if (nickname == null) return '';
+  return String(nickname).trim().replace(/\s+/g, ' ');
+}
+```
+
+Или альтернативно: проверять в `validateAndNormalize()` до вызова `normalizeNickname()`.
+
+**Файлы:**
+- `server/src/utils/generators/nicknameValidator.ts`
+
+**Статус:** Открыто. Приоритет P2.
+
+---
+
+### [P2] generateRandomBasicSkin() использует Math.random() в серверном коде
+**Задача:** Изолировать функцию с Math.random() в мета-слое или переместить файл
+
+**Источник:** PR#109 Code Review (Codex 5.2)
+
+**Контекст:**
+- В `server/src/utils/generators/skinGenerator.ts:72` функция `generateRandomBasicSkin()` использует `Math.random()`
+- По правилам проекта (CLAUDE.md) `Math.random()` запрещён в серверной симуляции
+- Функция предназначена только для мета-сервера, но находится в общей папке `utils/`
+- Уже добавлен JSDoc-комментарий "ТОЛЬКО ДЛЯ МЕТАСЕРВЕРА", но этого недостаточно
+
+**Решение:**
+1. Переместить `generateRandomBasicSkin()` в `server/src/meta/utils/skinGenerator.ts`
+2. Или использовать ESLint правило для запрета импорта в `rooms/`
+
+**Файлы:**
+- `server/src/utils/generators/skinGenerator.ts`
+- Новый путь: `server/src/meta/utils/skinGenerator.ts`
+
+**Статус:** Открыто. Приоритет P2.
+
+---
+
+### [P2] oauth_links: добавить metadata JSONB для future-proofing
+**Задача:** Добавить колонку metadata в таблицу oauth_links
+
+**Источник:** PR#109 Code Review (Gemini 3 Pro)
+
+**Контекст:**
+- В `server/src/db/migrations/007_meta_gameplay_tables.sql` таблица `oauth_links` содержит только необходимые поля
+- Рекомендуется добавить `metadata JSONB DEFAULT '{}'` для хранения дополнительных данных от провайдеров
+- Примеры данных: `refresh_token`, `scope`, `email` для коммуникации
+
+**Решение:**
+Создать новую миграцию:
+```sql
+-- Migration: 009_oauth_links_metadata.sql
+ALTER TABLE oauth_links ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+```
+
+**Польза:**
+- Сохранение дополнительных данных без изменения схемы БД
+- Готовность к расширению OAuth провайдеров
+
+**Файлы:**
+- Новый файл: `server/src/db/migrations/009_oauth_links_metadata.sql`
+- `server/src/meta/models/OAuth.ts` — добавить поле `metadata?: Record<string, unknown>`
+
+**Статус:** Открыто. Приоритет P2.
+
+---
+
 ### Orb bite threshold vs max-bite - нужны раздельные параметры
 **Задача:** Разделить порог входа в bite-режим и максимальную массу для bite
 
@@ -482,3 +562,35 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 
 
+
+---
+
+## Приоритет: Низкий (P3)
+
+### PM Orchestrator: sys.path хаки в tools/*.py
+**Beads:** `slime-arena-b6s`
+
+**Контекст:**
+- В `tools/consensus.py:18` и `tools/test_orchestrator.py:17` меняется `sys.path` на уровне импорта
+- Это даёт побочный эффект для любого кода, который просто импортирует модуль
+
+**Решение:**
+- Запускать точку входа как модуль (`python -m tools.pm_orchestrator`)
+- Или настроить `PYTHONPATH` / пакетную установку
+
+**Источник:** PR #110, ревьювер: Copilot
+
+---
+
+### PM Orchestrator: комментарий о дедупликации не соответствует коду
+**Beads:** `slime-arena-dc8`
+
+**Контекст:**
+- В `tools/consensus.py:72` комментарий говорит «дедупликация по файлу и строке»
+- Но ключ включает ещё `issue.problem[:50]`
+
+**Решение:**
+- Либо поправить комментарий
+- Либо изменить логику дедупликации на строго `(file, line)`
+
+**Источник:** PR #110, ревьювер: Copilot
