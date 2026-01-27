@@ -20,7 +20,7 @@ declare global {
 
 /**
  * Middleware that accepts both accessToken and guestToken
- * For guests: sets req.userId to empty string, req.guestSubjectId to guest subject ID
+ * For guests: sets req.userId to guestSubjectId (unique guest identifier)
  * For registered users: delegates to authMiddleware
  */
 async function authOrGuestMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -39,7 +39,8 @@ async function authOrGuestMiddleware(req: Request, res: Response, next: NextFunc
   const guestPayload = verifyGuestToken(token);
   if (guestPayload) {
     // Guest token is valid
-    req.userId = ''; // Empty userId for guests (used as key in queue)
+    // Use guestSubjectId as unique identifier for guests (fixes P1: guest conflicts in matchmaking)
+    req.userId = guestPayload.sub;
     req.guestSubjectId = guestPayload.sub;
     // Guest nickname comes from request body
     req.effectiveNickname = req.body.nickname || `Guest_${guestPayload.sub.slice(0, 6)}`;
