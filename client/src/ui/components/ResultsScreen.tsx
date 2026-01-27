@@ -369,6 +369,11 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const waitTime = resultsWaitTime.value;
   const canPlay = waitTime <= 0 && status !== 'claiming';
 
+  // Если есть ошибка, показать её в тексте кнопки
+  const playAgainText = status === 'error'
+    ? 'Играть снова (ошибка сохранения)'
+    : 'Играть снова';
+
   return (
     <div class="results-overlay">
       <div class="results-content">
@@ -488,7 +493,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
               ? `${Math.ceil(waitTime)} сек`
               : status === 'claiming'
                 ? 'Подождите...'
-                : 'Играть снова'}
+                : playAgainText}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
             На главную

@@ -1,6 +1,12 @@
 /**
- * Сервис авторизации.
- * Управляет аутентификацией через MetaServer и сессией пользователя.
+ * AuthService — управление авторизацией на клиенте.
+ *
+ * SECURITY NOTE: Токены хранятся в localStorage.
+ * Это осознанный компромисс для игрового SPA-клиента:
+ * - HttpOnly cookies не работают с WebSocket
+ * - Токен нужен в JavaScript для API-вызовов
+ * - XSS-защита обеспечивается на уровне CSP и санитизации входных данных
+ * - Срок жизни токенов ограничен (24ч access, 7д guest)
  */
 
 import { metaServerClient } from '../api/metaServerClient';
@@ -161,7 +167,7 @@ class AuthService {
 
       const response = await metaServerClient.post<GuestAuthResponse>('/api/v1/auth/guest', {});
 
-      // Сохраняем гостевой токен
+      // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('guest_token', response.guestToken);
       localStorage.setItem('token_expires_at', response.expiresAt);
 
@@ -213,7 +219,7 @@ class AuthService {
         initData: credentials.platformData,
       });
 
-      // Сохраняем токен и данные пользователя
+      // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('access_token', response.accessToken);
       localStorage.setItem('token_expires_at', response.expiresAt);
       localStorage.setItem('user_id', response.user.id);
