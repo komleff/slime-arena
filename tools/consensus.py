@@ -20,6 +20,7 @@ from tools.review_state import (
     ReviewStatus,
     Issue,
     MAIN_REVIEWERS,
+    MAIN_REVIEWERS_SET,
     CONSENSUS_THRESHOLD,
 )
 
@@ -38,8 +39,8 @@ def calculate_consensus(reviews: Dict[str, ReviewData]) -> Tuple[bool, int, int]
     main_reviewers_count = 0
 
     for reviewer, data in reviews.items():
-        # Считаем только основных ревьюверов
-        if reviewer not in MAIN_REVIEWERS:
+        # Считаем только основных ревьюверов (используем set для O(1) lookup)
+        if reviewer not in MAIN_REVIEWERS_SET:
             continue
 
         main_reviewers_count += 1
@@ -128,8 +129,10 @@ def get_consensus_summary(reviews: Dict[str, ReviewData]) -> str:
             "",
         ])
         for issue in blocking:
+            # Форматируем location без :None если line отсутствует
+            location = f"{issue.file}:{issue.line}" if issue.line is not None else issue.file
             lines.append(
-                f"- **[{issue.priority}]** `{issue.file}:{issue.line}` — {issue.problem[:80]}"
+                f"- **[{issue.priority}]** `{location}` — {issue.problem[:80]}"
             )
 
     return "\n".join(lines)

@@ -37,7 +37,7 @@ from tools.consensus import (
     extract_blocking_issues,
     get_consensus_summary,
 )
-from tools.review_state import MAIN_REVIEWERS, CONSENSUS_THRESHOLD
+from tools.review_state import MAIN_REVIEWERS, MAIN_REVIEWERS_SET, CONSENSUS_THRESHOLD
 
 # Репозиторий по умолчанию
 DEFAULT_REPO = os.getenv("SLIME_ARENA_REPO", "komleff/slime-arena")
@@ -64,7 +64,7 @@ def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
     print(f"[INFO] Запуск Gemini reviewer для PR #{pr_number} (iteration {iteration})...")
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             [
                 sys.executable,
                 str(gemini_script),
@@ -72,7 +72,8 @@ def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
                 "--iteration", str(iteration),
             ],
             check=True,
-            encoding="utf-8",
+            capture_output=True,
+            text=True,
         )
         print("[OK] Gemini review опубликован")
         return True
@@ -81,6 +82,8 @@ def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
         return False
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Gemini reviewer завершился с ошибкой: код {e.returncode}")
+        if e.stderr:
+            print(f"[INFO] stderr: {e.stderr[:500]}")
         return False
 
 
@@ -126,14 +129,16 @@ def check_consensus(pr_number: int, repo: str = DEFAULT_REPO) -> bool:
     if blocking:
         print(f"\n[WARN] Блокирующие проблемы ({len(blocking)}):")
         for issue in blocking:
-            print(f"  - [{issue.priority}] {issue.file}:{issue.line} - {issue.problem[:60]}")
+            # Форматируем без :None если line отсутствует
+            location = f"{issue.file}:{issue.line}" if issue.line is not None else issue.file
+            print(f"  - [{issue.priority}] {location} - {issue.problem[:60]}")
 
     print("\n[FAIL] КОНСЕНСУС НЕ ДОСТИГНУТ - требуются исправления")
 
     # Рекомендации
-    missing = MAIN_REVIEWERS - set(reviews.keys())
+    missing = MAIN_REVIEWERS_SET - set(reviews.keys())
     if missing:
-        print(f"\n[TIP] Ожидаем ревью от: {', '.join(missing)}")
+        print(f"\n[TIP] Ожидаем ревью от: {', '.join(sorted(missing))}")
 
     return False
 
@@ -161,11 +166,14 @@ def publish_consensus_summary(pr_number: int, repo: str = DEFAULT_REPO) -> None:
                 "--body-file", str(tmp_file),
             ],
             check=True,
-            encoding="utf-8",
+            capture_output=True,
+            text=True,
         )
         print(f"[OK] Consensus summary опубликован в PR #{pr_number}")
     except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Не удалось опубликовать summary: {e}")
+        print(f"[ERROR] Не удалось опубликовать summary: код {e.returncode}")
+        if e.stderr:
+            print(f"[INFO] stderr: {e.stderr[:500]}")
     finally:
         if tmp_file.exists():
             tmp_file.unlink()

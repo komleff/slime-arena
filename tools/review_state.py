@@ -106,9 +106,15 @@ class CycleContext:
 
 
 # Основные ревьюверы для консенсуса (Copilot опционален)
-MAIN_REVIEWERS = {"opus", "codex", "gemini"}
-OPTIONAL_REVIEWERS = {"copilot"}
-ALL_REVIEWERS = MAIN_REVIEWERS | OPTIONAL_REVIEWERS
+# Tuple для детерминированного порядка вывода
+MAIN_REVIEWERS = ("opus", "codex", "gemini")
+OPTIONAL_REVIEWERS = ("copilot",)
+ALL_REVIEWERS = MAIN_REVIEWERS + OPTIONAL_REVIEWERS
+
+# Множества для быстрых проверок принадлежности
+MAIN_REVIEWERS_SET = frozenset(MAIN_REVIEWERS)
+OPTIONAL_REVIEWERS_SET = frozenset(OPTIONAL_REVIEWERS)
+ALL_REVIEWERS_SET = MAIN_REVIEWERS_SET | OPTIONAL_REVIEWERS_SET
 
 # Минимум APPROVED для консенсуса
 CONSENSUS_THRESHOLD = 3

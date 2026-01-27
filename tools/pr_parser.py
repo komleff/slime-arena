@@ -22,8 +22,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from tools.review_state import ReviewData, ReviewStatus, Issue
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
+# Логгер модуля; конфигурация логирования задаётся в точке входа
 logger = logging.getLogger(__name__)
 
 # Репозиторий по умолчанию (можно переопределить через env)
@@ -33,7 +32,7 @@ DEFAULT_REPO = os.getenv("SLIME_ARENA_REPO", "komleff/slime-arena")
 METADATA_PATTERN = re.compile(r"<!--\s*(\{.*?\})\s*-->", re.DOTALL)
 VERDICT_PATTERN = re.compile(r"\b(APPROVED|CHANGES_REQUESTED|COMMENTED)\b")
 ISSUE_PATTERN = re.compile(
-    r"\*\*\[(P[012])\]\*\*\s*[`'\"]?([^:`'\"]+)[`'\"]?:(\d+)?\s*[—\-–]\s*(.+?)(?=\n|$)",
+    r"\*\*\[(P[012])\]\*\*\s*[`'\"]?([^:`'\"]+)[`'\"]?(?::(\d+))?\s*[—\-–]\s*(.+?)(?=\n|$)",
     re.MULTILINE
 )
 
@@ -126,7 +125,8 @@ def parse_single_comment(body: str, pr_number: int) -> Optional[ReviewData]:
     if metadata.get("type") != "review":
         return None
 
-    reviewer = metadata.get("reviewer", "unknown")
+    # Нормализуем reviewer к lowercase для совместимости
+    reviewer = metadata.get("reviewer", "unknown").lower()
     iteration = metadata.get("iteration", 1)
 
     # Извлекаем статус из метаданных или из текста
