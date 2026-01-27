@@ -53,11 +53,14 @@ def parse_pr_comments(
     Returns:
         Dict[str, ReviewData]: Словарь {reviewer_name: ReviewData}
     """
+    # Используем --jq '.[]' чтобы развернуть массивы страниц в JSONL
+    # Без --jq при >30 комментариях --paginate выводит несколько JSON массивов
     try:
         result = subprocess.run(
             [
                 "gh", "api",
                 "--paginate",  # Получить все страницы (>30 комментариев)
+                "--jq", ".[]",  # Развернуть массив в JSONL (один объект на строку)
                 f"repos/{repo}/issues/{pr_number}/comments",
             ],
             capture_output=True,
@@ -72,12 +75,15 @@ def parse_pr_comments(
         logger.error(f"Ошибка при получении комментариев PR #{pr_number}: {e.stderr}")
         return {}
 
-    # Парсим JSON целиком (не split по строкам!)
-    try:
-        comments_json = json.loads(result.stdout)
-    except json.JSONDecodeError as e:
-        logger.error(f"Ошибка парсинга JSON комментариев: {e}")
-        return {}
+    # Парсим JSONL (каждая строка — отдельный JSON объект)
+    comments_json = []
+    for line in result.stdout.strip().split("\n"):
+        if not line.strip():
+            continue
+        try:
+            comments_json.append(json.loads(line))
+        except json.JSONDecodeError as e:
+            logger.warning(f"Пропущена строка с ошибкой JSON: {e}")
 
     reviews: Dict[str, ReviewData] = {}
 

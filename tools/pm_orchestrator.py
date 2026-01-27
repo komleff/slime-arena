@@ -129,12 +129,24 @@ def check_consensus(
 
     print(f"\n[INFO] Консенсус: {approved}/{total} APPROVED (требуется {CONSENSUS_THRESHOLD})")
 
-    if consensus:
+    # Проверяем blocking issues ВСЕГДА (включая P0/P1 от Copilot)
+    # Согласно AGENT_ROLES.md v1.8: Copilot обязателен если оставил замечания
+    blocking = extract_blocking_issues(reviews)
+
+    if consensus and not blocking:
         print("\n[OK] КОНСЕНСУС ДОСТИГНУТ - PR готов к merge")
         return True
 
+    if consensus and blocking:
+        # Консенсус есть, но есть blocking issues (например, от Copilot)
+        print(f"\n[WARN] Консенсус достигнут, но есть блокирующие проблемы ({len(blocking)}):")
+        for issue in blocking:
+            location = f"{issue.file}:{issue.line}" if issue.line is not None else issue.file
+            print(f"  - [{issue.priority}] {location} - {issue.problem[:60]}")
+        print("\n[FAIL] PR НЕ готов к merge - исправьте P0/P1 замечания")
+        return False
+
     # Если нет консенсуса — показать блокирующие проблемы
-    blocking = extract_blocking_issues(reviews)
     if blocking:
         print(f"\n[WARN] Блокирующие проблемы ({len(blocking)}):")
         for issue in blocking:
@@ -164,7 +176,9 @@ def publish_consensus_summary(pr_number: int, repo: str = DEFAULT_REPO) -> None:
     summary = get_consensus_summary(reviews)
 
     # Записываем во временный файл (обход лимита командной строки)
-    tmp_file = Path(__file__).parent / "tmp_consensus.md"
+    # Уникальное имя с pr_number и pid для избежания гонок при параллельных запусках
+    import os
+    tmp_file = Path(__file__).parent / f"tmp_consensus_pr{pr_number}_pid{os.getpid()}.md"
     try:
         tmp_file.write_text(summary, encoding="utf-8")
 
@@ -224,8 +238,8 @@ def main():
     parser.add_argument(
         "--iteration",
         type=int,
-        default=1,
-        help="Номер итерации ревью (по умолчанию: 1)"
+        default=None,
+        help="Номер итерации ревью (по умолчанию: все итерации)"
     )
     parser.add_argument(
         "--run-gemini",
@@ -255,13 +269,14 @@ def main():
     success = True
 
     if args.run_gemini:
-        if not run_gemini_reviewer(args.pr, args.iteration, args.repo):
+        # Для Gemini используем iteration=1 если не указан явно
+        gemini_iteration = args.iteration if args.iteration is not None else 1
+        if not run_gemini_reviewer(args.pr, gemini_iteration, args.repo):
             success = False
 
     if args.check_consensus:
-        # Передаём iteration для фильтрации ревью (None = все итерации)
-        iter_filter = args.iteration if args.iteration > 1 else None
-        if not check_consensus(args.pr, args.repo, iteration=iter_filter):
+        # Передаём iteration напрямую (None = все итерации)
+        if not check_consensus(args.pr, args.repo, iteration=args.iteration):
             success = False
 
     if args.publish_summary:
