@@ -105,9 +105,12 @@ class CycleContext:
             self.developer_model = "codex"
 
 
-# Основные ревьюверы для консенсуса (Copilot опционален)
+# Основные ревьюверы для консенсуса (3 APPROVED = консенсус)
 # Tuple для детерминированного порядка вывода
 MAIN_REVIEWERS = ("opus", "codex", "gemini")
+
+# Copilot: НЕ влияет на консенсус, но ОБЯЗАТЕЛЕН если оставил замечания.
+# Его P0/P1 замечания должны быть исправлены перед merge.
 OPTIONAL_REVIEWERS = ("copilot",)
 ALL_REVIEWERS = MAIN_REVIEWERS + OPTIONAL_REVIEWERS
 
@@ -116,5 +119,5 @@ MAIN_REVIEWERS_SET = frozenset(MAIN_REVIEWERS)
 OPTIONAL_REVIEWERS_SET = frozenset(OPTIONAL_REVIEWERS)
 ALL_REVIEWERS_SET = MAIN_REVIEWERS_SET | OPTIONAL_REVIEWERS_SET
 
-# Минимум APPROVED для консенсуса
+# Минимум APPROVED для консенсуса (от основных ревьюверов)
 CONSENSUS_THRESHOLD = 3

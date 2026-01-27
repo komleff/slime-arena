@@ -44,13 +44,14 @@ from tools.review_state import MAIN_REVIEWERS, MAIN_REVIEWERS_SET, CONSENSUS_THR
 DEFAULT_REPO = os.getenv("SLIME_ARENA_REPO", "komleff/slime-arena")
 
 
-def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
+def run_gemini_reviewer(pr_number: int, iteration: int = 1, repo: str = DEFAULT_REPO) -> bool:
     """
     Запустить gemini_reviewer.py для указанного PR.
 
     Args:
         pr_number: Номер PR
         iteration: Номер итерации ревью
+        repo: Репозиторий в формате owner/repo
 
     Returns:
         bool: True если успешно, False при ошибке
@@ -62,7 +63,7 @@ def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
         print(f"[ERROR] Скрипт {gemini_script} не найден")
         return False
 
-    print(f"[INFO] Запуск Gemini reviewer для PR #{pr_number} (iteration {iteration})...")
+    print(f"[INFO] Запуск Gemini reviewer для PR #{pr_number} (iteration {iteration}, repo {repo})...")
 
     try:
         subprocess.run(
@@ -71,6 +72,7 @@ def run_gemini_reviewer(pr_number: int, iteration: int = 1) -> bool:
                 str(gemini_script),
                 "--pr", str(pr_number),
                 "--iteration", str(iteration),
+                "--repo", repo,
             ],
             check=True,
             capture_output=True,
@@ -253,7 +255,7 @@ def main():
     success = True
 
     if args.run_gemini:
-        if not run_gemini_reviewer(args.pr, args.iteration):
+        if not run_gemini_reviewer(args.pr, args.iteration, args.repo):
             success = False
 
     if args.check_consensus:
