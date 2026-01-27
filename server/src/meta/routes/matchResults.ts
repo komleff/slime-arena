@@ -11,6 +11,7 @@ import {
   TOKEN_EXPIRATION,
 } from '../utils/jwtUtils';
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
+import { ratingService } from '../services/RatingService';
 
 const router = express.Router();
 
@@ -96,7 +97,8 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
         });
       }
 
-      // Update authenticated players' stats (XP and coins only)
+      // Update authenticated players' stats (XP, coins, and rating)
+      const playersInMatch = matchSummary.playerResults.length;
       for (const playerResult of matchSummary.playerResults) {
         if (playerResult.userId) {
           await updatePlayerStats(client, playerResult);
@@ -104,6 +106,21 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
       }
 
       await client.query('COMMIT');
+
+      // Award rating to registered players (after commit, non-blocking)
+      // RatingService handles its own transaction and idempotency
+      for (const playerResult of matchSummary.playerResults) {
+        if (playerResult.userId) {
+          ratingService.awardRating(
+            playerResult.userId,
+            matchSummary.matchId,
+            playerResult.finalMass,
+            playersInMatch
+          ).catch((error) => {
+            console.error(`[MatchResults] Failed to award rating for user ${playerResult.userId?.slice(0, 8)}...:`, error);
+          });
+        }
+      }
 
       console.log(`[MatchResults] Saved match ${matchSummary.matchId} with ${matchSummary.playerResults.length} players`);
 

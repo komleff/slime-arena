@@ -82,7 +82,28 @@ function getJwtSecret(): string {
 // Default token lifetimes (in seconds)
 const ACCESS_TOKEN_EXPIRES_SECONDS = 24 * 60 * 60; // 24 hours
 const GUEST_TOKEN_EXPIRES_SECONDS = 7 * 24 * 60 * 60; // 7 days
-const CLAIM_TOKEN_EXPIRES_SECONDS = parseInt(process.env.CLAIM_TOKEN_TTL_MINUTES || '60', 10) * 60;
+
+function getClaimTokenExpiresSeconds(): number {
+  const ttlMinutes = process.env.CLAIM_TOKEN_TTL_MINUTES;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (!ttlMinutes) {
+    if (isProduction) {
+      throw new Error('[jwtUtils] FATAL: CLAIM_TOKEN_TTL_MINUTES must be set in production!');
+    }
+    console.warn('[jwtUtils] WARNING: CLAIM_TOKEN_TTL_MINUTES not set, using default 60 minutes');
+    return 60 * 60; // 60 minutes default
+  }
+
+  const parsed = parseInt(ttlMinutes, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`[jwtUtils] FATAL: Invalid CLAIM_TOKEN_TTL_MINUTES value: ${ttlMinutes}`);
+  }
+
+  return parsed * 60;
+}
+
+const CLAIM_TOKEN_EXPIRES_SECONDS = getClaimTokenExpiresSeconds();
 
 // ============================================================================
 // Token Generation

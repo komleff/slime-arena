@@ -12,6 +12,8 @@ export interface JoinTokenPayload {
   matchId: string;
   roomId: string;
   nickname: string;
+  /** Guest subject ID (UUID) for standalone guests - used for match claim verification */
+  guestSubjectId?: string;
   /** Token issue time (Unix timestamp) */
   iat?: number;
   /** Token expiration time (Unix timestamp) */
@@ -66,8 +68,13 @@ export class JoinTokenService {
 
   /**
    * Generate a join token for a player
+   * @param userId - User ID (UUID) or empty string for guests
+   * @param matchId - Match ID
+   * @param roomId - Room ID
+   * @param nickname - Player nickname
+   * @param guestSubjectId - Guest subject ID (UUID) for standalone guests
    */
-  generateToken(userId: string, matchId: string, roomId: string, nickname: string): string {
+  generateToken(userId: string, matchId: string, roomId: string, nickname: string, guestSubjectId?: string): string {
     const payload: JoinTokenPayload = {
       userId,
       matchId,
@@ -75,12 +82,20 @@ export class JoinTokenService {
       nickname,
     };
 
+    // Add guestSubjectId only if provided (for standalone guests)
+    if (guestSubjectId) {
+      payload.guestSubjectId = guestSubjectId;
+    }
+
     const token = jwt.sign(payload, this.secret, {
       expiresIn: this.expiresInSeconds,
       algorithm: 'HS256',
     });
 
-    console.log(`[JoinTokenService] Generated token for user ${this.maskUserId(userId)} -> match ${matchId}`);
+    const subjectInfo = guestSubjectId
+      ? `guest ${this.maskUserId(guestSubjectId)}`
+      : `user ${this.maskUserId(userId)}`;
+    console.log(`[JoinTokenService] Generated token for ${subjectInfo} -> match ${matchId}`);
 
     return token;
   }

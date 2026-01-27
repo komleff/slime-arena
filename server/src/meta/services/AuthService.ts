@@ -355,11 +355,11 @@ export class AuthService {
     registrationMatchId: string,
     registrationSkinId: string
   ): Promise<User> {
-    // Create user with is_anonymous = false
+    // Create user with is_anonymous = false and nickname_set_at
     const userResult = await client.query(
       `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, is_anonymous,
-                          registration_skin_id, registration_match_id, last_login_at)
-       VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW())
+                          registration_skin_id, registration_match_id, nickname_set_at, last_login_at)
+       VALUES ($1, $2, $3, $4, FALSE, $5, $6, NOW(), NOW())
        RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
                  is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
       [provider, providerUserId, nickname, avatarUrl || null, registrationSkinId, registrationMatchId]
@@ -406,7 +406,8 @@ export class AuthService {
       `UPDATE users
        SET is_anonymous = FALSE,
            registration_skin_id = $2,
-           registration_match_id = $3
+           registration_match_id = $3,
+           nickname_set_at = COALESCE(nickname_set_at, NOW())
        WHERE id = $1
        RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
                  is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,

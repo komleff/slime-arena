@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { timingSafeEqual } from 'crypto';
 import { AuthService, User } from '../services/AuthService';
+import { verifyAccessToken } from '../utils/jwtUtils';
 
 // Extend Express Request type to include user
 declare global {
@@ -22,7 +23,7 @@ const ADMIN_USER_IDS = new Set(
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const authHeader = req.get('authorization');
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         error: 'unauthorized',
@@ -30,8 +31,27 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       });
     }
 
-    const accessToken = authHeader.substring(7);
-    const user = await authService.verifySession(accessToken);
+    const token = authHeader.substring(7);
+
+    // Try JWT accessToken first (new flow)
+    const jwtPayload = verifyAccessToken(token);
+    if (jwtPayload) {
+      // JWT is valid - get user by ID from payload.sub
+      const user = await authService.getUserById(jwtPayload.sub);
+      if (user) {
+        req.user = user;
+        req.userId = user.id;
+        return next();
+      }
+      // User not found by JWT sub - token is stale or user deleted
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'User not found',
+      });
+    }
+
+    // Fallback: try session-based token (legacy flow)
+    const user = await authService.verifySession(token);
 
     if (!user) {
       return res.status(401).json({
