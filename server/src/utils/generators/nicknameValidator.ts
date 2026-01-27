@@ -28,10 +28,17 @@ export const NICKNAME_CONFIG = {
 const BANNED_WORDS = [
   'admin',
   'moderator',
+  'mod',
   'support',
   'official',
   'bot',
   'system',
+  'slime',
+  'arena',
+  'dev',
+  'staff',
+  'gm',
+  'gamemaster',
 ];
 
 /**
@@ -124,9 +131,13 @@ export function validateNicknameDetailed(nickname: string): ValidationResult {
  *
  * @param nickname - никнейм для нормализации
  * @returns нормализованный никнейм
+ * @throws Error если nickname равен null, undefined или не является строкой
  */
 export function normalizeNickname(nickname: string): string {
-  return String(nickname)
+  if (nickname === null || nickname === undefined || typeof nickname !== 'string') {
+    throw new Error('Nickname must be a non-empty string');
+  }
+  return nickname
     .trim()
     .replace(/\s+/g, ' '); // Заменяем множественные пробелы на один
 }
