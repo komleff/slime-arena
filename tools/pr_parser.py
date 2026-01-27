@@ -59,7 +59,6 @@ def parse_pr_comments(
             [
                 "gh", "api",
                 f"repos/{repo}/issues/{pr_number}/comments",
-                "--jq", ".[].body"
             ],
             capture_output=True,
             text=True,
@@ -73,10 +72,17 @@ def parse_pr_comments(
         logger.error(f"Ошибка при получении комментариев PR #{pr_number}: {e.stderr}")
         return {}
 
-    comments = result.stdout.strip().split("\n")
+    # Парсим JSON целиком (не split по строкам!)
+    try:
+        comments_json = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        logger.error(f"Ошибка парсинга JSON комментариев: {e}")
+        return {}
+
     reviews: Dict[str, ReviewData] = {}
 
-    for comment_body in comments:
+    for comment in comments_json:
+        comment_body = comment.get("body", "")
         if not comment_body:
             continue
 

@@ -37,7 +37,7 @@ from tools.consensus import (
     extract_blocking_issues,
     get_consensus_summary,
 )
-from tools.review_state import MAIN_REVIEWERS
+from tools.review_state import MAIN_REVIEWERS, CONSENSUS_THRESHOLD
 
 # Репозиторий по умолчанию
 DEFAULT_REPO = os.getenv("SLIME_ARENA_REPO", "komleff/slime-arena")
@@ -115,10 +115,10 @@ def check_consensus(pr_number: int, repo: str = DEFAULT_REPO) -> bool:
     # Расчёт консенсуса
     consensus, approved, total = calculate_consensus(reviews)
 
-    print(f"\n[INFO] Консенсус: {approved}/{total} APPROVED (требуется {3})")
+    print(f"\n[INFO] Консенсус: {approved}/{total} APPROVED (требуется {CONSENSUS_THRESHOLD})")
 
     if consensus:
-        print("\n✅ КОНСЕНСУС ДОСТИГНУТ — PR готов к merge")
+        print("\n[OK] КОНСЕНСУС ДОСТИГНУТ - PR готов к merge")
         return True
 
     # Если нет консенсуса — показать блокирующие проблемы
@@ -126,9 +126,9 @@ def check_consensus(pr_number: int, repo: str = DEFAULT_REPO) -> bool:
     if blocking:
         print(f"\n[WARN] Блокирующие проблемы ({len(blocking)}):")
         for issue in blocking:
-            print(f"  - [{issue.priority}] {issue.file}:{issue.line} — {issue.problem[:60]}")
+            print(f"  - [{issue.priority}] {issue.file}:{issue.line} - {issue.problem[:60]}")
 
-    print("\n❌ КОНСЕНСУС НЕ ДОСТИГНУТ — требуются исправления")
+    print("\n[FAIL] КОНСЕНСУС НЕ ДОСТИГНУТ - требуются исправления")
 
     # Рекомендации
     missing = MAIN_REVIEWERS - set(reviews.keys())
