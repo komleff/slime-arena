@@ -34,16 +34,25 @@
    - Запускать Developer агентов с четкими промптами
    - Следить за прогрессом и дедлайнами
 
-3. **Организация ревью:**
+3. **Организация ревью (автоматизация через pm-orchestrator.py):**
    - После завершения кодирования: создать PR
-   - Запустить 3 ревьювера параллельно (Opus 4.5, Codex, Gemini)
-   - GitHub Copilot запускается автоматически
-   - Собрать все отчеты ревьюверов
+   - Запустить Python оркестратор: `python tools/pm-orchestrator.py --pr=105 --cycle`
+   - Оркестратор вызывает 3 ревьювера параллельно:
+     - Claude Opus 4.5 (Anthropic API)
+     - ChatGPT o1 Codex (OpenAI API)
+     - Gemini 2.0 Flash (Google AI API)
+   - GitHub Copilot: ревью через VS Code расширение (вручную, комментарий в PR)
+   - Все отчёты публикуются как комментарии в PR с метаданными
 
-4. **Координация доработок:**
-   - Проанализировать замечания от всех ревьюверов
-   - Создать промпт для Developer с конкретными исправлениями
-   - Запустить цикл ревью заново до получения APPROVED от всех
+4. **Координация доработок (автоматический цикл):**
+   - Оркестратор парсит комментарии в PR, извлекает P0/P1 проблемы
+   - Если консенсус НЕ достигнут (< 3 APPROVED):
+     - Создать задачу в Beads: `bd create --title="Fix review issues"`
+     - Вызвать Developer агента для исправления
+     - Ждать коммита с фиксами (до 1 часа)
+     - Запустить RE-REVIEW (iteration + 1)
+   - Цикл повторяется до консенсуса (макс 3 итерации)
+   - Если консенсус достигнут (3+ APPROVED): пометить PR как ready to merge
 
 5. **Финализация:**
    - Когда все ревьюверы одобрили: подготовить ветку к мержу
@@ -89,6 +98,181 @@
 [Команды из плана для проверки]
 
 ВАЖНО: После завершения запусти верификацию и обнови статус задачи в Beads (`bd close <id>`).
+```
+
+### Архитектура PM Orchestrator (tools/pm-orchestrator.py)
+
+**Назначение:** Автоматизация циклического процесса review-fix-review через GitHub PR.
+
+**Основные компоненты:**
+
+```python
+# State Machine
+class ReviewState(Enum):
+    INITIAL_REVIEW = "initial_review"
+    FIXES_NEEDED = "fixes_needed"
+    DEVELOPER_FIX = "developer_fix"
+    RE_REVIEW = "re_review"
+    SUCCESS = "success"
+
+# Consensus Tracking
+@dataclass
+class ConsensusData:
+    pr_number: int
+    iteration: int
+    reviewers: Dict[str, ReviewStatus]  # {"opus": APPROVED, "codex": CHANGES_REQUESTED, ...}
+    approved_count: int
+    all_approved: bool
+
+# Main Orchestrator
+class ReviewCycleOrchestrator:
+    async def run_review_cycle(self) -> CycleResult:
+        """Основной цикл review-fix-review"""
+
+        max_iterations = 3
+        iteration = 0
+
+        while iteration < max_iterations:
+            # 1. Run reviewers (parallel)
+            reviews = await self.run_all_reviewers()
+
+            # 2. Post reviews as PR comments
+            await self.post_reviews_to_pr(reviews)
+
+            # 3. Check consensus
+            consensus = self.calculate_consensus(reviews)
+
+            if consensus.all_approved:
+                return CycleResult.SUCCESS
+
+            # 4. Extract P0/P1 issues
+            issues = self.extract_blocking_issues(reviews)
+
+            # 5. Create Beads task for Developer
+            task_id = await self.request_developer_fix(issues)
+
+            # 6. Wait for Developer commit
+            if not await self.wait_for_developer_fix(timeout=3600):
+                return CycleResult.TIMEOUT
+
+            iteration += 1
+
+        return CycleResult.MAX_ITERATIONS_EXCEEDED
+```
+
+**Интеграция с GitHub PR:**
+
+```python
+def post_reviews_to_pr(self, reviews: Dict[str, str]):
+    """Публикация отчётов как комментариев в PR"""
+
+    for reviewer, report in reviews.items():
+        # Добавить метаданные в HTML-комментарий
+        metadata = {
+            "reviewer": reviewer,
+            "iteration": self.iteration,
+            "timestamp": datetime.now().isoformat(),
+            "type": "review"
+        }
+
+        body = f"<!-- {json.dumps(metadata)} -->\n{report}"
+
+        # Использовать gh CLI
+        subprocess.run([
+            "gh", "pr", "comment", str(self.pr_number),
+            "--repo", "komleff/slime-arena",
+            "--body", body
+        ], check=True)
+
+def parse_pr_comments(self) -> Dict[str, ReviewData]:
+    """Парсинг всех review-комментариев из PR"""
+
+    result = subprocess.run([
+        "gh", "api",
+        f"/repos/komleff/slime-arena/issues/{self.pr_number}/comments",
+        "--jq", ".[] | {author: .user.login, body, created_at}"
+    ], capture_output=True, text=True, check=True)
+
+    reviews = {}
+    for line in result.stdout.strip().split('\n'):
+        comment = json.loads(line)
+
+        # Извлечь JSON из <!-- {...} -->
+        match = re.search(r'<!--\s*({.*?})\s*-->', comment["body"])
+        if match:
+            metadata = json.loads(match.group(1))
+            if metadata.get("type") == "review":
+                reviews[metadata["reviewer"]] = ReviewData(
+                    reviewer=metadata["reviewer"],
+                    iteration=metadata["iteration"],
+                    body=comment["body"],
+                    status=self.extract_status(comment["body"])
+                )
+
+    return reviews
+```
+
+**Работа с Beads:**
+
+```python
+async def request_developer_fix(self, issues: List[Issue]) -> str:
+    """Создать задачу в Beads для Developer"""
+
+    description = "### Code Review Issues (автоматически созданная задача)\n\n"
+    for issue in issues:
+        description += f"**[{issue.priority}]** {issue.file}:{issue.line}\n"
+        description += f"- Проблема: {issue.problem}\n"
+        description += f"- Решение: {issue.solution}\n\n"
+
+    result = subprocess.run([
+        "bd", "create",
+        "--title", f"Fix: Review issues in PR #{self.pr_number}",
+        "--type", "bug",
+        "--priority", "1",
+        "--description", description
+    ], capture_output=True, text=True, check=True, cwd="d:/GitHub/slime-arena")
+
+    # Парсить task ID из вывода
+    task_id = re.search(r'(slime-arena-\w+)', result.stdout).group(1)
+    return task_id
+
+async def wait_for_developer_fix(self, timeout: int = 3600) -> bool:
+    """Ждать коммита с исправлениями"""
+
+    current_commit = subprocess.run([
+        "git", "rev-parse", "HEAD"
+    ], capture_output=True, text=True, cwd="d:/slime-arena-meta").stdout.strip()
+
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        # Проверить, есть ли новый коммит
+        subprocess.run(["git", "pull"], cwd="d:/slime-arena-meta")
+
+        latest_commit = subprocess.run([
+            "git", "rev-parse", "HEAD"
+        ], capture_output=True, text=True, cwd="d:/slime-arena-meta").stdout.strip()
+
+        if latest_commit != current_commit:
+            return True  # Новый коммит найден
+
+        await asyncio.sleep(60)  # Проверять каждые 60 секунд
+
+    return False  # Timeout
+```
+
+**Использование:**
+
+```bash
+# Запуск автоматического цикла для PR #105
+cd d:/GitHub/slime-arena
+python tools/pm-orchestrator.py --pr=105 --cycle --max-iterations=3
+
+# Только запустить ревью (без циклов)
+python tools/pm-orchestrator.py --pr=105 --review-only
+
+# Проверить консенсус
+python tools/pm-orchestrator.py --pr=105 --check-consensus
 ```
 
 **Пример делегирования:**
@@ -1529,6 +1713,272 @@ npm run build
 - [ ] Все 4 ревьювера проверили код
 - [ ] Замечания P0 и P1 исправлены
 - [ ] Approve получен от всех ревьюверов
+
+---
+
+## Автоматизация Review Cycle (PM Orchestrator v2)
+
+### Критические файлы для создания/изменения
+
+**Новые файлы:**
+
+1. `tools/review_state.py` — enum состояний review cycle
+2. `tools/consensus.py` — логика проверки консенсуса
+3. `tools/pr_parser.py` — парсинг комментариев в PR
+4. `tools/developer_requester.py` — создание задач в Beads
+
+**Изменённые файлы:**
+
+1. `tools/pm-orchestrator.py` — рефакторинг под циклический review
+
+**Конфигурация:**
+
+1. `tools/requirements.txt` — зависимости Python (anthropic, openai, google-generativeai)
+
+### План рефакторинга pm-orchestrator.py
+
+**Фаза 1 — Инфраструктура (Priority: P0):**
+
+1. **Создать review_state.py:**
+
+   ```python
+   from enum import Enum
+
+   class ReviewState(Enum):
+       INITIAL_REVIEW = "initial_review"
+       FIXES_NEEDED = "fixes_needed"
+       DEVELOPER_FIX = "developer_fix"
+       RE_REVIEW = "re_review"
+       SUCCESS = "success"
+
+   @dataclass
+   class ReviewData:
+       reviewer: str  # "opus", "codex", "gemini"
+       iteration: int
+       status: str  # "APPROVED", "CHANGES_REQUESTED"
+       body: str
+       timestamp: datetime
+   ```
+
+2. **Создать consensus.py:**
+
+   ```python
+   @dataclass
+   class ConsensusData:
+       pr_number: int
+       iteration: int
+       reviews: Dict[str, ReviewData]
+       approved_count: int
+       all_approved: bool
+
+   def calculate_consensus(reviews: Dict[str, ReviewData]) -> ConsensusData:
+       """Проверить консенсус (3+ APPROVED из 3 ревьюверов)"""
+       approved = sum(1 for r in reviews.values() if r.status == "APPROVED")
+       return ConsensusData(
+           reviews=reviews,
+           approved_count=approved,
+           all_approved=(approved >= 3)
+       )
+   ```
+
+3. **Создать pr_parser.py:**
+
+   ```python
+   def parse_pr_comments(pr_number: int) -> Dict[str, ReviewData]:
+       """Парсить review-комментарии из PR через gh API"""
+
+       result = subprocess.run([
+           "gh", "api",
+           f"/repos/komleff/slime-arena/issues/{pr_number}/comments"
+       ], capture_output=True, text=True, check=True)
+
+       reviews = {}
+       for comment in json.loads(result.stdout):
+           # Извлечь JSON метаданные из <!-- {...} -->
+           match = re.search(r'<!--\s*({.*?})\s*-->', comment["body"])
+           if match and "reviewer" in match.group(1):
+               metadata = json.loads(match.group(1))
+               reviews[metadata["reviewer"]] = ReviewData(**metadata)
+
+       return reviews
+
+   def extract_issues_from_reviews(reviews: Dict) -> List[Issue]:
+       """Извлечь все P0/P1 проблемы из отчётов"""
+       # Парсить markdown отчёты, найти секции [P0] и [P1]
+   ```
+
+4. **Создать developer_requester.py:**
+
+   ```python
+   async def request_developer_fix(pr_number: int, issues: List[Issue]) -> str:
+       """Создать задачу в Beads"""
+
+       description = f"### Code Review Issues (PR #{pr_number})\n\n"
+       for issue in issues:
+           description += f"**[{issue.priority}]** {issue.file}:{issue.line}\n"
+           description += f"- {issue.problem}\n"
+           description += f"- Solution: {issue.solution}\n\n"
+
+       result = subprocess.run([
+           "bd", "create",
+           "--title", f"Fix: Review issues in PR #{pr_number}",
+           "--type", "bug",
+           "--priority", "1",
+           "--description", description
+       ], capture_output=True, text=True, cwd="d:/GitHub/slime-arena")
+
+       task_id = re.search(r'(slime-arena-\w+)', result.stdout).group(1)
+       return task_id
+
+   async def wait_for_developer_fix(repo_path: str, timeout: int = 3600) -> bool:
+       """Ждать коммита с исправлениями"""
+
+       current_commit = subprocess.run([
+           "git", "rev-parse", "HEAD"
+       ], capture_output=True, text=True, cwd=repo_path).stdout.strip()
+
+       start = time.time()
+       while time.time() - start < timeout:
+           subprocess.run(["git", "pull"], cwd=repo_path)
+           latest = subprocess.run([
+               "git", "rev-parse", "HEAD"
+           ], capture_output=True, text=True, cwd=repo_path).stdout.strip()
+
+           if latest != current_commit:
+               return True  # Новый коммит
+
+           await asyncio.sleep(60)  # Проверять каждую минуту
+
+       return False  # Timeout
+   ```
+
+**Фаза 2 — Цикличность (Priority: P0):**
+
+1. **Рефакторинг pm-orchestrator.py:**
+
+   ```python
+   class ReviewCycleOrchestrator(ReviewerOrchestrator):
+       """Оркестратор для циклического review-fix-review"""
+
+       def __init__(self, repo_path: str, pr_number: int):
+           super().__init__(repo_path)
+           self.pr_number = pr_number
+           self.state = ReviewState.INITIAL_REVIEW
+           self.iteration = 0
+
+       async def run_review_cycle(self) -> CycleResult:
+           """Основной цикл review-fix-review"""
+
+           MAX_ITERATIONS = 3
+
+           while self.iteration < MAX_ITERATIONS:
+               print(f"\n=== Iteration {self.iteration} ===")
+
+               # 1. Run reviewers
+               reviews = await self.run_all_reviewers()
+
+               # 2. Post to PR as comments
+               await self.post_reviews_to_pr(reviews)
+
+               # 3. Check consensus
+               consensus = calculate_consensus(reviews)
+
+               if consensus.all_approved:
+                   return CycleResult.SUCCESS
+
+               # 4. Extract P0/P1 issues
+               issues = extract_blocking_issues(reviews)
+
+               # 5. Create Beads task
+               task_id = await request_developer_fix(self.pr_number, issues)
+               print(f"Created task: {task_id}")
+
+               # 6. Wait for fix
+               if not await wait_for_developer_fix(self.repo_path):
+                   return CycleResult.TIMEOUT
+
+               self.iteration += 1
+
+           return CycleResult.MAX_ITERATIONS_EXCEEDED
+
+       async def post_reviews_to_pr(self, reviews: Dict[str, str]):
+           """Публикация отчётов как комментариев в PR"""
+
+           for reviewer, report in reviews.items():
+               metadata = {
+                   "reviewer": reviewer,
+                   "iteration": self.iteration,
+                   "type": "review",
+                   "timestamp": datetime.now().isoformat()
+               }
+
+               body = f"<!-- {json.dumps(metadata)} -->\n{report}"
+
+               subprocess.run([
+                   "gh", "pr", "comment", str(self.pr_number),
+                   "--repo", "komleff/slime-arena",
+                   "--body", body
+               ], check=True)
+   ```
+
+**Фаза 3 — Интеграция с Copilot (Priority: P2):**
+
+1. **GitHub Copilot (вручную):**
+
+   - Copilot не имеет прямого API — требуется ручное ревью через VS Code
+   - PM добавляет комментарий в PR: "⚠️ Copilot review required"
+   - Оператор-человек запускает Copilot вручную и добавляет отчёт
+
+### Использование
+
+**Запуск автоматического цикла:**
+
+```bash
+cd d:/GitHub/slime-arena
+python tools/pm-orchestrator.py --pr=105 --cycle --max-iterations=3
+```
+
+**Параметры:**
+
+- `--pr=N` — номер PR для review
+- `--cycle` — включить циклический режим (review → fix → review)
+- `--max-iterations=N` — максимум итераций (default: 3)
+- `--review-only` — только запустить ревью, без циклов
+
+**Проверка консенсуса:**
+
+```bash
+python tools/pm-orchestrator.py --pr=105 --check-consensus
+```
+
+### Верификация
+
+**Unit-тесты:**
+
+```bash
+cd tools
+pytest test_review_state.py
+pytest test_consensus.py
+pytest test_pr_parser.py
+```
+
+**Интеграционный тест:**
+
+```bash
+# Мок PR с тестовыми данными
+python tools/pm-orchestrator.py --pr=mock --cycle
+```
+
+**E2E тест (реальный PR):**
+
+1. Создать тестовый PR с намеренной ошибкой
+2. Запустить оркестратор: `python tools/pm-orchestrator.py --pr=XXX --cycle`
+3. Проверить, что:
+   - Ревьюверы нашли ошибку (CHANGES_REQUESTED)
+   - Задача создана в Beads
+   - Developer исправил
+   - Re-review прошёл (APPROVED)
+   - Консенсус достигнут
 
 ---
 

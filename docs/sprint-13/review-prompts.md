@@ -113,7 +113,7 @@
 ```markdown
 # Review by Claude Opus 4.5
 
-**Дата:** 23 января 2026
+**Дата:** yyyy-mm-dd
 **Ревьювер:** Claude Opus 4.5
 **Фаза:** Sprint 13, Phase 1 (Database & Infrastructure)
 **Коммиты:** aa03142, cf04c4d, 11e17d0, 919299c
@@ -265,7 +265,7 @@
 ```markdown
 # Review by ChatGPT Codex 5.2
 
-**Дата:** 23 января 2026
+**Дата:** yyyy-mm-dd
 **Ревьювер:** ChatGPT Codex 5.2
 **Фаза:** Sprint 13, Phase 1 (Database & Infrastructure)
 **Коммиты:** aa03142, cf04c4d, 11e17d0, 919299c
@@ -424,7 +424,7 @@
 ```markdown
 # Review by Gemini 3 Pro
 
-**Дата:** 23 января 2026
+**Дата:** yyyy-mm-dd
 **Ревьювер:** Gemini 3 Pro
 **Фаза:** Sprint 13, Phase 1 (Database & Infrastructure)
 **Коммиты:** aa03142, cf04c4d, 11e17d0, 919299c
