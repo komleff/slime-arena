@@ -317,11 +317,8 @@ router.post('/claim', async (req: Request, res: Response) => {
           message: 'Match does not belong to this guest',
         });
       }
-      // Get guest player data for mass calculation
-      const guestPlayers = playerResults.filter((p: PlayerResult) => !p.userId);
-      if (guestPlayers.length > 0) {
-        playerData = guestPlayers[0];
-      }
+      // Get guest player data for mass calculation (search by guestSubjectId)
+      playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
     } else {
       // For registered user: check playerResults for matching userId
       playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
