@@ -205,6 +205,9 @@ class AuthService {
       console.error('[AuthService] Guest login failed:', message);
       setAuthError(message);
       return false;
+    } finally {
+      // Copilot P1: Всегда сбрасываем флаг authenticating
+      setAuthenticating(false);
     }
   }
 
@@ -262,6 +265,9 @@ class AuthService {
       console.error('[AuthService] Telegram login failed:', message);
       setAuthError(message);
       return false;
+    } finally {
+      // Copilot P1: Всегда сбрасываем флаг authenticating
+      setAuthenticating(false);
     }
   }
 

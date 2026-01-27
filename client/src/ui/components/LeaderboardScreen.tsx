@@ -334,10 +334,10 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
   const status = leaderboardLoadStatus.value;
   const error = leaderboardError.value;
 
-  // Load leaderboard on mount
+  // Copilot P2: Load leaderboard on mount and when mode changes
   useEffect(() => {
     leaderboardService.fetchLeaderboard(mode);
-  }, []);
+  }, [mode]);
 
   const handleTabClick = useCallback((newMode: LeaderboardMode) => {
     leaderboardService.switchMode(newMode);

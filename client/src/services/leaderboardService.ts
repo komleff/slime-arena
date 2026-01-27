@@ -107,11 +107,10 @@ class LeaderboardService {
 
   /**
    * Переключить режим таблицы.
+   * Copilot P2: Используем fetchLeaderboard для всех переключений, чтобы кеш проверялся единообразно.
    */
   async switchMode(mode: LeaderboardMode): Promise<boolean> {
-    if (mode === leaderboardMode.value && leaderboardLoadStatus.value === 'success') {
-      return true; // Уже загружен этот режим
-    }
+    // fetchLeaderboard сам проверит кеш и вернёт true если данные свежие
     return this.fetchLeaderboard(mode);
   }
 

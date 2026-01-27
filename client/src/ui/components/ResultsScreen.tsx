@@ -489,14 +489,15 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
             <div class="results-rewards-title">Награды</div>
             <div class="results-rewards-items">
               <div class="results-reward-item">
+                {/* Copilot P2: Условный + для корректного отображения отрицательных значений */}
                 <span class={`results-reward-value ${rewards.xpGained >= 0 ? 'positive' : 'negative'}`}>
-                  +{rewards.xpGained}
+                  {rewards.xpGained >= 0 ? '+' : ''}{rewards.xpGained}
                 </span>
                 <span class="results-reward-label">XP</span>
               </div>
               <div class="results-reward-item">
                 <span class={`results-reward-value ${rewards.coinsGained >= 0 ? 'positive' : 'negative'}`}>
-                  +{rewards.coinsGained}
+                  {rewards.coinsGained >= 0 ? '+' : ''}{rewards.coinsGained}
                 </span>
                 <span class="results-reward-label">монет</span>
               </div>
@@ -510,8 +511,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           </div>
         )}
 
-        {/* Предложение сохранить прогресс для гостей */}
-        {isAnonymous && status === 'success' && (
+        {/* Copilot P2: Предложение сохранить прогресс для гостей только при finalMass >= 200 */}
+        {isAnonymous && status === 'success' && (personalStats?.maxMass ?? 0) >= 200 && (
           <div class="results-save-prompt">
             Играете как гость.{' '}
             <span class="results-save-link" onClick={handleShowRegistration}>

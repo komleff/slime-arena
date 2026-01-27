@@ -215,10 +215,22 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
         return;
       }
 
-      // Вызываем /auth/upgrade для привязки результатов к профилю
-      await metaServerClient.post('/api/v1/auth/upgrade', {
+      // Copilot P1: Вызываем /auth/upgrade с обязательным параметром mode
+      const response = await metaServerClient.post<{
+        accessToken?: string;
+        expiresAt?: string;
+      }>('/api/v1/auth/upgrade', {
         claimToken: token,
+        mode: 'complete_profile', // Для анонимного Telegram-пользователя
       });
+
+      // Copilot P1: Сохраняем новый accessToken если сервер его вернул
+      if (response.accessToken) {
+        localStorage.setItem('access_token', response.accessToken);
+        if (response.expiresAt) {
+          localStorage.setItem('token_expires_at', response.expiresAt);
+        }
+      }
 
       // Обновляем флаг is_anonymous
       localStorage.setItem('is_anonymous', 'false');
