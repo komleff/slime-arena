@@ -7,6 +7,8 @@ export interface MatchmakingRequest {
   nickname: string;
   rating: number;
   timestamp: number;
+  /** Guest subject ID (UUID) for standalone guests - used for match claim verification */
+  guestSubjectId?: string;
 }
 
 export interface MatchAssignment {
@@ -14,7 +16,7 @@ export interface MatchAssignment {
   roomHost: string;
   roomPort: number;
   matchId: string;
-  players: Array<{ userId: string; nickname: string }>;
+  players: Array<{ userId: string; nickname: string; guestSubjectId?: string }>;
   /** JWT token for joining the match (per-player) */
   joinToken?: string;
 }
@@ -47,13 +49,18 @@ export class MatchmakingService {
 
   /**
    * Add player to matchmaking queue
+   * @param userId - User ID (UUID) or empty string for guests
+   * @param nickname - Player nickname
+   * @param rating - Player rating (default: 1500)
+   * @param guestSubjectId - Guest subject ID (UUID) for standalone guests
    */
-  async joinQueue(userId: string, nickname: string, rating: number = 1500): Promise<void> {
+  async joinQueue(userId: string, nickname: string, rating: number = 1500, guestSubjectId?: string): Promise<void> {
     const request: MatchmakingRequest = {
       userId,
       nickname,
       rating,
       timestamp: Date.now(),
+      guestSubjectId,
     };
 
     // Check if user is already in queue
@@ -190,7 +197,8 @@ export class MatchmakingService {
         player.userId,
         matchId,
         roomId,
-        player.nickname
+        player.nickname,
+        player.guestSubjectId
       );
       playerTokens[player.userId] = token;
     }
@@ -200,7 +208,11 @@ export class MatchmakingService {
       roomHost,
       roomPort,
       matchId,
-      players: players.map((p) => ({ userId: p.userId, nickname: p.nickname })),
+      players: players.map((p) => ({
+        userId: p.userId,
+        nickname: p.nickname,
+        guestSubjectId: p.guestSubjectId,
+      })),
     };
 
     // Use same TTL as token expiration for consistency
@@ -264,7 +276,8 @@ export class MatchmakingService {
       userId,
       matchId,
       assignment.roomId,
-      player.nickname
+      player.nickname,
+      player.guestSubjectId
     );
   }
 
