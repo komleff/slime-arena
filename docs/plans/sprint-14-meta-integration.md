@@ -34,7 +34,7 @@
 |--------|----------|------|----------|
 | Math.random() → Rng | `slime-arena-q90` | `server/src/utils/generators/skinGenerator.ts:72` | Заменить на Rng или выделить meta-only функцию |
 | null protection | `slime-arena-d0f` | `server/src/utils/generators/nicknameValidator.ts` | Добавить проверку на null/undefined |
-| banned words | `slime-arena-zwe` | `server/src/utils/generators/nicknameValidator.ts` | Добавить slime, arena, admin, support, gm |
+| banned words | `slime-arena-zwe` | `server/src/utils/generators/nicknameValidator.ts` | ✅ Убраны slime/arena (конфликт с гостевыми никами); admin, support, gm уже есть |
 | race condition | `slime-arena-ww8` | — | Верифицировать, закрыть (уже защищён транзакцией) |
 
 **Верификация:** `npm run test`

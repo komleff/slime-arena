@@ -301,6 +301,8 @@ class AuthService {
     localStorage.removeItem('guest_token');
     localStorage.removeItem('guest_nickname');
     localStorage.removeItem('guest_skin_id');
+    // Copilot P2: Также очищаем authToken от metaServerClient
+    localStorage.removeItem('authToken');
   }
 
   /**
