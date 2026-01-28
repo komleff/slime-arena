@@ -316,9 +316,30 @@ class AuthService {
       await metaServerClient.post('/api/v1/auth/logout', {}).catch(() => {});
     } finally {
       metaServerClient.clearToken();
+      // Очищаем все auth-данные из localStorage
+      this.clearAllAuthData();
       clearAuthState();
       console.log('[AuthService] Logged out');
     }
+  }
+
+  /**
+   * Полная очистка всех auth-данных из localStorage.
+   * Вызывается при logout для сброса сессии.
+   */
+  private clearAllAuthData(): void {
+    // Registered/Telegram user data
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('token_expires_at');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_nickname');
+    localStorage.removeItem('is_anonymous');
+    // Guest data
+    localStorage.removeItem('guest_token');
+    localStorage.removeItem('guest_nickname');
+    localStorage.removeItem('guest_skin_id');
+    // metaServerClient token
+    localStorage.removeItem('authToken');
   }
 
   /**

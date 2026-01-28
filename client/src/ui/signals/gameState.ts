@@ -181,6 +181,9 @@ export const matchResults = signal<{
   nextMatchTimer: number;
 } | null>(null);
 
+// ID текущей комнаты (для отслеживания результатов без MetaServer matchmaking)
+export const currentRoomId = signal<string | null>(null);
+
 // Таймер ожидания на экране результатов (клиентский, не серверный)
 // Когда 0 — можно нажать "Играть ещё"
 export const resultsWaitTime = signal<number>(0);

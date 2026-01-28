@@ -18,6 +18,7 @@ import {
   selectedClassId,
   resetGameState,
   matchAssignment,
+  currentRoomId,
 } from '../signals/gameState';
 import {
   matchResultsService,
@@ -353,10 +354,12 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const lastClaimedMatchRef = useRef<string | null>(null);
 
   const isAnonymous = authService.isAnonymous();
-  const currentMatchId = matchAssignment.value?.matchId;
+  // Используем matchId из matchmaking или roomId для прямого подключения
+  const currentMatchId = matchAssignment.value?.matchId || currentRoomId.value;
 
   // Вычисляем награды локально и запрашиваем claimToken для гостей
   useEffect(() => {
+
     // Проверяем по matchId, а не по boolean флагу
     if (!results || !currentMatchId || lastClaimedMatchRef.current === currentMatchId) return;
 
@@ -380,6 +383,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     // Вычисляем награды локально для мгновенного отображения
     // Серверные награды начисляются автоматически через /match-results/submit
     matchResultsService.setLocalRewards(place, stats.kills);
+    console.log('[ResultsScreen] setLocalRewards called, status should be success now');
 
     // Для гостей запрашиваем claimToken (используется в upgrade flow)
     if (isAnonymous && currentMatchId) {
@@ -414,10 +418,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const waitTime = resultsWaitTime.value;
   const canPlay = waitTime <= 0 && status !== 'claiming';
 
-  // Если есть ошибка, показать её в тексте кнопки
-  const playAgainText = status === 'error'
-    ? 'Играть снова (ошибка сохранения)'
-    : 'Играть снова';
+  const playAgainText = 'Играть снова';
 
   return (
     <div class="results-overlay">
@@ -477,14 +478,11 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           </div>
         )}
 
-        {status === 'error' && error && (
-          <div class="results-claim-status error">
-            Ошибка: {error}
-          </div>
-        )}
+        {/* Ошибка claimToken не показывается — это некритичная ошибка, не влияющая на геймплей */}
 
         {/* Награды (локальный расчёт, серверное начисление происходит автоматически) */}
-        {status === 'success' && rewards && (
+        {/* Показываем независимо от status - ошибка claimToken не должна блокировать награды */}
+        {rewards && (
           <div class="results-rewards">
             <div class="results-rewards-title">Награды</div>
             <div class="results-rewards-items">
@@ -512,7 +510,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
         )}
 
         {/* Copilot P2: Предложение сохранить прогресс для гостей только при finalMass >= 200 */}
-        {isAnonymous && status === 'success' && (personalStats?.maxMass ?? 0) >= 200 && (
+        {/* Показываем независимо от status claimToken - ошибка сервера не должна блокировать UI */}
+        {isAnonymous && (personalStats?.maxMass ?? 0) >= 200 && (
           <div class="results-save-prompt">
             Играете как гость.{' '}
             <span class="results-save-link" onClick={handleShowRegistration}>

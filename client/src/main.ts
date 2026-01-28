@@ -57,7 +57,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { arenaWaitTime, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -1463,6 +1463,8 @@ async function connectToServer(playerName: string, classId: number) {
                 classId,
             });
             activeRoom = room;
+            // Сохраняем roomId для отслеживания результатов (используется в ResultsScreen)
+            currentRoomId.value = room.id;
 
             // Ждём первую синхронизацию состояния перед проверкой фазы
             // (room.state может быть не синхронизирован сразу после joinOrCreate)
