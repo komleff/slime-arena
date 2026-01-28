@@ -1,6 +1,6 @@
 {
   "name": "slime-arena",
-  "version": "0.5.2",
+  "version": "0.7.0-dev",
   "private": true,
   "workspaces": [
     "client",
