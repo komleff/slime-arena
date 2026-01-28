@@ -235,11 +235,11 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
         }
       }
 
-      // Обновляем флаг is_anonymous
-      localStorage.setItem('is_anonymous', 'false');
-
-      // Завершаем upgrade: очищаем гостевые данные и обновляем UI состояние
+      // Завершаем upgrade только при успешном получении токена
       if (response.accessToken) {
+        // Copilot P1: Обновляем is_anonymous ВНУТРИ условия, чтобы избежать
+        // несогласованного состояния при отсутствии токена
+        localStorage.setItem('is_anonymous', 'false');
         authService.finishUpgrade(response.accessToken);
       }
 

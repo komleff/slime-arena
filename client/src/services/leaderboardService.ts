@@ -5,6 +5,7 @@
 
 import { metaServerClient } from '../api/metaServerClient';
 import { signal } from '@preact/signals';
+import { currentUser } from '../ui/signals/gameState';
 
 // ========== Типы ==========
 
@@ -108,12 +109,14 @@ class LeaderboardService {
         level: entry.level,
       }));
 
-      // Маппинг позиции текущего пользователя
+      // Copilot P2: Маппинг позиции текущего пользователя
+      // Берём nickname и userId из currentUser сигнала, т.к. сервер их не возвращает
+      const user = currentUser.value;
       const userEntry: GlobalLeaderboardEntry | null = response.myPosition !== undefined
         ? {
             place: response.myPosition,
-            nickname: '', // Никнейм текущего пользователя не возвращается сервером
-            userId: '',
+            nickname: user?.nickname ?? '',
+            userId: user?.id ?? '',
             score: response.myValue ?? 0,
           }
         : null;

@@ -141,7 +141,11 @@ class AuthService {
     // Если нет существующей сессии, запускаем login flow
     console.log('[AuthService] No existing session, starting login flow');
     const loginSuccess = await this.login();
-    this.initialized = true;
+    // Copilot P2: Устанавливаем initialized только при успешном login,
+    // чтобы разрешить повторные попытки при ошибках сети
+    if (loginSuccess) {
+      this.initialized = true;
+    }
     setAuthenticating(false);
     return loginSuccess;
   }
