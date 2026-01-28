@@ -28,13 +28,25 @@ export interface GlobalLeaderboardEntry {
 }
 
 /**
+ * Запись с сервера (использует position/value).
+ */
+interface ServerLeaderboardEntry {
+  position: number;
+  nickname: string;
+  userId: string;
+  value: number;
+  gamesPlayed?: number;
+  level?: number;
+}
+
+/**
  * Ответ сервера на запрос таблицы лидеров.
  */
-export interface LeaderboardResponse {
+interface ServerLeaderboardResponse {
   mode: LeaderboardMode;
-  entries: GlobalLeaderboardEntry[];
-  updatedAt: string;
-  userEntry?: GlobalLeaderboardEntry; // Позиция текущего игрока
+  entries: ServerLeaderboardEntry[];
+  myPosition?: number;
+  myValue?: number;
 }
 
 /**
@@ -82,13 +94,33 @@ class LeaderboardService {
 
       console.log('[LeaderboardService] Fetching leaderboard, mode:', mode);
 
-      const response = await metaServerClient.get<LeaderboardResponse>(
+      const response = await metaServerClient.get<ServerLeaderboardResponse>(
         `/api/v1/leaderboard?mode=${mode}`
       );
 
-      leaderboardEntries.value = response.entries;
-      leaderboardUserEntry.value = response.userEntry ?? null;
-      leaderboardUpdatedAt.value = response.updatedAt;
+      // Маппинг серверных полей (position/value) на клиентские (place/score)
+      const mappedEntries: GlobalLeaderboardEntry[] = response.entries.map(entry => ({
+        place: entry.position,
+        nickname: entry.nickname,
+        userId: entry.userId,
+        score: entry.value,
+        gamesPlayed: entry.gamesPlayed,
+        level: entry.level,
+      }));
+
+      // Маппинг позиции текущего пользователя
+      const userEntry: GlobalLeaderboardEntry | null = response.myPosition !== undefined
+        ? {
+            place: response.myPosition,
+            nickname: '', // Никнейм текущего пользователя не возвращается сервером
+            userId: '',
+            score: response.myValue ?? 0,
+          }
+        : null;
+
+      leaderboardEntries.value = mappedEntries;
+      leaderboardUserEntry.value = userEntry;
+      leaderboardUpdatedAt.value = new Date().toISOString();
       leaderboardLoadStatus.value = 'success';
 
       this.lastFetchMode = mode;

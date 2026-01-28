@@ -193,7 +193,7 @@ class AuthService {
       localStorage.setItem('guest_skin_id', skinId);
 
       // Создаём локальный User для UI (без полноценной серверной сессии)
-      const user = createUser('guest', nickname, 'dev');
+      const user = createUser('guest', nickname, platformManager.getPlatformType());
       const profile = createDefaultProfile();
 
       // Устанавливаем токен в metaServerClient для последующих запросов
@@ -447,6 +447,27 @@ class AuthService {
    */
   getSkinId(): string {
     return localStorage.getItem('selected_skin_id') || localStorage.getItem('guest_skin_id') || 'slime_green';
+  }
+
+  /**
+   * Завершить upgrade гостя в зарегистрированного пользователя.
+   * Очищает гостевые данные и обновляет UI состояние.
+   * Вызывается из RegistrationPromptModal после успешного /auth/upgrade.
+   */
+  finishUpgrade(accessToken: string, nickname?: string): void {
+    // Очищаем гостевые данные
+    this.clearGuestData();
+
+    // Обновляем UI состояние
+    const user = createUser(
+      '', // userId будет получен при следующем fetchProfile
+      nickname || this.getNickname(),
+      platformManager.getPlatformType()
+    );
+    const profile = createDefaultProfile();
+    setAuthState(user, profile, accessToken);
+
+    console.log('[AuthService] Upgrade finished, guest data cleared');
   }
 }
 

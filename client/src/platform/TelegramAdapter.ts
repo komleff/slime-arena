@@ -138,13 +138,13 @@ export class TelegramAdapter implements IAuthAdapter {
 
     // Для Telegram upgrade происходит через API /auth/upgrade
     // с claimToken из последнего матча.
-    // RegistrationPromptModal должен вызывать authService напрямую,
+    // RegistrationPromptModal вызывает /api/v1/auth/upgrade напрямую через metaServerClient,
     // а не adapter.requestAuth().
     // Этот метод существует для совместимости с IAuthAdapter интерфейсом.
 
     // В текущей реализации просто выбрасываем информативную ошибку
     throw new Error(
-      'Для Telegram используйте authService.upgradeWithClaimToken(). ' +
+      'Для Telegram используйте RegistrationPromptModal с вызовом /api/v1/auth/upgrade. ' +
       'Метод requestAuth() не поддерживается в Telegram Mini App.'
     );
   }

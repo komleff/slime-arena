@@ -362,8 +362,10 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     if (!results || !currentMatchId || lastClaimedMatchRef.current === currentMatchId) return;
 
     // Вычисляем place из finalLeaderboard
+    // TODO: Если игрок не в топ-10, place будет неточным (используется длина списка).
+    // Для точного расчёта сервер должен возвращать place в personalStats.
     const localEntry = results.finalLeaderboard.find(e => e.isLocal);
-    const place = localEntry?.place ?? results.finalLeaderboard.length;
+    const place = localEntry?.place ?? (results.finalLeaderboard.length + 1);
 
     // Получаем данные из personalStats
     const stats = results.personalStats;

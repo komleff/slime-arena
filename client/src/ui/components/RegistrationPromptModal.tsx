@@ -9,6 +9,7 @@ import { injectStyles } from '../utils/injectStyles';
 import { platformManager } from '../../platform';
 import { claimToken } from '../../services/matchResultsService';
 import { metaServerClient } from '../../api/metaServerClient';
+import { authService } from '../../services/authService';
 
 // ========== Стили ==========
 
@@ -236,6 +237,11 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
 
       // Обновляем флаг is_anonymous
       localStorage.setItem('is_anonymous', 'false');
+
+      // Завершаем upgrade: очищаем гостевые данные и обновляем UI состояние
+      if (response.accessToken) {
+        authService.finishUpgrade(response.accessToken);
+      }
 
       // После успешного upgrade закрываем модал
       onClose();
