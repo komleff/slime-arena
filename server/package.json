@@ -1,6 +1,6 @@
 {
   "name": "@slime-arena/server",
-  "version": "0.7.0",
+  "version": "0.7.0-dev",
   "private": true,
   "main": "src/index.ts",
   "scripts": {
