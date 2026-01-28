@@ -19,6 +19,7 @@ import {
   type User,
   type Profile,
 } from '../ui/signals/gameState';
+import balanceConfig from '../../../config/balance.json';
 
 /**
  * Ответ сервера на /auth/guest
@@ -62,8 +63,8 @@ interface ProfileSummary {
  */
 function createDefaultProfile(level = 1, xp = 0): Profile {
   return {
-    rating: 1500,
-    ratingDeviation: 350,
+    rating: balanceConfig.initialProfile.rating,
+    ratingDeviation: balanceConfig.initialProfile.ratingDeviation,
     gamesPlayed: 0,
     gamesWon: 0,
     totalKills: 0,
@@ -130,8 +131,9 @@ class AuthService {
           return true;
         }
       } catch (err) {
-        console.log('[AuthService] Session restore failed, clearing token');
-        metaServerClient.clearToken();
+        console.log('[AuthService] Session restore failed:', err);
+        // Token is NOT cleared here to allow retry on network error.
+        // 401 errors are handled by setOnUnauthorized callback.
       }
     }
 
