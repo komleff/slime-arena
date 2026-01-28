@@ -27,6 +27,5 @@ export {
   leaderboardUpdatedAt,
   type LeaderboardMode,
   type GlobalLeaderboardEntry,
-  type LeaderboardResponse,
   type LeaderboardLoadStatus,
 } from './leaderboardService';
