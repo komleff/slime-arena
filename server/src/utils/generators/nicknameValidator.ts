@@ -33,8 +33,7 @@ const BANNED_WORDS = [
   'official',
   'bot',
   'system',
-  'slime',
-  'arena',
+  // 'slime', 'arena' — разрешены, т.к. используются в гостевых никнеймах
   'dev',
   'staff',
   'gm',
