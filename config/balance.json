@@ -719,5 +719,9 @@
       },
       "perKill": 2
     }
+  },
+  "initialProfile": {
+    "rating": 1500,
+    "ratingDeviation": 350
   }
 }

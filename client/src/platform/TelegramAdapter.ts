@@ -122,4 +122,30 @@ export class TelegramAdapter implements IAuthAdapter {
   hideBackButton(): void {
     this.webApp?.BackButton.hide();
   }
+
+  /**
+   * Запросить авторизацию/upgrade для анонимного пользователя.
+   * Copilot P1: Реализация requestAuth() для RegistrationPromptModal.
+   *
+   * В Telegram Mini App пользователь уже авторизован через initData.
+   * Для анонимных пользователей (is_anonymous=true) этот метод
+   * запускает процесс upgrade профиля.
+   */
+  async requestAuth(): Promise<void> {
+    if (!this.webApp) {
+      throw new Error('Telegram WebApp недоступен');
+    }
+
+    // Для Telegram upgrade происходит через API /auth/upgrade
+    // с claimToken из последнего матча.
+    // RegistrationPromptModal вызывает /api/v1/auth/upgrade напрямую через metaServerClient,
+    // а не adapter.requestAuth().
+    // Этот метод существует для совместимости с IAuthAdapter интерфейсом.
+
+    // В текущей реализации просто выбрасываем информативную ошибку
+    throw new Error(
+      'Для Telegram используйте RegistrationPromptModal с вызовом /api/v1/auth/upgrade. ' +
+      'Метод requestAuth() не поддерживается в Telegram Mini App.'
+    );
+  }
 }

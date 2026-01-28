@@ -72,6 +72,7 @@ export function getBasicSkins(): Skin[] {
  * @returns skinId случайного базового скина
  */
 export function generateRandomBasicSkin(): string {
+  // META-SERVER ONLY: Math.random() допустим, не используется в симуляции
   const basicSkins = getBasicSkins();
 
   if (basicSkins.length === 0) {

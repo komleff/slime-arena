@@ -163,9 +163,11 @@ class MetaServerClient {
         const error = await this.parseError(response);
 
         // 401 — очищаем сессию и вызываем callback
+        // Исключение: путь /logout — не вызываем callback чтобы избежать бесконечного цикла
         if (response.status === 401) {
           this.clearToken();
-          if (this.onUnauthorized) {
+          const isLogoutPath = path.includes('/logout');
+          if (this.onUnauthorized && !isLogoutPath) {
             this.onUnauthorized();
           }
           throw error;
