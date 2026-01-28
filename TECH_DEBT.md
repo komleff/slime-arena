@@ -594,3 +594,54 @@ ALTER TABLE oauth_links ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
 - Либо изменить логику дедупликации на строго `(file, line)`
 
 **Источник:** PR #110, ревьювер: Copilot
+
+---
+
+### TelegramAdapter: комментарий ссылается на несуществующий метод
+
+**Beads:** `slime-arena-kse`
+
+**Контекст:**
+
+- В `client/src/platform/TelegramAdapter.ts` комментарий упоминает `requestLogin()` или `getAuthData()`
+- Такого метода нет в адаптере
+
+**Решение:**
+
+- Обновить комментарий на актуальный метод (`requestAuth()` или убрать упоминание)
+
+**Источник:** PR #111, ревьювер: Copilot
+
+---
+
+### Формат гостевого никнейма без пробела
+
+**Beads:** `slime-arena-erh`
+
+**Контекст:**
+
+- В `client/src/services/authService.ts` гостевой никнейм формируется как `Guest${randomNum}`
+- Copilot предлагает добавить пробел: `Guest ${randomNum}` для читаемости
+
+**Решение:**
+
+- Изменить формат на `Guest ${randomNum}` или оставить как есть (дело вкуса)
+
+**Источник:** PR #111, ревьювер: Copilot
+
+---
+
+### Несогласованный platformType для guest-пользователей
+
+**Beads:** `slime-arena-ytx`
+
+**Контекст:**
+
+- В `client/src/services/authService.ts` для гостей передаётся `platformType: 'dev'`
+- Copilot предлагает использовать `'standalone'` для консистентности
+
+**Решение:**
+
+- Использовать `platformType: 'standalone'` или `platformManager.getPlatformType()`
+
+**Источник:** PR #111, ревьювер: Copilot
