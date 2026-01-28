@@ -24,7 +24,6 @@ import {
   matchResultsService,
   claimStatus,
   claimRewards,
-  claimError,
 } from '../../services/matchResultsService';
 import { authService } from '../../services/authService';
 import { RegistrationPromptModal } from './RegistrationPromptModal';
@@ -346,7 +345,6 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const currentClassId = selectedClassId.value;
   const status = claimStatus.value;
   const rewards = claimRewards.value;
-  const error = claimError.value;
 
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   // Copilot P1: Используем matchId для отслеживания, а не boolean флаг
