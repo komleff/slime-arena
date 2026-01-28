@@ -224,9 +224,11 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
         mode: 'complete_profile', // Для анонимного Telegram-пользователя
       });
 
-      // Copilot P1: Сохраняем новый accessToken если сервер его вернул
+      // Copilot P1: Сохраняем новый accessToken и обновляем HTTP-клиент
       if (response.accessToken) {
         localStorage.setItem('access_token', response.accessToken);
+        // Copilot P1: Обновляем токен в HTTP-клиенте для последующих запросов
+        metaServerClient.setToken(response.accessToken);
         if (response.expiresAt) {
           localStorage.setItem('token_expires_at', response.expiresAt);
         }
