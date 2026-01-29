@@ -5,18 +5,9 @@
 
 import type { PlatformType } from './IAuthAdapter';
 import type { IAdsProvider, AdPlacement, AdResult } from './IAdsProvider';
+// Типы PokiSDK определены в PokiAdapter.ts
 
 const AD_TIMEOUT_MS = 30000;
-
-// Типы Poki SDK
-declare global {
-  interface Window {
-    PokiSDK?: {
-      rewardedBreak: () => Promise<boolean>;
-      isAdBlocked: () => Promise<boolean>;
-    };
-  }
-}
 
 export class PokiAdsProvider implements IAdsProvider {
   private pokiSdk: typeof window.PokiSDK | null = null;

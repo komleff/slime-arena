@@ -6,10 +6,13 @@
 import type { IAuthAdapter, PlatformType } from './IAuthAdapter';
 import type { IAdsProvider } from './IAdsProvider';
 import { TelegramAdapter } from './TelegramAdapter';
+import { YandexAdapter } from './YandexAdapter';
+import { PokiAdapter } from './PokiAdapter';
 import { StandaloneAdapter } from './StandaloneAdapter';
 import { MockAdsProvider } from './MockAdsProvider';
 import { TelegramAdsProvider } from './TelegramAdsProvider';
-// YandexAdsProvider и PokiAdsProvider будут добавлены когда появятся соответствующие auth adapters
+import { YandexAdsProvider } from './YandexAdsProvider';
+import { PokiAdsProvider } from './PokiAdsProvider';
 
 class PlatformManager {
   private adapter: IAuthAdapter | null = null;
@@ -19,9 +22,11 @@ class PlatformManager {
   /**
    * Инициализация: определение платформы и создание адаптеров.
    * Вызывать при старте приложения.
+   *
+   * Приоритет определения: Telegram → Yandex → Poki → Standalone
    */
   initialize(): IAuthAdapter {
-    // Приоритет определения платформы
+    // 1. Telegram Mini App
     const telegramAdapter = new TelegramAdapter();
     if (telegramAdapter.isAvailable()) {
       this.adapter = telegramAdapter;
@@ -31,9 +36,27 @@ class PlatformManager {
       return this.adapter;
     }
 
-    // TODO: Добавить YandexAdapter и PokiAdapter при необходимости
+    // 2. Yandex Games
+    const yandexAdapter = new YandexAdapter();
+    if (yandexAdapter.isAvailable()) {
+      this.adapter = yandexAdapter;
+      this.detectedPlatform = 'yandex';
+      console.log('[PlatformManager] Detected platform: Yandex Games');
+      this.initializeAdsProvider();
+      return this.adapter;
+    }
 
-    // Fallback: Standalone (dev mode)
+    // 3. Poki
+    const pokiAdapter = new PokiAdapter();
+    if (pokiAdapter.isAvailable()) {
+      this.adapter = pokiAdapter;
+      this.detectedPlatform = 'poki';
+      console.log('[PlatformManager] Detected platform: Poki');
+      this.initializeAdsProvider();
+      return this.adapter;
+    }
+
+    // 4. Fallback: Standalone (dev mode)
     this.adapter = new StandaloneAdapter();
     this.detectedPlatform = 'dev';
     console.log('[PlatformManager] Detected platform: Standalone (dev mode)');
@@ -55,6 +78,26 @@ class PlatformManager {
           console.log('[PlatformManager] Ads provider: Telegram');
         } else {
           console.log('[PlatformManager] Telegram Ads SDK not available');
+        }
+        return;
+      }
+      case 'yandex': {
+        const yandexAds = new YandexAdsProvider();
+        if (yandexAds.isAvailable()) {
+          this.adsProvider = yandexAds;
+          console.log('[PlatformManager] Ads provider: Yandex');
+        } else {
+          console.log('[PlatformManager] Yandex Ads SDK not available');
+        }
+        return;
+      }
+      case 'poki': {
+        const pokiAds = new PokiAdsProvider();
+        if (pokiAds.isAvailable()) {
+          this.adsProvider = pokiAds;
+          console.log('[PlatformManager] Ads provider: Poki');
+        } else {
+          console.log('[PlatformManager] Poki Ads SDK not available');
         }
         return;
       }
@@ -103,7 +146,8 @@ class PlatformManager {
     if (!this.detectedPlatform) {
       this.initialize();
     }
-    return this.detectedPlatform!;
+    // После initialize() всегда установлен fallback 'dev'
+    return this.detectedPlatform ?? 'dev';
   }
 
   /**
@@ -121,6 +165,20 @@ class PlatformManager {
   }
 
   /**
+   * Проверить, является ли текущая платформа Yandex Games.
+   */
+  isYandex(): boolean {
+    return this.getPlatformType() === 'yandex';
+  }
+
+  /**
+   * Проверить, является ли текущая платформа Poki.
+   */
+  isPoki(): boolean {
+    return this.getPlatformType() === 'poki';
+  }
+
+  /**
    * Получить Telegram-специфичный адаптер (для доступа к BackButton и т.д.).
    */
   getTelegramAdapter(): TelegramAdapter | null {
@@ -135,6 +193,26 @@ class PlatformManager {
    */
   getStandaloneAdapter(): StandaloneAdapter | null {
     if (this.isStandalone() && this.adapter instanceof StandaloneAdapter) {
+      return this.adapter;
+    }
+    return null;
+  }
+
+  /**
+   * Получить Yandex-специфичный адаптер (для getPlayerId и т.д.).
+   */
+  getYandexAdapter(): YandexAdapter | null {
+    if (this.isYandex() && this.adapter instanceof YandexAdapter) {
+      return this.adapter;
+    }
+    return null;
+  }
+
+  /**
+   * Получить Poki-специфичный адаптер (для happyTime и т.д.).
+   */
+  getPokiAdapter(): PokiAdapter | null {
+    if (this.isPoki() && this.adapter instanceof PokiAdapter) {
       return this.adapter;
     }
     return null;
