@@ -35,8 +35,9 @@ export interface IAuthAdapter {
   getNickname(): string | null;
 
   /**
-   * Запросить авторизацию на платформе (опционально).
-   * Используется для интерактивной авторизации (например, Telegram).
+   * Запросить интерактивную авторизацию на платформе (опционально).
+   *
+   * @returns true если авторизация успешна, false если недоступна/отклонена
    */
-  requestAuth?(): Promise<void>;
+  requestAuth?(): Promise<boolean>;
 }
