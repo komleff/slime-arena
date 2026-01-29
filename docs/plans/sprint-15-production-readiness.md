@@ -46,9 +46,9 @@
 ### 1.1 YandexAdapter
 **Beads:** создать `slime-arena-yandex-adapter`
 **Файлы:**
-- [client/src/platform/YandexAdapter.ts](client/src/platform/YandexAdapter.ts) — СОЗДАТЬ
-- [client/src/platform/PlatformManager.ts](client/src/platform/PlatformManager.ts) — обновить
-- [client/src/platform/index.ts](client/src/platform/index.ts) — экспорт
+- [client/src/platform/YandexAdapter.ts](../../client/src/platform/YandexAdapter.ts) — СОЗДАТЬ
+- [client/src/platform/PlatformManager.ts](../../client/src/platform/PlatformManager.ts) — обновить
+- [client/src/platform/index.ts](../../client/src/platform/index.ts) — экспорт
 
 **Scope:**
 - Реализовать IAuthAdapter: `getPlatformType()`, `isAvailable()`, `getCredentials()`, `getNickname()`
@@ -58,7 +58,7 @@
 ### 1.2 PokiAdapter
 **Beads:** создать `slime-arena-poki-adapter`
 **Файлы:**
-- [client/src/platform/PokiAdapter.ts](client/src/platform/PokiAdapter.ts) — СОЗДАТЬ
+- [client/src/platform/PokiAdapter.ts](../../client/src/platform/PokiAdapter.ts) — СОЗДАТЬ
 
 **Scope:**
 - Реализовать IAuthAdapter
@@ -81,8 +81,8 @@
 ### 2.1 Smoke Tests Extension
 **Beads:** создать `slime-arena-e2e-smoke`
 **Файлы:**
-- [tests/smoke/run-stage-d.ps1](tests/smoke/run-stage-d.ps1) — расширить
-- [server/tests/meta-stage-d.test.ts](server/tests/meta-stage-d.test.ts) — расширить
+- [tests/smoke/run-stage-d.ps1](../../tests/smoke/run-stage-d.ps1) — расширить
+- [server/tests/meta-stage-d.test.ts](../../server/tests/meta-stage-d.test.ts) — расширить
 
 **Сценарии:**
 - Guest Auth → игра → claim → Results
@@ -167,13 +167,13 @@ k6 run tests/load/soft-launch.js
 
 | Файл | Назначение |
 |------|------------|
-| [client/src/platform/IAuthAdapter.ts](client/src/platform/IAuthAdapter.ts) | Интерфейс для адаптеров |
-| [client/src/platform/TelegramAdapter.ts](client/src/platform/TelegramAdapter.ts) | Паттерн реализации |
-| [client/src/platform/PlatformManager.ts](client/src/platform/PlatformManager.ts) | Интеграция адаптеров |
-| [client/src/platform/YandexAdsProvider.ts](client/src/platform/YandexAdsProvider.ts) | Готов, ждёт адаптер |
-| [client/src/platform/PokiAdsProvider.ts](client/src/platform/PokiAdsProvider.ts) | Готов, ждёт адаптер |
-| [server/tests/meta-stage-d.test.ts](server/tests/meta-stage-d.test.ts) | E2E тесты |
-| [tests/load/soft-launch.js](tests/load/soft-launch.js) | k6 load tests |
+| [client/src/platform/IAuthAdapter.ts](../../client/src/platform/IAuthAdapter.ts) | Интерфейс для адаптеров |
+| [client/src/platform/TelegramAdapter.ts](../../client/src/platform/TelegramAdapter.ts) | Паттерн реализации |
+| [client/src/platform/PlatformManager.ts](../../client/src/platform/PlatformManager.ts) | Интеграция адаптеров |
+| [client/src/platform/YandexAdsProvider.ts](../../client/src/platform/YandexAdsProvider.ts) | Готов, ждёт адаптер |
+| [client/src/platform/PokiAdsProvider.ts](../../client/src/platform/PokiAdsProvider.ts) | Готов, ждёт адаптер |
+| [server/tests/meta-stage-d.test.ts](../../server/tests/meta-stage-d.test.ts) | E2E тесты |
+| [tests/load/soft-launch.js](../../tests/load/soft-launch.js) | k6 load tests |
 
 ---
 

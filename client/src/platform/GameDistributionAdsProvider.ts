@@ -20,16 +20,19 @@ interface AdState {
 }
 
 export class GameDistributionAdsProvider implements IAdsProvider {
-  private gdsdk: typeof window.gdsdk | null = null;
   private adState: AdState = { resolve: null, isShowing: false, timeoutId: null, resolved: false };
   private gamePauseCallback: (() => void) | null = null;
   private gameResumeCallback: (() => void) | null = null;
 
   constructor() {
-    if (typeof window !== 'undefined' && window.gdsdk) {
-      this.gdsdk = window.gdsdk;
-    }
     this.setupEventHandlers();
+  }
+
+  /**
+   * Получить SDK (не кэшируем, т.к. SDK может загрузиться асинхронно после создания провайдера).
+   */
+  private getSDK(): typeof window.gdsdk | null {
+    return typeof window !== 'undefined' ? window.gdsdk ?? null : null;
   }
 
   /**
@@ -139,7 +142,8 @@ export class GameDistributionAdsProvider implements IAdsProvider {
   }
 
   isAvailable(): boolean {
-    return !!(this.gdsdk && typeof this.gdsdk.showAd === 'function');
+    const sdk = this.getSDK();
+    return !!(sdk && typeof sdk.showAd === 'function');
   }
 
   async isAdReady(_placement: AdPlacement): Promise<boolean> {
@@ -149,7 +153,8 @@ export class GameDistributionAdsProvider implements IAdsProvider {
   }
 
   async showRewardedAd(placement: AdPlacement): Promise<AdResult> {
-    if (!this.gdsdk || !this.isAvailable()) {
+    const sdk = this.getSDK();
+    if (!sdk || !this.isAvailable()) {
       return { status: 'not_available', errorMessage: 'GameDistribution SDK недоступен' };
     }
 
@@ -161,7 +166,7 @@ export class GameDistributionAdsProvider implements IAdsProvider {
 
     // Предзагрузка (опционально, может не поддерживаться)
     try {
-      await this.gdsdk.preloadAd('rewarded');
+      await sdk.preloadAd('rewarded');
     } catch {
       // Игнорируем ошибку предзагрузки — некоторые реализации не поддерживают
       console.log('[GameDistributionAdsProvider] preloadAd не поддерживается или недоступен');
@@ -184,7 +189,7 @@ export class GameDistributionAdsProvider implements IAdsProvider {
       this.adState.timeoutId = timeoutId;
 
       // Показ рекламы
-      this.gdsdk!.showAd('rewarded')
+      sdk.showAd('rewarded')
         .then(() => {
           // showAd завершился, но результат приходит через события SDK
           // Ждём SDK_REWARDED_WATCH_COMPLETE или SDK_ERROR
