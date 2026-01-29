@@ -485,7 +485,10 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
         {/* Показываем независимо от status - ошибка claimToken не должна блокировать награды */}
         {rewards && (
           <div class="results-rewards">
-            <div class="results-rewards-title">Награды</div>
+            <div class="results-rewards-title">
+              {/* Gemini P1/P2: Для гостей показываем что награды предварительные */}
+              {isAnonymous ? 'Награды (ожидают сохранения)' : 'Награды'}
+            </div>
             <div class="results-rewards-items">
               <div class="results-reward-item">
                 {/* Copilot P2: Условный + для корректного отображения отрицательных значений */}
