@@ -11,19 +11,40 @@ export class PokiAuthProvider implements IAuthProvider {
 
   async verifyToken(platformAuthToken: string): Promise<PlatformUserData> {
     // Poki не предоставляет традиционную JWT авторизацию
-    // platformAuthToken содержит player_id от Poki SDK
-    
+    // platformAuthToken = "userId:nickname" от клиента
+
     if (!platformAuthToken || platformAuthToken.length < 5) {
-      throw new Error("Invalid Poki player ID");
+      throw new Error("Invalid Poki token");
     }
 
-    // Poki предоставляет только player_id, нет никнеймов или аватаров
-    // Генерируем дефолтный никнейм
-    const shortId = platformAuthToken.substring(0, 8);
+    // Парсим формат "userId:nickname"
+    // Используем indexOf для корректной обработки nickname с ':'
+    const colonIndex = platformAuthToken.indexOf(":");
+
+    let userId: string;
+    let nickname: string;
+
+    if (colonIndex === -1) {
+      // Обратная совместимость: если нет ':', используем весь токен как userId
+      userId = platformAuthToken;
+      nickname = `PokiPlayer${platformAuthToken.substring(0, 8)}`;
+    } else {
+      userId = platformAuthToken.substring(0, colonIndex).trim();
+      nickname = platformAuthToken.substring(colonIndex + 1).trim() || `PokiPlayer${userId.substring(0, 8)}`;
+    }
+
+    if (!userId || userId.length < 5) {
+      throw new Error("Invalid Poki userId");
+    }
+
+    // P1: Валидация формата userId (должен начинаться с poki_)
+    if (!userId.startsWith("poki_")) {
+      throw new Error("Invalid Poki userId format: must start with poki_");
+    }
 
     return {
-      platformUserId: platformAuthToken,
-      nickname: `PokiPlayer${shortId}`,
+      platformUserId: userId,
+      nickname,
       metadata: {
         platform: "poki",
       },

@@ -18,48 +18,70 @@ export class YandexAuthProvider implements IAuthProvider {
   }
 
   async verifyToken(platformAuthToken: string): Promise<PlatformUserData> {
-    // platformAuthToken = JWT от Yandex Games Player.getIDPerGame()
-    
-    // TODO: Для production нужно верифицировать JWT через Yandex API
-    // Пока упрощенная проверка для Stage B
-    
-    if (!platformAuthToken || platformAuthToken.length < 10) {
+    // platformAuthToken может быть:
+    // 1. JWT от getPlayer({ signed: true }) для авторизованных пользователей
+    // 2. "playerId:playerName" для неавторизованных пользователей
+
+    if (!platformAuthToken || platformAuthToken.length < 5) {
       throw new Error("Invalid Yandex token");
     }
 
-    // В реальности нужно:
-    // 1. Декодировать JWT
-    // 2. Проверить signature через публичный ключ Yandex
-    // 3. Проверить exp, aud, iss
-    // 4. Извлечь user_id и другие данные
-    
-    // Для Stage B: минимальная проверка + placeholder данные
-    try {
-      const parts = platformAuthToken.split(".");
-      if (parts.length !== 3) {
-        throw new Error("Invalid JWT format");
+    // Проверяем, это JWT (3 части через точку) или формат playerId:playerName
+    const parts = platformAuthToken.split(".");
+
+    if (parts.length === 3) {
+      // JWT формат — декодируем payload
+      try {
+        const payload = JSON.parse(
+          Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString()
+        );
+
+        if (!payload.sub) {
+          throw new Error("Missing sub (user_id) in Yandex JWT");
+        }
+
+        // TODO: В production добавить верификацию подписи через Yandex API
+        return {
+          platformUserId: String(payload.sub),
+          nickname: payload.name || `YandexUser${String(payload.sub).slice(0, 8)}`,
+          avatarUrl: payload.picture,
+          metadata: {
+            locale: payload.locale,
+            country: payload.country,
+          },
+        };
+      } catch (error) {
+        throw new Error(`Failed to verify Yandex JWT: ${error}`);
+      }
+    } else {
+      // Формат "playerId:playerName" для неавторизованных пользователей
+      const colonIndex = platformAuthToken.indexOf(":");
+
+      if (colonIndex === -1) {
+        // Только playerId без имени
+        return {
+          platformUserId: platformAuthToken.trim(),
+          nickname: `YandexUser${platformAuthToken.trim().slice(0, 8)}`,
+          metadata: {
+            platform: "yandex",
+          },
+        };
       }
 
-      // Декодируем payload (base64url)
-      const payload = JSON.parse(
-        Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString()
-      );
+      const playerId = platformAuthToken.substring(0, colonIndex).trim();
+      const playerName = platformAuthToken.substring(colonIndex + 1).trim();
 
-      if (!payload.sub) {
-        throw new Error("Missing sub (user_id) in Yandex JWT");
+      if (!playerId || playerId.length < 5) {
+        throw new Error("Invalid Yandex playerId");
       }
 
       return {
-        platformUserId: String(payload.sub),
-        nickname: payload.name || `YandexUser${payload.sub}`,
-        avatarUrl: payload.picture,
+        platformUserId: playerId,
+        nickname: playerName || `YandexUser${playerId.slice(0, 8)}`,
         metadata: {
-          locale: payload.locale,
-          country: payload.country,
+          platform: "yandex",
         },
       };
-    } catch (error) {
-      throw new Error(`Failed to verify Yandex token: ${error}`);
     }
   }
 }

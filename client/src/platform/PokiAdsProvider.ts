@@ -5,18 +5,9 @@
 
 import type { PlatformType } from './IAuthAdapter';
 import type { IAdsProvider, AdPlacement, AdResult } from './IAdsProvider';
+// Типы PokiSDK определены в PokiAdapter.ts
 
 const AD_TIMEOUT_MS = 30000;
-
-// Типы Poki SDK
-declare global {
-  interface Window {
-    PokiSDK?: {
-      rewardedBreak: () => Promise<boolean>;
-      isAdBlocked: () => Promise<boolean>;
-    };
-  }
-}
 
 export class PokiAdsProvider implements IAdsProvider {
   private pokiSdk: typeof window.PokiSDK | null = null;
@@ -53,16 +44,27 @@ export class PokiAdsProvider implements IAdsProvider {
 
     console.log(`[PokiAdsProvider] Показ рекламы: ${placement}`);
 
+    // P2 fix: используем флаг resolved для предотвращения race condition
+    let resolved = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     const timeoutPromise = new Promise<AdResult>((resolve) => {
-      setTimeout(() => {
-        console.warn('[PokiAdsProvider] Таймаут показа рекламы');
-        resolve({ status: 'error', errorMessage: 'Таймаут показа рекламы' });
+      timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn('[PokiAdsProvider] Таймаут показа рекламы');
+          resolve({ status: 'error', errorMessage: 'Таймаут показа рекламы' });
+        }
       }, AD_TIMEOUT_MS);
     });
 
     const adPromise = (async (): Promise<AdResult> => {
       try {
         const success = await this.pokiSdk!.rewardedBreak();
+        if (resolved) return { status: 'error', errorMessage: 'Таймаут' }; // Уже отвечено
+        resolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
+
         if (success) {
           console.log('[PokiAdsProvider] Реклама успешно просмотрена');
           return { status: 'completed' };
@@ -71,6 +73,10 @@ export class PokiAdsProvider implements IAdsProvider {
           return { status: 'skipped' };
         }
       } catch (error) {
+        if (resolved) return { status: 'error', errorMessage: 'Таймаут' };
+        resolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
+
         const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
         console.warn(`[PokiAdsProvider] Ошибка: ${message}`);
         return { status: 'error', errorMessage: message };

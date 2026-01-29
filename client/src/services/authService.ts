@@ -45,6 +45,19 @@ interface TelegramAuthResponse {
 }
 
 /**
+ * Ответ сервера на /auth/verify
+ * Контракт: server/src/meta/routes/auth.ts:212-219
+ */
+interface PlatformAuthResponse {
+  accessToken: string;
+  userId: string;
+  profile: {
+    nickname: string;
+    locale?: string;
+  };
+}
+
+/**
  * Ответ сервера на /profile (ProfileSummary)
  */
 interface ProfileSummary {
@@ -160,10 +173,76 @@ class AuthService {
     const adapter = platformManager.getAdapter();
     const platformType = adapter.getPlatformType();
 
-    if (platformType === 'telegram') {
-      return this.loginViaTelegram();
-    } else {
+    switch (platformType) {
+      case 'telegram':
+        return this.loginViaTelegram();
+      case 'yandex':
+      case 'poki':
+      case 'crazygames':
+      case 'gamedistribution':
+        return this.loginViaPlatform(platformType);
+      default:
+        // Standalone и неизвестные платформы — гостевой режим
+        return this.loginAsGuest();
+    }
+  }
+
+  /**
+   * Универсальная авторизация через платформу (Yandex, Poki, CrazyGames, GameDistribution).
+   * Вызывает /auth/verify с credentials от адаптера.
+   */
+  private async loginViaPlatform(platformType: string): Promise<boolean> {
+    try {
+      setAuthenticating(true);
+      setAuthError(null);
+
+      const adapter = platformManager.getAdapter();
+      const credentials = await adapter.getCredentials();
+
+      if (!credentials?.platformData) {
+        console.warn(`[AuthService] No credentials for ${platformType}, falling back to guest`);
+        return this.loginAsGuest();
+      }
+
+      console.log(`[AuthService] Logging in via ${platformType}`);
+
+      const response = await metaServerClient.post<PlatformAuthResponse>('/api/v1/auth/verify', {
+        platformType: credentials.platformType,
+        platformAuthToken: credentials.platformData,
+      });
+
+      // SECURITY: localStorage chosen intentionally - see file header comment
+      localStorage.setItem('access_token', response.accessToken);
+      localStorage.setItem('user_id', response.userId);
+      localStorage.setItem('user_nickname', response.profile.nickname);
+      localStorage.setItem('is_anonymous', 'false');
+
+      // Очищаем гостевые данные
+      this.clearGuestData();
+
+      // Создаём User для UI
+      const user = createUser(
+        response.userId,
+        response.profile.nickname,
+        platformType
+      );
+      const profile = createDefaultProfile();
+
+      // Устанавливаем токен в metaServerClient
+      metaServerClient.setToken(response.accessToken);
+      setAuthState(user, profile, response.accessToken);
+
+      console.log(`[AuthService] ${platformType} login successful`);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `Ошибка авторизации ${platformType}`;
+      console.error(`[AuthService] ${platformType} login failed:`, message);
+
+      // При ошибке авторизации платформы — fallback на гостевой режим
+      console.log(`[AuthService] Falling back to guest login`);
       return this.loginAsGuest();
+    } finally {
+      setAuthenticating(false);
     }
   }
 
