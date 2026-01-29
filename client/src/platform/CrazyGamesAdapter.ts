@@ -96,7 +96,7 @@ export class CrazyGamesAdapter implements IAuthAdapter {
 
     // Получаем JWT-токен для верификации на сервере
     const token = await this.sdk.user.getUserToken();
-    if (!token || !token.trim()) {
+    if (!token?.trim()) {
       throw new Error('CrazyGames SDK: не удалось получить токен пользователя');
     }
 

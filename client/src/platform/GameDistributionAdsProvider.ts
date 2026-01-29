@@ -84,12 +84,9 @@ export class GameDistributionAdsProvider implements IAdsProvider {
         // Пользователь полностью просмотрел rewarded рекламу
         if (this.adState.resolve && this.adState.isShowing && !this.adState.resolved) {
           this.adState.resolved = true;
-          if (this.adState.timeoutId) {
-            clearTimeout(this.adState.timeoutId);
-          }
           console.log('[GameDistributionAdsProvider] Реклама успешно просмотрена');
           this.adState.resolve({ status: 'completed' });
-          this.resetAdState();
+          this.resetAdState(); // Метод очищает timeout
         }
         break;
 
@@ -98,14 +95,11 @@ export class GameDistributionAdsProvider implements IAdsProvider {
         console.error('[GameDistributionAdsProvider] SDK Error:', event.message);
         if (this.adState.resolve && this.adState.isShowing && !this.adState.resolved) {
           this.adState.resolved = true;
-          if (this.adState.timeoutId) {
-            clearTimeout(this.adState.timeoutId);
-          }
           this.adState.resolve({
             status: 'error',
             errorMessage: event.message || 'Ошибка SDK',
           });
-          this.resetAdState();
+          this.resetAdState(); // Метод очищает timeout
         }
         break;
 
@@ -173,6 +167,9 @@ export class GameDistributionAdsProvider implements IAdsProvider {
     }
 
     return new Promise<AdResult>((resolve) => {
+      // Инициализируем состояние ДО создания таймаута, чтобы избежать race condition
+      this.adState = { resolve, isShowing: true, timeoutId: null, resolved: false };
+
       // Таймаут
       const timeoutId = setTimeout(() => {
         if (this.adState.isShowing && !this.adState.resolved) {
@@ -183,7 +180,7 @@ export class GameDistributionAdsProvider implements IAdsProvider {
         }
       }, AD_TIMEOUT_MS);
 
-      this.adState = { resolve, isShowing: true, timeoutId, resolved: false };
+      this.adState.timeoutId = timeoutId;
 
       // Показ рекламы
       this.gdsdk!.showAd('rewarded')
@@ -195,13 +192,10 @@ export class GameDistributionAdsProvider implements IAdsProvider {
         .catch((error: unknown) => {
           if (this.adState.resolved) return;
           this.adState.resolved = true;
-          if (this.adState.timeoutId) {
-            clearTimeout(this.adState.timeoutId);
-          }
           const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
           console.warn(`[GameDistributionAdsProvider] Ошибка: ${message}`);
           resolve({ status: 'error', errorMessage: message });
-          this.resetAdState();
+          this.resetAdState(); // Метод очищает timeout
         });
     });
   }
