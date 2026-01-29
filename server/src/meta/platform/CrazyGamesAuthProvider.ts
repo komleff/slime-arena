@@ -14,11 +14,10 @@ import { IAuthProvider, PlatformUserData } from "./IAuthProvider";
 export class CrazyGamesAuthProvider implements IAuthProvider {
   readonly platformName = "crazygames";
 
-  // Публичный ключ CrazyGames для верификации JWT
-  // В production нужно получать с https://sdk.crazygames.com/publicKey.json
-  // и кэшировать на 1 час
-  private publicKeyCache: { key: string; fetchedAt: number } | null = null;
-  private readonly PUBLIC_KEY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+  // TODO: Для production JWT верификации — удалить underscore и раскомментировать getPublicKey()
+  // Публичный ключ CrazyGames: https://sdk.crazygames.com/publicKey.json
+  private _publicKeyCache: { key: string; fetchedAt: number } | null = null;
+  private readonly _PUBLIC_KEY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   async verifyToken(platformAuthToken: string): Promise<PlatformUserData> {
     // platformAuthToken = JWT от CrazyGames SDK.user.getUserToken()

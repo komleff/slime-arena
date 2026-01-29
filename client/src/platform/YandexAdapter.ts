@@ -91,7 +91,7 @@ export class YandexAdapter implements IAuthAdapter {
   }
 
   getNickname(): string | null {
-    return this.player?.getName() || null;
+    return this.player?.getName()?.trim() || null;
   }
 
   /**

@@ -43,8 +43,9 @@ export class GameDistributionAdsProvider implements IAdsProvider {
 
     // Создаём или обновляем GD_OPTIONS
     if (!window.GD_OPTIONS) {
+      console.warn('[GameDistributionAdsProvider] GD_OPTIONS.gameId не установлен. SDK может работать некорректно.');
       window.GD_OPTIONS = {
-        gameId: '', // Должен быть установлен разработчиком
+        gameId: '', // P2: Должен быть установлен в конфигурации приложения
         onEvent: (event) => this.handleSdkEvent(event),
       };
     } else {
