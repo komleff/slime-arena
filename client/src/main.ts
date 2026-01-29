@@ -57,7 +57,7 @@ import {
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -1591,6 +1591,16 @@ async function connectToServer(playerName: string, classId: number) {
         const handleStateChange = () => captureSnapshot(room.state);
         room.onStateChange(handleStateChange);
         captureSnapshot(room.state);
+
+        // Codex P1: Синхронизируем matchId из серверного состояния
+        // (используется в /match-results/claim вместо roomId)
+        room.onStateChange(() => {
+            const stateMatchId = (room.state as { matchId?: string }).matchId;
+            if (stateMatchId && currentMatchId.value !== stateMatchId) {
+                currentMatchId.value = stateMatchId;
+                console.log('[Main] matchId updated from state:', stateMatchId);
+            }
+        });
         
         const resetClassSelectionUi = () => {
             // Сброс состояния класса в Preact signal

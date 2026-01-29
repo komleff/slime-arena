@@ -19,6 +19,7 @@ import {
   resetGameState,
   matchAssignment,
   currentRoomId,
+  currentMatchId as stateMatchId,
 } from '../signals/gameState';
 import {
   matchResultsService,
@@ -352,14 +353,18 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const lastClaimedMatchRef = useRef<string | null>(null);
 
   const isAnonymous = authService.isAnonymous();
-  // Используем matchId из matchmaking или roomId для прямого подключения
-  const currentMatchId = matchAssignment.value?.matchId || currentRoomId.value;
+  // Codex P1: Приоритет matchId: state.matchId > matchmaking.matchId > roomId
+  // state.matchId — реальный UUID матча, остальные — fallback
+  const matchId =
+    stateMatchId.value ||
+    matchAssignment.value?.matchId ||
+    currentRoomId.value;
 
   // Вычисляем награды локально и запрашиваем claimToken для гостей
   useEffect(() => {
 
     // Проверяем по matchId, а не по boolean флагу
-    if (!results || !currentMatchId || lastClaimedMatchRef.current === currentMatchId) return;
+    if (!results || !matchId || lastClaimedMatchRef.current === matchId) return;
 
     // Вычисляем place из finalLeaderboard
     // slime-arena-isf: Если игрок не в топ-10, place неизвестен (null).
@@ -375,7 +380,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     }
 
     // Помечаем этот матч как обработанный
-    lastClaimedMatchRef.current = currentMatchId;
+    lastClaimedMatchRef.current = matchId;
 
     // Сбрасываем состояние сервиса для нового матча (Copilot P2)
     matchResultsService.reset();
@@ -387,12 +392,12 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     console.log('[ResultsScreen] setLocalRewards called, status should be success now');
 
     // Для гостей запрашиваем claimToken (используется в upgrade flow)
-    if (isAnonymous && currentMatchId) {
-      matchResultsService.getClaimToken(currentMatchId).catch((err) => {
+    if (isAnonymous && matchId) {
+      matchResultsService.getClaimToken(matchId).catch((err) => {
         console.warn('[ResultsScreen] Failed to get claim token:', err);
       });
     }
-  }, [results, isAnonymous, currentMatchId]);
+  }, [results, isAnonymous, matchId]);
 
   const handlePlayAgain = useCallback(() => {
     onPlayAgain(currentClassId);
