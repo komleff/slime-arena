@@ -80,7 +80,8 @@ export class YandexAdapter implements IAuthAdapter {
       throw new Error('Yandex SDK: не удалось получить ID игрока');
     }
 
-    const playerName = this.player.getName();
+    // P2: применяем trim() к playerName
+    const playerName = this.player.getName()?.trim() || '';
 
     return {
       platformType: 'yandex',

@@ -3,6 +3,8 @@ import { DevAuthProvider } from "./DevAuthProvider";
 import { TelegramAuthProvider } from "./TelegramAuthProvider";
 import { YandexAuthProvider } from "./YandexAuthProvider";
 import { PokiAuthProvider } from "./PokiAuthProvider";
+import { CrazyGamesAuthProvider } from "./CrazyGamesAuthProvider";
+import { GameDistributionAuthProvider } from "./GameDistributionAuthProvider";
 
 /**
  * Фабрика для создания платформенных провайдеров авторизации
@@ -31,6 +33,12 @@ export class AuthProviderFactory {
 
     // Poki (всегда доступен, не требует credentials)
     this.providers.set("poki", new PokiAuthProvider());
+
+    // CrazyGames (всегда доступен)
+    this.providers.set("crazygames", new CrazyGamesAuthProvider());
+
+    // GameDistribution (всегда доступен, гостевой режим)
+    this.providers.set("gamedistribution", new GameDistributionAuthProvider());
 
     console.log(`[AuthProviderFactory] Initialized providers: ${Array.from(this.providers.keys()).join(", ")}`);
   }

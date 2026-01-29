@@ -98,6 +98,8 @@ export class PokiAdapter implements IAuthAdapter {
 
   /**
    * Сгенерировать уникальный userId.
+   * Примечание: Math.random() используется только для генерации идентификатора,
+   * а не для игровой симуляции, поэтому детерминизм не нарушается.
    */
   private generateUserId(): string {
     // Формат: poki_<timestamp>_<random>
