@@ -33,4 +33,11 @@ export interface IAuthAdapter {
    * Получить никнейм пользователя (если доступен).
    */
   getNickname(): string | null;
+
+  /**
+   * Запросить интерактивную авторизацию на платформе (опционально).
+   *
+   * @returns true если авторизация успешна, false если недоступна/отклонена
+   */
+  requestAuth?(): Promise<boolean>;
 }

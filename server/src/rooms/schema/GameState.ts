@@ -288,6 +288,8 @@ export class GameState extends Schema {
     @type("number") timeRemaining: number = 0;
     @type("number") serverTick: number = 0;
     @type("string") rebelId: string = "";
+    // Codex P1: UUID матча для /match-results/claim (не путать с roomId)
+    @type("string") matchId: string = "";
     @type({ map: Player }) players = new MapSchema<Player>();
     @type({ map: Orb }) orbs = new MapSchema<Orb>();
     @type({ map: Chest }) chests = new MapSchema<Chest>();

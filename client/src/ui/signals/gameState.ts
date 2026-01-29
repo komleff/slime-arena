@@ -181,6 +181,13 @@ export const matchResults = signal<{
   nextMatchTimer: number;
 } | null>(null);
 
+// ID текущей комнаты (Colyseus room.id, используется как fallback)
+export const currentRoomId = signal<string | null>(null);
+
+// Codex P1: UUID матча из серверного состояния (state.matchId)
+// Используется для /match-results/claim вместо roomId
+export const currentMatchId = signal<string | null>(null);
+
 // Таймер ожидания на экране результатов (клиентский, не серверный)
 // Когда 0 — можно нажать "Играть ещё"
 export const resultsWaitTime = signal<number>(0);

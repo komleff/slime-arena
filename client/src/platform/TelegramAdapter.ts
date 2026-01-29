@@ -122,4 +122,21 @@ export class TelegramAdapter implements IAuthAdapter {
   hideBackButton(): void {
     this.webApp?.BackButton.hide();
   }
+
+  /**
+   * Запросить интерактивную авторизацию.
+   *
+   * Gemini P1: Метод должен возвращать boolean, а не throw.
+   * В Telegram Mini App пользователь уже авторизован через initData.
+   * Интерактивная авторизация через adapter не требуется —
+   * upgrade происходит через /api/v1/auth/upgrade напрямую.
+   *
+   * @returns false — интерактивная авторизация через адаптер недоступна
+   */
+  async requestAuth(): Promise<boolean> {
+    // Telegram не поддерживает интерактивную авторизацию через адаптер.
+    // Upgrade для анонимных пользователей происходит через:
+    // RegistrationPromptModal → metaServerClient.post('/api/v1/auth/upgrade')
+    return false;
+  }
 }

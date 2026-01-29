@@ -2678,6 +2678,10 @@ export class ArenaRoom extends Room<GameState> {
         this.matchIndex += 1;
         // Generate UUID for matchId (required by match_results.match_id UUID PRIMARY KEY)
         this.matchId = randomUUID();
+        // Codex P1: Синхронизируем с state для клиента (используется в /match-results/claim)
+        if (this.state) {
+            this.state.matchId = this.matchId;
+        }
     }
 
     logTelemetry(event: string, data?: Record<string, unknown>, player?: Player) {

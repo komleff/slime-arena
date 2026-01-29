@@ -467,7 +467,10 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
-      // Execute all operations in a single transaction to prevent race conditions
+      // RACE CONDITION PROTECTION (slime-arena-ww8):
+      // All operations executed in a single DB transaction.
+      // markClaimConsumed uses UPDATE ... WHERE claim_consumed_at IS NULL
+      // to atomically check and set, preventing double-claim race conditions.
       const client = await authService.getClient();
       let user;
       try {
@@ -555,7 +558,10 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
-      // Execute all operations in a single transaction to prevent race conditions
+      // RACE CONDITION PROTECTION (slime-arena-ww8):
+      // All operations executed in a single DB transaction.
+      // markClaimConsumed uses UPDATE ... WHERE claim_consumed_at IS NULL
+      // to atomically check and set, preventing double-claim race conditions.
       const client = await authService.getClient();
       let user;
       try {

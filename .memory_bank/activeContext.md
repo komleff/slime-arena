@@ -3,206 +3,111 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (21 января 2026, коммит 6a5af0b)
-**Релиз:** v0.6.0 ✅
+**База:** main (после merge PR#111)
+**Релиз:** v0.7.0 (pre-release)
 **GDD версия:** 3.3.2
-**Текущая ветка:** main
-**Soft Launch Status:** ✅ READY (6/6 критериев выполнено)
-**Sprint 12 Status:** ✅ ЗАВЕРШЁН (20 января 2026)
-**Code Freeze:** 23 января 2026
-**Презентация:** 24 января 2026
+**Sprint 14 Status:** ✅ ЗАВЕРШЁН — 4/4 APPROVED, merged
 
 ---
 
-## 🎯 ФОКУС: Презентация 24 января 2026
+## 🎯 Sprint 14 — Meta Integration (ЗАВЕРШЁН)
 
-**Цель:** Полный игровой цикл (demo flow)
+**Цель:** Интеграция клиента с meta-сервером
 
-```
-BootScreen → MainScreen → LobbyScreen → BattleScreen → ResultsScreen → Main
-```
+### Выполненные задачи (v0.7.0)
 
-### Статус экранов
+| Компонент | Статус | Описание |
+|-----------|--------|----------|
+| Guest Auth Flow | ✅ | loginAsGuest(), guest_token |
+| Telegram Auth | ✅ | loginViaTelegram(), silent auth |
+| claimToken Flow | ✅ | matchResultsService, getClaimToken() |
+| RegistrationPromptModal | ✅ | Показ при mass >= 200, upgrade flow |
+| LeaderboardScreen | ✅ | Топ-100, два режима (total/best) |
+| ResultsScreen | ✅ | Награды, save progress prompt |
+| matchId in state | ✅ | state.matchId для /match-results/claim |
 
-| Экран | Статус | Задача |
-|-------|--------|--------|
-| BootScreen | 🔴 TODO | `slime-arena-iry` |
-| MainScreen | 🟡 Частично | `slime-arena-w9y` |
-| LobbyScreen | ✅ Готов | — |
-| BattleScreen | ✅ Готов | — |
-| ResultsScreen | 🟡 Частично | `slime-arena-tn7` |
+### Исправленные баги (Sprint 14)
 
-### Ключевые ассеты
+| ID/Источник | Описание | Коммит |
+|-------------|----------|--------|
+| slime-arena-q90 | Math.random() → META-SERVER ONLY | — |
+| slime-arena-d0f | null protection в normalizeNickname | — |
+| slime-arena-zwe | Расширен список banned words | — |
+| slime-arena-0qa | Infinite logout loop на 401 | — |
+| Codex P0 | TelegramAuthResponse contract | 4f0e1b4 |
+| Gemini P1 | TelegramAdapter.requestAuth() | d4233ab |
+| Gemini P1 | place fallback → null | 2e65633 |
+| Gemini P1 | claimToken check | 3e86b83 |
+| Gemini P1 | Награды для гостей | 3fb31af |
+| Gemini P2 | userEntry для гостей | ba454fd |
+| Codex P1 | matchId vs roomId | 201be84 |
+| Copilot P2 | Date.now() для никнеймов | beb9981 |
 
-- **BootScreen:** `bg_loading_screen.png` + прогресс-бар (эскиз: `bg_loading_screen_fake.png`)
-- **MainScreen:** макет `assets/templates/main.html`, все графические ассеты готовы
+### PR #111 Final Review Status
 
-### График
+| Ревьювер | Статус | Итерация |
+|----------|--------|----------|
+| Opus | ✅ APPROVED | Final |
+| Copilot | ✅ APPROVED | Final |
+| Gemini | ✅ APPROVED | Final |
+| Codex | ✅ APPROVED | Final |
 
-| День | Дата | Задача |
-|------|------|--------|
-| Вс | 18.01 | PR #88 + BootScreen |
-| Пн | 19.01 | MainScreen + ResultsScreen |
-| Вт | 20.01 | Тестирование |
-| Ср | 21.01 | (Опционально) ErrorModal |
-| Чт | 22.01 | Тестирование mobile |
-| Пт | 23.01 | **Code Freeze** |
-| **Сб** | **24.01** | **Презентация** |
+**Консенсус: 4/4 APPROVED**
 
 ---
 
-### Локальная сеть (dev)
-- Vite HMR теперь настраивается через переменные окружения `VITE_HMR_HOST`/`VITE_HMR_PROTOCOL` для работы с мобильными клиентами по LAN.
-- Переменные читаются из `.env.local` через `loadEnv()`.
-- Документация добавлена в README.md (раздел "Доступ с мобильных устройств").
+## Архитектура Meta-интеграции
 
-### Docker Monolith (19 января 2026)
-- **Исправлена ошибка:** порт клиента в `supervisord.conf` был 5174, а в Dockerfile/docker-compose — 5173.
-- **Решение:** порт унифицирован на 5173 для всех конфигов.
-- **Версия контейнера:** 0.6.0
+```
+Client                    MetaServer                  Database
+  │                           │                           │
+  ├── POST /auth/guest ──────►│                           │
+  │◄─── guestToken ──────────│                           │
+  │                           │                           │
+  ├── POST /auth/telegram ───►│                           │
+  │◄─── accessToken ─────────│                           │
+  │                           │                           │
+  ├── POST /match-results/claim ►│                        │
+  │◄─── claimToken ──────────│                           │
+  │                           │                           │
+  ├── POST /auth/upgrade ────►│──── UPDATE users ───────►│
+  │◄─── new accessToken ─────│◄────────────────────────│
+```
 
-### Фокус сессии
+---
 
-- **[ЗАВЕРШЕНО] Sprint 12: God Objects Decomposition (19-20 января 2026):**
-  - **Architect:** Claude Opus 4.5
-  - **План:** `.claude/plans/wondrous-bubbling-hollerith.md`
-  - **Worktrees:** ar1 (server), mt1 (client) — удалены после завершения
+## Отложенные задачи (Beads)
 
-  | PR | Модуль | Файл | LOC | Статус |
-  |----|--------|------|-----|--------|
-  | #96 | CombatSystem | combatSystem.ts | 413 | ✅ Merged |
-  | #98 | AbilityActivationSystem | abilityActivationSystem.ts | 599 | ✅ Merged |
-  | #99 | ArenaGenerator | arenaGenerator.ts | 76 | ✅ Merged |
-  | #95 | RenderingSystem | draw.ts | 88 | ✅ Merged |
-  | #95 | GameLoopManager | GameLoopManager.ts | 144 | ✅ Merged |
-  | #100 | VisualEffects | VisualEffects.ts | 204 | ✅ Merged |
-  | #102 | SmoothingSystem | SmoothingSystem.ts | 338 | ✅ Merged |
-  | #103 | PlayerStateManager | playerStateManager.ts | 181 | ✅ Merged |
+| ID | Приоритет | Описание |
+|----|-----------|----------|
+| slime-arena-0v2 | P2 | REWARDS_CONFIG → balance.json |
+| slime-arena-isf | P2 | Server returns place in personalStats |
+| NEW | P3 | Локализация UI строк |
+| NEW | P3 | i18n инфраструктура |
 
-  **Финальный результат (v0.6.0):**
-  - **Server:** ArenaRoom.ts 3749 → 2704 LOC (−28%)
-  - **Client:** main.ts 4109 → 3790 LOC (−8%)
-  - **Всего извлечено:** 2043 строки в 8 модулей
-  - **Детерминизм:** ✅ Проверен и сохранён
-  - **Тесты:** ✅ Все 3 набора проходят (determinism, orb-bite, arena-generation)
-  - **Бандл:** gzip 77.38 кБ (< 150 кБ ✅)
-  - **Beads:** slime-arena-ar1, slime-arena-mt1 — ✅ CLOSED
+---
 
-  **Документация обновлена:**
-  - AGENT_ROLES.md v1.5 — формат ревью в PR с именем модели
+## Команды
 
-- **[ЗАВЕРШЕНО] Docker Port Fix (19 января 2026):**
-  - ✅ Исправлено несоответствие портов клиента (5174 → 5173) в supervisord.conf
-  - **Файлы:** docker/supervisord.conf
+```bash
+# Разработка
+cd d:\slime-arena-meta
+npm run dev              # meta + match + client
 
-- **[ЗАВЕРШЕНО] PR #93: Level Progress Bar Formula (18 января 2026):**
-  - ✅ Исправлена формула: `(mass - deathMass) / (nextThreshold - deathMass) × 100%`
-  - ✅ levelThresholds = [180, 300, 500, 800, 1200, 1800] (без 100)
-  - ✅ minSlimeMass (50) — масса смерти, "ноль" для прогресса
-  - ✅ Сервер: newLevel = i + 2 (thresholds[0] = 180 = порог lvl 2)
-  - **Файлы:** GameHUD.tsx, gameState.ts, balance.json, config.ts, ArenaRoom.ts
+# Тесты и сборка
+npm run test
+npm run build
 
-- **[ЗАВЕРШЕНО] PR #92: PlayAgain Race Condition (18 января 2026):**
-  - ✅ Исправлена гонка при нажатии "Play Again"
-  - ✅ Защита от присоединения к завершённым аренам
+# Beads
+bd ready                 # Доступные задачи
+bd list --status=open    # Все открытые
+```
 
-- **[ЗАВЕРШЕНО] PR #94: PvP Bite Formula (18 января 2026):**
-  - ✅ attackerGain = 10% массы атакующего
-  - ✅ scatterMass = 10% массы жертвы
-  - ✅ Удалён pvpBiteVictimLossPct
-  - ✅ GDD-Combat.md обновлён (v3.4)
-  - **Beads:** slime-arena-8q9 (closed)
+---
 
-- **[ОТМЕНЕНО] PR #87: WASD относительное управление (17 января 2026):**
-  - ❌ Функционал отменён пользователем
-  - Удалено клавиатурное управление движением
-  - **Beads:** slime-arena-60x (closed — откат)
+## Следующий спринт
 
-- **[ЗАВЕРШЕНО] PR #85: Battle UI improvements v0.4.6 (17 января 2026):**
-  - ✅ Стрелка движения рисуется под слаймом
-  - ✅ Размер стрелки уменьшен в 2 раза (minLength 15, maxLength 40)
-  - ✅ Радиус сектора рта: 1.5 → 1.3
-  - ✅ Окна талантов/умений полупрозрачные (0.6/0.5)
-  - ✅ Сияние Короля под mouthSector, alpha 0.2+0.05
-  - **Beads:** slime-arena-3o8, slime-arena-iqv, slime-arena-4n8, slime-arena-5ix (closed)
-
-- **[В РАБОТЕ] Графика арены — Параллакс-фон (12 января 2026):**
-  - ✅ GDD-Art-Architecture v2.0 — архитектура сцены (Layer Cake)
-  - ✅ arena.css — базовый CSS параллакс-фона (mobile-optimized)
-  - ✅ Mobile-First правила в CLAUDE.md и AGENT_ROLES.md
-  - ✅ Ассеты организованы (19 файлов)
-  - ⏳ slime-arena-duo — интеграция в main.ts (для Developer)
-  - **Ветка:** `feature/graphics-arena-bg`
-  - **PR:** #76
-
-- **[ЗАВЕРШЕНО] PR #74: Env-based HMR config:**
-  - ✅ vite.config.ts: функциональный конфиг с loadEnv()
-  - ✅ README.md: обновлён порт 5174 + документация HMR env vars
-
-- **[ЗАВЕРШЕНО] AGENT_ROLES v1.4 — Ограничения агентов (12 января 2026):**
-  - ✅ Запрет работы с main веткой для всех агентов
-  - ✅ Запрет редактирования кода для Art Director
-  - ✅ Mobile-First CSS ограничения
-
-- **[ЗАВЕРШЕНО] Графические ассеты UI — Golden Master (11 января 2026):**
-  - ✅ Главный экран (LobbyScreen) — полный макет в `assets/main.html`
-  - ✅ Jelly Button — CSS-стиль кнопки с 3D-эффектом
-  - ✅ HUD профиля — аватар, рамка, бейджи уровней, XP-бар
-  - ✅ Валюты — монеты и гемы с hover-анимацией
-  - ✅ Иконки меню — настройки, лидеры, гардероб
-  - ✅ Персонаж — hero_skin_current с анимацией левитации
-  - **Ассеты (26 файлов в assets/):**
-    - Фоны: `bg_main_menu.png`, `bg_loading_screen.png`
-    - Кнопки: `btn_jelly_*.png` (4 цвета)
-    - HUD: `hud_avatar_frame_cookie.png`, `hud_profile_base_chocolate.png`, `hud_level_badge_star_*.png` (4 цвета)
-    - Иконки: `icon_menu_*.png`, `icon_currency_*.png`, `icon_alert_cookie.png`, `icon_error_burnt.png`, `icon_wifi_broken.png`
-    - Персонаж: `hero_skin_current.png`, `hero_skin_current_alt.png`
-  - **Арт-директор (Gemini):** Паспорт проекта Cookie Crash Arena создан
-
-- **[ЗАВЕРШЕНО] PR #61-66: Ads Documentation Improvements (MERGED):**
-  - ✅ PR #61: Устранить англицизм "dev-платформы" → "платформы разработки"
-  - ✅ PR #62: Добавить русский перевод для parameter placement в JSDoc
-  - ✅ PR #63: Добавить русский перевод для "rewarded video" → "(рекламы с вознаграждением)"
-  - ✅ PR #64: Добавить русский перевод для "preload API" → "(API предварительной загрузки)"
-  - ✅ PR #65: Добавить русский перевод для placement в adsService.ts
-  - ✅ PR #66: Добавить русский перевод для placement в IAdsProvider/adsService
-
-- **[ЗАВЕРШЕНО] Sprint 11.2: TalentSystem Integration (PR #57 MERGED):**
-  - ✅ slime-arena-eg7 — ArenaRoom refactoring (−418 строк)
-  - ✅ recalculateTalentModifiers → делегация в модуль
-  - ✅ generateTalentCard → делегация в модуль
-  - ✅ Удалены дубли: getTalentConfig, buildAbilityUpgradeId, parseAbilityUpgradeId
-
-- **[ЗАВЕРШЕНО] Sprint 11: Tech Debt Refactoring (PR #56 MERGED):**
-  - ✅ 11.1: slime-arena-dm5 — Daemon hooks (auto-commit, auto-push)
-  - ✅ 11.2: slime-arena-foh — HUD frequency sync (убран forceUpdate)
-  - ✅ 11.3: InputManager module created (558 строк)
-  - ✅ 11.4: TalentSystem module created
-
-### ✅ Code Freeze Ревизия (21 января 2026)
-
-**Пересмотренные приоритеты:**
-
-| Задача | Было | Стало | Причина |
-|--------|:----:|:-----:|---------|
-| slime-arena-zmf (джойстик) | P2 | P1 | Критично: перекрывает обзор |
-| slime-arena-4sf (WebP) | P2 | P1 | Критично: 27MB → 5MB |
-| slime-arena-4xh (Вампир) | P1 | P2 | Таланты пересмотрим в комплексе |
-| slime-arena-pgf (реклама) | P1 | P3 | Реклама не подключена |
-| slime-arena-n5p (MiniMap) | P0 | P2 | Рабочая версия есть |
-| slime-arena-1t8 (Countdown) | P0 | P2 | Не критично для demo |
-| slime-arena-0nu (Confirm) | P0 | P3 | Пока нечего подтверждать |
-| slime-arena-3lx (Disconnect) | P0 | P2 | Полезно, но не блокер |
-| slime-arena-vbp (Error) | P0 | P2 | Полезно, но не блокер |
-| slime-arena-x33 (Pause) | P0 | CLOSED | Не применимо (реалтайм PvP) |
-
-**Текущие P1 задачи:**
-- slime-arena-zmf: Адаптивный джойстик смещает базу
-- slime-arena-4sf: WebP конвертация спрайтов (27MB → 5MB)
-
-### ✅ Аудит технического долга (сессия)
-
-Уточнён и актуализирован список техдолга:
-- Декомпозиция God Objects (ArenaRoom, main.ts) — ✅ Sprint 12
-- Порог ДХП теперь грузится из balance.json
-- Рефакторинг: TalentSystem, InputManager модули созданы
+Sprint 15 планирование:
+- E2E тестирование meta-integration
+- Yandex/Poki адаптеры
+- Production deployment
