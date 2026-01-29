@@ -281,10 +281,14 @@ class AuthService {
 
   /**
    * Генерация случайного никнейма для гостя.
+   *
+   * Gemini P1: Списки слов проверены против серверных BANNED_WORDS
+   * (admin, moderator, system, bot, dev, staff, gm, gamemaster, slime, arena).
+   * При добавлении новых слов необходимо проверить совместимость.
+   * Сервер выполняет финальную валидацию при /auth/upgrade.
    */
   private generateGuestNickname(): string {
-    // Copilot P1: Слова должны быть безопасными для BANNED_WORDS на сервере
-    // 'slime' и 'arena' в BANNED_WORDS, поэтому используем альтернативы
+    // Copilot P1: Слова безопасны для BANNED_WORDS на сервере
     const adjectives = ['Быстрый', 'Хитрый', 'Весёлый', 'Храбрый', 'Ловкий'];
     const nouns = ['Охотник', 'Воин', 'Странник', 'Игрок', 'Боец'];
     const adj = adjectives[Math.floor(Math.random() * adjectives.length)];

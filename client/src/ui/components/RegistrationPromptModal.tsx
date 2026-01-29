@@ -7,7 +7,7 @@
 import { useCallback, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { platformManager } from '../../platform';
-import { claimToken } from '../../services/matchResultsService';
+import { claimToken, claimStatus } from '../../services/matchResultsService';
 import { metaServerClient } from '../../api/metaServerClient';
 import { authService } from '../../services/authService';
 
@@ -197,6 +197,11 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
   const platformType = platformManager.getPlatformType();
   const isTelegram = platformType === 'telegram';
 
+  // Gemini P1: Проверяем доступность claimToken перед разрешением upgrade
+  const hasClaimToken = claimToken.value !== null;
+  const isTokenLoading = claimStatus.value === 'claiming';
+  const canUpgrade = hasClaimToken || !isTelegram; // Для не-Telegram просто открываем бота
+
   const handleTelegramLogin = useCallback(async () => {
     if (!isTelegram) {
       // Если не в Telegram, открываем бота
@@ -246,7 +251,15 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
       // После успешного upgrade закрываем модал
       onClose();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ошибка сохранения прогресса';
+      // Gemini P1: Улучшенная обработка ошибок валидации никнейма
+      // Гостевые никнеймы генерируются на клиенте и могут не пройти серверную валидацию
+      const rawMessage = err instanceof Error ? err.message : 'Ошибка сохранения прогресса';
+      const isNicknameError = rawMessage.toLowerCase().includes('nickname') ||
+        rawMessage.toLowerCase().includes('никнейм') ||
+        rawMessage.includes('validation');
+      const message = isNicknameError
+        ? 'Ваш никнейм не прошёл проверку. Попробуйте сыграть ещё раз с новым никнеймом.'
+        : rawMessage;
       setError(message);
     } finally {
       setIsLoading(false);
@@ -322,12 +335,12 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
           <button
             class="reg-modal-button telegram"
             onClick={handleTelegramLogin}
-            disabled={isLoading}
+            disabled={isLoading || !canUpgrade}
           >
             <svg class="telegram-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
             </svg>
-            {isLoading ? 'Подождите...' : isTelegram ? 'Войти через Telegram' : 'Открыть в Telegram'}
+            {isLoading ? 'Подождите...' : isTokenLoading ? 'Получение данных...' : isTelegram ? 'Войти через Telegram' : 'Открыть в Telegram'}
           </button>
           <button
             class="reg-modal-button later"
