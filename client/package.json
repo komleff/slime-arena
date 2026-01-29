@@ -1,6 +1,6 @@
 {
   "name": "@slime-arena/client",
-  "version": "0.7.0-dev",
+  "version": "0.7.1-dev",
   "private": true,
   "type": "module",
   "scripts": {
