@@ -111,15 +111,18 @@ class LeaderboardService {
 
       // Copilot P2: Маппинг позиции текущего пользователя
       // Берём nickname и userId из currentUser сигнала, т.к. сервер их не возвращает
+      // Gemini P2: Для гостей не показываем userEntry (даже если сервер вернёт myPosition)
       const user = currentUser.value;
-      const userEntry: GlobalLeaderboardEntry | null = response.myPosition !== undefined
-        ? {
-            place: response.myPosition,
-            nickname: user?.nickname ?? '',
-            userId: user?.id ?? '',
-            score: response.myValue ?? 0,
-          }
-        : null;
+      const hasValidUser = user?.id && user?.nickname;
+      const userEntry: GlobalLeaderboardEntry | null =
+        response.myPosition !== undefined && hasValidUser
+          ? {
+              place: response.myPosition,
+              nickname: user.nickname,
+              userId: user.id,
+              score: response.myValue ?? 0,
+            }
+          : null;
 
       leaderboardEntries.value = mappedEntries;
       leaderboardUserEntry.value = userEntry;
