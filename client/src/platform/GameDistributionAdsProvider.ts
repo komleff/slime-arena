@@ -15,11 +15,13 @@ const AD_TIMEOUT_MS = 30000;
 interface AdState {
   resolve: ((result: AdResult) => void) | null;
   isShowing: boolean;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+  resolved: boolean;
 }
 
 export class GameDistributionAdsProvider implements IAdsProvider {
   private gdsdk: typeof window.gdsdk | null = null;
-  private adState: AdState = { resolve: null, isShowing: false };
+  private adState: AdState = { resolve: null, isShowing: false, timeoutId: null, resolved: false };
   private gamePauseCallback: (() => void) | null = null;
   private gameResumeCallback: (() => void) | null = null;
 
@@ -80,7 +82,11 @@ export class GameDistributionAdsProvider implements IAdsProvider {
 
       case 'SDK_REWARDED_WATCH_COMPLETE':
         // Пользователь полностью просмотрел rewarded рекламу
-        if (this.adState.resolve && this.adState.isShowing) {
+        if (this.adState.resolve && this.adState.isShowing && !this.adState.resolved) {
+          this.adState.resolved = true;
+          if (this.adState.timeoutId) {
+            clearTimeout(this.adState.timeoutId);
+          }
           console.log('[GameDistributionAdsProvider] Реклама успешно просмотрена');
           this.adState.resolve({ status: 'completed' });
           this.resetAdState();
@@ -90,7 +96,11 @@ export class GameDistributionAdsProvider implements IAdsProvider {
       case 'SDK_ERROR':
         // Ошибка SDK
         console.error('[GameDistributionAdsProvider] SDK Error:', event.message);
-        if (this.adState.resolve && this.adState.isShowing) {
+        if (this.adState.resolve && this.adState.isShowing && !this.adState.resolved) {
+          this.adState.resolved = true;
+          if (this.adState.timeoutId) {
+            clearTimeout(this.adState.timeoutId);
+          }
           this.adState.resolve({
             status: 'error',
             errorMessage: event.message || 'Ошибка SDK',
@@ -109,7 +119,10 @@ export class GameDistributionAdsProvider implements IAdsProvider {
    * Сбросить состояние показа рекламы.
    */
   private resetAdState(): void {
-    this.adState = { resolve: null, isShowing: false };
+    if (this.adState.timeoutId) {
+      clearTimeout(this.adState.timeoutId);
+    }
+    this.adState = { resolve: null, isShowing: false, timeoutId: null, resolved: false };
   }
 
   /**
@@ -160,33 +173,35 @@ export class GameDistributionAdsProvider implements IAdsProvider {
     }
 
     return new Promise<AdResult>((resolve) => {
-      this.adState = { resolve, isShowing: true };
-
       // Таймаут
       const timeoutId = setTimeout(() => {
-        if (this.adState.isShowing) {
+        if (this.adState.isShowing && !this.adState.resolved) {
+          this.adState.resolved = true;
           console.warn('[GameDistributionAdsProvider] Таймаут показа рекламы');
           resolve({ status: 'error', errorMessage: 'Таймаут показа рекламы' });
           this.resetAdState();
         }
       }, AD_TIMEOUT_MS);
 
+      this.adState = { resolve, isShowing: true, timeoutId, resolved: false };
+
       // Показ рекламы
       this.gdsdk!.showAd('rewarded')
         .then(() => {
           // showAd завершился, но результат приходит через события SDK
           // Ждём SDK_REWARDED_WATCH_COMPLETE или SDK_ERROR
-          clearTimeout(timeoutId);
+          // НЕ очищаем таймаут здесь — очистка происходит в handleSdkEvent
         })
         .catch((error: unknown) => {
-          clearTimeout(timeoutId);
+          if (this.adState.resolved) return;
+          this.adState.resolved = true;
+          if (this.adState.timeoutId) {
+            clearTimeout(this.adState.timeoutId);
+          }
           const message = error instanceof Error ? error.message : 'Неизвестная ошибка';
           console.warn(`[GameDistributionAdsProvider] Ошибка: ${message}`);
-
-          if (this.adState.isShowing) {
-            resolve({ status: 'error', errorMessage: message });
-            this.resetAdState();
-          }
+          resolve({ status: 'error', errorMessage: message });
+          this.resetAdState();
         });
     });
   }

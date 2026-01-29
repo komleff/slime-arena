@@ -99,6 +99,8 @@ export class GameDistributionAdapter implements IAuthAdapter {
 
   /**
    * Сгенерировать уникальный userId.
+   * Примечание: Math.random() используется только для генерации идентификатора,
+   * а не для игровой симуляции, поэтому детерминизм не нарушается.
    */
   private generateUserId(): string {
     // Формат: gd_<timestamp>_<random>
