@@ -1,94 +1,154 @@
-# План: Финализация Sprint-14 Meta Integration
+# План: Sprint 15 — Production Readiness
 
 **PM:** Claude Opus 4.5
-**PR:** #111
+**Ветка:** `sprint-15/production-readiness`
 **Дата:** 29 января 2026
+**Предыдущий:** Sprint 14 (v0.7.0) — ✅ MERGED
 
 ---
 
-## Резюме ситуации
+## Цели спринта
 
-После 23 коммитов и 15+ итераций ревью все **P0/P1 замечания исправлены**.
-Нет финальных ревью после последних коммитов (`722c05a`).
-
-**Требуется:** Получить финальные ревью для консенсуса (3+ APPROVED).
-
----
-
-## Текущее состояние
-
-### PR#111 Summary
-- **Branch:** `sprint-14/meta-integration`
-- **Changed files:** 23 (+1976/-57)
-- **Commits:** 23
-- **Mergeable:** ✅ MERGEABLE
-
-### Блоки Sprint-14
-
-| Блок | Описание | Статус |
-|------|----------|--------|
-| Block 1 | Critical fixes (q90, d0f, zwe, ww8) | ✅ Done |
-| Block 2 | Client meta-gameplay integration | ✅ Done |
-| Block 3 | E2E Testing | ⏳ Pending |
-
-### Статус ревью (последние итерации)
-
-| Ревьювер | Итерация | Дата | Вердикт | Замечания |
-|----------|----------|------|---------|-----------|
-| Opus | 7+ | 27 янв | ✅ APPROVED | — |
-| Gemini Code Assist | 4 | 28 янв | ❌ CHANGES_REQUESTED | hardcoded values (ИСПРАВЛЕНО) |
-| Codex | 5 | 28 янв | ❌ CHANGES_REQUESTED | mode в /auth/upgrade (ИСПРАВЛЕНО) |
-| Copilot (Sonnet 4.5) | 4 | 28 янв | ✅ APPROVED | — |
-
-### Проверка исправлений
-
-| Замечание | Файл | Статус |
-|-----------|------|--------|
-| P1: mode в /auth/upgrade | RegistrationPromptModal.tsx:225 | ✅ Исправлено |
-| P1: hardcoded rating values | authService.ts:66-67 | ✅ Исправлено |
-| P2: REWARDS_CONFIG как estimate | matchResultsService.ts | ✅ Задокументировано |
+1. **Platform Adapters** — реализовать YandexAdapter и PokiAdapter
+2. **E2E Testing** — верифицировать полный цикл игрока
+3. **Bug Fixes** — исправить критические баги
+4. **Deployment Prep** — подготовить production инфраструктуру
 
 ---
 
-## План действий
+## Фаза 1: Platform Adapters (P1)
 
-### Этап 1: Запрос финальных ревью
+### 1.1 YandexAdapter
+**Beads:** создать `slime-arena-yandex-adapter`
+**Файлы:**
+- [client/src/platform/YandexAdapter.ts](client/src/platform/YandexAdapter.ts) — СОЗДАТЬ
+- [client/src/platform/PlatformManager.ts](client/src/platform/PlatformManager.ts) — обновить
+- [client/src/platform/index.ts](client/src/platform/index.ts) — экспорт
 
-Запросить ревью от всех основных ревьюверов для последнего коммита `722c05a`:
+**Scope:**
+- Реализовать IAuthAdapter: `getPlatformType()`, `isAvailable()`, `getCredentials()`, `getNickname()`
+- Интеграция с Yandex Games SDK (`ysdk.player.getIDPerGame()`, `ysdk.player.getName()`)
+- Проверка: `window.ysdk !== undefined`
 
-1. **Claude Opus 4.5** — через Task tool (subagent_type=Reviewer)
-2. **Gemini** — через `python tools/gemini_reviewer.py --pr=111`
-3. **Codex** — запрос оператору (требует ручной запуск)
+### 1.2 PokiAdapter
+**Beads:** создать `slime-arena-poki-adapter`
+**Файлы:**
+- [client/src/platform/PokiAdapter.ts](client/src/platform/PokiAdapter.ts) — СОЗДАТЬ
 
-### Этап 2: Анализ консенсуса
+**Scope:**
+- Реализовать IAuthAdapter
+- Интеграция с Poki SDK (`PokiSDK.gameLoadingFinished()`)
+- Проверка: `window.PokiSDK !== undefined`
 
-Критерии консенсуса (из AGENT_ROLES.md):
-- **Требуется:** 3+ APPROVED от основных ревьюверов (Opus, Codex, Gemini)
-- Copilot обязателен только если оставил замечания (уже APPROVED)
+### 1.3 PlatformManager Integration
+**Beads:** часть 1.1/1.2
+**Scope:**
+- Обновить `initialize()`: приоритет Telegram → Yandex → Poki → Standalone
+- Интегрировать YandexAdsProvider и PokiAdsProvider (уже готовы)
+- Добавить `isYandex()`, `isPoki()` хелперы
 
-### Этап 3: Финальная стадия (при консенсусе)
+**Зависимости:** 1.1 + 1.2 → 1.3
 
-Если 3+ APPROVED:
-1. Создать задачи в Beads для P2/P3 замечаний
-2. Обновить `.memory_bank/activeContext.md`
-3. Уведомить оператора о готовности к merge
-4. **Merge выполняет только человек-оператор**
+---
+
+## Фаза 2: E2E Testing (P1)
+
+### 2.1 Smoke Tests Extension
+**Beads:** создать `slime-arena-e2e-smoke`
+**Файлы:**
+- [tests/smoke/run-stage-d.ps1](tests/smoke/run-stage-d.ps1) — расширить
+- [server/tests/meta-stage-d.test.ts](server/tests/meta-stage-d.test.ts) — расширить
+
+**Сценарии:**
+- Guest Auth → игра → claim → Results
+- Telegram Auth → upgrade flow
+- claimToken (success / expired / invalid)
+- LeaderboardScreen API
+
+### 2.2 Load Test Verification
+**Beads:** slime-arena-7fg (существующий epic)
+**Команда:**
+```bash
+k6 run tests/load/soft-launch.js
+```
+**Метрики:** CCU=500, p99<2000ms, errors<1%
+
+---
+
+## Фаза 3: Bug Fixes (P1)
+
+### 3.1 Build Error
+**Beads:** slime-arena-caf (существующий)
+**Fix:** `npm i -D @types/uuid`
+
+### 3.2 Джойстик смещение
+**Beads:** slime-arena-zmf (существующий)
+**Scope:** Фикс смещения базы при повторных касаниях
+
+---
+
+## Фаза 4: Deployment Prep (P2)
+
+### 4.1 Environment Documentation
+**Beads:** создать `slime-arena-env-docs`
+**Файлы:**
+- [docs/deployment/PRODUCTION_ENV.md](docs/deployment/PRODUCTION_ENV.md) — СОЗДАТЬ
+
+**Содержание:**
+- JOIN_TOKEN_SECRET
+- MATCH_SERVER_TOKEN
+- DATABASE_URL
+- Checklist для операторов
+
+### 4.2 CI/CD Enhancement
+**Beads:** создать `slime-arena-ci-tests`
+**Файлы:**
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) — добавить `npm test`
+
+---
+
+## Сводка задач
+
+| # | Фаза | Beads | Приоритет | Статус |
+|---|------|-------|-----------|--------|
+| 1 | YandexAdapter | СОЗДАТЬ | P1 | ⏳ |
+| 2 | PokiAdapter | СОЗДАТЬ | P1 | ⏳ |
+| 3 | E2E Smoke Tests | СОЗДАТЬ | P1 | ⏳ |
+| 4 | Load Test | slime-arena-7fg | P1 | ⏳ |
+| 5 | @types/uuid | slime-arena-caf | P1 | ⏳ |
+| 6 | Джойстик | slime-arena-zmf | P1 | ⏳ |
+| 7 | Env Docs | СОЗДАТЬ | P2 | ⏳ |
+| 8 | CI/CD Tests | СОЗДАТЬ | P2 | ⏳ |
+
+**Итого:** 8 задач (5 новых + 3 существующих)
+
+---
+
+## Зависимости
+
+```
+1.1 YandexAdapter ─┬─> 1.3 PlatformManager ─> 2.1 E2E Tests ─> 2.2 Load Tests
+1.2 PokiAdapter  ──┘
+
+3.1 @types/uuid (независимый, блокирует build)
+3.2 Джойстик (независимый)
+
+4.1 Env Docs ─> 4.2 CI/CD
+```
 
 ---
 
 ## Критические файлы
 
-### Клиент (интеграция)
-- [authService.ts](client/src/services/authService.ts) — авторизация, upgrade flow
-- [matchResultsService.ts](client/src/services/matchResultsService.ts) — claim flow
-- [leaderboardService.ts](client/src/services/leaderboardService.ts) — лидерборды
-- [ResultsScreen.tsx](client/src/ui/components/ResultsScreen.tsx) — экран результатов
-- [LeaderboardScreen.tsx](client/src/ui/components/LeaderboardScreen.tsx) — лидерборд UI
-- [RegistrationPromptModal.tsx](client/src/ui/components/RegistrationPromptModal.tsx) — upgrade modal
-
-### Сервер (fixes)
-- [nicknameValidator.ts](server/src/utils/generators/nicknameValidator.ts) — BANNED_WORDS fix
-- [auth.ts](server/src/meta/routes/auth.ts) — race condition docs
+| Файл | Назначение |
+|------|------------|
+| [client/src/platform/IAuthAdapter.ts](client/src/platform/IAuthAdapter.ts) | Интерфейс для адаптеров |
+| [client/src/platform/TelegramAdapter.ts](client/src/platform/TelegramAdapter.ts) | Паттерн реализации |
+| [client/src/platform/PlatformManager.ts](client/src/platform/PlatformManager.ts) | Интеграция адаптеров |
+| [client/src/platform/YandexAdsProvider.ts](client/src/platform/YandexAdsProvider.ts) | Готов, ждёт адаптер |
+| [client/src/platform/PokiAdsProvider.ts](client/src/platform/PokiAdsProvider.ts) | Готов, ждёт адаптер |
+| [server/tests/meta-stage-d.test.ts](server/tests/meta-stage-d.test.ts) | E2E тесты |
+| [tests/load/soft-launch.js](tests/load/soft-launch.js) | k6 load tests |
 
 ---
 
@@ -96,34 +156,48 @@
 
 ### Автоматическая
 ```bash
-npm run build   # ✅ должна пройти
-npm run test    # ✅ все тесты
+npm run build          # Сборка без ошибок
+npm run test           # Unit-тесты
+npx tsx server/tests/meta-stage-d.test.ts  # E2E
+k6 run tests/load/soft-launch.js           # Load
 ```
 
-### Ручная (E2E)
-- [ ] Guest flow: localhost создаёт guestToken
-- [ ] Telegram auth: silent login работает
-- [ ] LeaderboardScreen: обе вкладки загружают данные
-- [ ] ResultsScreen: показывает награды
-- [ ] RegistrationPromptModal: upgrade работает
+### Ручная
+- [ ] Yandex SDK определяется на yandex.games
+- [ ] Poki SDK определяется на poki.com
+- [ ] Guest flow работает на всех платформах
+- [ ] Реклама показывается (Yandex/Poki провайдеры)
 
 ---
 
 ## Риски
 
-| Риск | Митигация |
-|------|-----------|
-| Codex не дал финального ревью | Запросить через оператора |
-| Telegram SDK недоступен локально | ngrok туннель для E2E |
-| OAuth credentials не настроены | Фокус на Telegram flow |
+| Риск | Вероятность | Митигация |
+|------|-------------|-----------|
+| SDK API изменился | Средняя | Проверить документацию перед началом |
+| Load test не проходит | Средняя | Профилировать bottlenecks, снизить targetCCU |
+| Недостаточно времени | Высокая | Фазы 1-3 обязательны, Фаза 4 опционально |
 
 ---
 
-## Следующие шаги
+## Первые шаги
 
-1. **Оператор:** Запустить финальные ревью вручную
-   - Gemini: `python tools/gemini_reviewer.py --pr=111`
-   - Codex: `@codex review` в комментарии PR
-2. **PM (после консенсуса):** Создать Beads задачи для отложенных P2/P3
-3. **PM:** Обновить Memory Bank
-4. **Оператор:** Выполнить merge PR в main
+1. Создать ветку `sprint-15/production-readiness`
+2. Создать Beads задачи для новых items
+3. Исправить slime-arena-caf (@types/uuid) — разблокирует build
+4. Начать с YandexAdapter (паттерн из TelegramAdapter)
+
+---
+
+## Критерии завершения Sprint 15
+
+**MUST:**
+- [ ] YandexAdapter и PokiAdapter реализованы
+- [ ] E2E smoke tests проходят
+- [ ] Load test проходит метрики
+- [ ] Build error исправлен
+
+**SHOULD:**
+- [ ] CI включает тесты
+- [ ] Production env задокументирован
+- [ ] Джойстик баг исправлен
