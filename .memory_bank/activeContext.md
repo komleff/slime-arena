@@ -136,6 +136,6 @@ bd list --status=open    # Все открытые
 | Opus (субагент) | ✅ APPROVED | 2 |
 
 Актуальные документы:
-- [План Sprint 15](../docs/plans/gleaming-frolicking-dewdrop.md)
+- [План Sprint 15](../docs/plans/sprint-15-production-readiness.md)
 - [TZ-MetaGameplay-v1.9-Index.md](../docs/meta-min/TZ-MetaGameplay-v1.9-Index.md)
 

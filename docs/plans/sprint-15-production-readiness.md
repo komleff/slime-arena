@@ -1,15 +1,40 @@
-# План: Sprint 15 — Production Readiness
+# План Sprint-15: Production Readiness
 
+**Дата:** 29 января 2026
 **PM:** Claude Opus 4.5
 **Ветка:** `sprint-15/production-readiness`
-**Дата:** 29 января 2026
+**Цель:** Подготовка к production deployment
+**Worktree:** `d:\slime-arena-meta`
 **Предыдущий:** Sprint 14 (v0.7.0) — ✅ MERGED
+
+---
+
+## Резюме состояния
+
+### Выполнено (Фаза 1)
+
+- ✅ YandexAdapter — `client/src/platform/YandexAdapter.ts` (коммит 8da0a17)
+- ✅ PokiAdapter — `client/src/platform/PokiAdapter.ts` (коммит 8da0a17)
+- ✅ PlatformManager integration — приоритет Telegram → Yandex → Poki → Standalone
+- ✅ PR#112 создан, субагент-ревью пройдено (2 итерации)
+- ✅ Beads закрыты: slime-arena-laj, slime-arena-9o2, slime-arena-caf
+
+### В ожидании
+
+- ⏳ Внешний код-ревью PR#112 (Copilot, Gemini, Codex)
+
+### Требует работы
+
+- slime-arena-zmf — джойстик смещение
+- E2E Smoke Tests — расширение сценариев
+- Load Test — k6 верификация
+- Environment Docs — документация production
 
 ---
 
 ## Цели спринта
 
-1. **Platform Adapters** — реализовать YandexAdapter и PokiAdapter
+1. **Platform Adapters** — ✅ YandexAdapter и PokiAdapter реализованы
 2. **E2E Testing** — верифицировать полный цикл игрока
 3. **Bug Fixes** — исправить критические баги
 4. **Deployment Prep** — подготовить production инфраструктуру
@@ -111,16 +136,16 @@ k6 run tests/load/soft-launch.js
 
 | # | Фаза | Beads | Приоритет | Статус |
 |---|------|-------|-----------|--------|
-| 1 | YandexAdapter | СОЗДАТЬ | P1 | ⏳ |
-| 2 | PokiAdapter | СОЗДАТЬ | P1 | ⏳ |
-| 3 | E2E Smoke Tests | СОЗДАТЬ | P1 | ⏳ |
-| 4 | Load Test | slime-arena-7fg | P1 | ⏳ |
-| 5 | @types/uuid | slime-arena-caf | P1 | ⏳ |
+| 1 | YandexAdapter | slime-arena-laj | P1 | ✅ |
+| 2 | PokiAdapter | slime-arena-9o2 | P1 | ✅ |
+| 3 | @types/uuid | slime-arena-caf | P1 | ✅ |
+| 4 | E2E Smoke Tests | СОЗДАТЬ | P1 | ⏳ |
+| 5 | Load Test | slime-arena-7fg | P1 | ⏳ |
 | 6 | Джойстик | slime-arena-zmf | P1 | ⏳ |
 | 7 | Env Docs | СОЗДАТЬ | P2 | ⏳ |
 | 8 | CI/CD Tests | СОЗДАТЬ | P2 | ⏳ |
 
-**Итого:** 8 задач (5 новых + 3 существующих)
+**Итого:** 8 задач — 3 выполнено, 5 в работе
 
 ---
 
@@ -180,24 +205,29 @@ k6 run tests/load/soft-launch.js           # Load
 
 ---
 
-## Первые шаги
+## Следующие шаги
 
-1. Создать ветку `sprint-15/production-readiness`
-2. Создать Beads задачи для новых items
-3. Исправить slime-arena-caf (@types/uuid) — разблокирует build
-4. Начать с YandexAdapter (паттерн из TelegramAdapter)
+1. ~~Создать ветку `sprint-15/production-readiness`~~ ✅
+2. ~~YandexAdapter и PokiAdapter~~ ✅
+3. ~~@types/uuid~~ ✅
+4. Дождаться внешнего код-ревью PR#112
+5. Исправить slime-arena-zmf (джойстик)
+6. Создать и запустить E2E Smoke Tests
+7. Запустить Load Test (k6)
 
 ---
 
 ## Критерии завершения Sprint 15
 
 **MUST:**
-- [ ] YandexAdapter и PokiAdapter реализованы
+
+- [x] YandexAdapter и PokiAdapter реализованы
+- [x] Build error исправлен (@types/uuid)
 - [ ] E2E smoke tests проходят
 - [ ] Load test проходит метрики
-- [ ] Build error исправлен
 
 **SHOULD:**
+
 - [ ] CI включает тесты
 - [ ] Production env задокументирован
 - [ ] Джойстик баг исправлен
