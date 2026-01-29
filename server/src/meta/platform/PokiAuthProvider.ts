@@ -37,6 +37,11 @@ export class PokiAuthProvider implements IAuthProvider {
       throw new Error("Invalid Poki userId");
     }
 
+    // P1: Валидация формата userId (должен начинаться с poki_)
+    if (!userId.startsWith("poki_")) {
+      throw new Error("Invalid Poki userId format: must start with poki_");
+    }
+
     return {
       platformUserId: userId,
       nickname,
