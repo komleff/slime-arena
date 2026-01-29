@@ -104,10 +104,10 @@ export class CrazyGamesAdapter implements IAuthAdapter {
     this.user = this.sdk.user.getUser();
     const username = this.user?.username || 'CrazyPlayer';
 
-    // Формат platformData: "token:username"
+    // Формат platformData: JWT токен (сервер извлекает username из payload)
     return {
       platformType: 'crazygames',
-      platformData: `${token}:${username}`,
+      platformData: token,
       nickname: username,
     };
   }
