@@ -31,15 +31,17 @@ interface GuestAuthResponse {
 
 /**
  * Ответ сервера на /auth/telegram
+ * Контракт: server/src/meta/routes/auth.ts:159-168
  */
 interface TelegramAuthResponse {
   accessToken: string;
-  expiresAt: string;
-  user: {
-    id: string;
+  userId: string;
+  profile: {
     nickname: string;
-    isAnonymous: boolean;
+    locale?: string;
   };
+  isNewUser: boolean;
+  isAnonymous: boolean;
 }
 
 /**
@@ -246,16 +248,16 @@ class AuthService {
       this.clearGuestData();
 
       // SECURITY: localStorage chosen intentionally - see file header comment
+      // Codex P0: Исправлен контракт — сервер отдаёт userId/profile/isAnonymous, а не user.*
       localStorage.setItem('access_token', response.accessToken);
-      localStorage.setItem('token_expires_at', response.expiresAt);
-      localStorage.setItem('user_id', response.user.id);
-      localStorage.setItem('user_nickname', response.user.nickname);
-      localStorage.setItem('is_anonymous', String(response.user.isAnonymous));
+      localStorage.setItem('user_id', response.userId);
+      localStorage.setItem('user_nickname', response.profile.nickname);
+      localStorage.setItem('is_anonymous', String(response.isAnonymous));
 
       // Создаём User для UI
       const user = createUser(
-        response.user.id,
-        response.user.nickname,
+        response.userId,
+        response.profile.nickname,
         'telegram'
       );
       const profile = createDefaultProfile();
