@@ -3,10 +3,11 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (после merge PR#111)
+**База:** main (после merge PR#111 + cleanup)
 **Релиз:** v0.7.0 (pre-release)
 **GDD версия:** 3.3.2
 **Sprint 14 Status:** ✅ ЗАВЕРШЁН — 4/4 APPROVED, merged
+**Workspace Status:** ✅ ОЧИЩЕНО — 4f142d7 (deprecated/temp files removed)
 
 ---
 
@@ -107,7 +108,23 @@ bd list --status=open    # Все открытые
 
 ## Следующий спринт
 
-Sprint 15 планирование:
-- E2E тестирование meta-integration
-- Yandex/Poki адаптеры
-- Production deployment
+**Sprint 15 — MetaGameplay Continuation**
+
+Задачи (из TZ v1.9):
+- ✅ PlatformManager + адаптеры
+- ✅ Гостевой режим
+- ✅ Telegram silent auth
+- ✅ claimToken, завершение профиля
+- ✅ LeaderboardScreen (topN, positional)
+- 🔄 Events analytics (7 events) — P1
+- 🔄 POST /profile/nickname — P1
+- 🔄 A/B-тест proposal timing — P1
+- ⏭️ Anti-farm protection (`players_in_match >= N`) — P2
+- ⏭️ VK/OK OAuth — P2
+- ⏭️ Weekly/monthly leaderboards — P2
+
+Актуальные документы:
+- [TZ-MetaGameplay-v1.9-Index.md](../docs/meta-min/TZ-MetaGameplay-v1.9-Index.md)
+- [Memory Bank Core](./)
+- [Workplans](./workplans/)
+
