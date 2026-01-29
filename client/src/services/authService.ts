@@ -293,8 +293,9 @@ class AuthService {
     const nouns = ['Охотник', 'Воин', 'Странник', 'Игрок', 'Боец'];
     const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
     const noun = nouns[Math.floor(Math.random() * nouns.length)];
-    const num = Math.floor(Math.random() * 1000);
-    return `${adj}${noun}${num}`;
+    // Copilot P2: Date.now() уменьшает вероятность коллизий никнеймов
+    const uniqueId = Date.now() % 10000;
+    return `${adj}${noun}${uniqueId}`;
   }
 
   /**
