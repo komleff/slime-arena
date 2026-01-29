@@ -362,10 +362,10 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     if (!results || !currentMatchId || lastClaimedMatchRef.current === currentMatchId) return;
 
     // Вычисляем place из finalLeaderboard
-    // slime-arena-isf: Если игрок не в топ-10, place будет неточным.
-    // Сервер должен возвращать place в personalStats.
+    // slime-arena-isf: Если игрок не в топ-10, place неизвестен (null).
+    // Для наград используем 99 (нет бонуса за место), для UI — "—".
     const localEntry = results.finalLeaderboard.find(e => e.isLocal);
-    const place = localEntry?.place ?? (results.finalLeaderboard.length + 1);
+    const place = localEntry?.place ?? null;
 
     // Получаем данные из personalStats
     const stats = results.personalStats;
@@ -382,7 +382,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
 
     // Вычисляем награды локально для мгновенного отображения
     // Серверные награды начисляются автоматически через /match-results/submit
-    matchResultsService.setLocalRewards(place, stats.kills);
+    // Если место неизвестно (null), используем 99 — нет бонуса за место
+    matchResultsService.setLocalRewards(place ?? 99, stats.kills);
     console.log('[ResultsScreen] setLocalRewards called, status should be success now');
 
     // Для гостей запрашиваем claimToken (используется в upgrade flow)
