@@ -212,7 +212,7 @@ git describe --tags  # e.g., v0.6.0 (gap = нормально)
 - "Code Review by Claude Opus 4.5"
 - "Fixed by ChatGPT 5.2 Codex (Attempt 4/5)"
 
-**Полное описание:** См. `docs/PM-ROLE.md`
+**Полное описание:** См. [PM_ROLE.md](./PM_ROLE.md)
 
 ### Субагенты и PR как информационный канал
 
