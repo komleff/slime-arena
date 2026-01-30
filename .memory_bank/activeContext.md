@@ -3,11 +3,11 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.7.0 released)
-**Ветка:** sprint-15/production-readiness
+**База:** main (v0.7.1-dev)
+**Ветка:** sprint-15/production-readiness → **MERGED**
 **GDD версия:** 3.3.2
-**Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 pre-release
-**Sprint 15 Status:** 🔄 В РАБОТЕ — Platform Adapters готовы
+**Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 released
+**Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
 
 ---
 
@@ -106,36 +106,55 @@ bd list --status=open    # Все открытые
 
 ---
 
-## 🎯 Sprint 15 — Production Readiness (В РАБОТЕ)
+## 🎯 Sprint 15 — Production Readiness (ЗАВЕРШЁН)
 
-**Ветка:** sprint-15/production-readiness
-**Цель:** Подготовка к production deployment
+**Ветка:** sprint-15/production-readiness → main
+**PR:** #112 (squash merged)
+**Версия:** 0.7.1-dev
+**Цель:** Platform Adapters + Production Readiness
 
 ### Выполненные задачи
 
-| Компонент | Статус | Коммит |
-|-----------|--------|--------|
-| YandexAdapter | ✅ | 8da0a17 |
-| PokiAdapter | ✅ | 8da0a17 |
-| PlatformManager integration | ✅ | 8da0a17 |
+| Компонент | Статус | Описание |
+|-----------|--------|----------|
+| YandexAdapter | ✅ | client/src/platform/YandexAdapter.ts |
+| PokiAdapter | ✅ | client/src/platform/PokiAdapter.ts |
+| CrazyGamesAdapter | ✅ | client/src/platform/CrazyGamesAdapter.ts |
+| CrazyGamesAdsProvider | ✅ | client/src/platform/CrazyGamesAdsProvider.ts |
+| GameDistributionAdapter | ✅ | client/src/platform/GameDistributionAdapter.ts |
+| GameDistributionAdsProvider | ✅ | client/src/platform/GameDistributionAdsProvider.ts |
+| PlatformManager v2 | ✅ | Приоритет: Telegram → CrazyGames → GD → Yandex → Poki → Standalone |
+| Server Auth Providers | ✅ | CrazyGames + Poki + Yandex providers |
 
-### Следующие задачи
+### Исправленные замечания (6 итераций)
+
+| Ревьювер | Приоритет | Описание | Статус |
+|----------|-----------|----------|--------|
+| Copilot | P0 | CrazyGames platformData format (JWT) | ✅ |
+| Codex | P1 | Poki userId prefix validation | ✅ |
+| Copilot | P1 | GameDistribution SDK caching | ✅ |
+| Gemini | P2 | YandexAdapter trim() | ✅ |
+| Copilot | P2 | Relative paths in docs | ✅ |
+| Codex | P2 | GD_OPTIONS.gameId warning | ✅ |
+
+### PR#112 Final Review Status
+
+| Ревьювер | Статус | Итерации |
+|----------|--------|----------|
+| Opus | ✅ APPROVED | 2 |
+| Copilot | ✅ COMMENTED (fixed) | 6 |
+| Gemini | ✅ APPROVED | 3 |
+| Codex | ✅ APPROVED | 3 |
+
+### Отложенные задачи (Beads)
 
 | ID | Приоритет | Описание |
 |----|-----------|----------|
+| slime-arena-2j6 | P1 | Yandex JWT верификация подписи |
+| slime-arena-u1r | P1 | CrazyGames JWT верификация подписи |
 | slime-arena-zmf | P1 | Фикс джойстика |
-| NEW | P1 | E2E Smoke Tests |
-| NEW | P1 | Load Test Verification |
-| NEW | P2 | Environment Documentation |
-| NEW | P2 | CI/CD Enhancement |
-
-### Код-ревью
-
-| Ревьювер | Статус | Итерация |
-|----------|--------|----------|
-| Opus (субагент) | ✅ APPROVED | 2 |
 
 Актуальные документы:
 - [План Sprint 15](../docs/plans/sprint-15-production-readiness.md)
-- [TZ-MetaGameplay-v1.9-Index.md](../docs/meta-min/TZ-MetaGameplay-v1.9-Index.md)
+- [TZ-PlatformAdapters](../docs/meta-min/TZ-PlatformAdapters-CrazyGames-GameDistribution-v1.0.md)
 
