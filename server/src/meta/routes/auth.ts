@@ -5,6 +5,8 @@ import { AuthService } from '../services/AuthService';
 import { TelegramAuthProvider } from '../platform/TelegramAuthProvider';
 import { getGoogleOAuthProvider } from '../platform/GoogleOAuthProvider';
 import { getYandexOAuthProvider, YandexOAuthProvider } from '../platform/YandexOAuthProvider';
+import { getOAuthProviderFactory } from '../platform/OAuthProviderFactory';
+import { getGeoIPService } from '../services/GeoIPService';
 import { AuthProvider } from '../models/OAuth';
 import {
   generateGuestToken,
@@ -12,11 +14,14 @@ import {
   verifyAccessToken,
   verifyGuestToken,
   verifyClaimToken,
+  generatePendingAuthToken,
+  verifyPendingAuthToken,
   calculateExpiresAt,
   TOKEN_EXPIRATION,
 } from '../utils/jwtUtils';
 import { ratingService } from '../services/RatingService';
 import { getPostgresPool } from '../../db/pool';
+import { getRedisClient } from '../../db/redis';
 
 const router = express.Router();
 const authService = new AuthService();
@@ -105,6 +110,45 @@ router.post('/guest', async (req: Request, res: Response) => {
     res.status(500).json({
       error: 'guest_token_failed',
       message: 'Failed to create guest token',
+    });
+  }
+});
+
+/**
+ * GET /api/v1/auth/config
+ * Returns available OAuth providers for the client's region
+ *
+ * @see docs/meta-min/TZ-StandaloneAdapter-OAuth-v1.9.md раздел 9.3
+ */
+router.get('/config', async (req: Request, res: Response) => {
+  try {
+    // Получаем IP клиента
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.ip
+      || req.socket.remoteAddress
+      || '127.0.0.1';
+
+    const acceptLanguage = req.get('accept-language');
+
+    // Определяем регион
+    const geoService = getGeoIPService();
+    const geoResult = await geoService.detectRegion(ip, acceptLanguage);
+
+    // Получаем доступных провайдеров для региона
+    const factory = getOAuthProviderFactory();
+    const providers = factory.getProvidersForRegion(geoResult.region);
+
+    console.log(`[Auth] Config: IP ${ip} → ${geoResult.region} (${geoResult.source}), providers: ${providers.map(p => p.name).join(', ') || 'none'}`);
+
+    res.json({
+      region: geoResult.region,
+      providers,
+    });
+  } catch (error: any) {
+    console.error('[Auth] Config error:', error);
+    res.status(500).json({
+      error: 'config_failed',
+      message: 'Failed to get auth configuration',
     });
   }
 });
@@ -459,11 +503,52 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       }
 
       // Check if OAuth link already exists (conflict)
-      const linkExists = await authService.oauthLinkExists(provider as AuthProvider, providerUserId);
-      if (linkExists) {
+      const existingUser = await authService.findUserByOAuthLink(provider as AuthProvider, providerUserId);
+      if (existingUser) {
+        // ТЗ раздел 10: OAuth уже привязан к другому аккаунту
+        // Генерируем pendingAuthToken для возможности входа в существующий аккаунт
+        const pendingAuthToken = generatePendingAuthToken({
+          provider,
+          providerUserId,
+          existingUserId: existingUser.id,
+        });
+
+        // Сохраняем токен в Redis для одноразовости (5 минут)
+        try {
+          const redis = getRedisClient();
+          const tokenKey = `pending_auth:${pendingAuthToken.slice(-16)}`;
+          await redis.set(tokenKey, 'valid', { EX: 300 }); // 5 минут
+        } catch (redisErr) {
+          console.warn('[Auth] Redis unavailable for pendingAuthToken:', redisErr);
+          // Продолжаем без Redis - токен будет работать, но не одноразовый
+        }
+
+        // Получаем totalMass существующего пользователя из leaderboards
+        let existingTotalMass = 0;
+        try {
+          const pool = getPool();
+          const result = await pool.query(
+            'SELECT total_mass FROM leaderboards WHERE user_id = $1',
+            [existingUser.id]
+          );
+          if (result.rows.length > 0) {
+            existingTotalMass = result.rows[0].total_mass || 0;
+          }
+        } catch {
+          // Игнорируем ошибку получения рейтинга
+        }
+
+        console.log(`[Auth] OAuth conflict: ${provider} user ${providerUserId.slice(0, 8)}... already linked to ${existingUser.id.slice(0, 8)}...`);
+
         return res.status(409).json({
-          error: 'oauth_conflict',
-          message: 'This OAuth account is already linked to another user',
+          error: 'oauth_already_linked',
+          pendingAuthToken,
+          existingAccount: {
+            userId: existingUser.id,
+            nickname: existingUser.nickname,
+            totalMass: existingTotalMass,
+            avatarUrl: existingUser.avatarUrl,
+          },
         });
       }
 
@@ -622,6 +707,88 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     res.status(500).json({
       error: 'upgrade_failed',
       message: 'Upgrade failed',
+    });
+  }
+});
+
+/**
+ * POST /api/v1/auth/oauth/resolve
+ * Login to existing account using pendingAuthToken (after 409 conflict)
+ *
+ * @see docs/meta-min/TZ-StandaloneAdapter-OAuth-v1.9.md раздел 9.4, 10
+ */
+router.post('/oauth/resolve', async (req: Request, res: Response) => {
+  try {
+    const { pendingAuthToken } = req.body;
+
+    if (!pendingAuthToken) {
+      return res.status(400).json({
+        error: 'missing_parameters',
+        message: 'pendingAuthToken is required',
+      });
+    }
+
+    // Verify pendingAuthToken
+    const payload = verifyPendingAuthToken(pendingAuthToken);
+    if (!payload) {
+      return res.status(400).json({
+        error: 'invalid_token',
+        message: 'Invalid or expired pendingAuthToken',
+      });
+    }
+
+    // Check one-time use via Redis
+    try {
+      const redis = getRedisClient();
+      const tokenKey = `pending_auth:${pendingAuthToken.slice(-16)}`;
+      const exists = await redis.get(tokenKey);
+
+      if (!exists) {
+        // Токен уже использован или истёк в Redis
+        return res.status(410).json({
+          error: 'token_already_used',
+          message: 'This pendingAuthToken has already been used',
+        });
+      }
+
+      // Удаляем токен из Redis (одноразовое использование)
+      await redis.del(tokenKey);
+    } catch (redisErr) {
+      console.warn('[Auth] Redis unavailable for pendingAuthToken check:', redisErr);
+      // Продолжаем без Redis - полагаемся на JWT expiration
+    }
+
+    // Get existing user
+    const user = await authService.getUserById(payload.existingUserId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'user_not_found',
+        message: 'User no longer exists',
+      });
+    }
+
+    // Update last login
+    await authService.updateLastLogin(user.id);
+
+    // Generate access token
+    const accessToken = generateAccessToken(user.id, user.isAnonymous);
+
+    console.log(`[Auth] OAuth resolve: ${payload.provider} -> user ${user.id.slice(0, 8)}...`);
+
+    res.json({
+      accessToken,
+      userId: user.id,
+      profile: {
+        nickname: user.nickname,
+        locale: user.locale,
+      },
+      isAnonymous: user.isAnonymous,
+    });
+  } catch (error: any) {
+    console.error('[Auth] OAuth resolve error:', error);
+    res.status(500).json({
+      error: 'resolve_failed',
+      message: 'OAuth resolve failed',
     });
   }
 });

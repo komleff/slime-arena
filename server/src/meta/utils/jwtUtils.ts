@@ -57,8 +57,28 @@ export interface ClaimTokenPayload {
   exp?: number;
 }
 
+/**
+ * Payload for pendingAuthToken (OAuth 409 conflict resolution)
+ * Used when OAuth link already exists on another account
+ * @see docs/meta-min/TZ-StandaloneAdapter-OAuth-v1.9.md раздел 10
+ */
+export interface PendingAuthTokenPayload {
+  /** Token type */
+  type: 'pending_auth';
+  /** OAuth provider name */
+  provider: string;
+  /** Provider user ID */
+  providerUserId: string;
+  /** Existing user ID (the one OAuth is linked to) */
+  existingUserId: string;
+  /** Token issue time */
+  iat?: number;
+  /** Token expiration time */
+  exp?: number;
+}
+
 /** Union type for all token payloads */
-export type TokenPayload = AccessTokenPayload | GuestTokenPayload | ClaimTokenPayload;
+export type TokenPayload = AccessTokenPayload | GuestTokenPayload | ClaimTokenPayload | PendingAuthTokenPayload;
 
 // ============================================================================
 // Configuration
@@ -82,6 +102,7 @@ function getJwtSecret(): string {
 // Default token lifetimes (in seconds)
 const ACCESS_TOKEN_EXPIRES_SECONDS = 24 * 60 * 60; // 24 hours
 const GUEST_TOKEN_EXPIRES_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const PENDING_AUTH_TOKEN_EXPIRES_SECONDS = 5 * 60; // 5 minutes (ТЗ раздел 10.6)
 
 function getClaimTokenExpiresSeconds(): number {
   const ttlMinutes = process.env.CLAIM_TOKEN_TTL_MINUTES;
@@ -171,6 +192,29 @@ export function generateClaimToken(
 ): string {
   const fullPayload: Omit<ClaimTokenPayload, 'iat' | 'exp'> = {
     type: 'claim',
+    ...payload,
+  };
+  return jwt.sign(fullPayload, getJwtSecret(), {
+    expiresIn: expiresInSeconds,
+    algorithm: 'HS256',
+  });
+}
+
+/**
+ * Generate pending auth token for OAuth 409 conflict resolution
+ * Used when OAuth link already exists on another account
+ *
+ * @see docs/meta-min/TZ-StandaloneAdapter-OAuth-v1.9.md раздел 10
+ * @param payload - Pending auth token payload
+ * @param expiresInSeconds - Token lifetime in seconds (default: 5 minutes)
+ * @returns JWT pending auth token
+ */
+export function generatePendingAuthToken(
+  payload: Omit<PendingAuthTokenPayload, 'type' | 'iat' | 'exp'>,
+  expiresInSeconds: number = PENDING_AUTH_TOKEN_EXPIRES_SECONDS
+): string {
+  const fullPayload: Omit<PendingAuthTokenPayload, 'iat' | 'exp'> = {
+    type: 'pending_auth',
     ...payload,
   };
   return jwt.sign(fullPayload, getJwtSecret(), {
@@ -277,6 +321,22 @@ export function verifyClaimToken(token: string): ClaimTokenPayload | null {
 }
 
 /**
+ * Verify and decode pending auth token
+ * Used for OAuth 409 conflict resolution
+ *
+ * @param token - Pending auth token to verify
+ * @returns PendingAuthTokenPayload or null if invalid
+ */
+export function verifyPendingAuthToken(token: string): PendingAuthTokenPayload | null {
+  const result = verifyToken<PendingAuthTokenPayload>(token);
+  if (!result.valid) return null;
+  // Verify type and required fields
+  if (result.payload.type !== 'pending_auth') return null;
+  if (!result.payload.provider || !result.payload.providerUserId || !result.payload.existingUserId) return null;
+  return result.payload;
+}
+
+/**
  * Determine token type from token string
  *
  * @param token - JWT token
@@ -310,4 +370,5 @@ export const TOKEN_EXPIRATION = {
   ACCESS_TOKEN: ACCESS_TOKEN_EXPIRES_SECONDS,
   GUEST_TOKEN: GUEST_TOKEN_EXPIRES_SECONDS,
   CLAIM_TOKEN: CLAIM_TOKEN_EXPIRES_SECONDS,
+  PENDING_AUTH_TOKEN: PENDING_AUTH_TOKEN_EXPIRES_SECONDS,
 } as const;
