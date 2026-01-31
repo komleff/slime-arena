@@ -18,36 +18,44 @@ export type LeaderboardMode = 'total' | 'best';
 
 /**
  * Запись в таблице лидеров.
+ * LB-007: Добавлены skinId и matchesPlayed
  */
 export interface GlobalLeaderboardEntry {
   place: number;
   nickname: string;
   userId: string;
   score: number;
-  gamesPlayed?: number;
+  skinId?: string;          // LB-007: ID скина игрока
+  gamesPlayed?: number;     // Оставляем для совместимости, заполняется из matchesPlayed
+  matchesPlayed?: number;   // LB-007: Количество сыгранных матчей (только mode=total)
   level?: number;
 }
 
 /**
  * Запись с сервера (использует position/value).
+ * LB-007: Добавлены skinId и matchesPlayed
  */
 interface ServerLeaderboardEntry {
   position: number;
   nickname: string;
   userId: string;
   value: number;
-  gamesPlayed?: number;
+  skinId?: string;          // LB-007: ID скина игрока
+  matchesPlayed?: number;   // LB-007: Количество сыгранных матчей
+  gamesPlayed?: number;     // Deprecated, сохраняем для совместимости
   level?: number;
 }
 
 /**
  * Ответ сервера на запрос таблицы лидеров.
+ * LB-007: Добавлен myMatchesPlayed
  */
 interface ServerLeaderboardResponse {
   mode: LeaderboardMode;
   entries: ServerLeaderboardEntry[];
   myPosition?: number;
   myValue?: number;
+  myMatchesPlayed?: number; // LB-007: Количество матчей текущего пользователя (только mode=total)
 }
 
 /**
@@ -100,18 +108,22 @@ class LeaderboardService {
       );
 
       // Маппинг серверных полей (position/value) на клиентские (place/score)
+      // LB-007: Добавлены skinId и matchesPlayed
       const mappedEntries: GlobalLeaderboardEntry[] = response.entries.map(entry => ({
         place: entry.position,
         nickname: entry.nickname,
         userId: entry.userId,
         score: entry.value,
-        gamesPlayed: entry.gamesPlayed,
+        skinId: entry.skinId,
+        matchesPlayed: entry.matchesPlayed,
+        gamesPlayed: entry.matchesPlayed ?? entry.gamesPlayed, // Для обратной совместимости
         level: entry.level,
       }));
 
       // Copilot P2: Маппинг позиции текущего пользователя
       // Берём nickname и userId из currentUser сигнала, т.к. сервер их не возвращает
       // Gemini P2: Для гостей не показываем userEntry (даже если сервер вернёт myPosition)
+      // LB-007: Добавлен matchesPlayed
       const user = currentUser.value;
       const hasValidUser = user?.id && user?.nickname;
       const userEntry: GlobalLeaderboardEntry | null =
@@ -121,6 +133,8 @@ class LeaderboardService {
               nickname: user.nickname,
               userId: user.id,
               score: response.myValue ?? 0,
+              matchesPlayed: response.myMatchesPlayed,
+              gamesPlayed: response.myMatchesPlayed, // Для обратной совместимости
             }
           : null;
 

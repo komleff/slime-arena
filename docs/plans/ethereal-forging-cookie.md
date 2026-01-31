@@ -1,132 +1,173 @@
-# План исправления OAuth Upgrade Flow
+# План реализации LeaderboardScreen v1.6
 
-**Дата:** 2026-01-31
-**Спринт:** 16 (OAuth для Standalone)
+**Дата:** 2026-02-01
+**Спринт:** 17 (LeaderboardScreen)
+**ТЗ:** [TZ-LeaderboardScreen-v1.6.md](../meta-min/TZ-LeaderboardScreen-v1.6.md)
 **Приоритет:** P0
 
 ---
 
-## Обнаруженные баги
+## Текущее состояние
 
-### P0-1: skinId гостя не сохраняется при upgrade
-**Симптом:** Гость играл со скином `slime-pumpkin`, после OAuth upgrade в БД `slime_green`
-**Причина:** В `matchResults.ts:344-354` условие `!isGuest && subjectId` никогда не выполняется для гостей, используется hardcoded `'slime_green'`
-**Результат:** Все гости теряют выбранный скин
-
-### P0-2: Рейтинг не инициализируется из claimToken.finalMass
-**Симптом:** После upgrade Total Mass = 0, Best Mass = 0
-**Ожидание по ТЗ:** `claimToken.finalMass` должен инициализировать рейтинги (ТЗ 6.5)
-**Результат:** Гостевой прогресс теряется
-
-### P0-3: Рейтинг не начисляется после матча зарегистрированного пользователя
-**Симптом:** Сыграл матч под авторизованным аккаунтом, Total/Best Mass по-прежнему 0
-**Возможные причины:**
-- `is_anonymous` всё ещё `true`?
-- `awardRating()` не вызывается?
-- Ошибка в асинхронном начислении?
-
-### P1-4: Пользователю не предлагается выбрать никнейм
-**Симптом:** Имя из OAuth ("Дмитрий Комлев") установлено автоматически без подтверждения
-**Ожидание по ТЗ:** Показать имя из OAuth как дефолт, но дать возможность изменить (ТЗ 6.5: "никнейм — выбранный при завершении профиля")
+**Уже реализовано:**
+- `client/src/ui/components/LeaderboardScreen.tsx` — базовый экран с переключателем total/best
+- `client/src/services/leaderboardService.ts` — сервис с кэшированием
+- `server/src/meta/routes/leaderboard.ts` — API с myPosition/myValue
+- Таблицы БД: `leaderboard_total_mass`, `leaderboard_best_mass`
+- Выделение топ-3 (золото/серебро/бронза)
+- Подсветка текущего пользователя (is-user)
 
 ---
 
-## Требования по ТЗ (TZ-MetaGameplay-v1.9-Core.md)
+## GAP-анализ
 
-### Раздел 6.5 — Завершение профиля (Standalone)
-```
-1. Выбор провайдера (Google / Яндекс).
-2. OAuth-флоу → code.
-3. POST /auth/upgrade режим convert_guest:
-   - authPayload = OAuth-код
-   - claimToken
-   - nickname  ← ПОЛЬЗОВАТЕЛЬ УКАЗЫВАЕТ
-4. Сервер создаёт users с is_anonymous = false.
-5. Инициализация рейтингов из claimToken.finalMass.
-```
+### P0 — Критичные недостающие функции
 
-### Раздел 3.3 — Зарегистрированный игрок
-```
-| Никнейм | Выбранный при завершении профиля |
-| Скин | Закреплённый при завершении профиля |
-```
+| # | Требование ТЗ | Текущее состояние |
+|---|---------------|-------------------|
+| 1 | Кнопка «Лидеры» на LobbyScreen | **Заглушка** — `handleLeaderboard()` пустая (MainScreen.tsx:627) |
+| 2 | Плашка игрока: гибридная модель (sticky top/bottom) | **Только снизу** — нет отслеживания видимости |
+| 3 | Плашка гостя Standalone (claimToken/localStorage) | **Отсутствует** |
+| 4 | Плашка Telegram-анонима | **Отсутствует** |
+| 5 | Кнопка «Сохранить прогресс» в плашке | **Отсутствует** |
+
+### P1 — Важные доработки
+
+| # | Требование ТЗ | Текущее состояние |
+|---|---------------|-------------------|
+| 6 | Кнопка «Лидеры» на MatchmakingScreen | **Отсутствует** — нужно добавить в MainMenu |
+| 7 | matchesPlayed в entries API | **Отсутствует** — SQL не выбирает |
+| 8 | myMatchesPlayed в ответе API | **Отсутствует** |
+| 9 | Миниатюра скина в строке | **Отсутствует** — skinId приходит, но не отображается |
+| 10 | Столбец matchesPlayed только в mode=total | **Частично** — gamesPlayed показан, но данных нет |
+| 11 | Автозакрытие при нахождении матча | **Отсутствует** |
+| 12 | Вторичная сортировка по updated_at | **Отсутствует** |
+
+### P2 — Косметика
+
+| # | Требование ТЗ | Текущее состояние |
+|---|---------------|-------------------|
+| 13 | Названия вкладок «Накопительный»/«Рекордный» | Используются «Всего очков»/«Лучший матч» |
+| 14 | Резервный никнейм «Игрок» + 4 символа ID | **Отсутствует** |
+| 15 | События аналитики | **Отсутствует** |
 
 ---
 
-## План исправлений
+## Декомпозиция на задачи Beads
 
-### Этап 1: Передача skinId гостя в claimToken
+### Фаза 1: Точки входа (P0)
 
-**Файл:** `server/src/meta/routes/matchResults.ts`
+```
+LB-001: Интеграция LeaderboardScreen в UIBridge
+  Файлы: client/src/ui/UIBridge.tsx, client/src/ui/signals/gameState.ts
+  Описание: Добавить состояние showLeaderboard + рендеринг LeaderboardScreen
 
-**Проблема (строки 344-354):**
-```typescript
-let skinId = 'slime_green';
-if (!isGuest && subjectId) {  // ← Никогда не true для гостей
-  // получаем skinId из profiles
-}
+LB-002: Активация кнопки «Лидеры» в MainScreen
+  Файлы: client/src/ui/components/MainScreen.tsx
+  Описание: Реализовать handleLeaderboard() → setShowLeaderboard(true)
+  Зависит от: LB-001
+
+LB-003: Кнопка «Лидеры» в MainMenu (MatchmakingScreen)
+  Файлы: client/src/ui/components/MainMenu.tsx
+  Описание: Добавить иконку лидеров рядом с кнопкой «Назад»
+  Зависит от: LB-001
 ```
 
-**Решение:** Клиент должен передавать `skinId` в запросе `/match-results/claim`
+### Фаза 2: Backend API (P0-P1)
 
-```typescript
-// Новая сигнатура:
-POST /api/v1/match-results/claim
-{
-  matchId: string,
-  skinId?: string  // Для гостей — из localStorage
-}
+```
+LB-004: matchesPlayed и skinId в entries
+  Файлы: server/src/meta/routes/leaderboard.ts
+  Описание: Добавить matches_played из leaderboard_total_mass в SQL,
+            включить skinId в ответ (уже выбирается, нужно вернуть)
+
+LB-005: myMatchesPlayed в ответе API
+  Файлы: server/src/meta/routes/leaderboard.ts
+  Описание: Добавить myMatchesPlayed при mode=total
+  Зависит от: LB-004
+
+LB-006: Вторичная сортировка по updated_at
+  Файлы: server/src/meta/routes/leaderboard.ts
+  Описание: ORDER BY mass DESC, updated_at DESC
+
+LB-007: Обновить типы в leaderboardService
+  Файлы: client/src/services/leaderboardService.ts
+  Описание: Добавить matchesPlayed, skinId в типы
+  Зависит от: LB-004
 ```
 
-**Изменения:**
-1. `matchResults.ts` — принимать `skinId` из body для гостей
-2. `client/src/services/matchResultsService.ts` — передавать `guest_skin_id`
+### Фаза 3: Плашка игрока — критичная (P0)
 
-### Этап 2: Подтверждение никнейма при OAuth
+```
+LB-008: Рефакторинг плашки — гибридная модель
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание:
+    - Добавить IntersectionObserver для строки игрока
+    - Плашка sticky top когда строка выше видимой области
+    - Плашка sticky bottom когда строка ниже или игрок вне топ-100
+    - Скрыть плашку когда строка видна в списке
 
-**Файл:** `client/src/ui/components/RegistrationPromptModal.tsx`
+LB-009: Плашка гостя Standalone
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание:
+    - Читать claimToken из localStorage
+    - Показывать guest_skin_id, guest_nickname, finalMass
+    - Fallback на last_match_mass если claimToken истёк
 
-**Текущее поведение:** OAuth provider возвращает своё имя, которое сразу записывается в БД без подтверждения
+LB-010: Плашка Telegram-анонима
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: Показывать данные из Telegram профиля + is_anonymous
+  Зависит от: LB-009
 
-**Требуемое поведение (ТЗ 6.5: "никнейм — выбранный при завершении профиля"):**
-1. После возврата с OAuth показать модалку подтверждения никнейма
-2. Дефолт = имя из OAuth провайдера (например, "Дмитрий Комлев")
-3. Пользователь может изменить на любое другое (2–20 символов)
-4. Передать в `/auth/upgrade` выбранный/подтверждённый никнейм
+LB-011: Кнопка «Сохранить прогресс»
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание:
+    - Для гостя Standalone → открыть OAuthProviderSelector
+    - Для Telegram-анонима → открыть NicknameEditModal
+  Зависит от: LB-009, LB-010
 
-**Изменения:**
-1. `main.ts` (OAuth callback) — после успешного OAuth показать NicknameConfirmModal
-2. Создать `NicknameConfirmModal.tsx` — поле ввода с дефолтом из OAuth + кнопка "Сохранить"
-3. `OAuthRedirectHandler.ts` — не вызывать finishUpgrade сразу, а вернуть данные для модалки (включая OAuth displayName)
-4. `auth.ts` — использовать никнейм из запроса клиента
-
-### Этап 3: Инициализация рейтинга из claimToken
-
-**Файл:** `server/src/meta/routes/auth.ts`
-
-**Проверить:** Вызывается ли `ratingService.initializeRating()` и с какими данными
-
-**Ожидание:**
-```typescript
-// При convert_guest (auth.ts)
-const ratingResult = await ratingService.initializeRating(
-  user.id,
-  claimPayload,     // содержит finalMass
-  playersInMatch,
-  client
-);
+LB-012: Перезагрузка после завершения профиля
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: После успешного upgrade → refresh leaderboard
+  Зависит от: LB-011
 ```
 
-### Этап 4: Проверка начисления рейтинга после матча
+### Фаза 4: UI улучшения (P1)
 
-**Файлы:**
-- `server/src/meta/routes/matchResults.ts`
-- `server/src/meta/services/RatingService.ts`
+```
+LB-013: Миниатюра скина в строке
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание:
+    - Создать маппинг skinId → путь к спрайту
+    - Отобразить 32x32 миниатюру перед никнеймом
+  Зависит от: LB-007
 
-**Диагностика:**
-1. Проверить логи: вызывается ли `awardRating()`
-2. Проверить `is_anonymous` пользователя в БД
-3. Проверить наличие записи в `rating_awards`
+LB-014: Условный столбец matchesPlayed
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: Показывать только в mode=total
+  Зависит от: LB-007
+
+LB-015: Автозакрытие при нахождении матча
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: useEffect подписка на matchmakingStatus → onClose()
+  Зависит от: LB-001
+```
+
+### Фаза 5: Косметика (P2)
+
+```
+LB-016: Названия вкладок по ТЗ
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: «Накопительный» / «Рекордный»
+
+LB-017: Резервный никнейм
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: nickname || 'Игрок' + userId.slice(-4)
+
+LB-018: События аналитики
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: leaderboard_viewed, tab_switched, save_progress_clicked
+```
 
 ---
 
@@ -134,50 +175,76 @@ const ratingResult = await ratingService.initializeRating(
 
 | Файл | Изменения |
 |------|-----------|
-| `server/src/meta/routes/matchResults.ts` | Принимать skinId из body для гостей |
-| `server/src/meta/routes/auth.ts` | Использовать никнейм из запроса клиента |
-| `client/src/services/matchResultsService.ts` | Передавать guest_skin_id в /claim |
-| `client/src/main.ts` | После OAuth callback показать NicknameConfirmModal |
-| `client/src/ui/components/NicknameConfirmModal.tsx` | НОВЫЙ: модалка подтверждения никнейма |
-| `client/src/oauth/OAuthRedirectHandler.ts` | Вернуть OAuth displayName для модалки |
+| `client/src/ui/components/LeaderboardScreen.tsx` | Основные изменения: плашка, скины, matchesPlayed |
+| `client/src/ui/UIBridge.tsx` | Интеграция: добавить рендеринг LeaderboardScreen |
+| `client/src/ui/components/MainScreen.tsx` | Активировать handleLeaderboard() |
+| `client/src/ui/components/MainMenu.tsx` | Добавить кнопку «Лидеры» |
+| `server/src/meta/routes/leaderboard.ts` | API: matchesPlayed, myMatchesPlayed, сортировка |
+| `client/src/services/leaderboardService.ts` | Типы: matchesPlayed, skinId |
 
 ---
 
 ## Порядок реализации
 
-1. **P0-1: skinId** — сначала, самое простое
-2. **P0-2/P0-3: Рейтинг** — диагностика и фикс
-3. **P1-4: Никнейм** — новая модалка, более сложно
+**Batch 1 (P0 — блокеры):**
+1. LB-001 → LB-002 → LB-003 (точки входа)
+2. LB-004 → LB-005 → LB-007 (API данные)
+
+**Batch 2 (P0 — плашка):**
+3. LB-008 (гибридная модель)
+4. LB-009 → LB-010 → LB-011 → LB-012 (типы пользователей)
+
+**Batch 3 (P1 — улучшения):**
+5. LB-006 (сортировка)
+6. LB-013 → LB-014 (UI строки)
+7. LB-015 (автозакрытие)
+
+**Batch 4 (P2 — полировка):**
+8. LB-016, LB-017, LB-018
 
 ---
 
 ## Верификация
 
-### Тест 1: Скин сохраняется
-1. Создать гостя, выбрать скин `slime-pumpkin`
-2. Сыграть матч, нажать "Сохранить прогресс"
-3. OAuth через Yandex
-4. Проверить в БД: `registration_skin_id = 'slime-pumpkin'`
+### Тест 1: Точки входа
+1. Открыть MainScreen → нажать кнопку «Лидеры» → экран открывается
+2. Открыть MainMenu → нажать кнопку «Лидеры» → экран открывается
+3. Во время поиска матча → матч найден → экран автоматически закрывается
 
-### Тест 2: Никнейм предлагается подтвердить/изменить
-1. Гость проходит OAuth через Yandex (имя в Yandex: "Дмитрий Комлев")
-2. После возврата показать модалку с полем, дефолт = "Дмитрий Комлев"
-3. Пользователь может оставить или изменить на "Первый Слайм"
-4. Проверить в БД: nickname = выбранный пользователем
+### Тест 2: Плашка зарегистрированного
+1. Авторизованный игрок в топ-100
+2. Прокрутить список вверх/вниз
+3. Плашка появляется сверху/снизу когда строка не видна
+4. Плашка скрывается когда строка видна
 
-### Тест 3: Рейтинг инициализируется
-1. Гость набирает массу 500 в матче
-2. OAuth upgrade
-3. Проверить: Total Mass = 500, Best Mass = 500
+### Тест 3: Плашка гостя Standalone
+1. Сыграть матч как гость
+2. Открыть LeaderboardScreen
+3. Плашка показывает данные из claimToken
+4. Нажать «Сохранить прогресс» → открывается OAuthProviderSelector
 
-### Тест 4: Рейтинг начисляется после матча
-1. Зарегистрированный игрок (is_anonymous = false)
-2. Сыграть матч, набрать массу 300
-3. Проверить: Total Mass += 300
+### Тест 4: Плашка Telegram-анонима
+1. Войти через Telegram (is_anonymous = true)
+2. Открыть LeaderboardScreen
+3. Плашка показывает никнейм из Telegram
+4. Нажать «Сохранить прогресс» → открывается NicknameEditModal
+
+### Тест 5: API данные
+1. GET /api/v1/leaderboard?mode=total
+2. Проверить: entries содержат matchesPlayed, skinId
+3. Проверить: ответ содержит myMatchesPlayed (если авторизован)
 
 ---
 
-## Уточнённые требования
+## Оценка объёма
 
-1. **Никнейм при upgrade:** Показывать модалку ПОСЛЕ возврата с OAuth
-2. **Дефолт никнейма:** Имя из OAuth провайдера (не гостевой никнейм)
+| Фаза | Задачи | Часы |
+|------|--------|------|
+| Точки входа | 3 | 4ч |
+| Backend API | 4 | 4ч |
+| Плашка игрока | 5 | 12ч |
+| UI улучшения | 3 | 4ч |
+| Косметика | 3 | 2ч |
+| **Итого** | **18** | **~26ч** |
+
+С тестированием и code review: **~35-40 часов** (4-5 рабочих дней).

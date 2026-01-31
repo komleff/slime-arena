@@ -37,4 +37,6 @@ export interface LeaderboardEntry {
   nickname: string;
   skinId: string;
   value: number;
+  /** Only present for mode=total */
+  matchesPlayed?: number;
 }

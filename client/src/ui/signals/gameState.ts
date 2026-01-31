@@ -227,6 +227,9 @@ export const oauthConflict = signal<OAuthConflictResponse | null>(null);
 // P1-4: OAuth nickname confirm — данные для показа NicknameConfirmModal
 export const oauthNicknameConfirm = signal<OAuthPrepareResponse | null>(null);
 
+// Глобальная таблица лидеров
+export const showLeaderboard = signal<boolean>(false);
+
 // ========== Matchmaking состояние ==========
 
 export const matchmakingStatus = signal<MatchmakingStatus>('idle');
@@ -513,6 +516,20 @@ export function setOAuthNicknameConfirm(prepare: OAuthPrepareResponse | null) {
  */
 export function clearOAuthNicknameConfirm() {
   oauthNicknameConfirm.value = null;
+}
+
+/**
+ * Открыть глобальную таблицу лидеров
+ */
+export function openLeaderboard() {
+  showLeaderboard.value = true;
+}
+
+/**
+ * Закрыть глобальную таблицу лидеров
+ */
+export function closeLeaderboard() {
+  showLeaderboard.value = false;
 }
 
 export function setAuthError(error: string | null) {

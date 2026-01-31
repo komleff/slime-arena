@@ -21,6 +21,7 @@ import {
   matchmakingError,
   matchTimer,
   arenaWaitTime,
+  openLeaderboard,
 } from '../signals/gameState';
 
 // ========== Стили ==========
@@ -329,6 +330,29 @@ const styles = `
     border-color: #6fd6ff;
     color: #6fd6ff;
   }
+
+  .leaderboard-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #4a6080;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 150ms;
+  }
+
+  .leaderboard-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #6fd6ff;
+  }
+
+  .leaderboard-btn .menu-icon-img {
+    width: 24px;
+    height: 24px;
+    display: block;
+  }
 `;
 
 const STYLES_ID = 'main-menu-styles';
@@ -433,6 +457,10 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
     }
   }, [name, handlePlay]);
 
+  const handleLeaderboard = useCallback(() => {
+    openLeaderboard();
+  }, []);
+
   return (
     <div class="main-menu">
       {onBack && (
@@ -440,6 +468,9 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
           ← На главную
         </button>
       )}
+      <button type="button" class="leaderboard-btn" title="Лидеры" onClick={handleLeaderboard}>
+        <img src="/icons/icon_menu_leaderboard.webp" class="menu-icon-img" alt="" />
+      </button>
       <h1 class="menu-logo">SLIME ARENA</h1>
       <p class="menu-subtitle">Съешь или будь съеден</p>
 
