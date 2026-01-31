@@ -47,7 +47,7 @@ export class OAuthService {
 
   private async fetchConfig(): Promise<void> {
     try {
-      const response = await metaServerClient.getRaw('/auth/config');
+      const response = await metaServerClient.getRaw('/api/v1/auth/config');
 
       if (!response.ok) {
         throw new Error('Failed to load OAuth config');

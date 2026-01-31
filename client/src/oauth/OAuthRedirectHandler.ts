@@ -240,7 +240,7 @@ async function handleOAuthLogin(
     body.codeVerifier = codeVerifier;
   }
 
-  const response = await metaServerClient.postRaw('/auth/oauth', body);
+  const response = await metaServerClient.postRaw('/api/v1/auth/oauth', body);
 
   if (response.status === 404) {
     // Аккаунт не найден — это нормально для нового пользователя
@@ -289,7 +289,7 @@ async function handleOAuthUpgrade(
     body.codeVerifier = codeVerifier;
   }
 
-  const response = await metaServerClient.postRaw('/auth/upgrade', body, {
+  const response = await metaServerClient.postRaw('/api/v1/auth/upgrade', body, {
     headers: {
       Authorization: `Bearer ${guestToken}`,
     },
@@ -333,7 +333,7 @@ async function handleOAuthUpgrade(
 export async function resolveOAuthConflict(
   pendingAuthToken: string
 ): Promise<OAuthHandlerResult> {
-  const response = await metaServerClient.postRaw('/auth/oauth/resolve', {
+  const response = await metaServerClient.postRaw('/api/v1/auth/oauth/resolve', {
     pendingAuthToken,
   });
 

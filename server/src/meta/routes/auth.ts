@@ -469,6 +469,26 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
+      // P1-4 Security: Проверка региональной доступности провайдера для convert_guest.
+      // Предотвращает обход ограничений через прямой вызов /auth/upgrade.
+      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+        || req.ip
+        || req.socket.remoteAddress
+        || '127.0.0.1';
+      const acceptLanguage = req.get('accept-language');
+
+      const geoService = getGeoIPService();
+      const geoResult = await geoService.detectRegion(ip, acceptLanguage);
+
+      const providerFactory = getOAuthProviderFactory();
+      if (!providerFactory.isProviderAvailable(provider, geoResult.region)) {
+        console.log(`[Auth] Upgrade blocked: ${provider} not available in region ${geoResult.region} (IP: ${ip})`);
+        return res.status(403).json({
+          error: 'provider_not_available',
+          message: `Provider ${provider} is not available in your region`,
+        });
+      }
+
       // Verify guestToken
       const guestPayload = verifyGuestToken(token);
       if (!guestPayload) {

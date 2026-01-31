@@ -548,6 +548,10 @@ class AuthService {
     // Очищаем гостевые данные
     this.clearGuestData();
 
+    // P1-3: Устанавливаем токен в HTTP-клиент для последующих запросов.
+    // Без этого HTTP-клиент остаётся с гостевым токеном после OAuth upgrade.
+    metaServerClient.setToken(accessToken);
+
     // Обновляем UI состояние
     const user = createUser(
       '', // userId будет получен при следующем fetchProfile

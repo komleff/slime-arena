@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { oauthService } from '../../oauth/OAuthService';
 import { OAuthProviderConfig, OAuthProviderName, OAuthIntent } from '../../oauth/types';
+import { claimToken } from '../../services/matchResultsService';
 
 // ========== Стили ==========
 
@@ -205,6 +206,13 @@ export function OAuthProviderSelector({
 
     try {
       setStartingOAuth(provider);
+
+      // P0-2: Сохраняем claimToken в localStorage перед редиректом на OAuth провайдера.
+      // После возврата с провайдера main.ts прочитает его для convert_guest flow.
+      if (intent === 'convert_guest' && claimToken.value) {
+        localStorage.setItem('pending_claim_token', claimToken.value);
+      }
+
       await oauthService.startOAuth(provider, intent, gameState);
       // После startOAuth происходит редирект, код ниже не выполнится
     } catch (err) {
