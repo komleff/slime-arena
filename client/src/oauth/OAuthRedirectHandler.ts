@@ -57,9 +57,12 @@ export function parseOAuthCallback(): OAuthCallbackParams | null {
  * Проверяет, находимся ли мы на callback URL
  *
  * Copilot P3: Добавлена проверка pathname и наличия state для безопасности.
+ * Copilot P2: Добавлена проверка наличия сохранённого состояния в localStorage
+ *             для предотвращения false positives на других страницах.
  * Принимаем callback только если:
  * 1. pathname === '/oauth/callback', или
  * 2. pathname === '/' и есть оба параметра code= и state= (OAuth редирект на корень)
+ *    И есть сохранённый state в localStorage (подтверждение, что OAuth был инициирован)
  */
 export function isOAuthCallback(): boolean {
   const pathname = window.location.pathname;
@@ -70,8 +73,14 @@ export function isOAuthCallback(): boolean {
     return true;
   }
 
-  // Корень с OAuth параметрами (code + state)
-  if (pathname === '/' && search.includes('code=') && search.includes('state=')) {
+  // Корень с OAuth параметрами (code + state) И сохранённым состоянием
+  // Copilot P2: Проверяем localStorage.getItem чтобы избежать false positives
+  if (
+    pathname === '/' &&
+    search.includes('code=') &&
+    search.includes('state=') &&
+    !!localStorage.getItem(OAUTH_STORAGE_KEYS.STATE)
+  ) {
     return true;
   }
 

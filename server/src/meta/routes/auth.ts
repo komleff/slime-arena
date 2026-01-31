@@ -549,6 +549,19 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       const existingUser = await authService.findUserByOAuthLink(provider as AuthProvider, providerUserId);
       if (existingUser) {
         // ТЗ раздел 10: OAuth уже привязан к другому аккаунту
+        // Copilot P2: Проверяем Redis ДО генерации токена
+        // Если Redis недоступен, нет смысла генерировать токен
+        let redis;
+        try {
+          redis = getRedisClient();
+        } catch (redisErr) {
+          console.error('[Auth] Redis unavailable - returning 503:', redisErr);
+          return res.status(503).json({
+            error: 'service_unavailable',
+            message: 'Authentication service temporarily unavailable. Please try again.',
+          });
+        }
+
         // Генерируем pendingAuthToken для возможности входа в существующий аккаунт
         const pendingAuthToken = generatePendingAuthToken({
           provider,
@@ -559,11 +572,10 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         // Сохраняем токен в Redis для одноразовости (5 минут)
         // ВАЖНО: Redis обязателен для безопасности — без него токен можно использовать многократно
         try {
-          const redis = getRedisClient();
           const tokenKey = getPendingAuthRedisKey(pendingAuthToken);
           await redis.set(tokenKey, 'valid', { EX: 300 }); // 5 минут
         } catch (redisErr) {
-          console.error('[Auth] Redis unavailable for pendingAuthToken - returning 503:', redisErr);
+          console.error('[Auth] Redis set failed for pendingAuthToken - returning 503:', redisErr);
           return res.status(503).json({
             error: 'service_unavailable',
             message: 'Authentication service temporarily unavailable. Please try again.',

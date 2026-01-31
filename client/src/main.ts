@@ -58,7 +58,7 @@ import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { isOAuthCallback, parseOAuthCallback, handleOAuthCallback, clearOAuthState } from "./oauth/OAuthRedirectHandler";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict } from "./ui/signals/gameState";
+import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict, setAuthError } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -3807,6 +3807,8 @@ const MIN_BOOT_DISPLAY_MS = 1000;
                     }
                 } catch (oauthErr) {
                     console.error("[Main] OAuth processing failed:", oauthErr);
+                    // Copilot P2: Показываем ошибку пользователю через UI
+                    setAuthError('Ошибка авторизации. Попробуйте снова.');
                     clearOAuthState();
                 }
 

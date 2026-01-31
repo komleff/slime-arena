@@ -78,8 +78,13 @@ export class GeoIPService {
    * @returns Результат с регионом и источником определения
    */
   async detectRegion(ip: string, acceptLanguage?: string): Promise<GeoIPResult> {
-    // Локальные адреса → GLOBAL (для разработки)
+    // Copilot P1: Локальные адреса в строгом режиме → UNKNOWN (предотвращение SSRF)
+    // Злоумышленник может подставить внутренний IP в X-Forwarded-For
     if (this.isLocalAddress(ip)) {
+      if (this.strictMode) {
+        console.log(`[GeoIPService] Local address ${ip} → UNKNOWN (strict mode)`);
+        return { region: 'UNKNOWN', countryCode: null, source: 'fallback' };
+      }
       console.log(`[GeoIPService] Local address ${ip} → GLOBAL (dev mode)`);
       return { region: 'GLOBAL', countryCode: null, source: 'fallback' };
     }
