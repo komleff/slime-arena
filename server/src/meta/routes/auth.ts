@@ -17,6 +17,8 @@ import {
   verifyClaimToken,
   generatePendingAuthToken,
   verifyPendingAuthToken,
+  generateUpgradePrepareToken,
+  verifyUpgradePrepareToken,
   calculateExpiresAt,
   TOKEN_EXPIRATION,
 } from '../utils/jwtUtils';
@@ -461,25 +463,199 @@ router.post('/oauth', async (req: Request, res: Response) => {
 });
 
 /**
+ * P1-4: POST /api/v1/auth/oauth/prepare-upgrade
+ * Prepare OAuth upgrade by exchanging code and returning displayName for confirmation
+ *
+ * Input:
+ * - Authorization: Bearer <guestToken>
+ * - Body: { provider, code, claimToken, redirectUri }
+ *
+ * Returns:
+ * - { displayName, avatarUrl, prepareToken } - user confirms nickname, then calls /upgrade
+ * - 409 if OAuth already linked to another account
+ */
+router.post('/oauth/prepare-upgrade', async (req: Request, res: Response) => {
+  try {
+    const { provider, code, claimToken, redirectUri } = req.body;
+
+    if (!provider || !code || !claimToken) {
+      return res.status(400).json({
+        error: 'missing_parameters',
+        message: 'provider, code, and claimToken are required',
+      });
+    }
+
+    if (provider !== 'google' && provider !== 'yandex') {
+      return res.status(400).json({
+        error: 'invalid_provider',
+        message: 'provider must be "google" or "yandex"',
+      });
+    }
+
+    // Verify guestToken from Authorization header
+    const authHeader = req.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Authorization header required',
+      });
+    }
+
+    const token = authHeader.substring(7);
+    const guestPayload = verifyGuestToken(token);
+    if (!guestPayload) {
+      return res.status(401).json({
+        error: 'invalid_token',
+        message: 'Invalid or expired guest token',
+      });
+    }
+
+    // Verify claimToken
+    const claimPayload = verifyClaimToken(claimToken);
+    if (!claimPayload) {
+      return res.status(401).json({
+        error: 'invalid_claim_token',
+        message: 'Invalid or expired claim token',
+      });
+    }
+
+    // Exchange OAuth code for user info
+    let providerUserId: string;
+    let displayName: string;
+    let avatarUrl: string | undefined;
+
+    if (provider === 'google') {
+      try {
+        const googleProvider = getGoogleOAuthProvider();
+        const userInfo = await googleProvider.exchangeCode(code);
+        providerUserId = userInfo.id;
+        displayName = userInfo.name || userInfo.email.split('@')[0];
+        avatarUrl = userInfo.picture;
+      } catch (err: any) {
+        if (err.message.includes('must be set')) {
+          return res.status(500).json({
+            error: 'configuration_error',
+            message: 'Google OAuth not configured',
+          });
+        }
+        throw err;
+      }
+    } else {
+      try {
+        const yandexProvider = getYandexOAuthProvider();
+        const userInfo = await yandexProvider.exchangeCode(code);
+        providerUserId = userInfo.id;
+        displayName = userInfo.display_name || userInfo.login;
+        avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
+      } catch (err: any) {
+        if (err.message.includes('must be set')) {
+          return res.status(500).json({
+            error: 'configuration_error',
+            message: 'Yandex OAuth not configured',
+          });
+        }
+        throw err;
+      }
+    }
+
+    // Check if OAuth already linked to another account
+    const existingUser = await authService.findUserByOAuthLink(provider, providerUserId);
+    if (existingUser) {
+      // 409 Conflict - return pendingAuthToken for login to existing account
+      const pendingAuthToken = generatePendingAuthToken({
+        provider,
+        providerUserId,
+        existingUserId: existingUser.id,
+      });
+
+      return res.status(409).json({
+        error: 'oauth_conflict',
+        message: 'This OAuth account is already linked to another user',
+        existingAccount: {
+          nickname: existingUser.nickname,
+          avatarUrl: existingUser.avatarUrl,
+        },
+        pendingAuthToken,
+      });
+    }
+
+    // Generate prepare token with all needed data
+    const prepareToken = generateUpgradePrepareToken({
+      provider,
+      providerUserId,
+      displayName,
+      avatarUrl,
+      guestSubjectId: guestPayload.sub,
+      claimToken,
+    });
+
+    console.log(`[Auth] Prepare upgrade: guest ${guestPayload.sub.slice(0, 8)}... → ${provider} ${providerUserId.slice(0, 8)}... (displayName: ${displayName})`);
+
+    res.json({
+      displayName,
+      avatarUrl,
+      prepareToken,
+    });
+  } catch (error: any) {
+    console.error('[Auth] Prepare upgrade error:', error);
+    res.status(500).json({
+      error: 'prepare_upgrade_failed',
+      message: 'Failed to prepare upgrade',
+    });
+  }
+});
+
+/**
  * POST /api/v1/auth/upgrade
  * Upgrade guest/anonymous user to registered
  *
  * Two modes:
  * - convert_guest: guestToken + OAuth + claimToken → new registered user
+ *   - Can use prepareToken (from /oauth/prepare-upgrade) instead of code
  * - complete_profile: accessToken (anonymous) + claimToken → complete existing user
  */
 router.post('/upgrade', async (req: Request, res: Response) => {
   try {
-    const { mode, claimToken, provider, code } = req.body;
+    const { mode, claimToken, provider, code, prepareToken, nickname } = req.body;
 
-    if (!mode || !claimToken) {
+    // P1-4: Support prepareToken flow (has all data including claimToken)
+    if (prepareToken && nickname) {
+      const preparePayload = verifyUpgradePrepareToken(prepareToken);
+      if (!preparePayload) {
+        return res.status(401).json({
+          error: 'invalid_prepare_token',
+          message: 'Invalid or expired prepare token',
+        });
+      }
+
+      // Use data from prepareToken, but verify claimToken again
+      const claimPayload = verifyClaimToken(preparePayload.claimToken);
+      if (!claimPayload) {
+        return res.status(401).json({
+          error: 'invalid_claim_token',
+          message: 'Claim token in prepare token is invalid or expired',
+        });
+      }
+
+      // Process upgrade with prepareToken data
+      req.body.mode = 'convert_guest';
+      req.body.claimToken = preparePayload.claimToken;
+      req.body.provider = preparePayload.provider;
+      req.body._preparePayload = preparePayload; // Pass to later processing
+    }
+
+    // Re-read possibly modified body values
+    const finalMode = req.body.mode;
+    const finalClaimToken = req.body.claimToken;
+
+    if (!finalMode || !finalClaimToken) {
       return res.status(400).json({
         error: 'missing_parameters',
         message: 'mode and claimToken are required',
       });
     }
 
-    if (mode !== 'convert_guest' && mode !== 'complete_profile') {
+    if (finalMode !== 'convert_guest' && finalMode !== 'complete_profile') {
       return res.status(400).json({
         error: 'invalid_mode',
         message: 'mode must be "convert_guest" or "complete_profile"',
@@ -487,7 +663,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     }
 
     // Verify claimToken
-    const claimPayload = verifyClaimToken(claimToken);
+    const claimPayload = verifyClaimToken(finalClaimToken);
     if (!claimPayload) {
       return res.status(401).json({
         error: 'invalid_claim_token',
@@ -521,103 +697,135 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
     const token = authHeader.substring(7);
 
-    if (mode === 'convert_guest') {
+    if (finalMode === 'convert_guest') {
       // Mode: convert_guest
       // Auth: guestToken
-      // Required: provider, code
+      // Required: (provider + code) OR (prepareToken + nickname)
 
-      if (!provider || !code) {
-        return res.status(400).json({
-          error: 'missing_parameters',
-          message: 'provider and code are required for convert_guest mode',
-        });
-      }
+      const preparePayload = req.body._preparePayload;
 
-      if (provider !== 'google' && provider !== 'yandex') {
-        return res.status(400).json({
-          error: 'invalid_provider',
-          message: 'provider must be "google" or "yandex"',
-        });
-      }
-
-      // P1-4 Security: Проверка региональной доступности провайдера для convert_guest.
-      // Предотвращает обход ограничений через прямой вызов /auth/upgrade.
-      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-        || req.ip
-        || req.socket.remoteAddress
-        || '127.0.0.1';
-      const acceptLanguage = req.get('accept-language');
-
-      const geoService = getGeoIPService();
-      const geoResult = await geoService.detectRegion(ip, acceptLanguage);
-
-      const providerFactory = getOAuthProviderFactory();
-      if (!providerFactory.isProviderAvailable(provider, geoResult.region)) {
-        console.log(`[Auth] Upgrade blocked: ${provider} not available in region ${geoResult.region} (IP: ${ip})`);
-        return res.status(403).json({
-          error: 'provider_not_available',
-          message: `Provider ${provider} is not available in your region`,
-        });
-      }
-
-      // Verify guestToken
-      const guestPayload = verifyGuestToken(token);
-      if (!guestPayload) {
-        return res.status(401).json({
-          error: 'invalid_token',
-          message: 'Invalid or expired guest token',
-        });
-      }
-
-      // Verify claim belongs to this guest
-      if (guestPayload.sub !== subjectId) {
-        return res.status(403).json({
-          error: 'forbidden',
-          message: 'Claim token does not belong to this guest',
-        });
-      }
-
-      // Exchange OAuth code
       let providerUserId: string;
-      let nickname: string;
+      let finalNickname: string;
       let avatarUrl: string | undefined;
+      let finalProvider: string;
 
-      if (provider === 'google') {
-        try {
-          const googleProvider = getGoogleOAuthProvider();
-          const userInfo = await googleProvider.exchangeCode(code);
-          providerUserId = userInfo.id;
-          nickname = userInfo.name || userInfo.email.split('@')[0];
-          avatarUrl = userInfo.picture;
-        } catch (err: any) {
-          if (err.message.includes('must be set')) {
-            return res.status(500).json({
-              error: 'configuration_error',
-              message: 'Google OAuth not configured',
-            });
-          }
-          throw err;
+      if (preparePayload) {
+        // P1-4: prepareToken flow — use cached OAuth data, user-provided nickname
+        providerUserId = preparePayload.providerUserId;
+        finalNickname = req.body.nickname; // User-confirmed nickname
+        avatarUrl = preparePayload.avatarUrl;
+        finalProvider = preparePayload.provider;
+
+        // Verify guestToken matches prepareToken's guestSubjectId
+        const guestPayload = verifyGuestToken(token);
+        if (!guestPayload || guestPayload.sub !== preparePayload.guestSubjectId) {
+          return res.status(401).json({
+            error: 'invalid_token',
+            message: 'Guest token does not match prepare token',
+          });
+        }
+
+        // Verify claim belongs to this guest
+        if (preparePayload.guestSubjectId !== subjectId) {
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'Claim token does not belong to this guest',
+          });
         }
       } else {
-        try {
-          const yandexProvider = getYandexOAuthProvider();
-          const userInfo = await yandexProvider.exchangeCode(code);
-          providerUserId = userInfo.id;
-          nickname = userInfo.display_name || userInfo.login;
-          avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
-        } catch (err: any) {
-          if (err.message.includes('must be set')) {
-            return res.status(500).json({
-              error: 'configuration_error',
-              message: 'Yandex OAuth not configured',
-            });
+        // Original flow: provider + code
+        if (!provider || !code) {
+          return res.status(400).json({
+            error: 'missing_parameters',
+            message: 'provider and code are required for convert_guest mode',
+          });
+        }
+
+        if (provider !== 'google' && provider !== 'yandex') {
+          return res.status(400).json({
+            error: 'invalid_provider',
+            message: 'provider must be "google" or "yandex"',
+          });
+        }
+
+        finalProvider = provider;
+
+        // P1-4 Security: Проверка региональной доступности провайдера для convert_guest.
+        // Предотвращает обход ограничений через прямой вызов /auth/upgrade.
+        const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+          || req.ip
+          || req.socket.remoteAddress
+          || '127.0.0.1';
+        const acceptLanguage = req.get('accept-language');
+
+        const geoService = getGeoIPService();
+        const geoResult = await geoService.detectRegion(ip, acceptLanguage);
+
+        const providerFactory = getOAuthProviderFactory();
+        if (!providerFactory.isProviderAvailable(provider, geoResult.region)) {
+          console.log(`[Auth] Upgrade blocked: ${provider} not available in region ${geoResult.region} (IP: ${ip})`);
+          return res.status(403).json({
+            error: 'provider_not_available',
+            message: `Provider ${provider} is not available in your region`,
+          });
+        }
+
+        // Verify guestToken
+        const guestPayload = verifyGuestToken(token);
+        if (!guestPayload) {
+          return res.status(401).json({
+            error: 'invalid_token',
+            message: 'Invalid or expired guest token',
+          });
+        }
+
+        // Verify claim belongs to this guest
+        if (guestPayload.sub !== subjectId) {
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'Claim token does not belong to this guest',
+          });
+        }
+
+        // Exchange OAuth code
+        if (provider === 'google') {
+          try {
+            const googleProvider = getGoogleOAuthProvider();
+            const userInfo = await googleProvider.exchangeCode(code);
+            providerUserId = userInfo.id;
+            finalNickname = userInfo.name || userInfo.email.split('@')[0];
+            avatarUrl = userInfo.picture;
+          } catch (err: any) {
+            if (err.message.includes('must be set')) {
+              return res.status(500).json({
+                error: 'configuration_error',
+                message: 'Google OAuth not configured',
+              });
+            }
+            throw err;
           }
-          throw err;
+        } else {
+          try {
+            const yandexProvider = getYandexOAuthProvider();
+            const userInfo = await yandexProvider.exchangeCode(code);
+            providerUserId = userInfo.id;
+            finalNickname = userInfo.display_name || userInfo.login;
+            avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
+          } catch (err: any) {
+            if (err.message.includes('must be set')) {
+              return res.status(500).json({
+                error: 'configuration_error',
+                message: 'Yandex OAuth not configured',
+              });
+            }
+            throw err;
+          }
         }
       }
 
       // Check if OAuth link already exists (conflict)
-      const existingUser = await authService.findUserByOAuthLink(provider as AuthProvider, providerUserId);
+      // P1-4: Skip for prepareToken flow since /oauth/prepare-upgrade already checked
+      const existingUser = preparePayload ? null : await authService.findUserByOAuthLink(finalProvider as AuthProvider, providerUserId);
       if (existingUser) {
         // ТЗ раздел 10: OAuth уже привязан к другому аккаунту
         // Copilot P2: Проверяем Redis ДО генерации токена
@@ -635,7 +843,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
         // Генерируем pendingAuthToken для возможности входа в существующий аккаунт
         const pendingAuthToken = generatePendingAuthToken({
-          provider,
+          provider: finalProvider,
           providerUserId,
           existingUserId: existingUser.id,
         });
@@ -668,7 +876,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
           // Игнорируем ошибку получения рейтинга
         }
 
-        console.log(`[Auth] OAuth conflict: ${provider} user ${providerUserId.slice(0, 8)}... already linked to ${existingUser.id.slice(0, 8)}...`);
+        console.log(`[Auth] OAuth conflict: ${finalProvider} user ${providerUserId.slice(0, 8)}... already linked to ${existingUser.id.slice(0, 8)}...`);
 
         return res.status(409).json({
           error: 'oauth_already_linked',
@@ -704,9 +912,9 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
         // Create registered user
         user = await authService.createUserFromGuest(
-          provider as AuthProvider,
+          finalProvider as AuthProvider,
           providerUserId,
-          nickname,
+          finalNickname,
           avatarUrl,
           matchId,
           skinId,

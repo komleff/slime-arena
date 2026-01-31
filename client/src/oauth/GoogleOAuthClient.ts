@@ -21,8 +21,8 @@ export class GoogleOAuthClient implements IOAuthClient {
 
   constructor(clientId: string, redirectUri?: string) {
     this.clientId = clientId;
-    // Используем текущий origin + /oauth/callback
-    this.redirectUri = redirectUri || `${window.location.origin}/oauth/callback`;
+    // Используем текущий origin (корень) для SPA
+    this.redirectUri = redirectUri || `${window.location.origin}/`;
   }
 
   getProviderName() {

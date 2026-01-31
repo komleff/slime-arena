@@ -21,7 +21,8 @@ export class YandexOAuthClient implements IOAuthClient {
 
   constructor(clientId: string, redirectUri?: string) {
     this.clientId = clientId;
-    this.redirectUri = redirectUri || `${window.location.origin}/oauth/callback`;
+    // Используем текущий origin (корень) для SPA
+    this.redirectUri = redirectUri || `${window.location.origin}/`;
   }
 
   getProviderName() {

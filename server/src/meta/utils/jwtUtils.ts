@@ -77,8 +77,33 @@ export interface PendingAuthTokenPayload {
   exp?: number;
 }
 
+/**
+ * P1-4: Payload for upgradePrepareToken (nickname confirmation before upgrade)
+ * Used to store OAuth exchange results before user confirms nickname
+ */
+export interface UpgradePrepareTokenPayload {
+  /** Token type */
+  type: 'upgrade_prepare';
+  /** OAuth provider name */
+  provider: string;
+  /** Provider user ID */
+  providerUserId: string;
+  /** Display name from OAuth provider */
+  displayName: string;
+  /** Avatar URL from OAuth provider */
+  avatarUrl?: string;
+  /** Guest subject ID (from guestToken) */
+  guestSubjectId: string;
+  /** Claim token (encoded, to be verified again during upgrade) */
+  claimToken: string;
+  /** Token issue time */
+  iat?: number;
+  /** Token expiration time */
+  exp?: number;
+}
+
 /** Union type for all token payloads */
-export type TokenPayload = AccessTokenPayload | GuestTokenPayload | ClaimTokenPayload | PendingAuthTokenPayload;
+export type TokenPayload = AccessTokenPayload | GuestTokenPayload | ClaimTokenPayload | PendingAuthTokenPayload | UpgradePrepareTokenPayload;
 
 // ============================================================================
 // Configuration
@@ -223,6 +248,28 @@ export function generatePendingAuthToken(
   });
 }
 
+/**
+ * P1-4: Generate upgrade prepare token for nickname confirmation
+ * Used to store OAuth exchange results before user confirms nickname
+ *
+ * @param payload - Upgrade prepare token payload
+ * @param expiresInSeconds - Token lifetime in seconds (default: 5 minutes)
+ * @returns JWT upgrade prepare token
+ */
+export function generateUpgradePrepareToken(
+  payload: Omit<UpgradePrepareTokenPayload, 'type' | 'iat' | 'exp'>,
+  expiresInSeconds: number = PENDING_AUTH_TOKEN_EXPIRES_SECONDS
+): string {
+  const fullPayload: Omit<UpgradePrepareTokenPayload, 'iat' | 'exp'> = {
+    type: 'upgrade_prepare',
+    ...payload,
+  };
+  return jwt.sign(fullPayload, getJwtSecret(), {
+    expiresIn: expiresInSeconds,
+    algorithm: 'HS256',
+  });
+}
+
 // ============================================================================
 // Token Verification
 // ============================================================================
@@ -333,6 +380,22 @@ export function verifyPendingAuthToken(token: string): PendingAuthTokenPayload |
   // Verify type and required fields
   if (result.payload.type !== 'pending_auth') return null;
   if (!result.payload.provider || !result.payload.providerUserId || !result.payload.existingUserId) return null;
+  return result.payload;
+}
+
+/**
+ * P1-4: Verify and decode upgrade prepare token
+ * Used for nickname confirmation before upgrade
+ *
+ * @param token - Upgrade prepare token to verify
+ * @returns UpgradePrepareTokenPayload or null if invalid
+ */
+export function verifyUpgradePrepareToken(token: string): UpgradePrepareTokenPayload | null {
+  const result = verifyToken<UpgradePrepareTokenPayload>(token);
+  if (!result.valid) return null;
+  // Verify type and required fields
+  if (result.payload.type !== 'upgrade_prepare') return null;
+  if (!result.payload.provider || !result.payload.providerUserId || !result.payload.guestSubjectId || !result.payload.claimToken) return null;
   return result.payload;
 }
 

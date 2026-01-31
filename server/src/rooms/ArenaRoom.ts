@@ -1633,6 +1633,7 @@ export class ArenaRoom extends Room<GameState> {
                 const placement = leaderboard.indexOf(sessionId) + 1;
                 playerResults.push({
                     userId: player.userId || undefined,  // From joinToken (registered users)
+                    guestSubjectId: player.guestSubjectId || undefined,  // P0-2: для идентификации гостей
                     sessionId,
                     placement: placement > 0 ? placement : leaderboard.length + 1,
                     finalMass: player.mass,

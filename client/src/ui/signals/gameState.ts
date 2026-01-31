@@ -5,7 +5,7 @@
 
 import { signal, computed, batch } from '@preact/signals';
 import { FLAG_IS_DEAD, DEFAULT_BALANCE_CONFIG } from '@slime-arena/shared';
-import type { OAuthConflictResponse } from '../../oauth/types';
+import type { OAuthConflictResponse, OAuthPrepareResponse } from '../../oauth/types';
 
 // ========== Типы ==========
 
@@ -223,6 +223,9 @@ export const authError = signal<string | null>(null);
 
 // OAuth conflict — данные для показа AccountConflictModal
 export const oauthConflict = signal<OAuthConflictResponse | null>(null);
+
+// P1-4: OAuth nickname confirm — данные для показа NicknameConfirmModal
+export const oauthNicknameConfirm = signal<OAuthPrepareResponse | null>(null);
 
 // ========== Matchmaking состояние ==========
 
@@ -496,6 +499,20 @@ export function setOAuthConflict(conflict: OAuthConflictResponse | null) {
  */
 export function clearOAuthConflict() {
   oauthConflict.value = null;
+}
+
+/**
+ * P1-4: Установить данные для подтверждения никнейма (показ NicknameConfirmModal)
+ */
+export function setOAuthNicknameConfirm(prepare: OAuthPrepareResponse | null) {
+  oauthNicknameConfirm.value = prepare;
+}
+
+/**
+ * P1-4: Очистить данные подтверждения никнейма
+ */
+export function clearOAuthNicknameConfirm() {
+  oauthNicknameConfirm.value = null;
 }
 
 export function setAuthError(error: string | null) {

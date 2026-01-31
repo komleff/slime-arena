@@ -19,6 +19,7 @@ import {
   hudVisible,
   MAX_ABILITY_SLOTS,
   oauthConflict,
+  oauthNicknameConfirm,
   localPlayer,
 
   // Actions
@@ -37,6 +38,7 @@ import {
   clearPlayerDeadFlag,
   initMobileDetection,
   clearOAuthConflict,
+  clearOAuthNicknameConfirm,
 
   // Types
   type GamePhase,
@@ -56,6 +58,7 @@ import { ResultsScreen } from './components/ResultsScreen';
 import { AbilityButtons } from './components/AbilityButtons';
 import { MainMenu } from './components/MainMenu';
 import { AccountConflictModal } from './components/AccountConflictModal';
+import { NicknameConfirmModal } from './components/NicknameConfirmModal';
 
 // ========== Типы для колбеков ==========
 
@@ -84,6 +87,7 @@ function UIRoot() {
   const connecting = isConnecting.value;
   const showTalent = showTalentModal.value;
   const conflict = oauthConflict.value;
+  const nicknameConfirm = oauthNicknameConfirm.value;
   const player = localPlayer.value;
 
   // Обработчики для AccountConflictModal
@@ -95,6 +99,17 @@ function UIRoot() {
 
   const handleConflictCancel = () => {
     clearOAuthConflict();
+    renderUI();
+  };
+
+  // P1-4: Обработчики для NicknameConfirmModal
+  const handleNicknameConfirm = () => {
+    clearOAuthNicknameConfirm();
+    renderUI();
+  };
+
+  const handleNicknameCancel = () => {
+    clearOAuthNicknameConfirm();
     renderUI();
   };
 
@@ -151,6 +166,15 @@ function UIRoot() {
           currentMass={player?.mass}
           onSwitch={handleConflictSwitch}
           onCancel={handleConflictCancel}
+        />
+      )}
+
+      {/* P1-4: Nickname Confirm Modal (подтверждение никнейма после OAuth) */}
+      {nicknameConfirm && (
+        <NicknameConfirmModal
+          prepare={nicknameConfirm}
+          onConfirm={handleNicknameConfirm}
+          onCancel={handleNicknameCancel}
         />
       )}
     </Fragment>

@@ -58,7 +58,7 @@ import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { isOAuthCallback, parseOAuthCallback, handleOAuthCallback, clearOAuthState } from "./oauth/OAuthRedirectHandler";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict, setAuthError } from "./ui/signals/gameState";
+import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict, setOAuthNicknameConfirm, setAuthError } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -3809,20 +3809,34 @@ const MIN_BOOT_DISPLAY_MS = 1000;
                     const result = await handleOAuthCallback(
                         callbackParams,
                         guestToken,
-                        claimTokenValue,
-                        nickname
+                        claimTokenValue
                     );
 
                     if (result.success && result.result) {
-                        // Успешная авторизация — сохраняем токен
+                        // Успешная авторизация (login flow) — сохраняем токен
                         authService.finishUpgrade(result.result.accessToken);
                         console.log("[Main] OAuth login successful");
-                        // Очищаем pending_claim_token
                         localStorage.removeItem('pending_claim_token');
+                    } else if (result.success && result.prepare) {
+                        // P1-4: convert_guest flow — показываем модалку подтверждения никнейма
+                        console.log("[Main] OAuth prepare successful, showing nickname modal:", result.prepare.displayName);
+                        setOAuthNicknameConfirm(result.prepare);
+                        // Очищаем URL и показываем модалку, не продолжаем инициализацию
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        updateBootProgress('ready', 100);
+                        setPhase('menu');
+                        return; // Ждём подтверждения никнейма
                     } else if (result.conflict) {
                         // Конфликт 409 — сохраняем для показа модалки через сигнал
                         console.log("[Main] OAuth conflict detected:", result.conflict.existingAccount?.nickname);
                         setOAuthConflict(result.conflict);
+                        // Очищаем URL и показываем модалку конфликта
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        updateBootProgress('ready', 100);
+                        setPhase('menu');
+                        return; // Ждём разрешения конфликта
                     } else if (result.error) {
                         console.warn("[Main] OAuth error:", result.error);
                     }
@@ -3836,6 +3850,11 @@ const MIN_BOOT_DISPLAY_MS = 1000;
                 // Очищаем URL от параметров OAuth
                 const cleanUrl = window.location.origin + window.location.pathname;
                 window.history.replaceState({}, document.title, cleanUrl);
+            } else {
+                // P2: parseOAuthCallback вернул null — URL не содержит OAuth параметров,
+                // но isOAuthCallback() true из-за остатков в localStorage. Очищаем state.
+                console.log("[Main] OAuth state detected but no URL params, cleaning up");
+                clearOAuthState();
             }
         }
 

@@ -56,6 +56,13 @@ export interface OAuthConflictResponse {
   };
 }
 
+/** P1-4: Ответ /oauth/prepare-upgrade для подтверждения никнейма */
+export interface OAuthPrepareResponse {
+  displayName: string;
+  avatarUrl?: string;
+  prepareToken: string;
+}
+
 /** Конфигурация кнопки провайдера */
 export interface OAuthButtonConfig {
   label: string;

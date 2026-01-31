@@ -7,7 +7,7 @@
  * @see docs/meta-min/TZ-StandaloneAdapter-OAuth-v1.9.md раздел 4.2-4.3
  */
 
-import { OAUTH_STORAGE_KEYS, OAuthIntent, OAuthProviderName, OAuthResult, OAuthConflictResponse } from './types';
+import { OAUTH_STORAGE_KEYS, OAuthIntent, OAuthProviderName, OAuthResult, OAuthConflictResponse, OAuthPrepareResponse } from './types';
 import { metaServerClient } from '../api/metaServerClient';
 
 /** Таймаут OAuth сессии: 10 минут */
@@ -24,6 +24,8 @@ export interface OAuthHandlerResult {
   success: boolean;
   result?: OAuthResult;
   conflict?: OAuthConflictResponse;
+  /** P1-4: Данные для подтверждения никнейма (convert_guest flow) */
+  prepare?: OAuthPrepareResponse;
   error?: string;
 }
 
@@ -56,25 +58,16 @@ export function parseOAuthCallback(): OAuthCallbackParams | null {
 /**
  * Проверяет, находимся ли мы на callback URL
  *
- * Copilot P3: Добавлена проверка pathname и наличия state для безопасности.
- * Copilot P2: Добавлена проверка наличия сохранённого состояния в localStorage
- *             для предотвращения false positives на других страницах.
+ * Redirect URI теперь использует корень '/' для SPA совместимости.
  * Принимаем callback только если:
- * 1. pathname === '/oauth/callback', или
- * 2. pathname === '/' и есть оба параметра code= и state= (OAuth редирект на корень)
- *    И есть сохранённый state в localStorage (подтверждение, что OAuth был инициирован)
+ * - pathname === '/' и есть оба параметра code= и state= (OAuth редирект на корень)
+ * - И есть сохранённый state в localStorage (подтверждение, что OAuth был инициирован)
  */
 export function isOAuthCallback(): boolean {
   const pathname = window.location.pathname;
   const search = window.location.search;
 
-  // Явный OAuth callback URL
-  if (pathname === '/oauth/callback') {
-    return true;
-  }
-
   // Корень с OAuth параметрами (code + state) И сохранённым состоянием
-  // Copilot P2: Проверяем localStorage.getItem чтобы избежать false positives
   if (
     pathname === '/' &&
     search.includes('code=') &&
@@ -154,8 +147,7 @@ export function clearOAuthState(): void {
 export async function handleOAuthCallback(
   params: OAuthCallbackParams,
   guestToken?: string,
-  claimToken?: string,
-  nickname?: string
+  claimToken?: string
 ): Promise<OAuthHandlerResult> {
   // Проверяем ошибку от провайдера
   if (params.error) {
@@ -207,15 +199,15 @@ export async function handleOAuthCallback(
       // Вход в существующий аккаунт
       result = await handleOAuthLogin(provider, params.code, codeVerifier);
     } else {
-      // Конвертация гостя
-      if (!guestToken || !claimToken || !nickname) {
+      // P1-4: Конвертация гостя — сначала prepare, потом подтверждение никнейма
+      if (!guestToken || !claimToken) {
         clearOAuthState();
         return {
           success: false,
           error: 'Missing guest data for convert_guest flow',
         };
       }
-      result = await handleOAuthUpgrade(provider, params.code, guestToken, claimToken, nickname, codeVerifier);
+      result = await handleOAuthPrepare(provider, params.code, guestToken, claimToken);
     }
 
     // Очищаем состояние после обработки
@@ -242,7 +234,7 @@ async function handleOAuthLogin(
   const body: Record<string, string> = {
     provider,
     code,
-    redirectUri: `${window.location.origin}/oauth/callback`,
+    redirectUri: `${window.location.origin}/`,
   };
 
   if (codeVerifier) {
@@ -275,41 +267,44 @@ async function handleOAuthLogin(
 }
 
 /**
- * POST /api/v1/auth/upgrade - конвертация гостя
+ * P1-4: POST /api/v1/auth/oauth/prepare-upgrade
+ * Подготовка upgrade: обмен кода на displayName и prepareToken
  */
-async function handleOAuthUpgrade(
+async function handleOAuthPrepare(
   provider: OAuthProviderName,
   code: string,
   guestToken: string,
-  claimToken: string,
-  nickname: string,
-  codeVerifier?: string | null
+  claimToken: string
 ): Promise<OAuthHandlerResult> {
-  const body: Record<string, string> = {
-    mode: 'convert_guest',
+  const body = {
     provider,
     code,
-    redirectUri: `${window.location.origin}/oauth/callback`,
     claimToken,
-    nickname,
+    redirectUri: `${window.location.origin}/`,
   };
 
-  if (codeVerifier) {
-    body.codeVerifier = codeVerifier;
-  }
-
-  const response = await metaServerClient.postRaw('/api/v1/auth/upgrade', body, {
+  const response = await metaServerClient.postRaw('/api/v1/auth/oauth/prepare-upgrade', body, {
     headers: {
       Authorization: `Bearer ${guestToken}`,
     },
   });
 
   if (response.status === 409) {
-    // Конфликт — OAuth уже привязан к другому аккаунту
-    const conflictData = await response.json() as OAuthConflictResponse;
+    // P2: Различаем типы 409 по error коду (GPT-5 Codex review)
+    const errorData = await response.json();
+
+    if (errorData.error === 'claim_already_consumed') {
+      // claimToken уже использован — показать ошибку, не конфликт
+      return {
+        success: false,
+        error: 'Результат матча уже сохранён. Сыграйте новый матч.',
+      };
+    }
+
+    // oauth_conflict / oauth_already_linked — OAuth привязан к другому аккаунту
     return {
       success: false,
-      conflict: conflictData,
+      conflict: errorData as OAuthConflictResponse,
     };
   }
 
@@ -318,6 +313,68 @@ async function handleOAuthUpgrade(
     return {
       success: false,
       error: 'Claim token expired. Please play another match.',
+    };
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: errorData.message || 'OAuth prepare failed',
+    };
+  }
+
+  const data = await response.json() as OAuthPrepareResponse;
+  return {
+    success: true,
+    prepare: data,
+  };
+}
+
+/**
+ * P1-4: POST /api/v1/auth/upgrade с prepareToken
+ * Завершает upgrade после подтверждения никнейма пользователем
+ */
+export async function completeOAuthUpgrade(
+  prepareToken: string,
+  nickname: string,
+  guestToken: string
+): Promise<OAuthHandlerResult> {
+  const body = {
+    prepareToken,
+    nickname,
+  };
+
+  const response = await metaServerClient.postRaw('/api/v1/auth/upgrade', body, {
+    headers: {
+      Authorization: `Bearer ${guestToken}`,
+    },
+  });
+
+  if (response.status === 409) {
+    // P2: Различаем типы 409 по error коду
+    const errorData = await response.json();
+
+    if (errorData.error === 'oauth_already_linked' && errorData.pendingAuthToken) {
+      // OAuth привязан к другому аккаунту — показать AccountConflictModal
+      return {
+        success: false,
+        conflict: errorData as OAuthConflictResponse,
+      };
+    }
+
+    // claim_already_consumed или другая ошибка
+    return {
+      success: false,
+      error: errorData.message || 'Результат матча уже сохранён. Сыграйте новый матч.',
+    };
+  }
+
+  if (response.status === 410) {
+    // prepareToken истёк
+    return {
+      success: false,
+      error: 'Session expired. Please try again.',
     };
   }
 

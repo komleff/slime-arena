@@ -119,7 +119,7 @@ class MatchResultsService {
 
   /**
    * Получить claimToken для матча (используется в guest upgrade flow).
-   * Вызывает POST /api/v1/match-results/claim с { matchId }.
+   * Вызывает POST /api/v1/match-results/claim с { matchId, skinId }.
    *
    * @param matchId — ID матча
    * @returns claimToken или null при ошибке
@@ -138,9 +138,12 @@ class MatchResultsService {
 
       console.log('[MatchResultsService] Getting claim token for match:', matchId);
 
+      // P0-1: Передаём skinId из localStorage для гостей
+      const skinId = localStorage.getItem('guest_skin_id') || undefined;
+
       const response = await metaServerClient.post<ClaimTokenResponse>(
         '/api/v1/match-results/claim',
-        { matchId }
+        { matchId, skinId }
       );
 
       claimStatus.value = 'success';
