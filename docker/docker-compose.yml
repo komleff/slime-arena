@@ -33,10 +33,9 @@ services:
 
   meta-server:
     container_name: slime-arena-meta-server
-    image: ghcr.io/komleff/slime-arena-server:v0.5.0
     build:
       context: ..
-      dockerfile: docker/server.Dockerfile
+      dockerfile: docker/monolith-full.Dockerfile
     ports:
       - "3000:3000"
     environment:
@@ -57,10 +56,9 @@ services:
 
   match-server:
     container_name: slime-arena-match-server
-    image: ghcr.io/komleff/slime-arena-server:v0.5.0
     build:
       context: ..
-      dockerfile: docker/server.Dockerfile
+      dockerfile: docker/monolith-full.Dockerfile
     ports:
       - "2567:2567"
     environment:
@@ -78,10 +76,9 @@ services:
 
   client:
     container_name: slime-arena-client
-    image: ghcr.io/komleff/slime-arena-client:v0.5.0
     build:
       context: ..
-      dockerfile: docker/client.Dockerfile
+      dockerfile: docker/monolith-full.Dockerfile
     ports:
       - "5173:5173"
     volumes:
