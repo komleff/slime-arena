@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { Pool } from 'pg';
 import { AuthService } from '../services/AuthService';
@@ -27,6 +28,15 @@ const router = express.Router();
 const authService = new AuthService();
 
 // Copilot P3: Удалена локальная обёртка getPool(), используем getPostgresPool() напрямую
+
+/**
+ * Создаёт Redis ключ для pendingAuthToken с использованием sha256 хэша
+ * для предотвращения коллизий (Copilot P3)
+ */
+function getPendingAuthRedisKey(token: string): string {
+  const hash = crypto.createHash('sha256').update(token).digest('hex').slice(0, 32);
+  return `pending_auth:${hash}`;
+}
 
 /**
  * Get match result info for claim validation
@@ -510,7 +520,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         // ВАЖНО: Redis обязателен для безопасности — без него токен можно использовать многократно
         try {
           const redis = getRedisClient();
-          const tokenKey = `pending_auth:${pendingAuthToken.slice(-16)}`;
+          const tokenKey = getPendingAuthRedisKey(pendingAuthToken);
           await redis.set(tokenKey, 'valid', { EX: 300 }); // 5 минут
         } catch (redisErr) {
           console.error('[Auth] Redis unavailable for pendingAuthToken - returning 503:', redisErr);
@@ -748,7 +758,7 @@ router.post('/oauth/resolve', async (req: Request, res: Response) => {
     }
 
     try {
-      const tokenKey = `pending_auth:${pendingAuthToken.slice(-16)}`;
+      const tokenKey = getPendingAuthRedisKey(pendingAuthToken);
       const exists = await redis.get(tokenKey);
 
       if (!exists) {

@@ -8,7 +8,7 @@
  */
 
 import { OAuthRegion } from '../services/GeoIPService';
-import { getGoogleOAuthProvider, GoogleOAuthProvider } from './GoogleOAuthProvider';
+import { getGoogleOAuthProvider } from './GoogleOAuthProvider';
 import { getYandexOAuthProvider, YandexOAuthProvider } from './YandexOAuthProvider';
 
 export type OAuthProviderName = 'google' | 'yandex' | 'vk';
@@ -181,8 +181,8 @@ export class OAuthProviderFactory {
   private isGoogleAvailable(region: OAuthRegion, availability: Record<OAuthProviderName, boolean>): boolean {
     // Глобальный флаг
     if (!this.googleEnabled) return false;
-    // Client ID должен быть настроен
-    if (!this.googleClientId) return false;
+    // Client ID и Secret должны быть настроены
+    if (!this.googleClientId || !process.env.GOOGLE_CLIENT_SECRET) return false;
     // Региональная матрица
     if (!availability.google) return false;
     // Особый флаг для РФ
@@ -193,7 +193,8 @@ export class OAuthProviderFactory {
 
   private isYandexAvailable(availability: Record<OAuthProviderName, boolean>): boolean {
     if (!this.yandexEnabled) return false;
-    if (!this.yandexClientId) return false;
+    // Client ID и Secret должны быть настроены
+    if (!this.yandexClientId || !process.env.YANDEX_CLIENT_SECRET) return false;
     if (!availability.yandex) return false;
 
     return true;
@@ -201,7 +202,8 @@ export class OAuthProviderFactory {
 
   private isVKAvailable(availability: Record<OAuthProviderName, boolean>): boolean {
     if (!this.vkEnabled) return false;
-    if (!this.vkClientId) return false;
+    // Client ID и Secret должны быть настроены
+    if (!this.vkClientId || !process.env.VK_CLIENT_SECRET) return false;
     if (!availability.vk) return false;
 
     return true;

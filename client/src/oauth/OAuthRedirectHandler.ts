@@ -10,6 +10,9 @@
 import { OAUTH_STORAGE_KEYS, OAuthIntent, OAuthProviderName, OAuthResult, OAuthConflictResponse } from './types';
 import { metaServerClient } from '../api/metaServerClient';
 
+/** Таймаут OAuth сессии: 10 минут */
+const OAUTH_STATE_TIMEOUT_MS = 10 * 60 * 1000;
+
 export interface OAuthCallbackParams {
   code: string;
   state: string;
@@ -52,10 +55,27 @@ export function parseOAuthCallback(): OAuthCallbackParams | null {
 
 /**
  * Проверяет, находимся ли мы на callback URL
+ *
+ * Copilot P3: Добавлена проверка pathname и наличия state для безопасности.
+ * Принимаем callback только если:
+ * 1. pathname === '/oauth/callback', или
+ * 2. pathname === '/' и есть оба параметра code= и state= (OAuth редирект на корень)
  */
 export function isOAuthCallback(): boolean {
-  return window.location.pathname === '/oauth/callback' ||
-         window.location.search.includes('code=');
+  const pathname = window.location.pathname;
+  const search = window.location.search;
+
+  // Явный OAuth callback URL
+  if (pathname === '/oauth/callback') {
+    return true;
+  }
+
+  // Корень с OAuth параметрами (code + state)
+  if (pathname === '/' && search.includes('code=') && search.includes('state=')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -151,7 +171,7 @@ export async function handleOAuthCallback(
 
   // Copilot P2: Используем timestamp из savedState вместо повторной загрузки
   const timestamp = savedState.timestamp || 0;
-  if (Date.now() - timestamp > 10 * 60 * 1000) {
+  if (Date.now() - timestamp > OAUTH_STATE_TIMEOUT_MS) {
     clearOAuthState();
     return {
       success: false,
