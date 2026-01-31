@@ -4,10 +4,70 @@
 
 ## Текущее состояние
 **База:** main (v0.7.1-dev)
-**Ветка:** sprint-15/production-readiness → **MERGED**
+**Ветка:** sprint-16/oauth-standalone (PR #115)
 **GDD версия:** 3.3.2
 **Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 released
 **Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
+**Sprint 16 Status:** 🔄 IN PROGRESS — OAuth для Standalone
+
+---
+
+## 🎯 Sprint 16 — OAuth для Standalone (IN PROGRESS)
+
+**Ветка:** sprint-16/oauth-standalone
+**PR:** #115 (open)
+**Версия:** 0.7.2-dev
+**Цель:** Google/Yandex OAuth авторизация для Standalone платформы
+
+### Выполненные задачи
+
+| Компонент | Статус | Описание |
+|-----------|--------|----------|
+| Google OAuth Provider | ✅ | GoogleOAuthProvider.ts |
+| Yandex OAuth Provider | ✅ | YandexOAuthProvider.ts |
+| OAuthProviderFactory | ✅ | Региональная доступность провайдеров |
+| GeoIP Service | ✅ | Определение региона по IP |
+| OAuth Upgrade Flow | ✅ | convert_guest → registered user |
+| OAuth Conflict Modal | ✅ | 409 обработка, pending_auth_token |
+| joinToken для Quick Play | ✅ | guestSubjectId передача |
+| Yandex Avatar | ✅ | Отображение OAuth аватара |
+| PowerShell dev script | ✅ | dev.ps1 для .env.local |
+
+### Исправленные баги (Ручное тестирование)
+
+| Приоритет | Описание | Файл |
+|-----------|----------|------|
+| P0 | matchId не синхронизировался в state | ArenaRoom.ts:206 |
+| P0 | Клиент не читал matchId при подключении | main.ts:1600-1607 |
+| P0 | guestSubjectId не передавался в quick play | auth.ts, JoinTokenService.ts |
+| P2 | avatarUrl не возвращался в profile | PlayerService.ts |
+
+### TODO перед production
+
+- [ ] Вернуть `google: false` для региона UNKNOWN
+- [ ] Вернуть время матча 180 секунд
+- [ ] Удалить debug console.log из OAuth обработчика
+- [ ] Финальное тестирование OAuth upgrade
+
+### Архитектура joinToken для Quick Play
+
+```
+Client                    MetaServer                   MatchServer
+  │                           │                            │
+  ├── POST /auth/guest ──────►│                            │
+  │◄─── guestToken ──────────│                            │
+  │                           │                            │
+  ├── POST /auth/join-token ─►│                            │
+  │   (with guestToken)       │                            │
+  │◄─── joinToken ───────────│                            │
+  │     (includes guestSubjectId)                          │
+  │                           │                            │
+  ├── joinOrCreate("arena", {joinToken}) ─────────────────►│
+  │                           │                            │
+  │                           │   (extracts guestSubjectId)│
+  │                           │                            │
+  │◄── state.matchId ─────────────────────────────────────│
+```
 
 ---
 
