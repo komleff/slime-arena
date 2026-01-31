@@ -118,6 +118,77 @@ router.post('/guest', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/v1/auth/join-token
+ * Generate a joinToken for room connection (dev mode / quick play)
+ * Requires guest token in Authorization header
+ */
+router.post('/join-token', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'unauthorized',
+        message: 'Missing or invalid Authorization header',
+      });
+    }
+
+    const token = authHeader.slice(7);
+
+    // Try guest token first
+    const guestPayload = verifyGuestToken(token);
+    if (guestPayload) {
+      const { joinTokenService } = await import('../services/JoinTokenService');
+
+      // Generate a simple joinToken for direct connection
+      // matchId and roomId will be empty (not assigned via matchmaking)
+      const nickname = req.body.nickname || 'Гость';
+      const joinToken = joinTokenService.generateToken(
+        '', // userId (empty for guests)
+        '', // matchId (not known yet)
+        '', // roomId (not known yet)
+        nickname,
+        guestPayload.sub // guestSubjectId for claim verification
+      );
+
+      return res.json({
+        joinToken,
+        expiresIn: joinTokenService.getExpiresInSeconds(),
+      });
+    }
+
+    // Try access token for registered users
+    const userPayload = verifyAccessToken(token);
+    if (userPayload) {
+      const { joinTokenService } = await import('../services/JoinTokenService');
+
+      const nickname = req.body.nickname || 'Игрок';
+      const joinToken = joinTokenService.generateToken(
+        userPayload.sub, // userId
+        '', // matchId
+        '', // roomId
+        nickname
+      );
+
+      return res.json({
+        joinToken,
+        expiresIn: joinTokenService.getExpiresInSeconds(),
+      });
+    }
+
+    return res.status(401).json({
+      error: 'invalid_token',
+      message: 'Invalid or expired token',
+    });
+  } catch (error: any) {
+    console.error('[Auth] Join token error:', error);
+    res.status(500).json({
+      error: 'join_token_failed',
+      message: 'Failed to create join token',
+    });
+  }
+});
+
+/**
  * GET /api/v1/auth/config
  * Returns available OAuth providers for the client's region
  *

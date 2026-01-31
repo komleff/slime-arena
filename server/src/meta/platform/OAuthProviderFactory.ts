@@ -50,7 +50,7 @@ const PROVIDER_AVAILABILITY: Record<OAuthRegion, Record<OAuthProviderName, boole
     vk: false,    // Не показывать вне РФ/СНГ
   },
   UNKNOWN: {
-    google: false, // Запрещён при неизвестном регионе
+    google: true, // TODO: Вернуть false перед production (разрешено для тестирования)
     yandex: true,
     vk: false,
   },
@@ -75,17 +75,29 @@ export class OAuthProviderFactory {
   private readonly yandexClientId: string | undefined;
   private readonly vkClientId: string | undefined;
 
+  // Dev mode — показывать провайдеры без реальных ключей для тестирования UI
+  private readonly devMode: boolean;
+
   constructor() {
+    // Dev mode — NODE_ENV не production, или явный флаг
+    // По умолчанию считаем dev если NODE_ENV не задан или не 'production'
+    this.devMode = process.env.NODE_ENV !== 'production' || process.env.OAUTH_DEV_MODE === 'true';
+
+    console.log(`[OAuthProviderFactory] NODE_ENV=${process.env.NODE_ENV}, devMode=${this.devMode}`);
+
     // Читаем флаги из ENV
     this.googleEnabled = process.env.OAUTH_GOOGLE_ENABLED !== 'false';
     this.yandexEnabled = process.env.OAUTH_YANDEX_ENABLED !== 'false';
     this.vkEnabled = process.env.OAUTH_VK_ENABLED === 'true'; // По умолчанию выключен (P1)
     this.googleEnabledRU = process.env.OAUTH_GOOGLE_ENABLED_RU === 'true'; // По умолчанию выключен
 
-    // Client IDs
-    this.googleClientId = process.env.GOOGLE_CLIENT_ID;
-    this.yandexClientId = process.env.YANDEX_CLIENT_ID;
+    // Client IDs (в dev mode используем placeholder если не заданы)
+    this.googleClientId = process.env.GOOGLE_CLIENT_ID || (this.devMode ? 'dev-google-client-id' : undefined);
+    this.yandexClientId = process.env.YANDEX_CLIENT_ID || (this.devMode ? 'dev-yandex-client-id' : undefined);
     this.vkClientId = process.env.VK_CLIENT_ID;
+
+    console.log(`[OAuthProviderFactory] googleEnabled=${this.googleEnabled}, yandexEnabled=${this.yandexEnabled}`);
+    console.log(`[OAuthProviderFactory] googleClientId=${this.googleClientId}, yandexClientId=${this.yandexClientId}`);
   }
 
   /**
@@ -181,8 +193,10 @@ export class OAuthProviderFactory {
   private isGoogleAvailable(region: OAuthRegion, availability: Record<OAuthProviderName, boolean>): boolean {
     // Глобальный флаг
     if (!this.googleEnabled) return false;
-    // Client ID и Secret должны быть настроены
-    if (!this.googleClientId || !process.env.GOOGLE_CLIENT_SECRET) return false;
+    // Client ID должен быть настроен (в dev mode автоматически)
+    if (!this.googleClientId) return false;
+    // Secret нужен только в production (в dev mode можно без него для тестирования UI)
+    if (!this.devMode && !process.env.GOOGLE_CLIENT_SECRET) return false;
     // Региональная матрица
     if (!availability.google) return false;
     // Особый флаг для РФ
@@ -193,8 +207,10 @@ export class OAuthProviderFactory {
 
   private isYandexAvailable(availability: Record<OAuthProviderName, boolean>): boolean {
     if (!this.yandexEnabled) return false;
-    // Client ID и Secret должны быть настроены
-    if (!this.yandexClientId || !process.env.YANDEX_CLIENT_SECRET) return false;
+    // Client ID должен быть настроен (в dev mode автоматически)
+    if (!this.yandexClientId) return false;
+    // Secret нужен только в production (в dev mode можно без него для тестирования UI)
+    if (!this.devMode && !process.env.YANDEX_CLIENT_SECRET) return false;
     if (!availability.yandex) return false;
 
     return true;

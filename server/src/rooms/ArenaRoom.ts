@@ -203,6 +203,8 @@ export class ArenaRoom extends Room<GameState> {
         this.setState(new GameState());
         this.state.phase = "Spawn";
         this.state.timeRemaining = this.balance.match.durationSec;
+        // Codex P1: Синхронизируем matchId в state после setState() (initMatchId() вызван ранее)
+        this.state.matchId = this.matchId;
         this.generateArena();
 
         this.onMessage("selectClass", (client, data: { classId?: unknown; name?: unknown }) => {

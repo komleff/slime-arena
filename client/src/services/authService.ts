@@ -540,6 +540,26 @@ class AuthService {
   }
 
   /**
+   * Получить joinToken для подключения к игровой комнате.
+   * joinToken включает guestSubjectId для верификации claim на сервере.
+   * @param nickname - Никнейм игрока
+   * @returns joinToken или null при ошибке
+   */
+  async getRoomJoinToken(nickname: string): Promise<string | null> {
+    try {
+      const response = await metaServerClient.post<{ joinToken: string; expiresIn: number }>(
+        '/api/v1/auth/join-token',
+        { nickname }
+      );
+      console.log('[AuthService] Room join token obtained');
+      return response.joinToken;
+    } catch (error) {
+      console.error('[AuthService] Failed to get room join token:', error);
+      return null;
+    }
+  }
+
+  /**
    * Завершить upgrade гостя в зарегистрированного пользователя.
    * Очищает гостевые данные и обновляет UI состояние.
    * Вызывается из RegistrationPromptModal после успешного /auth/upgrade.

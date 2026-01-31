@@ -1458,10 +1458,19 @@ async function connectToServer(playerName: string, classId: number) {
     const client = new Colyseus.Client(wsUrl);
 
         try {
+            // Получаем joinToken для верификации claim (включает guestSubjectId)
+            const roomJoinToken = await authService.getRoomJoinToken(playerName);
+            if (roomJoinToken) {
+                console.log('[Main] Room join token obtained');
+            } else {
+                console.warn('[Main] No room join token, claim verification may fail');
+            }
+
             // Отправляем выбор игрока на сервер
             const room = await client.joinOrCreate<any>("arena", {
                 name: playerName,
                 classId,
+                joinToken: roomJoinToken || undefined,
             });
             activeRoom = room;
             // Сохраняем roomId для отслеживания результатов (используется в ResultsScreen)
@@ -1595,13 +1604,17 @@ async function connectToServer(playerName: string, classId: number) {
 
         // Codex P1: Синхронизируем matchId из серверного состояния
         // (используется в /match-results/claim вместо roomId)
-        room.onStateChange(() => {
+        const syncMatchId = () => {
             const stateMatchId = (room.state as { matchId?: string }).matchId;
             if (stateMatchId && currentMatchId.value !== stateMatchId) {
                 currentMatchId.value = stateMatchId;
-                console.log('[Main] matchId updated from state:', stateMatchId);
+                console.log('[Main] matchId synced from state:', stateMatchId);
             }
-        });
+        };
+        // Читаем matchId сразу при подключении (он уже установлен на сервере)
+        syncMatchId();
+        // И подписываемся на изменения (на случай сброса комнаты)
+        room.onStateChange(syncMatchId);
         
         const resetClassSelectionUi = () => {
             // Сброс состояния класса в Preact signal
@@ -3784,6 +3797,14 @@ const MIN_BOOT_DISPLAY_MS = 1000;
                     const guestToken = localStorage.getItem('guest_token') ?? undefined;
                     const claimTokenValue = localStorage.getItem('pending_claim_token') ?? undefined;
                     const nickname = authService.getNickname();
+
+                    // DEBUG: Выводим состояние данных для OAuth callback
+                    console.log("[Main] OAuth callback data:", {
+                        hasGuestToken: !!guestToken,
+                        hasClaimToken: !!claimTokenValue,
+                        nickname,
+                        allLocalStorageKeys: Object.keys(localStorage),
+                    });
 
                     const result = await handleOAuthCallback(
                         callbackParams,

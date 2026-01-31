@@ -15,6 +15,7 @@ export interface Wallet {
 
 export interface ProfileSummary extends Profile {
   nickname: string;
+  avatarUrl?: string;
   wallet: Wallet;
 }
 
@@ -33,8 +34,9 @@ export class PlayerService {
 
   async getProfile(userId: string): Promise<ProfileSummary> {
     const result = await this.pool.query(
-      `SELECT 
+      `SELECT
         u.nickname,
+        u.avatar_url,
         p.level,
         p.xp,
         p.selected_skin_id,
@@ -55,6 +57,7 @@ export class PlayerService {
     return {
       userId,
       nickname: row.nickname,
+      avatarUrl: row.avatar_url || undefined,
       level: row.level,
       xp: row.xp,
       selectedSkinId: row.selected_skin_id,

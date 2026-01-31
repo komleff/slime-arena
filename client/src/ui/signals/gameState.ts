@@ -91,6 +91,7 @@ export interface Profile {
   highestMass: number;
   level: number;
   xp: number;
+  avatarUrl?: string;
 }
 
 export interface MatchAssignment {
