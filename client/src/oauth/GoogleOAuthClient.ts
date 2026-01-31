@@ -75,7 +75,9 @@ export class GoogleOAuthClient implements IOAuthClient {
       label: 'Google',
       backgroundColor: '#ffffff',
       textColor: '#757575',
-      iconUrl: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+      // Copilot P2: Внешний URL заменён на пустую строку
+      // Иконки уже inline в OAuthProviderSelector.tsx
+      iconUrl: '',
     };
   }
 }

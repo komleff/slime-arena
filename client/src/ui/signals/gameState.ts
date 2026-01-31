@@ -5,6 +5,7 @@
 
 import { signal, computed, batch } from '@preact/signals';
 import { FLAG_IS_DEAD, DEFAULT_BALANCE_CONFIG } from '@slime-arena/shared';
+import type { OAuthConflictResponse } from '../../oauth/types';
 
 // ========== Типы ==========
 
@@ -218,6 +219,9 @@ export const currentProfile = signal<Profile | null>(null);
 export const isAuthenticated = signal(false);
 export const isAuthenticating = signal(false);
 export const authError = signal<string | null>(null);
+
+// OAuth conflict — данные для показа AccountConflictModal
+export const oauthConflict = signal<OAuthConflictResponse | null>(null);
 
 // ========== Matchmaking состояние ==========
 
@@ -475,7 +479,22 @@ export function clearAuthState() {
     isAuthenticated.value = false;
     isAuthenticating.value = false;
     authError.value = null;
+    oauthConflict.value = null;
   });
+}
+
+/**
+ * Установить данные OAuth конфликта (для показа AccountConflictModal)
+ */
+export function setOAuthConflict(conflict: OAuthConflictResponse | null) {
+  oauthConflict.value = conflict;
+}
+
+/**
+ * Очистить OAuth конфликт
+ */
+export function clearOAuthConflict() {
+  oauthConflict.value = null;
 }
 
 export function setAuthError(error: string | null) {

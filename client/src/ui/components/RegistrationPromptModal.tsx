@@ -195,10 +195,9 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const platformType = platformManager.getPlatformType();
-  const isTelegram = platformType === 'telegram';
-  // StandaloneAdapter возвращает 'dev' как PlatformType
-  const isStandalone = platformType === 'dev';
+  // Copilot P3: Используем явные методы platformManager вместо сравнения platformType
+  const isTelegram = platformManager.isTelegram();
+  const isStandalone = platformManager.isStandalone();
 
   // Gemini P1: Проверяем доступность claimToken перед разрешением upgrade
   const hasClaimToken = claimToken.value !== null;

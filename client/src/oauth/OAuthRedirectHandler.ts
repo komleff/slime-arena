@@ -84,6 +84,8 @@ export function saveOAuthState(
 
 /**
  * Восстанавливает состояние OAuth после редиректа
+ *
+ * Copilot P2: Добавлен timestamp в возвращаемый объект
  */
 export function loadOAuthState(): {
   state: string | null;
@@ -91,13 +93,16 @@ export function loadOAuthState(): {
   intent: OAuthIntent | null;
   codeVerifier: string | null;
   savedGameState: string | null;
+  timestamp: number | null;
 } {
+  const timestampStr = localStorage.getItem(OAUTH_STORAGE_KEYS.TIMESTAMP);
   return {
     state: localStorage.getItem(OAUTH_STORAGE_KEYS.STATE),
     provider: localStorage.getItem(OAUTH_STORAGE_KEYS.PROVIDER) as OAuthProviderName | null,
     intent: localStorage.getItem(OAUTH_STORAGE_KEYS.INTENT) as OAuthIntent | null,
     codeVerifier: localStorage.getItem(OAUTH_STORAGE_KEYS.CODE_VERIFIER),
     savedGameState: localStorage.getItem(OAUTH_STORAGE_KEYS.SAVED_GAME_STATE),
+    timestamp: timestampStr ? parseInt(timestampStr, 10) : null,
   };
 }
 
@@ -144,8 +149,8 @@ export async function handleOAuthCallback(
     };
   }
 
-  // Проверяем timeout (10 минут)
-  const timestamp = parseInt(localStorage.getItem(OAUTH_STORAGE_KEYS.TIMESTAMP) || '0', 10);
+  // Copilot P2: Используем timestamp из savedState вместо повторной загрузки
+  const timestamp = savedState.timestamp || 0;
   if (Date.now() - timestamp > 10 * 60 * 1000) {
     clearOAuthState();
     return {

@@ -26,14 +26,7 @@ import { getRedisClient } from '../../db/redis';
 const router = express.Router();
 const authService = new AuthService();
 
-// Lazy pool accessor for match_results queries
-let _pool: Pool | null = null;
-function getPool(): Pool {
-  if (!_pool) {
-    _pool = getPostgresPool();
-  }
-  return _pool;
-}
+// Copilot P3: Удалена локальная обёртка getPool(), используем getPostgresPool() напрямую
 
 /**
  * Get match result info for claim validation
@@ -43,7 +36,7 @@ async function getMatchResultInfo(matchId: string): Promise<{
   playersCount: number;
   claimConsumedAt: Date | null;
 } | null> {
-  const pool = getPool();
+  const pool = getPostgresPool();
   const result = await pool.query(
     `SELECT summary, claim_consumed_at FROM match_results WHERE match_id = $1`,
     [matchId]
@@ -514,19 +507,23 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
 
         // Сохраняем токен в Redis для одноразовости (5 минут)
+        // ВАЖНО: Redis обязателен для безопасности — без него токен можно использовать многократно
         try {
           const redis = getRedisClient();
           const tokenKey = `pending_auth:${pendingAuthToken.slice(-16)}`;
           await redis.set(tokenKey, 'valid', { EX: 300 }); // 5 минут
         } catch (redisErr) {
-          console.warn('[Auth] Redis unavailable for pendingAuthToken:', redisErr);
-          // Продолжаем без Redis - токен будет работать, но не одноразовый
+          console.error('[Auth] Redis unavailable for pendingAuthToken - returning 503:', redisErr);
+          return res.status(503).json({
+            error: 'service_unavailable',
+            message: 'Authentication service temporarily unavailable. Please try again.',
+          });
         }
 
         // Получаем totalMass существующего пользователя из leaderboards
         let existingTotalMass = 0;
         try {
-          const pool = getPool();
+          const pool = getPostgresPool();
           const result = await pool.query(
             'SELECT total_mass FROM leaderboards WHERE user_id = $1',
             [existingUser.id]
@@ -738,8 +735,19 @@ router.post('/oauth/resolve', async (req: Request, res: Response) => {
     }
 
     // Check one-time use via Redis
+    // ВАЖНО: Redis обязателен — без него нельзя гарантировать одноразовость токена
+    let redis;
     try {
-      const redis = getRedisClient();
+      redis = getRedisClient();
+    } catch (redisErr) {
+      console.error('[Auth] Redis unavailable for pendingAuthToken check - returning 503:', redisErr);
+      return res.status(503).json({
+        error: 'service_unavailable',
+        message: 'Authentication service temporarily unavailable. Please try again.',
+      });
+    }
+
+    try {
       const tokenKey = `pending_auth:${pendingAuthToken.slice(-16)}`;
       const exists = await redis.get(tokenKey);
 
@@ -754,8 +762,11 @@ router.post('/oauth/resolve', async (req: Request, res: Response) => {
       // Удаляем токен из Redis (одноразовое использование)
       await redis.del(tokenKey);
     } catch (redisErr) {
-      console.warn('[Auth] Redis unavailable for pendingAuthToken check:', redisErr);
-      // Продолжаем без Redis - полагаемся на JWT expiration
+      console.error('[Auth] Redis operation failed for pendingAuthToken - returning 503:', redisErr);
+      return res.status(503).json({
+        error: 'service_unavailable',
+        message: 'Authentication service temporarily unavailable. Please try again.',
+      });
     }
 
     // Get existing user

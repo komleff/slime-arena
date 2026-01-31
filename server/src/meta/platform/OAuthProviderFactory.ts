@@ -96,30 +96,33 @@ export class OAuthProviderFactory {
     const availability = PROVIDER_AVAILABILITY[region];
 
     // Google
-    if (this.isGoogleAvailable(region, availability)) {
+    // Copilot P2: Добавлена явная проверка clientId перед использованием
+    if (this.isGoogleAvailable(region, availability) && this.googleClientId) {
       providers.push({
         name: 'google',
-        clientId: this.googleClientId!,
+        clientId: this.googleClientId,
         priority: PROVIDER_PRIORITY.google,
         requiresPKCE: false, // Google не требует PKCE, но рекомендует
       });
     }
 
     // Yandex
-    if (this.isYandexAvailable(availability)) {
+    // Copilot P2: Добавлена явная проверка clientId перед использованием
+    if (this.isYandexAvailable(availability) && this.yandexClientId) {
       providers.push({
         name: 'yandex',
-        clientId: this.yandexClientId!,
+        clientId: this.yandexClientId,
         priority: PROVIDER_PRIORITY.yandex,
         requiresPKCE: false,
       });
     }
 
     // VK (P1)
-    if (this.isVKAvailable(availability)) {
+    // Copilot P2: Добавлена явная проверка clientId перед использованием
+    if (this.isVKAvailable(availability) && this.vkClientId) {
       providers.push({
         name: 'vk',
-        clientId: this.vkClientId!,
+        clientId: this.vkClientId,
         priority: PROVIDER_PRIORITY.vk,
         requiresPKCE: true, // VK требует PKCE
       });

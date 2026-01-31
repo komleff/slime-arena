@@ -72,8 +72,9 @@ export class YandexOAuthClient implements IOAuthClient {
       label: 'Яндекс',
       backgroundColor: '#ffcc00',
       textColor: '#000000',
-      // Яндекс логотип
-      iconUrl: 'https://yastatic.net/s3/passport-auth-customs/customs/_/2YH5c6X32MYqTaIjsDSPZ6SJW.svg',
+      // Copilot P2: Внешний URL заменён на пустую строку
+      // Иконки уже inline в OAuthProviderSelector.tsx
+      iconUrl: '',
     };
   }
 }

@@ -18,6 +18,8 @@ import {
   connectionError,
   hudVisible,
   MAX_ABILITY_SLOTS,
+  oauthConflict,
+  localPlayer,
 
   // Actions
   setGamePhase,
@@ -34,6 +36,7 @@ import {
   resetGameState,
   clearPlayerDeadFlag,
   initMobileDetection,
+  clearOAuthConflict,
 
   // Types
   type GamePhase,
@@ -52,6 +55,7 @@ import { TalentModal } from './components/TalentModal';
 import { ResultsScreen } from './components/ResultsScreen';
 import { AbilityButtons } from './components/AbilityButtons';
 import { MainMenu } from './components/MainMenu';
+import { AccountConflictModal } from './components/AccountConflictModal';
 
 // ========== Типы для колбеков ==========
 
@@ -79,6 +83,20 @@ function UIRoot() {
   const screen = currentScreen.value;
   const connecting = isConnecting.value;
   const showTalent = showTalentModal.value;
+  const conflict = oauthConflict.value;
+  const player = localPlayer.value;
+
+  // Обработчики для AccountConflictModal
+  const handleConflictSwitch = () => {
+    clearOAuthConflict();
+    // После успешного переключения перерендерим UI
+    renderUI();
+  };
+
+  const handleConflictCancel = () => {
+    clearOAuthConflict();
+    renderUI();
+  };
 
   return (
     <Fragment>
@@ -122,6 +140,17 @@ function UIRoot() {
         <ResultsScreen
           onPlayAgain={callbacks.onPlayAgain}
           onExit={callbacks.onExit}
+        />
+      )}
+
+      {/* OAuth Conflict Modal (409 — аккаунт уже привязан) */}
+      {conflict && (
+        <AccountConflictModal
+          conflict={conflict}
+          currentNickname={player?.name}
+          currentMass={player?.mass}
+          onSwitch={handleConflictSwitch}
+          onCancel={handleConflictCancel}
         />
       )}
     </Fragment>

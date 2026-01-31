@@ -56,8 +56,9 @@ import {
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
+import { isOAuthCallback, parseOAuthCallback, handleOAuthCallback, clearOAuthState } from "./oauth/OAuthRedirectHandler";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -3769,6 +3770,52 @@ const MIN_BOOT_DISPLAY_MS = 1000;
 
         // Стадия 2: Авторизация
         updateBootProgress('authenticating', 30);
+
+        // Проверка OAuth callback после редиректа с провайдера
+        if (isOAuthCallback()) {
+            console.log("[Main] OAuth callback detected, processing...");
+            const callbackParams = parseOAuthCallback();
+            if (callbackParams) {
+                // loadOAuthState() вызывается внутри handleOAuthCallback для валидации state
+                try {
+                    // Для convert_guest flow нужны guestToken и claimToken
+                    // guestToken берём из localStorage (сохранён при guest login)
+                    // claimToken сохраняется в localStorage перед OAuth redirect в RegistrationPromptModal
+                    const guestToken = localStorage.getItem('guest_token') ?? undefined;
+                    const claimTokenValue = localStorage.getItem('pending_claim_token') ?? undefined;
+                    const nickname = authService.getNickname();
+
+                    const result = await handleOAuthCallback(
+                        callbackParams,
+                        guestToken,
+                        claimTokenValue,
+                        nickname
+                    );
+
+                    if (result.success && result.result) {
+                        // Успешная авторизация — сохраняем токен
+                        authService.finishUpgrade(result.result.accessToken);
+                        console.log("[Main] OAuth login successful");
+                        // Очищаем pending_claim_token
+                        localStorage.removeItem('pending_claim_token');
+                    } else if (result.conflict) {
+                        // Конфликт 409 — сохраняем для показа модалки через сигнал
+                        console.log("[Main] OAuth conflict detected:", result.conflict.existingAccount?.nickname);
+                        setOAuthConflict(result.conflict);
+                    } else if (result.error) {
+                        console.warn("[Main] OAuth error:", result.error);
+                    }
+                } catch (oauthErr) {
+                    console.error("[Main] OAuth processing failed:", oauthErr);
+                    clearOAuthState();
+                }
+
+                // Очищаем URL от параметров OAuth
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+        }
+
         const hasSession = await authService.initialize();
         if (hasSession) {
             console.log("[Main] Session restored from localStorage");
