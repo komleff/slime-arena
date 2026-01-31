@@ -1,19 +1,19 @@
 # =============================================================================
 # Slime Arena DB Container
 # PostgreSQL + Redis in one container
-# Version: 0.5.2
+# Version: 0.7.3
 # Platforms: linux/amd64, linux/arm64
 # =============================================================================
 
+FROM alpine:3.19
+
 # OCI Image Labels
 LABEL org.opencontainers.image.title="Slime Arena DB"
-LABEL org.opencontainers.image.description="Slime Arena database bundle: PostgreSQL 16 + Redis. Multi-platform support: AMD64 (Intel/AMD) and ARM64 (Apple Silicon M1-M4, AWS Graviton)."
+LABEL org.opencontainers.image.description="Slime Arena database bundle: PostgreSQL 16 + Redis"
 LABEL org.opencontainers.image.vendor="komleff"
 LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
-LABEL org.opencontainers.image.documentation="https://github.com/komleff/slime-arena#docker"
+LABEL org.opencontainers.image.version="0.7.3"
 LABEL org.opencontainers.image.licenses="MIT"
-
-FROM alpine:3.19
 
 # Install PostgreSQL, Redis, supervisord, and utilities
 RUN apk add --no-cache \
