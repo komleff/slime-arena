@@ -296,13 +296,28 @@ export function AccountConflictModal({
     return mass.toString();
   };
 
+  /**
+   * Получить инициал для аватара
+   * P3: Ищет первую букву (латиница/кириллица), игнорируя эмодзи и спецсимволы
+   */
+  const getAvatarInitial = (nickname?: string): string => {
+    if (!nickname || nickname.length === 0) return '?';
+
+    // Ищем первую букву (латиница или кириллица)
+    const match = nickname.match(/[a-zA-Zа-яА-ЯёЁ]/);
+    if (match) {
+      return match[0].toUpperCase();
+    }
+
+    // Если букв нет — возвращаем первый символ или '?'
+    return nickname[0] || '?';
+  };
+
   const getAvatarContent = (avatarUrl?: string | null, nickname?: string) => {
     if (avatarUrl) {
       return <img src={avatarUrl} alt="Avatar" />;
     }
-    // Первая буква никнейма или дефолтная иконка
-    const initial = nickname ? nickname.charAt(0).toUpperCase() : '?';
-    return initial;
+    return getAvatarInitial(nickname);
   };
 
   return (
@@ -358,7 +373,7 @@ export function AccountConflictModal({
           {(currentNickname || currentMass) && (
             <div class="conflict-account current">
               <div class="conflict-account-avatar">
-                {(currentNickname || '?').charAt(0).toUpperCase()}
+                {getAvatarInitial(currentNickname)}
               </div>
               <div class="conflict-account-info">
                 <div class="conflict-account-label">Текущий (гость)</div>

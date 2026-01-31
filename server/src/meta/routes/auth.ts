@@ -298,6 +298,26 @@ router.post('/oauth', async (req: Request, res: Response) => {
       });
     }
 
+    // P1 Security: Проверка региональной доступности провайдера
+    // Предотвращает обход ограничений через прямой вызов /auth/oauth
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+      || req.ip
+      || req.socket.remoteAddress
+      || '127.0.0.1';
+    const acceptLanguage = req.get('accept-language');
+
+    const geoService = getGeoIPService();
+    const geoResult = await geoService.detectRegion(ip, acceptLanguage);
+
+    const providerFactory = getOAuthProviderFactory();
+    if (!providerFactory.isProviderAvailable(provider, geoResult.region)) {
+      console.log(`[Auth] OAuth blocked: ${provider} not available in region ${geoResult.region} (IP: ${ip})`);
+      return res.status(403).json({
+        error: 'provider_not_available',
+        message: `Provider ${provider} is not available in your region`,
+      });
+    }
+
     let providerUserId: string;
 
     // Exchange code for user info (только для получения providerUserId)
