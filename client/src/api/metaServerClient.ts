@@ -119,6 +119,93 @@ class MetaServerClient {
   }
 
   /**
+   * Raw POST-запрос — возвращает Response для обработки status codes.
+   * Используется для OAuth endpoints где нужно обрабатывать 404, 409, 410.
+   */
+  async postRaw(
+    path: string,
+    body?: object,
+    options?: { headers?: Record<string, string> }
+  ): Promise<Response> {
+    const url = `${META_SERVER_URL}${path}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    };
+
+    const token = this.getToken();
+    if (token && !options?.headers?.['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (!META_SERVER_URL) {
+      throw new ApiError(
+        'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
+        0,
+        'NO_META_SERVER'
+      );
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  }
+
+  /**
+   * Raw GET-запрос — возвращает Response.
+   */
+  async getRaw(path: string): Promise<Response> {
+    const url = `${META_SERVER_URL}${path}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (!META_SERVER_URL) {
+      throw new ApiError(
+        'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
+        0,
+        'NO_META_SERVER'
+      );
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  }
+
+  /**
    * Основной метод для HTTP-запросов с retry логикой.
    */
   private async request<T>(

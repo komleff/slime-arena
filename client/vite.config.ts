@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import path from 'path'
-import pkg from './package.json'
+import versionJson from '../version.json'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
@@ -10,9 +10,9 @@ export default defineConfig(({ mode }) => {
   return {
     // Оптимизированные ассеты для production (только используемые файлы)
     publicDir: path.resolve(__dirname, '../assets-dist'),
-    // Инжекция версии из package.json
+    // Инжекция версии из version.json (единый источник правды)
     define: {
-      __APP_VERSION__: JSON.stringify(pkg.version)
+      __APP_VERSION__: JSON.stringify(versionJson.version)
     },
     server: {
       host: '0.0.0.0',

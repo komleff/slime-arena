@@ -56,8 +56,9 @@ import {
 } from "./ui/UIBridge";
 import { authService } from "./services/authService";
 import { configService } from "./services/configService";
+import { isOAuthCallback, parseOAuthCallback, handleOAuthCallback, clearOAuthState } from "./oauth/OAuthRedirectHandler";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime } from "./ui/signals/gameState";
+import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict, setOAuthNicknameConfirm, setAuthError } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -1457,10 +1458,19 @@ async function connectToServer(playerName: string, classId: number) {
     const client = new Colyseus.Client(wsUrl);
 
         try {
+            // Получаем joinToken для верификации claim (включает guestSubjectId)
+            const roomJoinToken = await authService.getRoomJoinToken(playerName);
+            if (roomJoinToken) {
+                console.log('[Main] Room join token obtained');
+            } else {
+                console.warn('[Main] No room join token, claim verification may fail');
+            }
+
             // Отправляем выбор игрока на сервер
             const room = await client.joinOrCreate<any>("arena", {
                 name: playerName,
                 classId,
+                joinToken: roomJoinToken || undefined,
             });
             activeRoom = room;
             // Сохраняем roomId для отслеживания результатов (используется в ResultsScreen)
@@ -1594,13 +1604,17 @@ async function connectToServer(playerName: string, classId: number) {
 
         // Codex P1: Синхронизируем matchId из серверного состояния
         // (используется в /match-results/claim вместо roomId)
-        room.onStateChange(() => {
+        const syncMatchId = () => {
             const stateMatchId = (room.state as { matchId?: string }).matchId;
             if (stateMatchId && currentMatchId.value !== stateMatchId) {
                 currentMatchId.value = stateMatchId;
-                console.log('[Main] matchId updated from state:', stateMatchId);
+                console.log('[Main] matchId synced from state:', stateMatchId);
             }
-        });
+        };
+        // Читаем matchId сразу при подключении (он уже установлен на сервере)
+        syncMatchId();
+        // И подписываемся на изменения (на случай сброса комнаты)
+        room.onStateChange(syncMatchId);
         
         const resetClassSelectionUi = () => {
             // Сброс состояния класса в Preact signal
@@ -3769,6 +3783,81 @@ const MIN_BOOT_DISPLAY_MS = 1000;
 
         // Стадия 2: Авторизация
         updateBootProgress('authenticating', 30);
+
+        // Проверка OAuth callback после редиректа с провайдера
+        if (isOAuthCallback()) {
+            console.log("[Main] OAuth callback detected, processing...");
+            const callbackParams = parseOAuthCallback();
+            if (callbackParams) {
+                // loadOAuthState() вызывается внутри handleOAuthCallback для валидации state
+                try {
+                    // Для convert_guest flow нужны guestToken и claimToken
+                    // guestToken берём из localStorage (сохранён при guest login)
+                    // claimToken сохраняется в localStorage перед OAuth redirect в RegistrationPromptModal
+                    const guestToken = localStorage.getItem('guest_token') ?? undefined;
+                    const claimTokenValue = localStorage.getItem('pending_claim_token') ?? undefined;
+                    const nickname = authService.getNickname();
+
+                    // DEBUG: Выводим состояние данных для OAuth callback
+                    console.log("[Main] OAuth callback data:", {
+                        hasGuestToken: !!guestToken,
+                        hasClaimToken: !!claimTokenValue,
+                        nickname,
+                        allLocalStorageKeys: Object.keys(localStorage),
+                    });
+
+                    const result = await handleOAuthCallback(
+                        callbackParams,
+                        guestToken,
+                        claimTokenValue
+                    );
+
+                    if (result.success && result.result) {
+                        // Успешная авторизация (login flow) — сохраняем токен
+                        authService.finishUpgrade(result.result.accessToken);
+                        console.log("[Main] OAuth login successful");
+                        localStorage.removeItem('pending_claim_token');
+                    } else if (result.success && result.prepare) {
+                        // P1-4: convert_guest flow — показываем модалку подтверждения никнейма
+                        console.log("[Main] OAuth prepare successful, showing nickname modal:", result.prepare.displayName);
+                        setOAuthNicknameConfirm(result.prepare);
+                        // Очищаем URL и показываем модалку, не продолжаем инициализацию
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        updateBootProgress('ready', 100);
+                        setPhase('menu');
+                        return; // Ждём подтверждения никнейма
+                    } else if (result.conflict) {
+                        // Конфликт 409 — сохраняем для показа модалки через сигнал
+                        console.log("[Main] OAuth conflict detected:", result.conflict.existingAccount?.nickname);
+                        setOAuthConflict(result.conflict);
+                        // Очищаем URL и показываем модалку конфликта
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        updateBootProgress('ready', 100);
+                        setPhase('menu');
+                        return; // Ждём разрешения конфликта
+                    } else if (result.error) {
+                        console.warn("[Main] OAuth error:", result.error);
+                    }
+                } catch (oauthErr) {
+                    console.error("[Main] OAuth processing failed:", oauthErr);
+                    // Copilot P2: Показываем ошибку пользователю через UI
+                    setAuthError('Ошибка авторизации. Попробуйте снова.');
+                    clearOAuthState();
+                }
+
+                // Очищаем URL от параметров OAuth
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            } else {
+                // P2: parseOAuthCallback вернул null — URL не содержит OAuth параметров,
+                // но isOAuthCallback() true из-за остатков в localStorage. Очищаем state.
+                console.log("[Main] OAuth state detected but no URL params, cleaning up");
+                clearOAuthState();
+            }
+        }
+
         const hasSession = await authService.initialize();
         if (hasSession) {
             console.log("[Main] Session restored from localStorage");

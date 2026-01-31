@@ -1,11 +1,11 @@
 {
   "name": "@slime-arena/server",
-  "version": "0.7.1-dev",
+  "version": "0.7.3",
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node-dev -r tsconfig-paths/register --respawn src/index.ts",
-    "dev:meta": "ts-node-dev -r tsconfig-paths/register --respawn src/meta/server.ts",
+    "dev": "ts-node-dev -r tsconfig-paths/register src/index.ts",
+    "dev:meta": "ts-node-dev -r tsconfig-paths/register src/meta/server.ts",
     "build": "tsc",
     "start": "node dist/server/src/index.js",
     "start:meta": "node dist/server/src/meta/server.js",

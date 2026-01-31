@@ -82,6 +82,8 @@ const styles = `
     width: 116px;
     height: 116px;
     z-index: 11;
+    border-radius: 50%;
+    object-fit: cover;
   }
 
   .frame-bottom {
@@ -602,6 +604,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
 
   const playerName = user?.nickname || 'PLAYER';
   const level = profile?.level ?? 1;
+  const avatarUrl = profile?.avatarUrl || '/hud/hud_avatar_hero_01.webp';
   const coins = 0; // Валюта пока не реализована
   const gems = 0;
 
@@ -636,7 +639,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
         <div class="hud-container">
           <div class="hud-avatar-group">
             <img src="/hud/hud_avatar_frame_cookie.webp" class="frame-top" alt="" />
-            <img src="/hud/hud_avatar_hero_01.webp" class="hud-avatar-img" alt="" />
+            <img src={avatarUrl} class="hud-avatar-img" alt="Avatar" />
             <img src="/hud/hud_avatar_frame_cookie.webp" class="frame-bottom" alt="" />
           </div>
           <img src="/hud/hud_profile_base_chocolate.webp" class="hud-base" alt="" />
