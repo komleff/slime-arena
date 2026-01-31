@@ -1,17 +1,9 @@
 # =============================================================================
 # Slime Arena Monolith Full Container
 # All-in-One: PostgreSQL + Redis + MetaServer + MatchServer + Client
-# Version: 0.5.2
+# Version: 0.7.3
 # Platforms: linux/amd64, linux/arm64
 # =============================================================================
-
-# OCI Image Labels
-LABEL org.opencontainers.image.title="Slime Arena Monolith Full"
-LABEL org.opencontainers.image.description="Slime Arena all-in-one container: PostgreSQL + Redis + MetaServer + MatchServer + Client. Multi-platform support: AMD64 (Intel/AMD) and ARM64 (Apple Silicon M1-M4, AWS Graviton). Perfect for quick demos and testing."
-LABEL org.opencontainers.image.vendor="komleff"
-LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
-LABEL org.opencontainers.image.documentation="https://github.com/komleff/slime-arena#docker"
-LABEL org.opencontainers.image.licenses="MIT"
 
 # -----------------------------------------------------------------------------
 # Stage 1: Builder
@@ -39,6 +31,7 @@ COPY server/ server/
 COPY client/ client/
 COPY config/ config/
 COPY assets-dist/ assets-dist/
+COPY version.json ./
 
 # Build all packages in correct order
 # 1. shared (dependency for both server and client)
@@ -57,6 +50,14 @@ RUN mkdir -p server/dist/server/src/db/migrations && \
 # Full production image with PostgreSQL, Redis, and Application
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS runtime
+
+# OCI Image Labels
+LABEL org.opencontainers.image.title="Slime Arena Monolith Full"
+LABEL org.opencontainers.image.description="Slime Arena all-in-one container: PostgreSQL + Redis + MetaServer + MatchServer + Client"
+LABEL org.opencontainers.image.vendor="komleff"
+LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
+LABEL org.opencontainers.image.version="0.7.3"
+LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 
