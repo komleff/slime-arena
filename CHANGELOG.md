@@ -1,5 +1,55 @@
 # Журнал изменений
 
+## v0.7.3 — Platform Adapters & OAuth (1 февраля 2026)
+
+Полная поддержка игровых платформ и OAuth авторизация для Standalone.
+
+### ✨ Добавлено
+
+- **Platform Adapters** (Sprint 15):
+  - YandexAdapter — Yandex Games SDK
+  - PokiAdapter — Poki SDK
+  - CrazyGamesAdapter + AdsProvider
+  - GameDistributionAdapter + AdsProvider
+  - PlatformManager v2 с приоритетами платформ
+  - Server Auth Providers (CrazyGames, Poki, Yandex)
+
+- **OAuth для Standalone** (Sprint 16):
+  - Google OAuth Provider (недоступен в РФ)
+  - Yandex OAuth Provider
+  - OAuthProviderFactory с региональными ограничениями
+  - GeoIP Service для определения региона
+  - NicknameConfirmModal — подтверждение никнейма
+  - AccountConflictModal — разрешение 409 конфликтов
+
+- **Rating System**:
+  - Инициализация рейтинга из claimToken.finalMass
+  - Накопление массы после матчей
+  - Обновление рекорда (best_mass)
+  - Идемпотентность через rating_awards
+
+- **Docker Build Scripts**:
+  - `docker/build.sh` — Linux/macOS
+  - `docker/build.ps1` — Windows PowerShell
+  - `docker/seed-data.sql` — начальные данные
+
+### 🐛 Исправлено
+
+- skinId гостя не сохранялся при OAuth upgrade
+- Рейтинг не инициализировался из claimToken
+- awardRating() не начислял массу
+- SPA routing: redirect_uri изменён на root "/"
+- 409 handling: различение claim_already_consumed vs OAuth conflict
+- Math.round для integer колонок в БД
+
+### 📦 Статистика
+
+- **PR #112:** Sprint 15, 42 файла (+3500/-200)
+- **PR #115:** Sprint 16, 47 файлов (+5194/-1001)
+- **Ревью:** 5 AI-ревьюверов, 11+ итераций
+
+---
+
 ## v0.5.2 — PvP Balance & Combat Fixes (18 января 2026)
 
 Исправления механики боя (укуса в PvP), стабильность "Play Again" и документация по талантам.
