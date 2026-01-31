@@ -20,6 +20,8 @@ export interface InputCommand {
  */
 export interface PlayerResult {
     userId?: string;
+    /** P0-2: guestSubjectId для идентификации гостей в playerResults */
+    guestSubjectId?: string;
     sessionId: string;
     placement: number;
     finalMass: number;

@@ -116,7 +116,14 @@ router.post('/submit', requireServerToken, async (req: Request, res: Response) =
             matchSummary.matchId,
             playerResult.finalMass,
             playersInMatch
-          ).catch((error) => {
+          ).then((result) => {
+            // P0-3: Логируем результат для диагностики
+            if (!result.success) {
+              console.warn(
+                `[MatchResults] Rating not awarded for user ${playerResult.userId?.slice(0, 8)}...: ${result.reason}`
+              );
+            }
+          }).catch((error) => {
             console.error(`[MatchResults] Failed to award rating for user ${playerResult.userId?.slice(0, 8)}...:`, error);
           });
         }
@@ -317,8 +324,8 @@ router.post('/claim', async (req: Request, res: Response) => {
           message: 'Match does not belong to this guest',
         });
       }
-      // Get guest player data for mass calculation (search by guestSubjectId)
-      playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
+      // P0-2: Поиск данных гостя по guestSubjectId (userId для гостей не устанавливается)
+      playerData = playerResults.find((p: PlayerResult) => p.guestSubjectId === subjectId);
     } else {
       // For registered user: check playerResults for matching userId
       playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
@@ -341,9 +348,14 @@ router.post('/claim', async (req: Request, res: Response) => {
     // Get final mass from player data
     const finalMass = playerData?.finalMass ?? 0;
 
-    // Get skinId: for registered users fetch from profile, for guests use default
+    // Get skinId: for registered users fetch from profile, for guests use from request body
     let skinId = 'slime_green';
-    if (!isGuest && subjectId) {
+    if (isGuest) {
+      // P0-1: Гости передают skinId из localStorage через request body
+      if (req.body.skinId && typeof req.body.skinId === 'string') {
+        skinId = req.body.skinId;
+      }
+    } else if (subjectId) {
       const profileResult = await pool.query(
         'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
         [subjectId]

@@ -59,6 +59,9 @@ export class RatingService {
     try {
       await client.query('BEGIN');
 
+      // Округляем finalMass до целого (колонки в БД — integer)
+      const massInt = Math.round(finalMass);
+
       // Check if user exists and is not anonymous
       const userResult = await client.query(
         'SELECT is_anonymous FROM users WHERE id = $1 AND is_banned = FALSE',
@@ -92,7 +95,7 @@ export class RatingService {
         [userId]
       );
       const currentBestMass = currentBestResult.rows[0]?.best_mass ?? 0;
-      const isNewRecord = finalMass > currentBestMass;
+      const isNewRecord = massInt > currentBestMass;
 
       // UPSERT leaderboard_total_mass
       const totalMassResult = await client.query(
@@ -103,7 +106,7 @@ export class RatingService {
            matches_played = leaderboard_total_mass.matches_played + 1,
            updated_at = NOW()
          RETURNING total_mass`,
-        [userId, finalMass]
+        [userId, massInt]
       );
       const newTotalMass = totalMassResult.rows[0].total_mass;
 
@@ -120,7 +123,7 @@ export class RatingService {
              achieved_at = NOW(),
              updated_at = NOW()
            RETURNING best_mass`,
-          [userId, finalMass, matchId, playersInMatch]
+          [userId, massInt, matchId, playersInMatch]
         );
         newBestMass = bestMassResult.rows[0].best_mass;
       }
@@ -199,12 +202,15 @@ export class RatingService {
     finalMass: number,
     playersInMatch: number
   ): Promise<InitializeRatingResult> {
+    // Округляем finalMass до целого (колонки в БД — integer)
+    const massInt = Math.round(finalMass);
+
     // Create leaderboard_total_mass entry
     await client.query(
       `INSERT INTO leaderboard_total_mass (user_id, total_mass, matches_played, updated_at)
        VALUES ($1, $2, 1, NOW())
        ON CONFLICT (user_id) DO NOTHING`,
-      [userId, finalMass]
+      [userId, massInt]
     );
 
     // Create leaderboard_best_mass entry
@@ -212,7 +218,7 @@ export class RatingService {
       `INSERT INTO leaderboard_best_mass (user_id, best_mass, best_match_id, players_in_match, achieved_at, updated_at)
        VALUES ($1, $2, $3, $4, NOW(), NOW())
        ON CONFLICT (user_id) DO NOTHING`,
-      [userId, finalMass, matchId, playersInMatch]
+      [userId, massInt, matchId, playersInMatch]
     );
 
     // Record the award for idempotency (first match)

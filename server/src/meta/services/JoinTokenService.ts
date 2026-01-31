@@ -124,11 +124,13 @@ export class JoinTokenService {
 
   /**
    * Verify token and check if it matches expected roomId
+   * If token's roomId is empty, it's valid for any room (dev mode / quick play)
    */
   verifyTokenForRoom(token: string, expectedRoomId: string): JoinTokenPayload {
     const payload = this.verifyToken(token);
 
-    if (payload.roomId !== expectedRoomId) {
+    // Allow empty roomId in token for quick play (not assigned via matchmaking)
+    if (payload.roomId && payload.roomId !== expectedRoomId) {
       throw new Error(`Token roomId mismatch: expected ${expectedRoomId}, got ${payload.roomId}`);
     }
 
