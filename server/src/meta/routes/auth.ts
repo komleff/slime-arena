@@ -550,12 +550,12 @@ router.post('/upgrade', async (req: Request, res: Response) => {
           });
         }
 
-        // Получаем totalMass существующего пользователя из leaderboards
+        // Получаем totalMass существующего пользователя из leaderboard_total_mass
         let existingTotalMass = 0;
         try {
           const pool = getPostgresPool();
           const result = await pool.query(
-            'SELECT total_mass FROM leaderboards WHERE user_id = $1',
+            'SELECT total_mass FROM leaderboard_total_mass WHERE user_id = $1',
             [existingUser.id]
           );
           if (result.rows.length > 0) {
