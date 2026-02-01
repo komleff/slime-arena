@@ -627,8 +627,15 @@ class AuthService {
     // Очищаем гостевые данные
     this.clearGuestData();
 
+    // FIX-009: Сохраняем access_token в localStorage для персистентности
+    // БЕЗ этого токен терялся при перезагрузке страницы
+    localStorage.setItem('access_token', accessToken);
+    localStorage.setItem('is_anonymous', 'false');
+    if (nickname) {
+      localStorage.setItem('user_nickname', nickname);
+    }
+
     // P1-3: Устанавливаем токен в HTTP-клиент для последующих запросов.
-    // Без этого HTTP-клиент остаётся с гостевым токеном после OAuth upgrade.
     metaServerClient.setToken(accessToken);
 
     // Обновляем UI состояние
@@ -640,7 +647,7 @@ class AuthService {
     const profile = createDefaultProfile();
     setAuthState(user, profile, accessToken);
 
-    console.log('[AuthService] Upgrade finished, guest data cleared');
+    console.log('[AuthService] Upgrade finished, access_token saved to localStorage');
   }
 }
 
