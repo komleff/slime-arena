@@ -3,13 +3,13 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.7.4)
+**База:** main (v0.7.5)
 **GDD версия:** 3.3.2
 **Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 released
 **Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
 **Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
 **Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
-**Sprint 18 Status:** ✅ ЗАВЕРШЁН — PR ожидает создания
+**Sprint 18 Status:** ✅ ЗАВЕРШЁН — PR#117 merged (v0.7.5)
 
 ---
 
@@ -106,10 +106,9 @@
 | slime-arena-9zu | P2 | GeoIP: HTTPS вместо HTTP |
 | slime-arena-b1b | P1 | PKCE валидация на сервере |
 | slime-arena-5tp | P1 | UNKNOWN регион: отключить Google |
-| slime-arena-3ed | P1 | Rate limiting на /auth/* |
-| slime-arena-2q0 | P1 | Nickname validation в /auth/upgrade |
 | slime-arena-b48 | P1 | Accessibility: Escape + focus trap |
-| slime-arena-k8w | P2 | Скин слайма не сохраняется после OAuth |
+
+*Sprint 18 закрыты: slime-arena-3ed, slime-arena-2q0, slime-arena-k8w, slime-arena-yij, slime-arena-zmf*
 
 ---
 
