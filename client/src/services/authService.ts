@@ -626,6 +626,13 @@ class AuthService {
    * FIX-010: Загружаем профиль с сервера для получения актуальных данных
    */
   async finishUpgrade(accessToken: string, nickname?: string): Promise<void> {
+    // Сохраняем гостевой скин в selected_skin_id перед очисткой
+    // чтобы не потерять выбор пользователя после OAuth upgrade
+    const guestSkinId = localStorage.getItem('guest_skin_id');
+    if (guestSkinId && !localStorage.getItem('selected_skin_id')) {
+      localStorage.setItem('selected_skin_id', guestSkinId);
+    }
+
     // Очищаем гостевые данные
     this.clearGuestData();
 
