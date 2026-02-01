@@ -9,11 +9,11 @@
 **Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
 **Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
 **Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
-**Sprint 18 Status:** ✅ ЗАВЕРШЁН — PR#117 merged (v0.7.5)
+**Sprint 18 Status:** ✅ ЗАВЕРШЁН — PR#117, PR#118 merged (v0.7.5)
 
 ---
 
-## ✅ Sprint 18 — Tech Debt Reduction (2026-02-01)
+## ✅ Sprint 18 — Tech Debt Reduction (2026-02-01/02)
 
 **Цель:** Стабильность + безопасность + консолидация tech debt
 **Версия:** 0.7.4 → 0.7.5
@@ -35,11 +35,21 @@
 
 ### Ключевые изменения
 
+**PR #117 (Tech Debt):**
+
 - **Rate limiting:** самописный middleware (0 зависимостей) — 10 req/min для auth, 5 req/min для OAuth
 - **Nickname validation:** `validateAndNormalize()` в /auth/upgrade, /join-token
 - **REWARDS_CONFIG:** перенесён в balance.json с секцией rating
 - **Auth caching:** cachedJoinToken signal в gameState.ts
 - **Results UI:** логика buttonText вынесена в отдельную переменную
+
+**PR #118 (Manual Testing Fixes):**
+
+- **Vite proxy:** мобильное тестирование в LAN (/api/* → localhost:3000)
+- **LeaderboardScreen:** округление массы (Math.floor)
+- **.env.example:** полная документация всех env vars
+- **Match duration:** 30 → 90 сек (фазы 30/30/30)
+- **AGENT_ROLES:** упрощены правила версионирования (без -dev)
 
 ### Консолидация Beads (выполнено)
 
