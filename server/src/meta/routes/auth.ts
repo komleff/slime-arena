@@ -25,8 +25,13 @@ import {
 import { ratingService } from '../services/RatingService';
 import { getPostgresPool } from '../../db/pool';
 import { getRedisClient } from '../../db/redis';
+import { authRateLimiter, oauthRateLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
+
+// Rate limiting для всех auth endpoints (10 запросов/минуту)
+// Защита от брутфорса и DoS-атак (slime-arena-3ed)
+router.use(authRateLimiter);
 const authService = new AuthService();
 
 // Copilot P3: Удалена локальная обёртка getPool(), используем getPostgresPool() напрямую
