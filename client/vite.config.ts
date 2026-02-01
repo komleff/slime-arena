@@ -23,7 +23,15 @@ export default defineConfig(({ mode }) => {
             host: hmrHost,
             protocol: hmrProtocol
           }
-        : true
+        : true,
+      // Проксирование API для доступа с других устройств в локальной сети
+      // Телефон: http://192.168.x.x:5173/api/v1/... → localhost:3000/api/v1/...
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3000',
+          changeOrigin: true
+        }
+      }
     },
     resolve: {
       alias: {

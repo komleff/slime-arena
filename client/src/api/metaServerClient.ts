@@ -4,9 +4,19 @@
  */
 
 const getMetaServerUrl = () => {
-  // MetaServer URL задаётся через env-переменную VITE_META_SERVER_URL
-  // Если не задан, возвращаем пустую строку (offline режим)
-  return import.meta.env?.VITE_META_SERVER_URL || '';
+  // Если URL задан явно — используем его
+  if (import.meta.env?.VITE_META_SERVER_URL) {
+    return import.meta.env.VITE_META_SERVER_URL;
+  }
+
+  // В dev-режиме: /api/v1 через Vite proxy
+  // Позволяет тестировать с телефона и других устройств в локальной сети
+  if (import.meta.env?.DEV) {
+    return '/api/v1';
+  }
+
+  // Production без URL — offline режим
+  return '';
 };
 
 const META_SERVER_URL = getMetaServerUrl();
