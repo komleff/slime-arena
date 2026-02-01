@@ -344,7 +344,7 @@ interface ResultsScreenProps {
 export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const results = matchResults.value;
   const currentClassId = selectedClassId.value;
-  const status = claimStatus.value;
+  // P1-2: Не кэшируем claimStatus.value — читаем напрямую для reactivity
   const rewards = claimRewards.value;
 
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
@@ -434,7 +434,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   })();
 
   const waitTime = resultsWaitTime.value;
-  const canPlay = waitTime <= 0 && status !== 'claiming';
+  // P1-2: Читаем claimStatus.value напрямую для reactivity
+  const canPlay = waitTime <= 0 && claimStatus.value !== 'claiming';
 
   return (
     <div class="results-overlay">
@@ -487,8 +488,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           </div>
         )}
 
-        {/* Статус отправки результата */}
-        {status === 'claiming' && (
+        {/* Статус отправки результата — P1-2: читаем signal напрямую */}
+        {claimStatus.value === 'claiming' && (
           <div class="results-claim-status claiming">
             Сохранение результата...
           </div>

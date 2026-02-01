@@ -33,6 +33,10 @@ const router = express.Router();
 // Rate limiting для всех auth endpoints (10 запросов/минуту)
 // Защита от брутфорса и DoS-атак (slime-arena-3ed)
 router.use(authRateLimiter);
+
+// P2: Более строгий rate limit для OAuth endpoints (5 запросов/минуту)
+// OAuth коды одноразовые — частые запросы подозрительны
+router.use('/oauth', oauthRateLimiter);
 const authService = new AuthService();
 
 // Copilot P3: Удалена локальная обёртка getPool(), используем getPostgresPool() напрямую
@@ -878,9 +882,10 @@ router.post('/upgrade', async (req: Request, res: Response) => {
               try {
                 finalNickname = validateAndNormalize(rawNickname);
               } catch {
-                // P2-5: Логируем fallback для отладки
-                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using fallback`);
-                finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+                // P2: Безопасный fallback — генерируем никнейм вместо normalizeNickname()
+                // normalizeNickname() не валидирует паттерн, emoji и спецсимволы могут пройти
+                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using generated fallback`);
+                finalNickname = `User${Date.now() % 100000}`;
               }
             }
             avatarUrl = userInfo.picture;
@@ -909,9 +914,10 @@ router.post('/upgrade', async (req: Request, res: Response) => {
               try {
                 finalNickname = validateAndNormalize(rawNickname);
               } catch {
-                // P2-5: Логируем fallback для отладки
-                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using fallback`);
-                finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+                // P2: Безопасный fallback — генерируем никнейм вместо normalizeNickname()
+                // normalizeNickname() не валидирует паттерн, emoji и спецсимволы могут пройти
+                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using generated fallback`);
+                finalNickname = `User${Date.now() % 100000}`;
               }
             }
             avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);

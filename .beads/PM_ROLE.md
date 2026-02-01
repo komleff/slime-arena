@@ -154,9 +154,48 @@ Fixed by Claude Opus 4.5 (Attempt 1/5)
 
 ### 2.3 Review coordination
 
-PM автоматизирует параллельный review через `pm-orchestrator.py`:
+PM автоматизирует параллельный review через специализированных агентов.
 
-**Процесс:**
+#### Стратегия: Специализированные ревью-агенты
+
+**Предпочтительный подход** — запуск 3 агентов с разным фокусом:
+
+| Агент | Фокус | Приоритет проверок |
+|-------|-------|-------------------|
+| **Security Agent** | Безопасность | XSS, injection, auth bypass, rate limiting, info disclosure |
+| **Code Quality Agent** | Качество кода | Dead code, reactivity, null-checks, fallbacks, DRY |
+| **Architecture Agent** | Архитектура | Паттерны, согласованность, Promise handling, state management |
+
+**Преимущества:**
+- Глубокий анализ в каждой области
+- Разные перспективы ловят разные проблемы
+- Параллельное выполнение экономит время
+- Избегает "blind spots" универсального ревью
+
+**Пример запуска (Claude Code Task tool):**
+
+```
+Параллельно запустить 3 агента:
+
+1. Security Agent:
+   - Проверить TRUST_PROXY, rate limiting
+   - OAuth null-checks, generic errors
+   - Token expiration
+
+2. Code Quality Agent:
+   - Dead code, signal reactivity
+   - Null-checks, fallbacks
+   - Документация (JSDoc)
+
+3. Architecture Agent:
+   - Promise memoization
+   - Согласованность дефолтов
+   - Паттерны state management
+```
+
+#### Альтернатива: pm-orchestrator.py
+
+Для полной автоматизации можно использовать Python-оркестратор:
 
 1. PM запускает 3 ревьювера параллельно:
    - Claude Opus 4.5 (Anthropic API)
