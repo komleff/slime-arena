@@ -66,6 +66,9 @@ interface ProfileSummary {
   level: number;
   xp: number;
   selectedSkinId?: string;
+  gamesPlayed?: number;
+  totalKills?: number;
+  highestMass?: number;
   wallet: {
     coins: number;
     gems: number;
@@ -74,16 +77,16 @@ interface ProfileSummary {
 
 /**
  * Создаёт объект Profile с дефолтными значениями.
- * TODO: В Sprint 2 эти значения должны приходить с сервера в ProfileSummary
+ * FIX-007: Принимает ProfileSummary для заполнения статистики с сервера
  */
-function createDefaultProfile(level = 1, xp = 0): Profile {
+function createDefaultProfile(level = 1, xp = 0, summary?: Partial<ProfileSummary>): Profile {
   return {
     rating: balanceConfig.initialProfile.rating,
     ratingDeviation: balanceConfig.initialProfile.ratingDeviation,
-    gamesPlayed: 0,
+    gamesPlayed: summary?.gamesPlayed || 0,
     gamesWon: 0,
-    totalKills: 0,
-    highestMass: 0,
+    totalKills: summary?.totalKills || 0,
+    highestMass: summary?.highestMass || 0,
     level,
     xp,
   };
@@ -112,12 +115,16 @@ class AuthService {
   /**
    * Инициализация сервиса.
    * Пытается восстановить сессию из localStorage.
+   *
+   * FIX-006: setOnUnauthorized устанавливается ПОСЛЕ успешного восстановления сессии,
+   * чтобы избежать Auth Loop: 401 → logout() → очистка всех токенов.
+   *
+   * FIX-001: Если есть guest_token, восстанавливаем гостевую сессию из localStorage
+   * БЕЗ вызова login(), чтобы сохранить связь с registration_claim_token.
    */
   async initialize(): Promise<boolean> {
-    // P1-1: Всегда устанавливаем callback для 401 ошибок (до early return!)
-    metaServerClient.setOnUnauthorized(() => {
-      this.logout();
-    });
+    // FIX-006: НЕ устанавливаем setOnUnauthorized в начале!
+    // Это предотвращает Auth Loop при истёкшем access_token.
 
     if (this.initialized) {
       return true;
@@ -126,14 +133,14 @@ class AuthService {
     // Инициализируем PlatformManager
     platformManager.initialize();
 
-    // FIX-001: Пытаемся восстановить сессию только для зарегистрированных пользователей.
-    // Для гостей (только guest_token) не вызываем fetchProfile(),
-    // т.к. эндпоинт /profile требует access_token и вернёт 401.
-    // Это предотвращает Auth Loop: 401 → logout() → очистка guest_token → OAuth fail
     const accessToken = localStorage.getItem('access_token');
+    const guestToken = localStorage.getItem('guest_token');
+
+    // Случай 1: Есть access_token — пытаемся восстановить сессию зарегистрированного
     if (accessToken) {
       try {
         setAuthenticating(true);
+        metaServerClient.setToken(accessToken);
         const profileSummary = await this.fetchProfile();
         if (profileSummary) {
           // Конвертируем ProfileSummary в User и Profile для signals
@@ -142,32 +149,67 @@ class AuthService {
             profileSummary.nickname,
             platformManager.getPlatformType()
           );
-          const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
+          // FIX-007: Передаём статистику из ProfileSummary
+          const profile = createDefaultProfile(profileSummary.level, profileSummary.xp, profileSummary);
           setAuthState(user, profile, accessToken);
           this.initialized = true;
           console.log('[AuthService] Session restored for registered user');
+
+          // FIX-006: Устанавливаем interceptor ПОСЛЕ успешного восстановления
+          metaServerClient.setOnUnauthorized(() => this.logout());
+          setAuthenticating(false);
           return true;
         }
       } catch (err) {
         console.log('[AuthService] Session restore failed:', err);
-        // Token is NOT cleared here to allow retry on network error.
-        // 401 errors are handled by setOnUnauthorized callback.
+        // FIX-006: При ошибке 401 удаляем ТОЛЬКО access_token, НЕ вызываем logout()
+        // Это сохраняет guest_token и registration_claim_token для OAuth flow
+        localStorage.removeItem('access_token');
+        metaServerClient.clearToken();
+      } finally {
+        setAuthenticating(false);
       }
     }
 
-    // FIX-001: Для гостей (есть guest_token, но нет access_token) — логируем и идём в login flow.
-    // Это сохраняет guest_token и связанные данные (registration_claim_token).
-    const guestToken = localStorage.getItem('guest_token');
-    if (guestToken && !accessToken) {
-      console.log('[AuthService] Guest session detected, skipping fetchProfile to preserve tokens');
+    // FIX-001: Случай 2: Есть guest_token (но нет access_token) —
+    // восстанавливаем гостевую сессию из localStorage БЕЗ вызова login()
+    if (guestToken) {
+      console.log('[AuthService] Restoring guest session from localStorage');
+
+      const nickname = localStorage.getItem('guest_nickname') || this.generateGuestNickname();
+      const skinId = localStorage.getItem('guest_skin_id') || this.generateGuestSkinId();
+
+      // Сохраняем если были сгенерированы
+      if (!localStorage.getItem('guest_nickname')) {
+        localStorage.setItem('guest_nickname', nickname);
+      }
+      if (!localStorage.getItem('guest_skin_id')) {
+        localStorage.setItem('guest_skin_id', skinId);
+      }
+
+      // Устанавливаем токен в HTTP-клиент
+      metaServerClient.setToken(guestToken);
+
+      // Создаём User для UI
+      const user = createUser('guest', nickname, platformManager.getPlatformType());
+      const profile = createDefaultProfile();
+      setAuthState(user, profile, guestToken);
+
+      this.initialized = true;
+      console.log('[AuthService] Guest session restored, claim token preserved');
+
+      // FIX-006: Устанавливаем interceptor после восстановления
+      metaServerClient.setOnUnauthorized(() => this.logout());
+      return true;
     }
 
-    // Copilot P1: Автоматически авторизуем новых пользователей
-    // Если нет существующей сессии, запускаем login flow
+    // Случай 3: Нет токенов — запускаем login flow
     console.log('[AuthService] No existing session, starting login flow');
+
+    // FIX-006: Устанавливаем interceptor перед login (для новых сессий это безопасно)
+    metaServerClient.setOnUnauthorized(() => this.logout());
+
     const loginSuccess = await this.login();
-    // Copilot P2: Устанавливаем initialized только при успешном login,
-    // чтобы разрешить повторные попытки при ошибках сети
     if (loginSuccess) {
       this.initialized = true;
     }
@@ -403,6 +445,9 @@ class AuthService {
     localStorage.removeItem('guest_token');
     localStorage.removeItem('guest_nickname');
     localStorage.removeItem('guest_skin_id');
+    // FIX-005: Очищаем claim токены при upgrade
+    localStorage.removeItem('registration_claim_token');
+    localStorage.removeItem('pending_claim_token');
     // Copilot P2: Также очищаем authToken от metaServerClient
     localStorage.removeItem('authToken');
   }
@@ -438,6 +483,9 @@ class AuthService {
     localStorage.removeItem('guest_token');
     localStorage.removeItem('guest_nickname');
     localStorage.removeItem('guest_skin_id');
+    // FIX-005: Claim токены
+    localStorage.removeItem('registration_claim_token');
+    localStorage.removeItem('pending_claim_token');
     // metaServerClient token
     localStorage.removeItem('authToken');
   }
@@ -459,7 +507,8 @@ class AuthService {
           profileSummary.nickname,
           platformManager.getPlatformType()
         );
-        const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
+        // FIX-007: Передаём статистику из ProfileSummary
+        const profile = createDefaultProfile(profileSummary.level, profileSummary.xp, profileSummary);
         setAuthState(user, profile, token);
       }
 
