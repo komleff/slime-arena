@@ -1536,7 +1536,10 @@ async function connectToServer(playerName: string, classId: number) {
                 }
 
                 // Показываем лобби с таймером ожидания
+                // FIX slime-arena-hp5: Сбрасываем фазу в 'menu' перед показом лобби,
+                // иначе фаза останется 'connecting' и UI будет в некорректном состоянии
                 setArenaWaitTime(waitTime);
+                setPhase("menu");
                 goToLobby();
                 setConnecting(false);
 
