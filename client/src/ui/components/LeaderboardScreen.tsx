@@ -783,7 +783,7 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                         </div>
                       )}
                     </div>
-                    <div class="leaderboard-score">{userEntry.score.toLocaleString()}</div>
+                    <div class="leaderboard-score">{Math.floor(userEntry.score).toLocaleString()}</div>
                   </div>
                 </div>
               )}
@@ -818,7 +818,7 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                           </div>
                         )}
                       </div>
-                      <div class="leaderboard-score">{entry.score.toLocaleString()}</div>
+                      <div class="leaderboard-score">{Math.floor(entry.score).toLocaleString()}</div>
                     </div>
                   );
                 })}
@@ -838,7 +838,7 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                         </div>
                       )}
                     </div>
-                    <div class="leaderboard-score">{userEntry.score.toLocaleString()}</div>
+                    <div class="leaderboard-score">{Math.floor(userEntry.score).toLocaleString()}</div>
                   </div>
                 </div>
               )}
@@ -853,7 +853,7 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                       <div class="leaderboard-name">{guestEntry.nickname}</div>
                       <div class="leaderboard-meta">Не в рейтинге</div>
                     </div>
-                    <div class="leaderboard-score">{guestEntry.mass.toLocaleString()}</div>
+                    <div class="leaderboard-score">{Math.floor(guestEntry.mass).toLocaleString()}</div>
                   </div>
                   <button
                     class="leaderboard-save-progress-btn"
