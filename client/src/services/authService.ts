@@ -126,9 +126,12 @@ class AuthService {
     // Инициализируем PlatformManager
     platformManager.initialize();
 
-    // Пытаемся восстановить сессию
-    const token = metaServerClient.getToken();
-    if (token) {
+    // FIX-001: Пытаемся восстановить сессию только для зарегистрированных пользователей.
+    // Для гостей (только guest_token) не вызываем fetchProfile(),
+    // т.к. эндпоинт /profile требует access_token и вернёт 401.
+    // Это предотвращает Auth Loop: 401 → logout() → очистка guest_token → OAuth fail
+    const accessToken = localStorage.getItem('access_token');
+    if (accessToken) {
       try {
         setAuthenticating(true);
         const profileSummary = await this.fetchProfile();
@@ -140,9 +143,9 @@ class AuthService {
             platformManager.getPlatformType()
           );
           const profile = createDefaultProfile(profileSummary.level, profileSummary.xp);
-          setAuthState(user, profile, token);
+          setAuthState(user, profile, accessToken);
           this.initialized = true;
-          console.log('[AuthService] Session restored');
+          console.log('[AuthService] Session restored for registered user');
           return true;
         }
       } catch (err) {
@@ -150,6 +153,13 @@ class AuthService {
         // Token is NOT cleared here to allow retry on network error.
         // 401 errors are handled by setOnUnauthorized callback.
       }
+    }
+
+    // FIX-001: Для гостей (есть guest_token, но нет access_token) — логируем и идём в login flow.
+    // Это сохраняет guest_token и связанные данные (registration_claim_token).
+    const guestToken = localStorage.getItem('guest_token');
+    if (guestToken && !accessToken) {
+      console.log('[AuthService] Guest session detected, skipping fetchProfile to preserve tokens');
     }
 
     // Copilot P1: Автоматически авторизуем новых пользователей

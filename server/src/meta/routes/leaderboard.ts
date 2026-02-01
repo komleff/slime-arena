@@ -173,8 +173,9 @@ async function getUserPosition(
   const matchesPlayedSelect = mode === 'total' ? ', matches_played' : '';
 
   // Get user's value (и matchesPlayed для mode=total)
+  // LB-006: Достаем updated_at для точного расчета позиции (вторичная сортировка)
   const userResult = await db.query(
-    `SELECT ${valueColumn} as value${matchesPlayedSelect} FROM ${table} WHERE user_id = $1`,
+    `SELECT ${valueColumn} as value, updated_at${matchesPlayedSelect} FROM ${table} WHERE user_id = $1`,
     [userId]
   );
 
@@ -183,16 +184,18 @@ async function getUserPosition(
   }
 
   const userValue = userResult.rows[0].value;
+  const userUpdatedAt = userResult.rows[0].updated_at;
   const matchesPlayed = mode === 'total' ? userResult.rows[0].matches_played : undefined;
 
   // Count users with higher value
+  // LB-006: Совмещаем логику с getLeaderboardEntries (ORDER BY mass DESC, updated_at DESC)
   const positionResult = await db.query(
     `SELECT COUNT(*) + 1 as position
      FROM ${table} lb
      INNER JOIN users u ON u.id = lb.user_id
-     WHERE lb.${valueColumn} > $1
-       AND u.is_banned = FALSE`,
-    [userValue]
+     WHERE u.is_banned = FALSE
+       AND (lb.${valueColumn} > $1 OR (lb.${valueColumn} = $1 AND lb.updated_at > $2))`,
+    [userValue, userUpdatedAt]
   );
 
   const result: { position: number; value: number; matchesPlayed?: number } = {

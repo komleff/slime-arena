@@ -1,0 +1,74 @@
+/**
+ * Inline Boot Screen styles
+ * Показывается мгновенно до загрузки JS bundle
+ */
+#inline-boot {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #5D4037;
+  background-image: url('/backgrounds/bg_loading_screen.jpg');
+  background-size: cover;
+  background-position: center;
+  z-index: 9999;
+  font-family: 'Trebuchet MS', Verdana, 'Segoe UI', sans-serif;
+}
+
+#inline-boot.hidden {
+  display: none;
+}
+
+.ib-progress {
+  position: absolute;
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ib-track {
+  width: 280px;
+  height: 32px;
+  background: linear-gradient(180deg, #8B5A2B 0%, #6B4423 50%, #5D3A1A 100%);
+  border-radius: 16px;
+  border: 3px solid #4A2C17;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.3);
+  overflow: hidden;
+  position: relative;
+}
+
+.ib-inner {
+  position: absolute;
+  inset: 3px;
+  background: linear-gradient(180deg, #3E2723 0%, #5D4037 100%);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ib-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(180deg,
+    #FFF8E1 0%,
+    #FFE0B2 30%,
+    #FFCC80 70%,
+    #FFB74D 100%
+  );
+  border-radius: 10px;
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1);
+  animation: ibGrow 1s ease-out forwards;
+}
+
+/* Плавный рост от 0% до 90% за 1 сек, JS доведёт до 100% */
+@keyframes ibGrow {
+  0% { width: 0%; }
+  100% { width: 90%; }
+}

@@ -209,8 +209,23 @@ export function OAuthProviderSelector({
 
       // P0-2: Сохраняем claimToken в localStorage перед редиректом на OAuth провайдера.
       // После возврата с провайдера main.ts прочитает его для convert_guest flow.
-      if (intent === 'convert_guest' && claimToken.value) {
-        localStorage.setItem('pending_claim_token', claimToken.value);
+      // LB-009: Пытаемся взять токен из сигнала или из localStorage (если сессия была прервана)
+      const effectiveClaimToken = claimToken.value || localStorage.getItem('registration_claim_token');
+
+      // FIX-002: Блокируем редирект для convert_guest если нет claimToken
+      // Без токена OAuth callback вернёт ошибку "Missing guest data"
+      if (intent === 'convert_guest' && !effectiveClaimToken) {
+        const errorMessage = 'Нет данных для сохранения прогресса. Сначала сыграйте матч.';
+        setError(errorMessage);
+        onError?.(errorMessage);
+        setStartingOAuth(null);
+        return;
+      }
+
+      if (intent === 'convert_guest' && effectiveClaimToken) {
+        localStorage.setItem('registration_claim_token', effectiveClaimToken);
+        // Сохраняем и под старым ключом для обратной совместимости во время миграции
+        localStorage.setItem('pending_claim_token', effectiveClaimToken);
       }
 
       await oauthService.startOAuth(provider, intent, gameState);

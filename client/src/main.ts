@@ -3793,9 +3793,11 @@ const MIN_BOOT_DISPLAY_MS = 1000;
                 try {
                     // Для convert_guest flow нужны guestToken и claimToken
                     // guestToken берём из localStorage (сохранён при guest login)
-                    // claimToken сохраняется в localStorage перед OAuth redirect в RegistrationPromptModal
+                    // claimToken сохраняется в localStorage перед OAuth redirect или после матча
                     const guestToken = localStorage.getItem('guest_token') ?? undefined;
-                    const claimTokenValue = localStorage.getItem('pending_claim_token') ?? undefined;
+                    const claimTokenValue = localStorage.getItem('registration_claim_token') || 
+                                           localStorage.getItem('pending_claim_token') || 
+                                           undefined;
                     const nickname = authService.getNickname();
 
                     // DEBUG: Выводим состояние данных для OAuth callback
@@ -3817,6 +3819,7 @@ const MIN_BOOT_DISPLAY_MS = 1000;
                         authService.finishUpgrade(result.result.accessToken);
                         console.log("[Main] OAuth login successful");
                         localStorage.removeItem('pending_claim_token');
+                        localStorage.removeItem('registration_claim_token');
                     } else if (result.success && result.prepare) {
                         // P1-4: convert_guest flow — показываем модалку подтверждения никнейма
                         console.log("[Main] OAuth prepare successful, showing nickname modal:", result.prepare.displayName);

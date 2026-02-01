@@ -200,7 +200,9 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
   const isStandalone = platformManager.isStandalone();
 
   // Gemini P1: Проверяем доступность claimToken перед разрешением upgrade
-  const hasClaimToken = claimToken.value !== null;
+  // LB-009: Пытаемся взять токен из сигнала или из localStorage
+  const effectiveClaimToken = claimToken.value || localStorage.getItem('registration_claim_token');
+  const hasClaimToken = effectiveClaimToken !== null;
   const isTokenLoading = claimStatus.value === 'claiming';
   const canUpgrade = hasClaimToken || !isTelegram; // Для не-Telegram просто открываем бота
 
@@ -217,7 +219,8 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
 
       // Copilot P1: Для Telegram используем upgrade flow напрямую через API
       // (adapter.requestAuth() не работает для Telegram Mini App)
-      const token = claimToken.value;
+      // LB-009: Используем эффективный токен (из сигнала или localStorage)
+      const token = effectiveClaimToken;
       if (!token) {
         setError('Нет данных для сохранения прогресса. Сыграйте матч.');
         return;
@@ -266,7 +269,7 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
     } finally {
       setIsLoading(false);
     }
-  }, [isTelegram, onClose]);
+  }, [isTelegram, onClose, effectiveClaimToken]);
 
   const handleOverlayClick = useCallback((e: MouseEvent) => {
     if ((e.target as HTMLElement).classList.contains('reg-modal-overlay')) {

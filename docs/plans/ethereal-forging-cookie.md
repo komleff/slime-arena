@@ -7,6 +7,99 @@
 
 ---
 
+## ⚠️ Результаты ревью PR #116 (2026-02-01)
+
+### Ревьюверы и вердикты
+
+| Ревьювер | Вердикт | Примечание |
+|----------|---------|------------|
+| Claude Opus 4.5 | CHANGES_REQUESTED | P0: несогласованность ключей localStorage |
+| Gemini Code Assist | APPROVED* | *Сделал исправления (нарушение!) |
+| GPT-5 Codex | CHANGES_REQUESTED | P1: OAuthProviderSelector не блокирует без токена |
+| Lingma | — | Анализ без вердикта |
+| Copilot | COMMENTED | 8 inline-комментариев |
+
+### ❌ Нарушение: Gemini поправил код
+
+Gemini внёс 5 исправлений вместо того, чтобы только комментировать. Изменения корректные, но требуют проверки:
+
+| Файл | Изменение |
+|------|-----------|
+| `matchResultsService.ts:151` | Автосохранение `registration_claim_token` в localStorage |
+| `main.ts:3796-3798` | Проверка обоих ключей (`registration_claim_token` + `pending_claim_token`) |
+| `OAuthProviderSelector.tsx:212-218` | Fallback на localStorage + сохранение под обоими ключами |
+| `RegistrationPromptModal.tsx:203-224` | Fallback на localStorage для effectiveClaimToken |
+| `leaderboard.ts:176-196` | Расчёт позиции с учётом вторичной сортировки |
+
+### ✅ Результат проверки изменений Gemini
+
+| # | Файл | Статус | Комментарий |
+|---|------|--------|-------------|
+| 1 | `matchResultsService.ts:152-154` | ✅ OK | Автосохранение токена решает проблему потери при reload |
+| 2 | `main.ts:3798-3800, 3821-3822` | ✅ OK | Fallback на оба ключа + очистка обоих после успеха |
+| 3 | `OAuthProviderSelector.tsx:212-218` | ⚠️ P1 | Fallback добавлен, но **редирект не блокируется** если токен null |
+| 4 | `RegistrationPromptModal.tsx:204-207` | ✅ OK | Fallback + корректная проверка canUpgrade |
+| 5 | `leaderboard.ts:176-198` | ✅ OK | Расчёт позиции с `updated_at` соответствует основной сортировке |
+
+**Решение:**
+- 4 из 5 изменений принять
+- Для `OAuthProviderSelector.tsx` добавить блокировку редиректа (FIX-002)
+
+---
+
+### Оставшиеся замечания (НЕ исправлены)
+
+#### P0 — Критичные
+
+| # | Источник | Проблема | Файл |
+|---|----------|----------|------|
+| 1 | Gemini-2 | **Auth Loop**: initialize() вызывает fetchProfile() для гостевого токена → 401 → logout() → очистка всех токенов → Missing guest data | `authService.ts` |
+
+#### P1 — Важные
+
+| # | Источник | Проблема | Файл |
+|---|----------|----------|------|
+| 2 | Codex | OAuthProviderSelector запускает редирект даже при `effectiveClaimToken === null` | `OAuthProviderSelector.tsx` |
+| 3 | Gemini-2 | ProfileSummary не учитывает статистику (gamesPlayed, totalKills) | `authService.ts` |
+
+#### P2 — Косметика
+
+| # | Источник | Проблема | Файл |
+|---|----------|----------|------|
+| 4 | Codex | `decodeClaimToken` использует `atob` без base64url нормализации | `LeaderboardScreen.tsx:75-80` |
+| 5 | Codex | Гостевая плашка не проверяет `exp` — при истёкшем токене UI работает, но /auth/upgrade вернёт 410 | `LeaderboardScreen.tsx:95-133` |
+
+---
+
+### Новые задачи (hotfix)
+
+```
+FIX-001: Исправить Auth Loop в authService.initialize()
+  Файлы: client/src/services/authService.ts
+  Описание: Проверять тип токена перед запросом /profile.
+            Если guest token → не вызывать fetchProfile()
+  Приоритет: P0
+
+FIX-002: Блокировать OAuth редирект без токена
+  Файлы: client/src/ui/components/OAuthProviderSelector.tsx
+  Описание: Если effectiveClaimToken === null для convert_guest,
+            показать ошибку или заблокировать кнопку
+  Приоритет: P1
+
+FIX-003: Нормализация base64url в decodeClaimToken
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: Заменить `-` на `+`, `_` на `/`, добавить padding
+  Приоритет: P2
+
+FIX-004: Проверка exp в гостевой плашке
+  Файлы: client/src/ui/components/LeaderboardScreen.tsx
+  Описание: Если токен истёк, очистить localStorage и скрыть
+            кнопку «Сохранить прогресс»
+  Приоритет: P2
+```
+
+---
+
 ## Текущее состояние
 
 **Уже реализовано:**
