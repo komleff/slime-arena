@@ -718,6 +718,16 @@
         "top5": 5
       },
       "perKill": 2
+    },
+    "rating": {
+      "base": 5,
+      "placement": {
+        "1": 15,
+        "2": 10,
+        "3": 5,
+        "top5": 2
+      },
+      "perKill": 2
     }
   },
   "initialProfile": {

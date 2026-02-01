@@ -424,7 +424,13 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const waitTime = resultsWaitTime.value;
   const canPlay = waitTime <= 0 && status !== 'claiming';
 
-  const playAgainText = 'Играть снова';
+  // slime-arena-xta: Разделяем логику текста кнопки от состояния claim
+  // Приоритет: таймер ожидания > статус claim > готовность к игре
+  const buttonText = (() => {
+    if (waitTime > 0) return `${Math.ceil(waitTime)} сек`;
+    if (status === 'claiming') return 'Подождите...';
+    return 'Играть снова';
+  })();
 
   return (
     <div class="results-overlay">
@@ -536,11 +542,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
             onClick={handlePlayAgain}
             disabled={!canPlay}
           >
-            {waitTime > 0
-              ? `${Math.ceil(waitTime)} сек`
-              : status === 'claiming'
-                ? 'Подождите...'
-                : playAgainText}
+            {buttonText}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
             На главную

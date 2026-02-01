@@ -26,6 +26,7 @@ import { ratingService } from '../services/RatingService';
 import { getPostgresPool } from '../../db/pool';
 import { getRedisClient } from '../../db/redis';
 import { authRateLimiter, oauthRateLimiter } from '../middleware/rateLimiter';
+import { validateAndNormalize, normalizeNickname, NICKNAME_MAX_LENGTH } from '../../utils/generators/nicknameValidator';
 
 const router = express.Router();
 
@@ -148,7 +149,15 @@ router.post('/join-token', async (req: Request, res: Response) => {
 
       // Generate a simple joinToken for direct connection
       // matchId and roomId will be empty (not assigned via matchmaking)
-      const nickname = req.body.nickname || 'Гость';
+      // slime-arena-2q0: Валидация никнейма
+      let nickname = 'Гость';
+      if (req.body.nickname) {
+        try {
+          nickname = validateAndNormalize(req.body.nickname);
+        } catch {
+          // Невалидный nickname — используем fallback
+        }
+      }
       const joinToken = joinTokenService.generateToken(
         '', // userId (empty for guests)
         '', // matchId (not known yet)
@@ -168,7 +177,15 @@ router.post('/join-token', async (req: Request, res: Response) => {
     if (userPayload) {
       const { joinTokenService } = await import('../services/JoinTokenService');
 
-      const nickname = req.body.nickname || 'Игрок';
+      // slime-arena-2q0: Валидация никнейма
+      let nickname = 'Игрок';
+      if (req.body.nickname) {
+        try {
+          nickname = validateAndNormalize(req.body.nickname);
+        } catch {
+          // Невалидный nickname — используем fallback
+        }
+      }
       const joinToken = joinTokenService.generateToken(
         userPayload.sub, // userId
         '', // matchId
@@ -760,7 +777,17 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       if (preparePayload) {
         // P1-4: prepareToken flow — use cached OAuth data, user-provided nickname
         providerUserId = preparePayload.providerUserId;
-        finalNickname = req.body.nickname; // User-confirmed nickname
+
+        // slime-arena-2q0: Валидация никнейма от пользователя
+        try {
+          finalNickname = validateAndNormalize(req.body.nickname);
+        } catch (err: any) {
+          return res.status(400).json({
+            error: 'invalid_nickname',
+            message: err.message || 'Invalid nickname format',
+          });
+        }
+
         avatarUrl = preparePayload.avatarUrl;
         finalProvider = preparePayload.provider;
 
@@ -841,7 +868,14 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             const googleProvider = getGoogleOAuthProvider();
             const userInfo = await googleProvider.exchangeCode(code);
             providerUserId = userInfo.id;
-            finalNickname = userInfo.name || userInfo.email.split('@')[0];
+            // slime-arena-2q0: Валидация никнейма из OAuth с fallback
+            const rawNickname = userInfo.name || userInfo.email.split('@')[0];
+            try {
+              finalNickname = validateAndNormalize(rawNickname);
+            } catch {
+              // Fallback: берём первые N символов и нормализуем
+              finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+            }
             avatarUrl = userInfo.picture;
           } catch (err: any) {
             if (err.message.includes('must be set')) {
@@ -857,7 +891,14 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             const yandexProvider = getYandexOAuthProvider();
             const userInfo = await yandexProvider.exchangeCode(code);
             providerUserId = userInfo.id;
-            finalNickname = userInfo.display_name || userInfo.login;
+            // slime-arena-2q0: Валидация никнейма из OAuth с fallback
+            const rawNickname = userInfo.display_name || userInfo.login;
+            try {
+              finalNickname = validateAndNormalize(rawNickname);
+            } catch {
+              // Fallback: берём первые N символов и нормализуем
+              finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+            }
             avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
           } catch (err: any) {
             if (err.message.includes('must be set')) {

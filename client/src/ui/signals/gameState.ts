@@ -126,6 +126,12 @@ export const isConnecting = signal(false);
 export const connectionError = signal<string | null>(null);
 export const serverUrl = signal('');
 
+// slime-arena-yij: Кэшированный joinToken для оптимизации
+// Инициализируется при загрузке из localStorage, обновляется через AuthService
+export const cachedJoinToken = signal<string | null>(
+  localStorage.getItem('access_token') || localStorage.getItem('guest_token')
+);
+
 // Ожидание арены (когда подключились к арене в фазе Results)
 // Если > 0, показываем сообщение "Арена не готова" с таймером
 export const arenaWaitTime = signal(0);

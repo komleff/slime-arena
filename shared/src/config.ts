@@ -597,6 +597,16 @@ export interface BalanceConfig {
             };
             perKill: number;
         };
+        rating: {
+            base: number;
+            placement: {
+                "1": number;
+                "2": number;
+                "3": number;
+                top5: number;
+            };
+            perKill: number;
+        };
     };
 }
 
@@ -3054,14 +3064,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         })(),
         // Передаём visual как есть (клиентская визуализация)
         visual: isRecord(data.visual) ? data.visual as BalanceConfig["visual"] : undefined,
-        // Разбираем rewards для мета-геймплея (XP, coins)
+        // Разбираем rewards для мета-геймплея (XP, coins, rating)
         rewards: (() => {
             const rewards = isRecord(data.rewards) ? data.rewards : undefined;
             if (!rewards) return undefined;
             const xp = isRecord(rewards.xp) ? rewards.xp : {};
             const coins = isRecord(rewards.coins) ? rewards.coins : {};
+            const rating = isRecord(rewards.rating) ? rewards.rating : {};
             const xpPlacement = isRecord(xp.placement) ? xp.placement : {};
             const coinsPlacement = isRecord(coins.placement) ? coins.placement : {};
+            const ratingPlacement = isRecord(rating.placement) ? rating.placement : {};
             return {
                 xp: {
                     base: typeof xp.base === "number" ? xp.base : 10,
@@ -3082,6 +3094,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                         top5: typeof coinsPlacement.top5 === "number" ? coinsPlacement.top5 : 5,
                     },
                     perKill: typeof coins.perKill === "number" ? coins.perKill : 2,
+                },
+                rating: {
+                    base: typeof rating.base === "number" ? rating.base : 5,
+                    placement: {
+                        "1": typeof ratingPlacement["1"] === "number" ? ratingPlacement["1"] : 15,
+                        "2": typeof ratingPlacement["2"] === "number" ? ratingPlacement["2"] : 10,
+                        "3": typeof ratingPlacement["3"] === "number" ? ratingPlacement["3"] : 5,
+                        top5: typeof ratingPlacement.top5 === "number" ? ratingPlacement.top5 : 2,
+                    },
+                    perKill: typeof rating.perKill === "number" ? rating.perKill : 2,
                 },
             };
         })(),

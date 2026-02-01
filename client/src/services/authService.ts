@@ -16,6 +16,7 @@ import {
   clearAuthState,
   setAuthError,
   setAuthenticating,
+  cachedJoinToken,
   type User,
   type Profile,
 } from '../ui/signals/gameState';
@@ -113,6 +114,14 @@ class AuthService {
   private initialized = false;
 
   /**
+   * slime-arena-yij: Обновляет кэшированный joinToken из localStorage.
+   * Вызывается после установки/удаления токенов.
+   */
+  private updateCachedJoinToken(): void {
+    cachedJoinToken.value = localStorage.getItem('access_token') || localStorage.getItem('guest_token');
+  }
+
+  /**
    * Инициализация сервиса.
    * Пытается восстановить сессию из localStorage.
    *
@@ -165,6 +174,7 @@ class AuthService {
         // FIX-006: При ошибке 401 удаляем ТОЛЬКО access_token, НЕ вызываем logout()
         // Это сохраняет guest_token и registration_claim_token для OAuth flow
         localStorage.removeItem('access_token');
+        this.updateCachedJoinToken();
         metaServerClient.clearToken();
       } finally {
         setAuthenticating(false);
@@ -265,6 +275,7 @@ class AuthService {
 
       // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('access_token', response.accessToken);
+      this.updateCachedJoinToken();
       localStorage.setItem('user_id', response.userId);
       localStorage.setItem('user_nickname', response.profile.nickname);
       localStorage.setItem('is_anonymous', 'false');
@@ -321,6 +332,7 @@ class AuthService {
 
       // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('guest_token', response.guestToken);
+      this.updateCachedJoinToken();
       localStorage.setItem('token_expires_at', response.expiresAt);
 
       // Генерируем локальный никнейм и скин для UI
@@ -381,6 +393,7 @@ class AuthService {
       // SECURITY: localStorage chosen intentionally - see file header comment
       // Codex P0: Исправлен контракт — сервер отдаёт userId/profile/isAnonymous, а не user.*
       localStorage.setItem('access_token', response.accessToken);
+      this.updateCachedJoinToken();
       localStorage.setItem('user_id', response.userId);
       localStorage.setItem('user_nickname', response.profile.nickname);
       localStorage.setItem('is_anonymous', String(response.isAnonymous));
@@ -450,6 +463,8 @@ class AuthService {
     localStorage.removeItem('pending_claim_token');
     // Copilot P2: Также очищаем authToken от metaServerClient
     localStorage.removeItem('authToken');
+    // slime-arena-yij: Обновляем кэш токена
+    this.updateCachedJoinToken();
   }
 
   /**
@@ -488,6 +503,8 @@ class AuthService {
     localStorage.removeItem('pending_claim_token');
     // metaServerClient token
     localStorage.removeItem('authToken');
+    // slime-arena-yij: Обновляем кэш токена
+    this.updateCachedJoinToken();
   }
 
   /**
@@ -554,9 +571,10 @@ class AuthService {
   /**
    * Получить токен для подключения к матчу.
    * Возвращает access_token (для зарегистрированных/Telegram) или guest_token.
+   * slime-arena-yij: Используем кэшированный сигнал для оптимизации.
    */
   getJoinToken(): string | null {
-    return localStorage.getItem('access_token') || localStorage.getItem('guest_token');
+    return cachedJoinToken.value;
   }
 
   /**
@@ -639,6 +657,7 @@ class AuthService {
     // FIX-009: Сохраняем access_token в localStorage для персистентности
     // БЕЗ этого токен терялся при перезагрузке страницы
     localStorage.setItem('access_token', accessToken);
+    this.updateCachedJoinToken();
     localStorage.setItem('is_anonymous', 'false');
     if (nickname) {
       localStorage.setItem('user_nickname', nickname);

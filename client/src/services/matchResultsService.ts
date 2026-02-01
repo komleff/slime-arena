@@ -9,6 +9,7 @@
 
 import { metaServerClient } from '../api/metaServerClient';
 import { signal } from '@preact/signals';
+import balanceConfig from '../../../config/balance.json';
 
 // ========== Типы ==========
 
@@ -45,26 +46,8 @@ export type ClaimStatus = 'idle' | 'claiming' | 'success' | 'error';
 // - Для гостей награды отображаются как "(ожидают сохранения)"
 // - Авторизованным пользователям награды начисляются автоматически на сервере
 //
-// slime-arena-0v2: Вынести в balance.json для синхронизации с сервером.
-
-const REWARDS_CONFIG = {
-  xp: {
-    base: 10,
-    placement: { '1': 50, '2': 30, '3': 20, top5: 10 },
-    perKill: 5,
-  },
-  coins: {
-    base: 5,
-    placement: { '1': 25, '2': 15, '3': 10, top5: 5 },
-    perKill: 2,
-  },
-  // Рейтинг: упрощённая UI-оценка, реальный расчёт на сервере
-  rating: {
-    base: 5,
-    perKill: 2,
-    placement: { '1': 15, '2': 10, '3': 5, top5: 2 },
-  },
-} as const;
+// slime-arena-0v2: Конфиг теперь загружается из balance.json для синхронизации с сервером.
+const REWARDS_CONFIG = balanceConfig.rewards;
 
 // ========== Сигналы состояния ==========
 
