@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena DB Container
 # PostgreSQL + Redis in one container
-# Version: 0.7.3
+# Version: 0.7.5
 # Platforms: linux/amd64, linux/arm64
 # =============================================================================
 
@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.title="Slime Arena DB"
 LABEL org.opencontainers.image.description="Slime Arena database bundle: PostgreSQL 16 + Redis"
 LABEL org.opencontainers.image.vendor="komleff"
 LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
-LABEL org.opencontainers.image.version="0.7.3"
+LABEL org.opencontainers.image.version="0.7.5"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install PostgreSQL, Redis, supervisord, and utilities
@@ -39,6 +39,10 @@ COPY docker/supervisord-db.conf /etc/supervisord.conf
 # Copy entrypoint script and fix line endings (Windows CRLF -> Unix LF)
 COPY docker/entrypoint-db.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Copy seed data for initial database population
+RUN mkdir -p /docker-entrypoint-initdb.d
+COPY docker/seed-data.sql /docker-entrypoint-initdb.d/seed-data.sql
 
 # Expose ports:
 # 5432 - PostgreSQL

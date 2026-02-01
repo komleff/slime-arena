@@ -77,6 +77,21 @@ DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME" npm ru
 }
 
 # =============================================================================
+# Step 4.5: Load seed data if available (only on fresh database)
+# =============================================================================
+if [ -f /docker-entrypoint-initdb.d/seed-data.sql ]; then
+    # Check if users table is empty (fresh database)
+    USER_COUNT=$(su-exec postgres psql -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM users" 2>/dev/null || echo "0")
+    if [ "$USER_COUNT" = "0" ]; then
+        echo "[Seed] Loading seed data..."
+        su-exec postgres psql -d "$DB_NAME" -f /docker-entrypoint-initdb.d/seed-data.sql
+        echo "[Seed] Done."
+    else
+        echo "[Seed] Database already has data, skipping seed"
+    fi
+fi
+
+# =============================================================================
 # Step 5: Stop PostgreSQL (supervisord will restart it)
 # =============================================================================
 echo "[PostgreSQL] Stopping temporary instance..."

@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena App Container
 # Multi-stage production build for MetaServer + MatchServer + Client
-# Version: 0.7.3
+# Version: 0.7.5
 # Platforms: linux/amd64, linux/arm64
 # =============================================================================
 
@@ -56,7 +56,7 @@ LABEL org.opencontainers.image.title="Slime Arena App"
 LABEL org.opencontainers.image.description="Slime Arena game server bundle: MetaServer + MatchServer + Client"
 LABEL org.opencontainers.image.vendor="komleff"
 LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
-LABEL org.opencontainers.image.version="0.7.3"
+LABEL org.opencontainers.image.version="0.7.5"
 LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app

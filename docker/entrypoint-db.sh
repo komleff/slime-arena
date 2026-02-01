@@ -63,6 +63,13 @@ fi
 if ! su-exec postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
     echo "[PostgreSQL] Creating database '$DB_NAME'..."
     su-exec postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER"
+
+    # Load seed data if available (only on fresh database)
+    if [ -f /docker-entrypoint-initdb.d/seed-data.sql ]; then
+        echo "[Seed] Loading seed data..."
+        su-exec postgres psql -d "$DB_NAME" -f /docker-entrypoint-initdb.d/seed-data.sql
+        echo "[Seed] Done."
+    fi
 else
     echo "[PostgreSQL] Database '$DB_NAME' already exists"
 fi

@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena Monolith Full Container
 # All-in-One: PostgreSQL + Redis + MetaServer + MatchServer + Client
-# Version: 0.7.3
+# Version: 0.7.5
 # Platforms: linux/amd64, linux/arm64
 # =============================================================================
 
@@ -56,7 +56,7 @@ LABEL org.opencontainers.image.title="Slime Arena Monolith Full"
 LABEL org.opencontainers.image.description="Slime Arena all-in-one container: PostgreSQL + Redis + MetaServer + MatchServer + Client"
 LABEL org.opencontainers.image.vendor="komleff"
 LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
-LABEL org.opencontainers.image.version="0.7.3"
+LABEL org.opencontainers.image.version="0.7.5"
 LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
@@ -118,6 +118,10 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 # Copy entrypoint script and fix line endings (Windows CRLF -> Unix LF)
 COPY docker/entrypoint-full.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Copy seed data for initial database population
+RUN mkdir -p /docker-entrypoint-initdb.d
+COPY docker/seed-data.sql /docker-entrypoint-initdb.d/seed-data.sql
 
 # Expose ports:
 # 3000 - MetaServer (HTTP API)

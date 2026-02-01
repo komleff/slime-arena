@@ -1,8 +1,107 @@
 # Sprint 18: Tech Debt Reduction
 
 **PM:** Claude Opus 4.5
-**Дата:** 2026-02-01
+**Дата:** 2026-02-01/02
 **Версия:** 0.7.4 → 0.7.5
+
+---
+
+## 🔥 Задача: Docker DB с локальными данными (slime-arena-rurn)
+
+### Цель
+
+Включить текущие данные из локальной PostgreSQL (игроки, лидерборд) в сборку Docker-контейнеров.
+
+### Текущее состояние
+
+- `docker/seed-data.sql` — содержит 2 тестовых игрока (Дмитрий Комлев, Андрей Гордеев)
+- Entrypoint скрипты уже поддерживают загрузку seed-данных
+- Локальная БД: `postgresql://slime:slime_dev_password@localhost:5432/slime_arena`
+
+### План реализации
+
+#### Шаг 1: Экспорт данных из локальной PostgreSQL
+
+```bash
+# Экспорт только данных (без схемы) в формате INSERT
+pg_dump -h localhost -U slime -d slime_arena \
+  --data-only \
+  --inserts \
+  --no-owner \
+  --no-privileges \
+  -t users \
+  -t oauth_links \
+  -t profiles \
+  -t wallets \
+  -t leaderboard_total_mass \
+  -t leaderboard_best_mass \
+  -t match_results \
+  -t player_ratings \
+  -t unlocked_items \
+  > docker/seed-data.sql
+```
+
+#### Шаг 2: Обновить entrypoint-db.sh
+
+Добавить загрузку seed-data.sql после миграций:
+
+```bash
+# После миграций, если есть seed-data.sql
+if [ -f /docker-entrypoint-initdb.d/seed-data.sql ]; then
+  echo "[Seed] Loading seed data..."
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/seed-data.sql
+  echo "[Seed] Done."
+fi
+```
+
+#### Шаг 3: Обновить db.Dockerfile
+
+```dockerfile
+# Копировать seed-data.sql в образ
+COPY seed-data.sql /docker-entrypoint-initdb.d/
+```
+
+#### Шаг 4: Обновить версии образов
+
+В Dockerfile-ах обновить LABEL version с 0.7.3 → 0.7.5
+
+#### Шаг 5: Пересобрать контейнеры
+
+```bash
+cd docker
+docker compose -f docker-compose.app-db.yml build --no-cache
+docker compose -f docker-compose.app-db.yml up -d
+```
+
+### Ключевые файлы
+
+| Файл | Изменения |
+|------|-----------|
+| [docker/seed-data.sql](docker/seed-data.sql) | Перезаписать экспортом из локальной БД |
+| [docker/entrypoint-db.sh](docker/entrypoint-db.sh) | Добавить загрузку seed после миграций |
+| [docker/entrypoint-full.sh](docker/entrypoint-full.sh) | Аналогично |
+| [docker/db.Dockerfile](docker/db.Dockerfile) | COPY seed-data.sql, обновить version |
+| [docker/monolith-full.Dockerfile](docker/monolith-full.Dockerfile) | Аналогично |
+
+### Верификация
+
+```bash
+# 1. Проверить данные в контейнере
+docker exec -it slime-arena-db psql -U slime -d slime_arena -c "SELECT COUNT(*) FROM users;"
+docker exec -it slime-arena-db psql -U slime -d slime_arena -c "SELECT nickname, total_mass FROM leaderboard_total_mass ORDER BY total_mass DESC LIMIT 10;"
+
+# 2. Проверить API
+curl http://localhost:3000/api/v1/leaderboard/total
+
+# 3. Проверить клиент
+# Открыть http://localhost:5173 и проверить лидерборд
+```
+
+### Оценка
+
+~30-45 минут
+
+---
 
 ---
 
