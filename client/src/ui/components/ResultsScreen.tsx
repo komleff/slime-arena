@@ -421,16 +421,20 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   }
 
   const { winner, finalLeaderboard, personalStats } = results;
-  const waitTime = resultsWaitTime.value;
-  const canPlay = waitTime <= 0 && status !== 'claiming';
 
+  // P1-2: Читаем сигналы внутри IIFE для корректной reactivity
   // slime-arena-xta: Разделяем логику текста кнопки от состояния claim
   // Приоритет: таймер ожидания > статус claim > готовность к игре
   const buttonText = (() => {
+    const waitTime = resultsWaitTime.value;
+    const currentStatus = claimStatus.value;
     if (waitTime > 0) return `${Math.ceil(waitTime)} сек`;
-    if (status === 'claiming') return 'Подождите...';
+    if (currentStatus === 'claiming') return 'Подождите...';
     return 'Играть снова';
   })();
+
+  const waitTime = resultsWaitTime.value;
+  const canPlay = waitTime <= 0 && status !== 'claiming';
 
   return (
     <div class="results-overlay">

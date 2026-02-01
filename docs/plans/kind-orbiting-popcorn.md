@@ -165,4 +165,97 @@ npm run test
 
 ---
 
-**Статус:** Утверждён
+## Фаза 5: Исправления по Code Review
+
+### Результаты ревью (3 агента)
+- Security Agent: 15 issues
+- Code Quality Agent: 13 issues
+- Architecture Agent: 4 recommendations
+
+### P1 — Исправить обязательно (4)
+
+| # | Файл | Проблема | Решение |
+|---|------|----------|---------|
+| 1 | `joystick.ts:106` | Dead code `baseShifted = false` | Удалить из return type или использовать |
+| 2 | `ResultsScreen.tsx:347-348` | signal.value read before JSX breaks reactivity | Использовать signal.value внутри IIFE buttonText |
+| 3 | `authService.ts:138-140` | Race condition in initialize() | Promise memoization |
+| 4 | `auth.ts:868-878` | Crash on null nickname in OAuth | Добавить null-check перед .slice() |
+
+### P2 — Исправить сразу (6)
+
+| # | Файл | Проблема | Решение |
+|---|------|----------|---------|
+| 1 | `rateLimiter.ts:41` | X-Forwarded-For spoofing | Добавить TRUST_PROXY env check |
+| 2 | `authService.ts:121` | Token expiration not enforced | Проверять expires_at в updateCachedJoinToken |
+| 3 | `authService.ts` | Missing sync in initialize() | Вызвать updateCachedJoinToken() после restore |
+| 4 | `matchResultsService.ts:50` | Null-check missing for REWARDS_CONFIG | Добавить fallback или throw |
+| 5 | `auth.ts:152-161` | Silent fallback on nickname error | Добавить console.warn() |
+| 6 | `config.ts:3100` | Hardcoded fallback values | Извлечь в DEFAULT_RATING_* константы |
+
+### P3 — Лучше исправить (3)
+
+| # | Файл | Проблема | Решение |
+|---|------|----------|---------|
+| 1 | `auth.ts` | Duplicate validation logic | Извлечь validateNicknameOrFallback() хелпер |
+| 2 | `config.ts` | Missing docs for rating | Добавить JSDoc комментарий |
+| 3 | `auth.ts:315-319` | Info disclosure in errors | Generic "OAuth unavailable" message |
+
+### Отложено (не критично для MVP)
+
+- CSRF protection — требует значительных изменений
+- Distributed DoS — для масштабирования, не MVP
+- localStorage XSS — документированный tradeoff
+- Clock skew — низкая вероятность
+- Nickname collision — допустимо
+
+---
+
+## Порядок исправлений
+
+```
+1. joystick.ts
+   └── Удалить baseShifted из return type (dead code)
+
+2. authService.ts
+   ├── Promise memoization для initialize()
+   ├── Проверка expires_at в updateCachedJoinToken()
+   └── Вызов updateCachedJoinToken() после restore
+
+3. ResultsScreen.tsx
+   └── Использовать resultsWaitTime.value и claimStatus.value в IIFE
+
+4. rateLimiter.ts
+   └── Добавить TRUST_PROXY проверку
+
+5. auth.ts (server)
+   ├── Null-check для OAuth nickname
+   ├── console.warn для nickname fallback
+   ├── Generic error messages
+   └── Хелпер validateNicknameOrFallback()
+
+6. matchResultsService.ts
+   └── Null-check для REWARDS_CONFIG
+
+7. config.ts (shared)
+   ├── DEFAULT_RATING_* константы
+   └── JSDoc для rating секции
+```
+
+---
+
+## Верификация исправлений
+
+```bash
+npm run build   # Компиляция
+npm run test    # Тесты
+```
+
+### Ручная проверка
+- [ ] Reactivity в ResultsScreen работает (таймер обновляется)
+- [ ] Race condition в initialize() не воспроизводится
+- [ ] OAuth с null name не крашится
+- [ ] TRUST_PROXY=false блокирует X-Forwarded-For
+
+---
+
+**Статус:** Ожидает утверждения (Post-Review Fixes)

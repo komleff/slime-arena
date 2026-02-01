@@ -89,7 +89,7 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * Обновляет состояние джойстика по позиции указателя
- * @returns {{ baseShifted: boolean; baseClamped: boolean }}
+ * @returns {{ baseClamped: boolean }}
  */
 export function updateJoystickFromPointer(
     state: JoystickState,
@@ -97,13 +97,12 @@ export function updateJoystickFromPointer(
     clientX: number,
     clientY: number,
     canvasRect: DOMRect
-): { baseShifted: boolean; baseClamped: boolean } {
+): { baseClamped: boolean } {
     let baseX = state.baseX;
     let baseY = state.baseY;
     let dx = clientX - baseX;
     let dy = clientY - baseY;
     let distance = Math.hypot(dx, dy);
-    const baseShifted = false;
     let baseClamped = false;
 
     // В adaptive режиме база фиксируется в точке активации и НЕ смещается.
@@ -163,7 +162,7 @@ export function updateJoystickFromPointer(
     state.moveY = outY;
     state.knobX = baseX + dx;
     state.knobY = baseY + dy;
-    return { baseShifted, baseClamped };
+    return { baseClamped };
 }
 
 /**

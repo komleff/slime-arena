@@ -112,12 +112,27 @@ function createUser(
 
 class AuthService {
   private initialized = false;
+  private initializationPromise: Promise<boolean> | null = null;
 
   /**
    * slime-arena-yij: Обновляет кэшированный joinToken из localStorage.
    * Вызывается после установки/удаления токенов.
+   * P2-2: Проверяет expires_at перед кэшированием — истёкшие токены не используются.
    */
   private updateCachedJoinToken(): void {
+    const expiresAt = localStorage.getItem('token_expires_at');
+    if (expiresAt) {
+      const expirationTime = new Date(expiresAt).getTime();
+      if (Date.now() > expirationTime) {
+        // Токен истёк — очищаем
+        console.log('[AuthService] Token expired, clearing');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('guest_token');
+        localStorage.removeItem('token_expires_at');
+        cachedJoinToken.value = null;
+        return;
+      }
+    }
     cachedJoinToken.value = localStorage.getItem('access_token') || localStorage.getItem('guest_token');
   }
 
@@ -130,14 +145,35 @@ class AuthService {
    *
    * FIX-001: Если есть guest_token, восстанавливаем гостевую сессию из localStorage
    * БЕЗ вызова login(), чтобы сохранить связь с registration_claim_token.
+   *
+   * P1-3: Promise memoization предотвращает race condition при параллельных вызовах.
    */
   async initialize(): Promise<boolean> {
-    // FIX-006: НЕ устанавливаем setOnUnauthorized в начале!
-    // Это предотвращает Auth Loop при истёкшем access_token.
+    // P1-3: Если уже есть pending инициализация — возвращаем тот же Promise
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
 
     if (this.initialized) {
       return true;
     }
+
+    // P1-3: Мемоизируем Promise инициализации
+    this.initializationPromise = this.doInitialize();
+    try {
+      return await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
+  }
+
+  /**
+   * Внутренняя реализация инициализации.
+   * Вынесена для Promise memoization.
+   */
+  private async doInitialize(): Promise<boolean> {
+    // FIX-006: НЕ устанавливаем setOnUnauthorized в начале!
+    // Это предотвращает Auth Loop при истёкшем access_token.
 
     // Инициализируем PlatformManager
     platformManager.initialize();
@@ -199,6 +235,9 @@ class AuthService {
 
       // Устанавливаем токен в HTTP-клиент
       metaServerClient.setToken(guestToken);
+
+      // P2-3: Синхронизируем кэш после восстановления сессии
+      this.updateCachedJoinToken();
 
       // Создаём User для UI
       const user = createUser('guest', nickname, platformManager.getPlatformType());

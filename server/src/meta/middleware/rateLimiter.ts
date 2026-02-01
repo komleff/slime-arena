@@ -35,15 +35,25 @@ setInterval(() => {
 }, CLEANUP_INTERVAL_MS);
 
 /**
- * Получить IP-адрес клиента с учётом прокси
+ * Флаг доверия к X-Forwarded-For.
+ * ВАЖНО: Установите TRUST_PROXY=true ТОЛЬКО за reverse proxy (nginx, cloudflare).
+ * По умолчанию false для защиты от IP spoofing.
+ */
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+
+/**
+ * Получить IP-адрес клиента с учётом прокси.
+ * P2-1: X-Forwarded-For доверяем только при TRUST_PROXY=true.
  */
 function getClientIP(req: Request): string {
-  // Доверяем X-Forwarded-For только в production (за reverse proxy)
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    // X-Forwarded-For может содержать список IP: "client, proxy1, proxy2"
-    const clientIP = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
-    return clientIP.trim();
+  // P2-1: Доверяем X-Forwarded-For только при явном TRUST_PROXY=true
+  if (TRUST_PROXY) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      // X-Forwarded-For может содержать список IP: "client, proxy1, proxy2"
+      const clientIP = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
+      return clientIP.trim();
+    }
   }
   return req.ip || req.socket.remoteAddress || 'unknown';
 }

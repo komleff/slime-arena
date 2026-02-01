@@ -869,19 +869,27 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             const userInfo = await googleProvider.exchangeCode(code);
             providerUserId = userInfo.id;
             // slime-arena-2q0: Валидация никнейма из OAuth с fallback
-            const rawNickname = userInfo.name || userInfo.email.split('@')[0];
-            try {
-              finalNickname = validateAndNormalize(rawNickname);
-            } catch {
-              // Fallback: берём первые N символов и нормализуем
-              finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+            // P1-4: Null-check для userInfo.name и userInfo.email
+            const rawNickname = userInfo.name || (userInfo.email ? userInfo.email.split('@')[0] : null);
+            if (!rawNickname) {
+              console.warn('[OAuth] Google userInfo missing name and email, using fallback');
+              finalNickname = `User${Date.now() % 100000}`;
+            } else {
+              try {
+                finalNickname = validateAndNormalize(rawNickname);
+              } catch {
+                // P2-5: Логируем fallback для отладки
+                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using fallback`);
+                finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+              }
             }
             avatarUrl = userInfo.picture;
           } catch (err: any) {
             if (err.message.includes('must be set')) {
-              return res.status(500).json({
-                error: 'configuration_error',
-                message: 'Google OAuth not configured',
+              // P3-3: Generic error message без деталей реализации
+              return res.status(503).json({
+                error: 'oauth_unavailable',
+                message: 'OAuth temporarily unavailable',
               });
             }
             throw err;
@@ -892,19 +900,27 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             const userInfo = await yandexProvider.exchangeCode(code);
             providerUserId = userInfo.id;
             // slime-arena-2q0: Валидация никнейма из OAuth с fallback
-            const rawNickname = userInfo.display_name || userInfo.login;
-            try {
-              finalNickname = validateAndNormalize(rawNickname);
-            } catch {
-              // Fallback: берём первые N символов и нормализуем
-              finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+            // P1-4: Null-check для userInfo.display_name и userInfo.login
+            const rawNickname = userInfo.display_name || userInfo.login || null;
+            if (!rawNickname) {
+              console.warn('[OAuth] Yandex userInfo missing display_name and login, using fallback');
+              finalNickname = `User${Date.now() % 100000}`;
+            } else {
+              try {
+                finalNickname = validateAndNormalize(rawNickname);
+              } catch {
+                // P2-5: Логируем fallback для отладки
+                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using fallback`);
+                finalNickname = normalizeNickname(rawNickname.slice(0, NICKNAME_MAX_LENGTH));
+              }
             }
             avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
           } catch (err: any) {
             if (err.message.includes('must be set')) {
-              return res.status(500).json({
-                error: 'configuration_error',
-                message: 'Yandex OAuth not configured',
+              // P3-3: Generic error message без деталей реализации
+              return res.status(503).json({
+                error: 'oauth_unavailable',
+                message: 'OAuth temporarily unavailable',
               });
             }
             throw err;

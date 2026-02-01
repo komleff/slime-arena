@@ -47,7 +47,16 @@ export type ClaimStatus = 'idle' | 'claiming' | 'success' | 'error';
 // - Авторизованным пользователям награды начисляются автоматически на сервере
 //
 // slime-arena-0v2: Конфиг теперь загружается из balance.json для синхронизации с сервером.
-const REWARDS_CONFIG = balanceConfig.rewards;
+// P2-4: Null-check с fallback для защиты от некорректного balance.json
+const REWARDS_CONFIG = balanceConfig.rewards ?? {
+  xp: { base: 10, placement: { '1': 50, '2': 30, '3': 15, top5: 5 }, perKill: 5 },
+  coins: { base: 5, placement: { '1': 25, '2': 15, '3': 10, top5: 3 }, perKill: 2 },
+  rating: { base: 5, placement: { '1': 15, '2': 10, '3': 5, top5: 2 }, perKill: 2 },
+};
+
+if (!balanceConfig.rewards) {
+  console.warn('[MatchResultsService] balance.json missing rewards section, using fallback');
+}
 
 // ========== Сигналы состояния ==========
 
