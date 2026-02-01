@@ -250,7 +250,8 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
         // Copilot P1: Обновляем is_anonymous ВНУТРИ условия, чтобы избежать
         // несогласованного состояния при отсутствии токена
         localStorage.setItem('is_anonymous', 'false');
-        authService.finishUpgrade(response.accessToken);
+        // FIX-010: await для загрузки профиля с сервера
+        await authService.finishUpgrade(response.accessToken);
       }
 
       // После успешного upgrade закрываем модал

@@ -3816,7 +3816,8 @@ const MIN_BOOT_DISPLAY_MS = 1000;
 
                     if (result.success && result.result) {
                         // Успешная авторизация (login flow) — сохраняем токен
-                        authService.finishUpgrade(result.result.accessToken);
+                        // FIX-010: await для загрузки профиля с сервера
+                        await authService.finishUpgrade(result.result.accessToken);
                         console.log("[Main] OAuth login successful");
                         localStorage.removeItem('pending_claim_token');
                         localStorage.removeItem('registration_claim_token');

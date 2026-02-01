@@ -622,8 +622,10 @@ class AuthService {
    * Завершить upgrade гостя в зарегистрированного пользователя.
    * Очищает гостевые данные и обновляет UI состояние.
    * Вызывается из RegistrationPromptModal после успешного /auth/upgrade.
+   *
+   * FIX-010: Загружаем профиль с сервера для получения актуальных данных
    */
-  finishUpgrade(accessToken: string, nickname?: string): void {
+  async finishUpgrade(accessToken: string, nickname?: string): Promise<void> {
     // Очищаем гостевые данные
     this.clearGuestData();
 
@@ -638,16 +640,35 @@ class AuthService {
     // P1-3: Устанавливаем токен в HTTP-клиент для последующих запросов.
     metaServerClient.setToken(accessToken);
 
-    // Обновляем UI состояние
+    // FIX-010: Загружаем профиль с сервера для получения актуальных данных
+    // (userId, nickname, статистика и т.д.)
+    try {
+      const profileSummary = await this.fetchProfile();
+      if (profileSummary) {
+        const user = createUser(
+          profileSummary.userId,
+          profileSummary.nickname,
+          platformManager.getPlatformType()
+        );
+        const profile = createDefaultProfile(profileSummary.level, profileSummary.xp, profileSummary);
+        setAuthState(user, profile, accessToken);
+        console.log('[AuthService] Upgrade finished, profile loaded from server');
+        return;
+      }
+    } catch (err) {
+      console.warn('[AuthService] Failed to fetch profile after upgrade:', err);
+    }
+
+    // Fallback: если fetchProfile не удался, используем переданные данные
     const user = createUser(
-      '', // userId будет получен при следующем fetchProfile
+      '',
       nickname || this.getNickname(),
       platformManager.getPlatformType()
     );
     const profile = createDefaultProfile();
     setAuthState(user, profile, accessToken);
 
-    console.log('[AuthService] Upgrade finished, access_token saved to localStorage');
+    console.log('[AuthService] Upgrade finished (fallback), access_token saved to localStorage');
   }
 }
 
