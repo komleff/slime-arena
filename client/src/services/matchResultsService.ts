@@ -148,6 +148,11 @@ class MatchResultsService {
 
       claimStatus.value = 'success';
       claimToken.value = response.claimToken;
+      
+      // TZ v1.6: Сохраняем токен в localStorage для восстановления в других сессиях
+      // и использования в LeaderboardScreen / OAuth upgrade
+      localStorage.setItem('registration_claim_token', response.claimToken);
+      
       console.log('[MatchResultsService] Claim token received, expires:', response.expiresAt);
       return response.claimToken;
     } catch (err) {

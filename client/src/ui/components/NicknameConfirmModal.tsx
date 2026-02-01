@@ -262,8 +262,8 @@ export function NicknameConfirmModal({
       );
 
       if (result.success && result.result) {
-        // Сохраняем токен и обновляем состояние
-        authService.finishUpgrade(result.result.accessToken, nickname.trim());
+        // FIX-010: await для загрузки профиля с сервера
+        await authService.finishUpgrade(result.result.accessToken, nickname.trim());
         localStorage.removeItem('pending_claim_token');
         onConfirm();
       } else {

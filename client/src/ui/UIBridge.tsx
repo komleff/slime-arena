@@ -21,6 +21,7 @@ import {
   oauthConflict,
   oauthNicknameConfirm,
   localPlayer,
+  showLeaderboard,
 
   // Actions
   setGamePhase,
@@ -39,6 +40,7 @@ import {
   initMobileDetection,
   clearOAuthConflict,
   clearOAuthNicknameConfirm,
+  closeLeaderboard,
 
   // Types
   type GamePhase,
@@ -59,6 +61,7 @@ import { AbilityButtons } from './components/AbilityButtons';
 import { MainMenu } from './components/MainMenu';
 import { AccountConflictModal } from './components/AccountConflictModal';
 import { NicknameConfirmModal } from './components/NicknameConfirmModal';
+import { LeaderboardScreen } from './components/LeaderboardScreen';
 
 // ========== Типы для колбеков ==========
 
@@ -89,6 +92,7 @@ function UIRoot() {
   const conflict = oauthConflict.value;
   const nicknameConfirm = oauthNicknameConfirm.value;
   const player = localPlayer.value;
+  const leaderboardVisible = showLeaderboard.value;
 
   // Обработчики для AccountConflictModal
   const handleConflictSwitch = () => {
@@ -176,6 +180,11 @@ function UIRoot() {
           onConfirm={handleNicknameConfirm}
           onCancel={handleNicknameCancel}
         />
+      )}
+
+      {/* Глобальная таблица лидеров */}
+      {leaderboardVisible && (
+        <LeaderboardScreen onClose={closeLeaderboard} />
       )}
     </Fragment>
   );

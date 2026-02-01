@@ -267,8 +267,8 @@ export function AccountConflictModal({
       const result = await resolveOAuthConflict(conflict.pendingAuthToken);
 
       if (result.success && result.result) {
-        // Сохраняем токен и обновляем состояние
-        authService.finishUpgrade(result.result.accessToken);
+        // FIX-010: await для загрузки профиля с сервера
+        await authService.finishUpgrade(result.result.accessToken);
         onSwitch();
       } else {
         setError(result.error || 'Switch failed');

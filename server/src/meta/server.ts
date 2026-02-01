@@ -1,3 +1,9 @@
+// Load environment variables from server/.env.local
+// Path is relative to CWD (root) because npm workspaces run from root
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
+
 import express from 'express';
 import cors from 'cors';
 import { initializePostgres, closePostgres, initializeRedis, closeRedis } from '../db/pool';

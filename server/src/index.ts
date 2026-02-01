@@ -1,3 +1,8 @@
+// FIX-000: Загрузка .env.local ПЕРЕД любыми импортами, зависящими от env
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+
 import { Server } from "colyseus";
 import { createServer } from "http";
 import express from "express";

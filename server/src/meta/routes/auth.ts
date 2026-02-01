@@ -561,6 +561,18 @@ router.post('/oauth/prepare-upgrade', async (req: Request, res: Response) => {
     // Check if OAuth already linked to another account
     const existingUser = await authService.findUserByOAuthLink(provider, providerUserId);
     if (existingUser) {
+      // FIX-008: Проверяем Redis ДО генерации токена
+      let redis;
+      try {
+        redis = getRedisClient();
+      } catch (redisErr) {
+        console.error('[Auth] Redis unavailable for prepare-upgrade conflict - returning 503:', redisErr);
+        return res.status(503).json({
+          error: 'service_unavailable',
+          message: 'Authentication service temporarily unavailable. Please try again.',
+        });
+      }
+
       // 409 Conflict - return pendingAuthToken for login to existing account
       const pendingAuthToken = generatePendingAuthToken({
         provider,
@@ -568,12 +580,43 @@ router.post('/oauth/prepare-upgrade', async (req: Request, res: Response) => {
         existingUserId: existingUser.id,
       });
 
+      // FIX-008: Сохраняем токен в Redis для одноразовости (5 минут)
+      // БЕЗ этого /oauth/resolve всегда возвращал 410 "Token not found"
+      try {
+        const tokenKey = getPendingAuthRedisKey(pendingAuthToken);
+        await redis.set(tokenKey, 'valid', { EX: 300 }); // 5 минут
+      } catch (redisErr) {
+        console.error('[Auth] Redis set failed for pendingAuthToken in prepare-upgrade - returning 503:', redisErr);
+        return res.status(503).json({
+          error: 'service_unavailable',
+          message: 'Authentication service temporarily unavailable. Please try again.',
+        });
+      }
+
+      // Получаем totalMass существующего пользователя для отображения в UI
+      let existingTotalMass = 0;
+      try {
+        const pool = getPostgresPool();
+        const result = await pool.query(
+          'SELECT total_mass FROM leaderboard_total_mass WHERE user_id = $1',
+          [existingUser.id]
+        );
+        if (result.rows.length > 0) {
+          existingTotalMass = result.rows[0].total_mass || 0;
+        }
+      } catch {
+        // Игнорируем ошибку получения рейтинга
+      }
+
+      console.log(`[Auth] Prepare upgrade conflict: ${provider} user ${providerUserId.slice(0, 8)}... already linked to ${existingUser.id.slice(0, 8)}...`);
+
       return res.status(409).json({
         error: 'oauth_conflict',
         message: 'This OAuth account is already linked to another user',
         existingAccount: {
           nickname: existingUser.nickname,
           avatarUrl: existingUser.avatarUrl,
+          totalMass: existingTotalMass,
         },
         pendingAuthToken,
       });

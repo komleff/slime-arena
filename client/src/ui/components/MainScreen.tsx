@@ -7,7 +7,7 @@
 
 import { useEffect } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
-import { currentUser, currentProfile } from '../signals/gameState';
+import { currentUser, currentProfile, openLeaderboard } from '../signals/gameState';
 
 const STYLES_ID = 'main-screen-styles';
 
@@ -625,7 +625,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
   };
 
   const handleLeaderboard = () => {
-    // Заглушка - ничего не делает
+    openLeaderboard();
   };
 
   const handleSkins = () => {
