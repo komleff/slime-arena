@@ -25,8 +25,18 @@ import {
 import { ratingService } from '../services/RatingService';
 import { getPostgresPool } from '../../db/pool';
 import { getRedisClient } from '../../db/redis';
+import { authRateLimiter, oauthRateLimiter } from '../middleware/rateLimiter';
+import { validateAndNormalize, normalizeNickname, NICKNAME_MAX_LENGTH } from '../../utils/generators/nicknameValidator';
 
 const router = express.Router();
+
+// Rate limiting для всех auth endpoints (10 запросов/минуту)
+// Защита от брутфорса и DoS-атак (slime-arena-3ed)
+router.use(authRateLimiter);
+
+// P2: Более строгий rate limit для OAuth endpoints (5 запросов/минуту)
+// OAuth коды одноразовые — частые запросы подозрительны
+router.use('/oauth', oauthRateLimiter);
 const authService = new AuthService();
 
 // Copilot P3: Удалена локальная обёртка getPool(), используем getPostgresPool() напрямую
@@ -143,7 +153,15 @@ router.post('/join-token', async (req: Request, res: Response) => {
 
       // Generate a simple joinToken for direct connection
       // matchId and roomId will be empty (not assigned via matchmaking)
-      const nickname = req.body.nickname || 'Гость';
+      // slime-arena-2q0: Валидация никнейма
+      let nickname = 'Гость';
+      if (req.body.nickname) {
+        try {
+          nickname = validateAndNormalize(req.body.nickname);
+        } catch {
+          // Невалидный nickname — используем fallback
+        }
+      }
       const joinToken = joinTokenService.generateToken(
         '', // userId (empty for guests)
         '', // matchId (not known yet)
@@ -163,7 +181,15 @@ router.post('/join-token', async (req: Request, res: Response) => {
     if (userPayload) {
       const { joinTokenService } = await import('../services/JoinTokenService');
 
-      const nickname = req.body.nickname || 'Игрок';
+      // slime-arena-2q0: Валидация никнейма
+      let nickname = 'Игрок';
+      if (req.body.nickname) {
+        try {
+          nickname = validateAndNormalize(req.body.nickname);
+        } catch {
+          // Невалидный nickname — используем fallback
+        }
+      }
       const joinToken = joinTokenService.generateToken(
         userPayload.sub, // userId
         '', // matchId
@@ -755,7 +781,17 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       if (preparePayload) {
         // P1-4: prepareToken flow — use cached OAuth data, user-provided nickname
         providerUserId = preparePayload.providerUserId;
-        finalNickname = req.body.nickname; // User-confirmed nickname
+
+        // slime-arena-2q0: Валидация никнейма от пользователя
+        try {
+          finalNickname = validateAndNormalize(req.body.nickname);
+        } catch (err: any) {
+          return res.status(400).json({
+            error: 'invalid_nickname',
+            message: err.message || 'Invalid nickname format',
+          });
+        }
+
         avatarUrl = preparePayload.avatarUrl;
         finalProvider = preparePayload.provider;
 
@@ -836,13 +872,29 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             const googleProvider = getGoogleOAuthProvider();
             const userInfo = await googleProvider.exchangeCode(code);
             providerUserId = userInfo.id;
-            finalNickname = userInfo.name || userInfo.email.split('@')[0];
+            // slime-arena-2q0: Валидация никнейма из OAuth с fallback
+            // P1-4: Null-check для userInfo.name и userInfo.email
+            const rawNickname = userInfo.name || (userInfo.email ? userInfo.email.split('@')[0] : null);
+            if (!rawNickname) {
+              console.warn('[OAuth] Google userInfo missing name and email, using fallback');
+              finalNickname = `User${Date.now() % 100000}`;
+            } else {
+              try {
+                finalNickname = validateAndNormalize(rawNickname);
+              } catch {
+                // P2: Безопасный fallback — генерируем никнейм вместо normalizeNickname()
+                // normalizeNickname() не валидирует паттерн, emoji и спецсимволы могут пройти
+                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using generated fallback`);
+                finalNickname = `User${Date.now() % 100000}`;
+              }
+            }
             avatarUrl = userInfo.picture;
           } catch (err: any) {
             if (err.message.includes('must be set')) {
-              return res.status(500).json({
-                error: 'configuration_error',
-                message: 'Google OAuth not configured',
+              // P3-3: Generic error message без деталей реализации
+              return res.status(503).json({
+                error: 'oauth_unavailable',
+                message: 'OAuth temporarily unavailable',
               });
             }
             throw err;
@@ -852,13 +904,29 @@ router.post('/upgrade', async (req: Request, res: Response) => {
             const yandexProvider = getYandexOAuthProvider();
             const userInfo = await yandexProvider.exchangeCode(code);
             providerUserId = userInfo.id;
-            finalNickname = userInfo.display_name || userInfo.login;
+            // slime-arena-2q0: Валидация никнейма из OAuth с fallback
+            // P1-4: Null-check для userInfo.display_name и userInfo.login
+            const rawNickname = userInfo.display_name || userInfo.login || null;
+            if (!rawNickname) {
+              console.warn('[OAuth] Yandex userInfo missing display_name and login, using fallback');
+              finalNickname = `User${Date.now() % 100000}`;
+            } else {
+              try {
+                finalNickname = validateAndNormalize(rawNickname);
+              } catch {
+                // P2: Безопасный fallback — генерируем никнейм вместо normalizeNickname()
+                // normalizeNickname() не валидирует паттерн, emoji и спецсимволы могут пройти
+                console.warn(`[OAuth] Nickname validation failed for "${rawNickname}", using generated fallback`);
+                finalNickname = `User${Date.now() % 100000}`;
+              }
+            }
             avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
           } catch (err: any) {
             if (err.message.includes('must be set')) {
-              return res.status(500).json({
-                error: 'configuration_error',
-                message: 'Yandex OAuth not configured',
+              // P3-3: Generic error message без деталей реализации
+              return res.status(503).json({
+                error: 'oauth_unavailable',
+                message: 'OAuth temporarily unavailable',
               });
             }
             throw err;

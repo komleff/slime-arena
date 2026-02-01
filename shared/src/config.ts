@@ -597,6 +597,21 @@ export interface BalanceConfig {
             };
             perKill: number;
         };
+        /**
+         * P3-2: Рейтинговая система (Glicko-style).
+         * Награда за матч = base + placement[место] + kills * perKill.
+         * Рейтинг влияет на позицию в лидерборде.
+         */
+        rating: {
+            base: number;
+            placement: {
+                "1": number;
+                "2": number;
+                "3": number;
+                top5: number;
+            };
+            perKill: number;
+        };
     };
 }
 
@@ -1705,6 +1720,15 @@ function readSlimeConfig(value: unknown, fallback: SlimeConfig, path: string): S
         },
     };
 }
+
+// P2-6: Извлечённые константы для fallback значений рейтинга
+// Используются в resolveBalanceConfig() при парсинге balance.json
+export const DEFAULT_RATING_BASE = 5;
+export const DEFAULT_RATING_PLACEMENT_1 = 15;
+export const DEFAULT_RATING_PLACEMENT_2 = 10;
+export const DEFAULT_RATING_PLACEMENT_3 = 5;
+export const DEFAULT_RATING_PLACEMENT_TOP5 = 2;
+export const DEFAULT_RATING_PER_KILL = 2;
 
 export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
     const data = isRecord(raw) ? raw : {};
@@ -3054,14 +3078,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
         })(),
         // Передаём visual как есть (клиентская визуализация)
         visual: isRecord(data.visual) ? data.visual as BalanceConfig["visual"] : undefined,
-        // Разбираем rewards для мета-геймплея (XP, coins)
+        // Разбираем rewards для мета-геймплея (XP, coins, rating)
         rewards: (() => {
             const rewards = isRecord(data.rewards) ? data.rewards : undefined;
             if (!rewards) return undefined;
             const xp = isRecord(rewards.xp) ? rewards.xp : {};
             const coins = isRecord(rewards.coins) ? rewards.coins : {};
+            const rating = isRecord(rewards.rating) ? rewards.rating : {};
             const xpPlacement = isRecord(xp.placement) ? xp.placement : {};
             const coinsPlacement = isRecord(coins.placement) ? coins.placement : {};
+            const ratingPlacement = isRecord(rating.placement) ? rating.placement : {};
             return {
                 xp: {
                     base: typeof xp.base === "number" ? xp.base : 10,
@@ -3082,6 +3108,16 @@ export function resolveBalanceConfig(raw: unknown): ResolvedBalanceConfig {
                         top5: typeof coinsPlacement.top5 === "number" ? coinsPlacement.top5 : 5,
                     },
                     perKill: typeof coins.perKill === "number" ? coins.perKill : 2,
+                },
+                rating: {
+                    base: typeof rating.base === "number" ? rating.base : DEFAULT_RATING_BASE,
+                    placement: {
+                        "1": typeof ratingPlacement["1"] === "number" ? ratingPlacement["1"] : DEFAULT_RATING_PLACEMENT_1,
+                        "2": typeof ratingPlacement["2"] === "number" ? ratingPlacement["2"] : DEFAULT_RATING_PLACEMENT_2,
+                        "3": typeof ratingPlacement["3"] === "number" ? ratingPlacement["3"] : DEFAULT_RATING_PLACEMENT_3,
+                        top5: typeof ratingPlacement.top5 === "number" ? ratingPlacement.top5 : DEFAULT_RATING_PLACEMENT_TOP5,
+                    },
+                    perKill: typeof rating.perKill === "number" ? rating.perKill : DEFAULT_RATING_PER_KILL,
                 },
             };
         })(),

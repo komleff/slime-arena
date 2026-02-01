@@ -9,6 +9,43 @@
 **Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
 **Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
 **Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
+**Sprint 18 Status:** ✅ ЗАВЕРШЁН — PR ожидает создания
+
+---
+
+## ✅ Sprint 18 — Tech Debt Reduction (2026-02-01)
+
+**Цель:** Стабильность + безопасность + консолидация tech debt
+**Версия:** 0.7.4 → 0.7.5
+**Ветка:** `sprint-18/tech-debt-reduction`
+**План:** [docs/plans/kind-orbiting-popcorn.md](../docs/plans/kind-orbiting-popcorn.md)
+
+### Scope (8 задач) — ВСЕ ВЫПОЛНЕНЫ
+
+| ID | Тип | Описание | Статус |
+|----|-----|----------|--------|
+| `slime-arena-zmf` | P1 bug | Джойстик смещает базу | ✅ |
+| `slime-arena-k8w` | P2 bug | Скин после OAuth | ✅ |
+| `slime-arena-hp5` | P2 | Play Again нестабилен | ✅ |
+| `slime-arena-3ed` | P1 security | Rate limiting /auth/* | ✅ |
+| `slime-arena-2q0` | P1 security | Nickname validation | ✅ |
+| `slime-arena-0v2` | P2 | REWARDS_CONFIG → balance.json | ✅ |
+| `slime-arena-yij` | P2 | Auth signals cache | ✅ |
+| `slime-arena-xta` | P2 | Results UI разделение | ✅ |
+
+### Ключевые изменения
+
+- **Rate limiting:** самописный middleware (0 зависимостей) — 10 req/min для auth, 5 req/min для OAuth
+- **Nickname validation:** `validateAndNormalize()` в /auth/upgrade, /join-token
+- **REWARDS_CONFIG:** перенесён в balance.json с секцией rating
+- **Auth caching:** cachedJoinToken signal в gameState.ts
+- **Results UI:** логика buttonText вынесена в отдельную переменную
+
+### Консолидация Beads (выполнено)
+
+- ✅ Закрыт `slime-arena-v7x8` — дубликат REWARDS_CONFIG
+- ✅ Закрыт `slime-arena-07o` — дубликат REWARDS_CONFIG
+- ✅ Закрыт `slime-arena-isf` — дубликат place
 
 ---
 

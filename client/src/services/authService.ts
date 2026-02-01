@@ -16,6 +16,7 @@ import {
   clearAuthState,
   setAuthError,
   setAuthenticating,
+  cachedJoinToken,
   type User,
   type Profile,
 } from '../ui/signals/gameState';
@@ -111,6 +112,29 @@ function createUser(
 
 class AuthService {
   private initialized = false;
+  private initializationPromise: Promise<boolean> | null = null;
+
+  /**
+   * slime-arena-yij: Обновляет кэшированный joinToken из localStorage.
+   * Вызывается после установки/удаления токенов.
+   * P2-2: Проверяет expires_at перед кэшированием — истёкшие токены не используются.
+   */
+  private updateCachedJoinToken(): void {
+    const expiresAt = localStorage.getItem('token_expires_at');
+    if (expiresAt) {
+      const expirationTime = new Date(expiresAt).getTime();
+      if (Date.now() > expirationTime) {
+        // Токен истёк — очищаем
+        console.log('[AuthService] Token expired, clearing');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('guest_token');
+        localStorage.removeItem('token_expires_at');
+        cachedJoinToken.value = null;
+        return;
+      }
+    }
+    cachedJoinToken.value = localStorage.getItem('access_token') || localStorage.getItem('guest_token');
+  }
 
   /**
    * Инициализация сервиса.
@@ -121,14 +145,35 @@ class AuthService {
    *
    * FIX-001: Если есть guest_token, восстанавливаем гостевую сессию из localStorage
    * БЕЗ вызова login(), чтобы сохранить связь с registration_claim_token.
+   *
+   * P1-3: Promise memoization предотвращает race condition при параллельных вызовах.
    */
   async initialize(): Promise<boolean> {
-    // FIX-006: НЕ устанавливаем setOnUnauthorized в начале!
-    // Это предотвращает Auth Loop при истёкшем access_token.
+    // P1-3: Если уже есть pending инициализация — возвращаем тот же Promise
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
 
     if (this.initialized) {
       return true;
     }
+
+    // P1-3: Мемоизируем Promise инициализации
+    this.initializationPromise = this.doInitialize();
+    try {
+      return await this.initializationPromise;
+    } finally {
+      this.initializationPromise = null;
+    }
+  }
+
+  /**
+   * Внутренняя реализация инициализации.
+   * Вынесена для Promise memoization.
+   */
+  private async doInitialize(): Promise<boolean> {
+    // FIX-006: НЕ устанавливаем setOnUnauthorized в начале!
+    // Это предотвращает Auth Loop при истёкшем access_token.
 
     // Инициализируем PlatformManager
     platformManager.initialize();
@@ -165,6 +210,7 @@ class AuthService {
         // FIX-006: При ошибке 401 удаляем ТОЛЬКО access_token, НЕ вызываем logout()
         // Это сохраняет guest_token и registration_claim_token для OAuth flow
         localStorage.removeItem('access_token');
+        this.updateCachedJoinToken();
         metaServerClient.clearToken();
       } finally {
         setAuthenticating(false);
@@ -189,6 +235,9 @@ class AuthService {
 
       // Устанавливаем токен в HTTP-клиент
       metaServerClient.setToken(guestToken);
+
+      // P2-3: Синхронизируем кэш после восстановления сессии
+      this.updateCachedJoinToken();
 
       // Создаём User для UI
       const user = createUser('guest', nickname, platformManager.getPlatformType());
@@ -265,6 +314,7 @@ class AuthService {
 
       // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('access_token', response.accessToken);
+      this.updateCachedJoinToken();
       localStorage.setItem('user_id', response.userId);
       localStorage.setItem('user_nickname', response.profile.nickname);
       localStorage.setItem('is_anonymous', 'false');
@@ -321,6 +371,7 @@ class AuthService {
 
       // SECURITY: localStorage chosen intentionally - see file header comment
       localStorage.setItem('guest_token', response.guestToken);
+      this.updateCachedJoinToken();
       localStorage.setItem('token_expires_at', response.expiresAt);
 
       // Генерируем локальный никнейм и скин для UI
@@ -381,6 +432,7 @@ class AuthService {
       // SECURITY: localStorage chosen intentionally - see file header comment
       // Codex P0: Исправлен контракт — сервер отдаёт userId/profile/isAnonymous, а не user.*
       localStorage.setItem('access_token', response.accessToken);
+      this.updateCachedJoinToken();
       localStorage.setItem('user_id', response.userId);
       localStorage.setItem('user_nickname', response.profile.nickname);
       localStorage.setItem('is_anonymous', String(response.isAnonymous));
@@ -450,6 +502,8 @@ class AuthService {
     localStorage.removeItem('pending_claim_token');
     // Copilot P2: Также очищаем authToken от metaServerClient
     localStorage.removeItem('authToken');
+    // slime-arena-yij: Обновляем кэш токена
+    this.updateCachedJoinToken();
   }
 
   /**
@@ -488,6 +542,8 @@ class AuthService {
     localStorage.removeItem('pending_claim_token');
     // metaServerClient token
     localStorage.removeItem('authToken');
+    // slime-arena-yij: Обновляем кэш токена
+    this.updateCachedJoinToken();
   }
 
   /**
@@ -554,9 +610,10 @@ class AuthService {
   /**
    * Получить токен для подключения к матчу.
    * Возвращает access_token (для зарегистрированных/Telegram) или guest_token.
+   * slime-arena-yij: Используем кэшированный сигнал для оптимизации.
    */
   getJoinToken(): string | null {
-    return localStorage.getItem('access_token') || localStorage.getItem('guest_token');
+    return cachedJoinToken.value;
   }
 
   /**
@@ -626,12 +683,20 @@ class AuthService {
    * FIX-010: Загружаем профиль с сервера для получения актуальных данных
    */
   async finishUpgrade(accessToken: string, nickname?: string): Promise<void> {
+    // Сохраняем гостевой скин в selected_skin_id перед очисткой
+    // чтобы не потерять выбор пользователя после OAuth upgrade
+    const guestSkinId = localStorage.getItem('guest_skin_id');
+    if (guestSkinId && !localStorage.getItem('selected_skin_id')) {
+      localStorage.setItem('selected_skin_id', guestSkinId);
+    }
+
     // Очищаем гостевые данные
     this.clearGuestData();
 
     // FIX-009: Сохраняем access_token в localStorage для персистентности
     // БЕЗ этого токен терялся при перезагрузке страницы
     localStorage.setItem('access_token', accessToken);
+    this.updateCachedJoinToken();
     localStorage.setItem('is_anonymous', 'false');
     if (nickname) {
       localStorage.setItem('user_nickname', nickname);

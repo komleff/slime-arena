@@ -344,7 +344,7 @@ interface ResultsScreenProps {
 export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const results = matchResults.value;
   const currentClassId = selectedClassId.value;
-  const status = claimStatus.value;
+  // P1-2: Не кэшируем claimStatus.value — читаем напрямую для reactivity
   const rewards = claimRewards.value;
 
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
@@ -421,10 +421,21 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   }
 
   const { winner, finalLeaderboard, personalStats } = results;
-  const waitTime = resultsWaitTime.value;
-  const canPlay = waitTime <= 0 && status !== 'claiming';
 
-  const playAgainText = 'Играть снова';
+  // P1-2: Читаем сигналы внутри IIFE для корректной reactivity
+  // slime-arena-xta: Разделяем логику текста кнопки от состояния claim
+  // Приоритет: таймер ожидания > статус claim > готовность к игре
+  const buttonText = (() => {
+    const waitTime = resultsWaitTime.value;
+    const currentStatus = claimStatus.value;
+    if (waitTime > 0) return `${Math.ceil(waitTime)} сек`;
+    if (currentStatus === 'claiming') return 'Подождите...';
+    return 'Играть снова';
+  })();
+
+  const waitTime = resultsWaitTime.value;
+  // P1-2: Читаем claimStatus.value напрямую для reactivity
+  const canPlay = waitTime <= 0 && claimStatus.value !== 'claiming';
 
   return (
     <div class="results-overlay">
@@ -477,8 +488,8 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
           </div>
         )}
 
-        {/* Статус отправки результата */}
-        {status === 'claiming' && (
+        {/* Статус отправки результата — P1-2: читаем signal напрямую */}
+        {claimStatus.value === 'claiming' && (
           <div class="results-claim-status claiming">
             Сохранение результата...
           </div>
@@ -536,11 +547,7 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
             onClick={handlePlayAgain}
             disabled={!canPlay}
           >
-            {waitTime > 0
-              ? `${Math.ceil(waitTime)} сек`
-              : status === 'claiming'
-                ? 'Подождите...'
-                : playAgainText}
+            {buttonText}
           </button>
           <button class="results-button secondary" onClick={handleExit}>
             На главную
