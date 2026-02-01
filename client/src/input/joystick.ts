@@ -103,25 +103,12 @@ export function updateJoystickFromPointer(
     let dx = clientX - baseX;
     let dy = clientY - baseY;
     let distance = Math.hypot(dx, dy);
-    let baseShifted = false;
+    const baseShifted = false;
     let baseClamped = false;
 
-    // Adaptive: база следует за пальцем, если выходит за радиус
-    const allowAdaptiveBase = config.mode === "adaptive" && state.pointerType !== "mouse";
-    if (allowAdaptiveBase && distance > config.radius) {
-        const excess = distance - config.radius;
-        const shift = excess * config.followSpeed;
-        const nx = distance > 0 ? dx / distance : 0;
-        const ny = distance > 0 ? dy / distance : 0;
-        baseX += nx * shift;
-        baseY += ny * shift;
-        state.baseX = baseX;
-        state.baseY = baseY;
-        dx = clientX - baseX;
-        dy = clientY - baseY;
-        distance = Math.hypot(dx, dy);
-        baseShifted = true;
-    }
+    // В adaptive режиме база фиксируется в точке активации и НЕ смещается.
+    // Это обеспечивает стабильное управление на мобильных устройствах.
+    // (Смещение было убрано по задаче slime-arena-zmf)
 
     // Ограничиваем базу в пределах canvas
     let minX = canvasRect.left + config.radius;
