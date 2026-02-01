@@ -3,16 +3,19 @@
  * Автоматически добавляет Authorization header и обрабатывает ошибки.
  */
 
+// В dev-режиме используем относительные пути через Vite proxy
+const IS_DEV_PROXY_MODE = !import.meta.env?.VITE_META_SERVER_URL && import.meta.env?.DEV;
+
 const getMetaServerUrl = () => {
   // Если URL задан явно — используем его
   if (import.meta.env?.VITE_META_SERVER_URL) {
     return import.meta.env.VITE_META_SERVER_URL;
   }
 
-  // В dev-режиме: /api/v1 через Vite proxy
-  // Позволяет тестировать с телефона и других устройств в локальной сети
+  // В dev-режиме: пустая строка, пути уже содержат /api/v1/
+  // Vite proxy перенаправляет /api/* → localhost:3000
   if (import.meta.env?.DEV) {
-    return '/api/v1';
+    return '';
   }
 
   // Production без URL — offline режим
@@ -148,7 +151,7 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (!META_SERVER_URL) {
+    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
@@ -189,7 +192,7 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (!META_SERVER_URL) {
+    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
@@ -235,7 +238,7 @@ class MetaServerClient {
     }
 
     // Если META_SERVER_URL пустой, сразу выбрасываем понятную ошибку
-    if (!META_SERVER_URL) {
+    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
