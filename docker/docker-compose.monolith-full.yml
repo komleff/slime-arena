@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena Monolith Full - Docker Compose
 # All-in-One deployment: PostgreSQL + Redis + Application in single container
-# Version: 0.5.2
+# Version: 0.7.6
 # =============================================================================
 
 name: slime-arena-full
@@ -12,7 +12,7 @@ services:
   # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client
   # ---------------------------------------------------------------------------
   monolith:
-    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.5.2}
+    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.7.6}
     container_name: slime-arena-monolith-full
     ports:
       - "3000:3000"   # MetaServer (HTTP API)
@@ -24,8 +24,17 @@ services:
       - redisdata:/var/lib/redis
     environment:
       - NODE_ENV=production
-      - JOIN_TOKEN_SECRET=${JOIN_TOKEN_SECRET:-dev-jwt-secret-change-in-prod}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-prod}
       - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
+      - CLAIM_TOKEN_TTL_MINUTES=${CLAIM_TOKEN_TTL_MINUTES:-60}
+      # OAuth — Yandex
+      - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID:-}
+      - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET:-}
+      - OAUTH_YANDEX_ENABLED=${OAUTH_YANDEX_ENABLED:-false}
+      # OAuth — Google (optional)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - OAUTH_GOOGLE_ENABLED=${OAUTH_GOOGLE_ENABLED:-false}
     restart: unless-stopped
 
 volumes:
