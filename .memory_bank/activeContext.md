@@ -3,24 +3,24 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.7.5)
+**База:** main (v0.7.8)
 **GDD версия:** 3.3.2
 **Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 released
 **Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
 **Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
 **Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
-**Sprint 18 Status:** ✅ ЗАВЕРШЁН — PR#117, PR#118 merged (v0.7.5)
+**Sprint 18 Status:** ✅ ЗАВЕРШЁН — v0.7.8 deployed to VPS
 
 ---
 
-## ✅ Sprint 18 — Tech Debt Reduction (2026-02-01/02)
+## ✅ Sprint 18 — Tech Debt + Production Deploy (2026-02-01/03)
 
-**Цель:** Стабильность + безопасность + консолидация tech debt
-**Версия:** 0.7.4 → 0.7.5
-**Ветка:** `sprint-18/tech-debt-reduction`
-**План:** [docs/plans/kind-orbiting-popcorn.md](../docs/plans/kind-orbiting-popcorn.md)
+**Цель:** Стабильность + безопасность + первый production deploy
+**Версия:** 0.7.4 → 0.7.8
+**Ветка:** `sprint-18/tech-debt-reduction` → main
+**Деплой:** VPS Timeweb (Docker monolith)
 
-### Scope (8 задач) — ВСЕ ВЫПОЛНЕНЫ
+### Phase 1: Tech Debt (v0.7.5)
 
 | ID | Тип | Описание | Статус |
 |----|-----|----------|--------|
@@ -33,29 +33,44 @@
 | `slime-arena-yij` | P2 | Auth signals cache | ✅ |
 | `slime-arena-xta` | P2 | Results UI разделение | ✅ |
 
+### Phase 2: Production Deploy (v0.7.6-0.7.8)
+
+| Версия | Описание | Статус |
+|--------|----------|--------|
+| 0.7.6 | Docker env vars fix | ✅ |
+| 0.7.7 | Client IP detection for reverse proxy | ✅ |
+| 0.7.8 | supervisord env vars passthrough | ✅ |
+
 ### Ключевые изменения
 
-**PR #117 (Tech Debt):**
+**PR #117-#118 (Tech Debt):**
 
 - **Rate limiting:** самописный middleware (0 зависимостей) — 10 req/min для auth, 5 req/min для OAuth
 - **Nickname validation:** `validateAndNormalize()` в /auth/upgrade, /join-token
 - **REWARDS_CONFIG:** перенесён в balance.json с секцией rating
-- **Auth caching:** cachedJoinToken signal в gameState.ts
-- **Results UI:** логика buttonText вынесена в отдельную переменную
 
-**PR #118 (Manual Testing Fixes):**
+**PR #124 (Reverse Proxy Fix):**
 
-- **Vite proxy:** мобильное тестирование в LAN (/api/* → localhost:3000)
-- **LeaderboardScreen:** округление массы (Math.floor)
-- **.env.example:** полная документация всех env vars
-- **Match duration:** 30 → 90 сек (фазы 30/30/30)
-- **AGENT_ROLES:** упрощены правила версионирования (без -dev)
+- **metaServerClient.ts:** `isIPAddress()` для определения режима работы
+- **Логика:** IP-адрес → порт 3000, домен → относительные пути через прокси
 
-### Консолидация Beads (выполнено)
+**Commit 9bfb415 (supervisord fix):**
 
-- ✅ Закрыт `slime-arena-v7x8` — дубликат REWARDS_CONFIG
-- ✅ Закрыт `slime-arena-07o` — дубликат REWARDS_CONFIG
-- ✅ Закрыт `slime-arena-isf` — дубликат place
+- **supervisord.conf:** `%(ENV_...)s` синтаксис для передачи env vars в MetaServer
+- **Критично:** без этого MetaServer не получал JWT_SECRET и падал в crash loop
+
+### Production Environment
+
+- **VPS:** Timeweb Cloud (Москва)
+- **Container:** `ghcr.io/komleff/slime-arena-monolith-full:0.7.8`
+- **Volumes:** `slime-arena-pgdata`, `slime-arena-redisdata` (персистентные)
+- **Порты:** 3000 (API), 2567 (WebSocket), 5173 (Client)
+- **SSL:** Отложен (доступ по IP)
+
+### Beads закрыты
+
+- ✅ `slime-arena-ejlb` — Базовая настройка сервера
+- ✅ `slime-arena-tfty` — Деплой Docker-контейнера
 
 ---
 
