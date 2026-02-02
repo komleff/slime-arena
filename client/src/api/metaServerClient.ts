@@ -5,13 +5,20 @@
 
 /**
  * Проверяет, является ли hostname IP-адресом (IPv4 или IPv6).
+ * Синхронизировано с main.ts для консистентности логики reverse proxy.
  */
 function isIPAddress(hostname: string): boolean {
-  // IPv4: 192.168.1.1, 10.0.0.1, etc.
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  // IPv6: ::1, fe80::1, 2001:db8::1, etc.
-  const ipv6Regex = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
-  return ipv4Regex.test(hostname) || ipv6Regex.test(hostname);
+  // IPv6: наличие двоеточия в hostname указывает на IPv6
+  if (hostname.includes(':')) return true;
+  // IPv4: проверка формата и диапазона октетов (0-255)
+  const parts = hostname.split('.');
+  if (parts.length !== 4) return false;
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) return false;
+    const value = Number(part);
+    if (value < 0 || value > 255) return false;
+  }
+  return true;
 }
 
 const getMetaServerUrl = () => {
@@ -36,26 +43,30 @@ const getMetaServerUrl = () => {
       return url.origin;
     }
 
-    // Домены — используем тот же origin с портом 3000 (или Vite proxy в dev)
-    if (import.meta.env?.DEV) {
-      return '';
-    }
-
-    // Production с доменом — мета-сервер на том же домене, порт 3000
-    const url = new URL(window.location.href);
-    url.port = '3000';
-    return url.origin;
+    // Домен (не IP, не localhost) — обратный прокси-сервер проксирует /api/*
+    // Используем относительные пути, прокси-сервер сам направит на нужный порт
+    return '';
   }
 
   // SSR или неизвестный контекст — offline режим
   return '';
 };
 
-// В dev-режиме через localhost используем Vite proxy
-const IS_DEV_PROXY_MODE = !import.meta.env?.VITE_META_SERVER_URL &&
-  import.meta.env?.DEV &&
-  typeof window !== 'undefined' &&
-  window.location.hostname === 'localhost';
+// Режим прокси-сервера: относительные пути для API
+// 1. DEV + localhost: Vite proxy проксирует /api/* на :3000
+// 2. Production + домен: обратный прокси-сервер проксирует /api/* на :3000
+const IS_PROXY_MODE = (() => {
+  if (import.meta.env?.VITE_META_SERVER_URL) return false;
+  if (typeof window === 'undefined') return false;
+
+  const hostname = window.location.hostname;
+  // DEV + localhost: Vite proxy
+  if (import.meta.env?.DEV && hostname === 'localhost') return true;
+  // Production + домен (не IP): обратный прокси-сервер
+  if (!import.meta.env?.DEV && !isIPAddress(hostname) && hostname !== 'localhost') return true;
+
+  return false;
+})();
 
 const META_SERVER_URL = getMetaServerUrl();
 // 10 секунд: достаточно для типичных запросов, не блокирует UI слишком долго
@@ -186,7 +197,7 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
+    if (!META_SERVER_URL && !IS_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
@@ -227,7 +238,7 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
+    if (!META_SERVER_URL && !IS_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
@@ -273,7 +284,7 @@ class MetaServerClient {
     }
 
     // Если META_SERVER_URL пустой, сразу выбрасываем понятную ошибку
-    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
+    if (!META_SERVER_URL && !IS_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,

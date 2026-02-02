@@ -12,6 +12,7 @@ import {
 } from '../utils/jwtUtils';
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
+import { authRateLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
 
@@ -249,7 +250,7 @@ function calculateCoinsGain(playerResult: PlayerResult): number {
  *
  * Returns: { claimToken: string, expiresAt: string }
  */
-router.post('/claim', async (req: Request, res: Response) => {
+router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { matchId } = req.body;
 
@@ -310,22 +311,37 @@ router.post('/claim', async (req: Request, res: Response) => {
 
     const match = matchResult.rows[0];
 
-    // Check ownership
-    const summary = typeof match.summary === 'string' ? JSON.parse(match.summary) : match.summary;
+    // Check ownership — парсинг summary с защитой от corrupted JSON
+    let summary: { playerResults?: PlayerResult[] } | null = null;
+    try {
+      summary = typeof match.summary === 'string' ? JSON.parse(match.summary) : match.summary;
+    } catch (parseError) {
+      console.error(`[MatchResults] Invalid JSON in summary for match ${matchId}`);
+      return res.status(400).json({
+        error: 'invalid_data',
+        message: 'Corrupted match data',
+      });
+    }
     const playerResults = summary?.playerResults || [];
 
     let playerData: PlayerResult | undefined;
 
     if (isGuest) {
-      // For guest: MUST have matching guest_subject_id (strict ownership check)
-      if (match.guest_subject_id !== subjectId) {
-        return res.status(403).json({
-          error: 'forbidden',
-          message: 'Match does not belong to this guest',
-        });
-      }
-      // P0-2: Поиск данных гостя по guestSubjectId (userId для гостей не устанавливается)
+      // Для гостей: ищем в playerResults по guestSubjectId (fix: slime-arena-euy3)
+      // Fallback: если playerResults пуст (legacy-записи), проверяем guest_subject_id
       playerData = playerResults.find((p: PlayerResult) => p.guestSubjectId === subjectId);
+      if (!playerData) {
+        // Fallback для legacy/partial записей: проверяем колонку guest_subject_id
+        const isLegacyGuestMatch = match.guest_subject_id === subjectId;
+        if (!isLegacyGuestMatch) {
+          console.log(`[MatchResults] Guest ${subjectId.slice(0, 8)}... not found in match ${matchId.slice(0, 8)}...`);
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'Match does not belong to this guest',
+          });
+        }
+        console.log(`[MatchResults] Guest ${subjectId.slice(0, 8)}... authorized via legacy guest_subject_id`);
+      }
     } else {
       // For registered user: check playerResults for matching userId
       playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);

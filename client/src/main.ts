@@ -1445,12 +1445,35 @@ async function connectToServer(playerName: string, classId: number) {
     const env = import.meta as { env?: { BASE_URL?: string; VITE_WS_URL?: string } };
     const isHttps = window.location.protocol === "https:";
     const protocol = isHttps ? "wss" : "ws";
-    
+
     let defaultWsUrl: string;
-    if (isHttps && window.location.hostname.includes("overmobile.space")) {
-        defaultWsUrl = `${protocol}://slime-arena-server.overmobile.space`;
+    const hostname = window.location.hostname;
+
+    // Проверка IP-адреса (IPv4 и IPv6)
+    function isIPAddress(host: string): boolean {
+        // IPv6: наличие двоеточия в hostname указывает на IPv6
+        if (host.includes(":")) return true;
+        // IPv4: проверка формата и диапазона октетов (0-255)
+        const parts = host.split(".");
+        if (parts.length !== 4) return false;
+        for (const part of parts) {
+            if (!/^\d+$/.test(part)) return false;
+            const value = Number(part);
+            if (value < 0 || value > 255) return false;
+        }
+        return true;
+    }
+
+    const isIP = isIPAddress(hostname);
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+    if (isHttps && !isIP && !isLocalhost) {
+        // HTTPS + домен — обратный прокси-сервер проксирует WebSocket
+        // Используем тот же origin без указания порта
+        defaultWsUrl = `${protocol}://${hostname}`;
     } else {
-        defaultWsUrl = `${protocol}://${window.location.hostname}:2567`;
+        // HTTP, IP-адрес или localhost — прямое подключение к порту 2567
+        defaultWsUrl = `${protocol}://${hostname}:2567`;
     }
     
     const wsUrl = env.env?.VITE_WS_URL ?? defaultWsUrl;
@@ -1815,9 +1838,10 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const sendTalentChoice = (choice: number) => {
+            if (!activeRoom) return; // Guard: WebSocket closed
             if (talentSelectionInFlight) return;
             talentSelectionInFlight = true;
-            room.send("talentChoice", { choice });
+            activeRoom.send("talentChoice", { choice });
             setTimeout(() => {
                 talentSelectionInFlight = false;
                 refreshTalentModal();
@@ -1826,7 +1850,8 @@ async function connectToServer(playerName: string, classId: number) {
         };
 
         const sendAbilityCardChoice = (choiceIndex: number) => {
-            room.send("cardChoice", { choice: choiceIndex });
+            if (!activeRoom) return; // Guard: WebSocket closed
+            activeRoom.send("cardChoice", { choice: choiceIndex });
         };
 
         // Создаём InputManager для централизованного управления вводом
@@ -1853,18 +1878,20 @@ async function connectToServer(playerName: string, classId: number) {
 
         const inputManagerCallbacks: InputCallbacks = {
             onSendInput: (moveX: number, moveY: number, abilitySlot?: number) => {
+                if (!activeRoom) return; // Guard: WebSocket closed
                 lastSentInput = { x: moveX, y: moveY };
                 globalInputSeq += 1;
                 if (abilitySlot !== undefined) {
-                    room.send("input", { seq: globalInputSeq, moveX, moveY, abilitySlot });
+                    activeRoom.send("input", { seq: globalInputSeq, moveX, moveY, abilitySlot });
                 } else {
-                    room.send("input", { seq: globalInputSeq, moveX, moveY });
+                    activeRoom.send("input", { seq: globalInputSeq, moveX, moveY });
                 }
             },
             onSendStopInput: () => {
+                if (!activeRoom) return; // Guard: WebSocket closed
                 lastSentInput = { x: 0, y: 0 };
                 globalInputSeq += 1;
-                room.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0 });
+                activeRoom.send("input", { seq: globalInputSeq, moveX: 0, moveY: 0 });
             },
             onTalentChoice: sendTalentChoice,
             onAbilityCardChoice: sendAbilityCardChoice,
@@ -2440,6 +2467,8 @@ async function connectToServer(playerName: string, classId: number) {
 
         // Колбэк для обработки ввода
         const handleInputTick = () => {
+            // Guard: не отправлять, если комната уже закрыта (WebSocket spam fix)
+            if (!activeRoom) return;
             if (!inputManager.hasFocus) return;
             if (document.visibilityState !== "visible") return;
             if (!document.hasFocus()) return;
@@ -2451,7 +2480,8 @@ async function connectToServer(playerName: string, classId: number) {
             lastSentInput = { x, y };
             inputManager.setLastSentInput(x, y);
             globalInputSeq += 1;
-            room.send("input", { seq: globalInputSeq, moveX: x, moveY: y });
+            // Используем activeRoom вместо closure на room (fix: slime-arena-zk6u)
+            activeRoom.send("input", { seq: globalInputSeq, moveX: x, moveY: y });
         };
 
         const drawMinimap = (
@@ -3627,19 +3657,32 @@ async function connectToServer(playerName: string, classId: number) {
             // Сброс направления движения для предотвращения "фантомного движения" после респауна
             lastSentInput = { x: 0, y: 0 };
 
-            // Hide HUD elements
+            // Hide all in-game UI elements (fix: slime-arena-9k38, slime-arena-zk6u)
             queueIndicator.style.display = "none";
+            talentModal.style.display = "none";
+            abilityCardModal.style.display = "none";
 
             activeRoom = null;
 
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
-            abilityCardModal.style.display = "none";
             // Сбрасываем индикатор подключения и переходим в меню
             setConnecting(false);
             setPhase("menu");
             isViewportUnlockedForResults = false;
             setGameViewportLock(false);
+        });
+
+        // Обработчик ошибок WebSocket (fix: slime-arena-zk6u)
+        room.onError((code, message) => {
+            console.error(`[Room] Error: ${code} - ${message}`);
+            // Остановить game loop при ошибке, чтобы избежать spam на закрытый WebSocket
+            gameLoop.stop();
+            // Скрыть игровые модалки (fix: review P2)
+            talentModal.style.display = "none";
+            abilityCardModal.style.display = "none";
+            activeRoom = null;
+            // Note: onLeave() будет вызван автоматически при закрытии соединения
         });
     } catch (e) {
         console.error("Ошибка подключения:", e);
