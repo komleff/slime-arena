@@ -5,13 +5,20 @@
 
 /**
  * Проверяет, является ли hostname IP-адресом (IPv4 или IPv6).
+ * Синхронизировано с main.ts для консистентности логики reverse proxy.
  */
 function isIPAddress(hostname: string): boolean {
-  // IPv4: 192.168.1.1, 10.0.0.1, etc.
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  // IPv6: ::1, fe80::1, 2001:db8::1, etc.
-  const ipv6Regex = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
-  return ipv4Regex.test(hostname) || ipv6Regex.test(hostname);
+  // IPv6: наличие двоеточия в hostname указывает на IPv6
+  if (hostname.includes(':')) return true;
+  // IPv4: проверка формата и диапазона октетов (0-255)
+  const parts = hostname.split('.');
+  if (parts.length !== 4) return false;
+  for (const part of parts) {
+    if (!/^\d+$/.test(part)) return false;
+    const value = Number(part);
+    if (value < 0 || value > 255) return false;
+  }
+  return true;
 }
 
 const getMetaServerUrl = () => {

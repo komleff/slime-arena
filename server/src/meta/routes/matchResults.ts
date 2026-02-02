@@ -311,8 +311,17 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
 
     const match = matchResult.rows[0];
 
-    // Check ownership
-    const summary = typeof match.summary === 'string' ? JSON.parse(match.summary) : match.summary;
+    // Check ownership — парсинг summary с защитой от corrupted JSON
+    let summary: { playerResults?: PlayerResult[] } | null = null;
+    try {
+      summary = typeof match.summary === 'string' ? JSON.parse(match.summary) : match.summary;
+    } catch (parseError) {
+      console.error(`[MatchResults] Invalid JSON in summary for match ${matchId}`);
+      return res.status(400).json({
+        error: 'invalid_data',
+        message: 'Corrupted match data',
+      });
+    }
     const playerResults = summary?.playerResults || [];
 
     let playerData: PlayerResult | undefined;
