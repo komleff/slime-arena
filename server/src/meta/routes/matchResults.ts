@@ -317,15 +317,17 @@ router.post('/claim', async (req: Request, res: Response) => {
     let playerData: PlayerResult | undefined;
 
     if (isGuest) {
-      // For guest: MUST have matching guest_subject_id (strict ownership check)
-      if (match.guest_subject_id !== subjectId) {
+      // For guest: search by guestSubjectId in playerResults (fix: slime-arena-euy3)
+      // Note: guest_subject_id column stores only FIRST guest, so we can't rely on it
+      // for multi-guest matches. Instead, search all playerResults.
+      playerData = playerResults.find((p: PlayerResult) => p.guestSubjectId === subjectId);
+      if (!playerData) {
+        console.log(`[MatchResults] Guest ${subjectId.slice(0, 8)}... not found in match ${matchId.slice(0, 8)}...`);
         return res.status(403).json({
           error: 'forbidden',
           message: 'Match does not belong to this guest',
         });
       }
-      // P0-2: Поиск данных гостя по guestSubjectId (userId для гостей не устанавливается)
-      playerData = playerResults.find((p: PlayerResult) => p.guestSubjectId === subjectId);
     } else {
       // For registered user: check playerResults for matching userId
       playerData = playerResults.find((p: PlayerResult) => p.userId === subjectId);
