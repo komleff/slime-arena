@@ -3,8 +3,16 @@
  * Автоматически добавляет Authorization header и обрабатывает ошибки.
  */
 
-// В dev-режиме используем относительные пути через Vite proxy
-const IS_DEV_PROXY_MODE = !import.meta.env?.VITE_META_SERVER_URL && import.meta.env?.DEV;
+/**
+ * Проверяет, является ли hostname IP-адресом (IPv4 или IPv6).
+ */
+function isIPAddress(hostname: string): boolean {
+  // IPv4: 192.168.1.1, 10.0.0.1, etc.
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  // IPv6: ::1, fe80::1, 2001:db8::1, etc.
+  const ipv6Regex = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+  return ipv4Regex.test(hostname) || ipv6Regex.test(hostname);
+}
 
 const getMetaServerUrl = () => {
   // Если URL задан явно — используем его
@@ -12,15 +20,32 @@ const getMetaServerUrl = () => {
     return import.meta.env.VITE_META_SERVER_URL;
   }
 
-  // В dev-режиме: пустая строка, пути уже содержат /api/v1/
-  // Vite proxy перенаправляет /api/* → localhost:3000
+  // Dev-режим: автоопределение URL
   if (import.meta.env?.DEV) {
+    // localhost — Vite proxy работает, используем относительные пути
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return '';
+    }
+    // Доступ через IP-адрес (IPv4/IPv6) — мета-сервер на том же хосте, порт 3000
+    // Используем URL API для корректной обработки IPv6 и протокола
+    if (typeof window !== 'undefined' && isIPAddress(window.location.hostname)) {
+      const url = new URL(window.location.href);
+      url.port = '3000';
+      return url.origin;
+    }
+    // Другие hostname (домены, туннели) — используем Vite proxy
     return '';
   }
 
   // Production без URL — offline режим
   return '';
 };
+
+// В dev-режиме через localhost используем Vite proxy
+const IS_DEV_PROXY_MODE = !import.meta.env?.VITE_META_SERVER_URL &&
+  import.meta.env?.DEV &&
+  typeof window !== 'undefined' &&
+  window.location.hostname === 'localhost';
 
 const META_SERVER_URL = getMetaServerUrl();
 // 10 секунд: достаточно для типичных запросов, не блокирует UI слишком долго
