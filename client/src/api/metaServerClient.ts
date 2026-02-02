@@ -36,15 +36,9 @@ const getMetaServerUrl = () => {
       return url.origin;
     }
 
-    // Домены — используем тот же origin с портом 3000 (или Vite proxy в dev)
-    if (import.meta.env?.DEV) {
-      return '';
-    }
-
-    // Production с доменом — мета-сервер на том же домене, порт 3000
-    const url = new URL(window.location.href);
-    url.port = '3000';
-    return url.origin;
+    // Домен (не IP, не localhost) — reverse proxy (Caddy/nginx) проксирует /api/*
+    // Используем относительные пути, proxy сам направит на нужный порт
+    return '';
   }
 
   // SSR или неизвестный контекст — offline режим

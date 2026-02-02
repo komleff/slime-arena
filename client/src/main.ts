@@ -1447,10 +1447,17 @@ async function connectToServer(playerName: string, classId: number) {
     const protocol = isHttps ? "wss" : "ws";
     
     let defaultWsUrl: string;
-    if (isHttps && window.location.hostname.includes("overmobile.space")) {
-        defaultWsUrl = `${protocol}://slime-arena-server.overmobile.space`;
+    const hostname = window.location.hostname;
+    // Проверка на IP-адрес (IPv4)
+    const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+
+    if (isHttps && !isIP && hostname !== 'localhost') {
+        // HTTPS + домен = reverse proxy (Caddy/nginx) проксирует WebSocket
+        // Используем тот же origin без указания порта
+        defaultWsUrl = `${protocol}://${hostname}`;
     } else {
-        defaultWsUrl = `${protocol}://${window.location.hostname}:2567`;
+        // HTTP, IP-адрес или localhost — прямое подключение к порту 2567
+        defaultWsUrl = `${protocol}://${hostname}:2567`;
     }
     
     const wsUrl = env.env?.VITE_WS_URL ?? defaultWsUrl;
