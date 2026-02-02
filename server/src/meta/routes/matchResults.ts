@@ -12,6 +12,7 @@ import {
 } from '../utils/jwtUtils';
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
+import { authRateLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
 
@@ -249,7 +250,7 @@ function calculateCoinsGain(playerResult: PlayerResult): number {
  *
  * Returns: { claimToken: string, expiresAt: string }
  */
-router.post('/claim', async (req: Request, res: Response) => {
+router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
   try {
     const { matchId } = req.body;
 

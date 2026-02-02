@@ -3662,7 +3662,11 @@ async function connectToServer(playerName: string, classId: number) {
             console.error(`[Room] Error: ${code} - ${message}`);
             // Остановить game loop при ошибке, чтобы избежать spam на закрытый WebSocket
             gameLoop.stop();
+            // Скрыть игровые модалки (fix: review P2)
+            talentModal.style.display = "none";
+            abilityCardModal.style.display = "none";
             activeRoom = null;
+            // Note: onLeave() будет вызван автоматически при закрытии соединения
         });
     } catch (e) {
         console.error("Ошибка подключения:", e);
