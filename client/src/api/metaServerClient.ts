@@ -20,24 +20,34 @@ const getMetaServerUrl = () => {
     return import.meta.env.VITE_META_SERVER_URL;
   }
 
-  // Dev-режим: автоопределение URL
-  if (import.meta.env?.DEV) {
-    // localhost — Vite proxy работает, используем относительные пути
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  // Автоопределение URL на основе текущего hostname
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+
+    // Dev-режим: localhost — Vite proxy работает, используем относительные пути
+    if (import.meta.env?.DEV && hostname === 'localhost') {
       return '';
     }
-    // Доступ через IP-адрес (IPv4/IPv6) — мета-сервер на том же хосте, порт 3000
-    // Используем URL API для корректной обработки IPv6 и протокола
-    if (typeof window !== 'undefined' && isIPAddress(window.location.hostname)) {
+
+    // Доступ через IP-адрес или localhost в production — мета-сервер на том же хосте, порт 3000
+    if (isIPAddress(hostname) || hostname === 'localhost') {
       const url = new URL(window.location.href);
       url.port = '3000';
       return url.origin;
     }
-    // Другие hostname (домены, туннели) — используем Vite proxy
-    return '';
+
+    // Домены — используем тот же origin с портом 3000 (или Vite proxy в dev)
+    if (import.meta.env?.DEV) {
+      return '';
+    }
+
+    // Production с доменом — мета-сервер на том же домене, порт 3000
+    const url = new URL(window.location.href);
+    url.port = '3000';
+    return url.origin;
   }
 
-  // Production без URL — offline режим
+  // SSR или неизвестный контекст — offline режим
   return '';
 };
 
