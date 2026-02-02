@@ -1445,14 +1445,30 @@ async function connectToServer(playerName: string, classId: number) {
     const env = import.meta as { env?: { BASE_URL?: string; VITE_WS_URL?: string } };
     const isHttps = window.location.protocol === "https:";
     const protocol = isHttps ? "wss" : "ws";
-    
+
     let defaultWsUrl: string;
     const hostname = window.location.hostname;
-    // Проверка на IP-адрес (IPv4)
-    const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
 
-    if (isHttps && !isIP && hostname !== 'localhost') {
-        // HTTPS + домен = reverse proxy (Caddy/nginx) проксирует WebSocket
+    // Проверка IP-адреса (IPv4 и IPv6)
+    function isIPAddress(host: string): boolean {
+        // IPv6: наличие двоеточия в hostname указывает на IPv6
+        if (host.includes(":")) return true;
+        // IPv4: проверка формата и диапазона октетов (0-255)
+        const parts = host.split(".");
+        if (parts.length !== 4) return false;
+        for (const part of parts) {
+            if (!/^\d+$/.test(part)) return false;
+            const value = Number(part);
+            if (value < 0 || value > 255) return false;
+        }
+        return true;
+    }
+
+    const isIP = isIPAddress(hostname);
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+    if (isHttps && !isIP && !isLocalhost) {
+        // HTTPS + домен — обратный прокси-сервер проксирует WebSocket
         // Используем тот же origin без указания порта
         defaultWsUrl = `${protocol}://${hostname}`;
     } else {

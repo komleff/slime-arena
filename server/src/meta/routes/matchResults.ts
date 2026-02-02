@@ -318,16 +318,20 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     let playerData: PlayerResult | undefined;
 
     if (isGuest) {
-      // For guest: search by guestSubjectId in playerResults (fix: slime-arena-euy3)
-      // Note: guest_subject_id column stores only FIRST guest, so we can't rely on it
-      // for multi-guest matches. Instead, search all playerResults.
+      // Для гостей: ищем в playerResults по guestSubjectId (fix: slime-arena-euy3)
+      // Fallback: если playerResults пуст (legacy-записи), проверяем guest_subject_id
       playerData = playerResults.find((p: PlayerResult) => p.guestSubjectId === subjectId);
       if (!playerData) {
-        console.log(`[MatchResults] Guest ${subjectId.slice(0, 8)}... not found in match ${matchId.slice(0, 8)}...`);
-        return res.status(403).json({
-          error: 'forbidden',
-          message: 'Match does not belong to this guest',
-        });
+        // Fallback для legacy/partial записей: проверяем колонку guest_subject_id
+        const isLegacyGuestMatch = match.guest_subject_id === subjectId;
+        if (!isLegacyGuestMatch) {
+          console.log(`[MatchResults] Guest ${subjectId.slice(0, 8)}... not found in match ${matchId.slice(0, 8)}...`);
+          return res.status(403).json({
+            error: 'forbidden',
+            message: 'Match does not belong to this guest',
+          });
+        }
+        console.log(`[MatchResults] Guest ${subjectId.slice(0, 8)}... authorized via legacy guest_subject_id`);
       }
     } else {
       // For registered user: check playerResults for matching userId

@@ -36,8 +36,8 @@ const getMetaServerUrl = () => {
       return url.origin;
     }
 
-    // Домен (не IP, не localhost) — reverse proxy (Caddy/nginx) проксирует /api/*
-    // Используем относительные пути, proxy сам направит на нужный порт
+    // Домен (не IP, не localhost) — обратный прокси-сервер проксирует /api/*
+    // Используем относительные пути, прокси-сервер сам направит на нужный порт
     return '';
   }
 
@@ -45,11 +45,21 @@ const getMetaServerUrl = () => {
   return '';
 };
 
-// В dev-режиме через localhost используем Vite proxy
-const IS_DEV_PROXY_MODE = !import.meta.env?.VITE_META_SERVER_URL &&
-  import.meta.env?.DEV &&
-  typeof window !== 'undefined' &&
-  window.location.hostname === 'localhost';
+// Режим прокси-сервера: относительные пути для API
+// 1. DEV + localhost: Vite proxy проксирует /api/* на :3000
+// 2. Production + домен: обратный прокси-сервер проксирует /api/* на :3000
+const IS_PROXY_MODE = (() => {
+  if (import.meta.env?.VITE_META_SERVER_URL) return false;
+  if (typeof window === 'undefined') return false;
+
+  const hostname = window.location.hostname;
+  // DEV + localhost: Vite proxy
+  if (import.meta.env?.DEV && hostname === 'localhost') return true;
+  // Production + домен (не IP): обратный прокси-сервер
+  if (!import.meta.env?.DEV && !isIPAddress(hostname) && hostname !== 'localhost') return true;
+
+  return false;
+})();
 
 const META_SERVER_URL = getMetaServerUrl();
 // 10 секунд: достаточно для типичных запросов, не блокирует UI слишком долго
@@ -180,7 +190,7 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
+    if (!META_SERVER_URL && !IS_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
@@ -221,7 +231,7 @@ class MetaServerClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
+    if (!META_SERVER_URL && !IS_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
@@ -267,7 +277,7 @@ class MetaServerClient {
     }
 
     // Если META_SERVER_URL пустой, сразу выбрасываем понятную ошибку
-    if (!META_SERVER_URL && !IS_DEV_PROXY_MODE) {
+    if (!META_SERVER_URL && !IS_PROXY_MODE) {
       throw new ApiError(
         'MetaServer недоступен (VITE_META_SERVER_URL не задан)',
         0,
