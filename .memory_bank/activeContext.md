@@ -62,10 +62,60 @@
 ### Production Environment
 
 - **VPS:** Timeweb Cloud (Москва)
+- **IP:** 147.45.147.175
+- **SSH:** `ssh -i ~/.ssh/id_ed25519 root@147.45.147.175`
 - **Container:** `ghcr.io/komleff/slime-arena-monolith-full:0.7.8`
 - **Volumes:** `slime-arena-pgdata`, `slime-arena-redisdata` (персистентные)
 - **Порты:** 3000 (API), 2567 (WebSocket), 5173 (Client)
 - **SSL:** Отложен (доступ по IP)
+
+### Server Maintenance (2026-02-03)
+
+**Исправлено на сервере:**
+- ✅ Redis RDB Permission denied → перезапуск контейнера
+- ✅ Права на `/app/server/dist/server/logs` для телеметрии
+- ✅ `vm.overcommit_memory=1` для Redis
+
+**Обнаруженные проблемы (issues созданы):**
+- #126: UI фаза 'connecting' не рендерится (мелькает main-menu)
+- #127: Оптимизация tick=2700 (просадки до 118ms)
+- #128: "Не удалось разместить зон" — 303 предупреждения
+- #129: Устаревшие API endpoints → 404
+- #130: Docker директория логов телеметрии
+
+### Domain Setup (2026-02-03)
+
+**Домен:** https://slime-arena.overmobile.space ✅ РАБОТАЕТ
+
+**Nginx конфигурация:** `/etc/nginx/sites-available/slime-arena.overmobile.space`
+
+| Location | Proxy Target | Описание |
+|----------|--------------|----------|
+| `/api/` | :3000 | MetaServer API |
+| `/auth/` | :3000 | Legacy auth |
+| `/matchmake/` | :2567 | Colyseus matchmake |
+| `^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$` | :2567 | WebSocket rooms |
+| `/.well-known/colyseus` | :2567 | Colyseus discovery |
+| `/` | :5173 | Client (fallback) |
+
+**SSL:** acme.sh (Let's Encrypt) — `/root/.acme.sh/slime-arena.overmobile.space_ecc/`
+
+**Ключевой момент:** Colyseus WebSocket использует пути `/{processId}/{roomId}` — требуется отдельный location с regex.
+
+**Полезные команды:**
+```bash
+# Проверить статус
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 "docker ps && docker inspect slime-arena --format='{{.State.Health.Status}}'"
+
+# Логи
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 "docker logs --tail 50 slime-arena"
+
+# Перезапуск
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 "docker restart slime-arena"
+
+# Redis ping
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 "docker exec slime-arena redis-cli ping"
+```
 
 ### Beads закрыты
 
@@ -124,6 +174,14 @@
 ---
 
 ## 📋 Tech Debt
+
+| Issue | Priority | Description |
+|-------|----------|-------------|
+| #126 | P3 | UI: фаза 'connecting' не рендерится |
+| #127 | P2 | Performance: tick=2700 просадки до 118ms |
+| #128 | P3 | Server: "Не удалось разместить зон" |
+| #129 | P3 | API: устаревшие endpoints → 404 |
+| #130 | P3 | Docker: директория логов телеметрии |
 
 | Beads ID | Priority | Description |
 |----------|----------|-------------|
