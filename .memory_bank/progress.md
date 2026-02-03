@@ -38,6 +38,24 @@
 - #129: Устаревшие API endpoints → 404
 - #130: Docker директория логов телеметрии
 
+### Nginx debugging (2026-02-03)
+
+**Проблемы и решения:**
+
+| Проблема | Причина | Решение |
+|----------|---------|--------|
+| Matchmake 405 | Regex location не матчил `/matchmake/joinOrCreate/arena` | Заменил regex на prefix `/matchmake/` |
+| WebSocket 1006 | Regex `$` не пропускал `?sessionId=...` | Убрал `$` из regex |
+| Assets 404 | Regex `^/[a-zA-Z0-9]+/[a-zA-Z0-9]+` перехватывал `/assets/index.js` | Добавил `^~` к `/assets/` и другим статическим директориям |
+| API 404 | То же — regex перехватывал `/api/v1/...` | Добавил `^~` к `/api/`, `/auth/`, `/matchmake/` |
+
+**Документация обновлена:** [docs/operations/SERVER_SETUP.md](docs/operations/SERVER_SETUP.md)
+
+### PR #131: Server Monitoring Dashboard ТЗ
+- Ветка: `feature/server-monitoring-dashboard`
+- Статус: Open
+- Содержит: ТЗ + обновлённую документацию SERVER_SETUP.md
+
 ---
 
 ## Sprint 13 Progress — 27 января 2026

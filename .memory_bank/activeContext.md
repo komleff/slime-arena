@@ -89,14 +89,25 @@
 
 **Nginx конфигурация:** `/etc/nginx/sites-available/slime-arena.overmobile.space`
 
-| Location | Proxy Target | Описание |
-|----------|--------------|----------|
-| `/api/` | :3000 | MetaServer API |
-| `/auth/` | :3000 | Legacy auth |
-| `/matchmake/` | :2567 | Colyseus matchmake |
-| `^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$` | :2567 | WebSocket rooms |
-| `/.well-known/colyseus` | :2567 | Colyseus discovery |
-| `/` | :5173 | Client (fallback) |
+| Location | Модификатор | Proxy Target | Описание |
+|----------|-------------|--------------|----------|
+| `/api/` | `^~` | :3000 | MetaServer API |
+| `/auth/` | `^~` | :3000 | Legacy auth |
+| `/matchmake/` | `^~` | :2567 | Colyseus matchmake |
+| `/assets/` | `^~` | :5173 | JS/CSS бандлы |
+| `/backgrounds/` | `^~` | :5173 | Фоны |
+| `/hud/` | `^~` | :5173 | HUD элементы |
+| `/icons/` | `^~` | :5173 | Иконки |
+| `/skins/` | `^~` | :5173 | Скины |
+| `/sprites/` | `^~` | :5173 | Спрайты |
+| `^/[a-zA-Z0-9]+/[a-zA-Z0-9]+` | `~` | :2567 | WebSocket rooms |
+| `/.well-known/colyseus` | — | :2567 | Colyseus discovery |
+| `/` | — | :5173 | Client (fallback) |
+
+**Критичные особенности:**
+- `^~` — останавливает поиск regex, даёт приоритет prefix locations
+- WebSocket regex БЕЗ `$` на конце — иначе не пропускает `?sessionId=...`
+- Все статические директории из `client/dist` должны иметь явные locations
 
 **SSL:** acme.sh (Let's Encrypt) — `/root/.acme.sh/slime-arena.overmobile.space_ecc/`
 
