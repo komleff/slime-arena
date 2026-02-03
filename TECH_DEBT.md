@@ -622,3 +622,74 @@ ALTER TABLE oauth_links ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
 - Либо изменить логику дедупликации на строго `(file, line)`
 
 **Источник:** PR #110, ревьювер: Copilot
+
+---
+
+## Отложенные задачи из Sprint 15-18 (февраль 2026)
+
+### [P1] CrazyGamesAdapter + GameDistributionAdapter
+**Статус:** Отложено (требуются SDK ключи)
+
+**Контекст:**
+- Адаптеры для CrazyGames и GameDistribution не реализованы
+- Требуют SDK credentials и тестирования на реальных платформах
+- См. `docs/archive/sprint-15-platform-adapters-v2-PARTIAL.md`
+
+**Задачи:**
+- `CrazyGamesAdapter` — IAuthAdapter + AdsProvider
+- `CrazyGames JWT` — верификация на MetaServer
+- `GameDistributionAdapter` — только гостевой режим + AdsProvider
+
+**Beads:** создать при активации
+
+---
+
+### [P2] LeaderboardScreen: отложенные P2 улучшения
+**Статус:** Отложено (не критично для софт-лонча)
+
+**Контекст:**
+- Часть задач из Sprint 17 (LeaderboardScreen v1.6) не вошла в MVP
+- См. `docs/archive/sprint-17-leaderboard-v1.6-COMPLETED.md`
+
+**Задачи:**
+1. **FIX-003:** `atob` без base64url нормализации в decodeClaimToken
+2. **FIX-004:** Не проверяется `exp` токена в гостевой плашке
+3. **FIX-005:** `registration_claim_token` не очищается при logout/upgrade
+4. **LB-013:** Миниатюра скина в строке лидерборда
+5. **LB-016:** Названия вкладок «Накопительный»/«Рекордный»
+6. **LB-017:** Резервный никнейм «Игрок» + 4 символа ID
+7. **LB-018:** События аналитики для лидерборда
+
+**Beads:** `slime-arena-1jgz` (частично), создать остальные при активации
+
+---
+
+### [P1] OAuth: отложенные задачи безопасности
+**Статус:** Частично реализовано
+
+**Контекст:**
+- Часть OAuth задач из Sprint 16/18 отложена
+- См. `docs/archive/sprint-16-oauth-standalone-COMPLETED.md`
+
+**Задачи:**
+1. **AUTH-12/13:** Интеграционное тестирование OAuth (Google, Яндекс)
+2. **Rate limiting на /auth/*:** реализовано, но требует TRUST_PROXY настройки
+3. **PKCE валидация на сервере:** требует тестирования на мобильных
+
+**Beads:** `slime-arena-0jf`, `slime-arena-b1b`, `slime-arena-udd`
+
+---
+
+### [P2] Sprint 18: отложенные фиксы из Code Review
+**Статус:** Отложено (P3, не блокеры)
+
+**Контекст:**
+- Задачи из ревью агентов, не критичные для MVP
+- См. `docs/archive/sprint-18-tech-debt-COMPLETED.md`
+
+**Задачи:**
+1. `joystick.ts:106` — Dead code `baseShifted = false`
+2. `config.ts:3100` — Hardcoded fallback rating values → DEFAULT_RATING_* константы
+3. `auth.ts:315-319` — Info disclosure в ошибках OAuth (generic messages)
+
+**Beads:** создать при активации
