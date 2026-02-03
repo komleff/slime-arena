@@ -94,8 +94,8 @@ server {
     access_log /var/log/nginx/slime-arena.access.log;
     error_log  /var/log/nginx/slime-arena.error.log;
 
-    # API endpoints
-    location /api/ {
+    # API endpoints (^~ stops regex search)
+    location ^~ /api/ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -105,7 +105,7 @@ server {
     }
 
     # Legacy auth endpoints
-    location /auth/ {
+    location ^~ /auth/ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -125,7 +125,7 @@ server {
     }
 
     # Colyseus matchmake
-    location /matchmake/ {
+    location ^~ /matchmake/ {
         proxy_pass http://127.0.0.1:2567;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -138,9 +138,41 @@ server {
         proxy_send_timeout 3600;
     }
 
-    # Colyseus WebSocket rooms: /{processId}/{roomId}
-    # processId and roomId are alphanumeric strings (e.g., 2uiBwyoGH/fAWbj08Ou)
-    location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
+    # Static assets - all directories from client/dist (^~ stops regex search)
+    location ^~ /assets/ {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+    location ^~ /backgrounds/ {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+    location ^~ /hud/ {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+    location ^~ /icons/ {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+    location ^~ /skins/ {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+    location ^~ /sprites/ {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Colyseus WebSocket rooms: /{processId}/{roomId}?sessionId=...
+    # No $ anchor - allows query strings
+    location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+ {
         proxy_pass http://127.0.0.1:2567;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -181,6 +213,16 @@ server {
     }
 }
 ```
+
+### Важные особенности конфигурации
+
+| Модификатор | Значение | Где используется |
+|-------------|----------|------------------|
+| `^~` | Prefix match, останавливает поиск regex | `/api/`, `/assets/`, `/matchmake/` |
+| `~` | Case-sensitive regex | WebSocket rooms, MetaServer endpoints |
+| без модификатора | Prefix match, проверяет regex | `/` (fallback) |
+
+**Критично**: Regex `^/[a-zA-Z0-9]+/[a-zA-Z0-9]+` без `$` на конце — иначе не пропускает query string `?sessionId=...`.
 
 ### Nginx Commands
 
