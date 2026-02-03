@@ -428,7 +428,9 @@ Events (server → client):
 
 ## 8. Этапы разработки
 
-### Phase 1: MVP (P0) — 2-3 дня
+### Phase 1: MVP (P0) — 2-3 дня (~16-24 часа)
+
+**Трудозатраты:** Backend ~12ч, Frontend ~8ч, DevOps ~4ч
 
 - [ ] Auth: login/logout, JWT
 - [ ] Dashboard: status, CPU, RAM, rooms count
@@ -466,7 +468,7 @@ Events (server → client):
 | Framework | Express или Fastify | Простота, скорость разработки |
 | Auth | jsonwebtoken + bcrypt | Стандартные решения |
 | 2FA | speakeasy (TOTP) | Популярная библиотека |
-| DB | SQLite (better-sqlite3) | Простота, один файл, без внешних зависимостей |
+| DB | SQLite (better-sqlite3) | Отдельный файл `monitoring.db`, без влияния на PostgreSQL production |
 | Docker API | dockerode | Node.js клиент для Docker |
 | WebSocket | ws | Быстрый, простой |
 
@@ -522,6 +524,6 @@ Events (server → client):
 ## 13. Ссылки
 
 - [docs/operations/SERVER_SETUP.md](../operations/SERVER_SETUP.md) — текущая настройка сервера
-- [server/src/meta/routes/healthRoutes.ts](../../server/src/meta/routes/healthRoutes.ts) — health endpoint
+- [server/src/meta/route/health.ts](../../server/src/meta/route/health.ts) — health endpoint
 - [server/src/rooms/ArenaRoom.ts](../../server/src/rooms/ArenaRoom.ts) — tick metrics logging
 - [@colyseus/monitor](https://docs.colyseus.io/tools/monitor/) — встроенный мониторинг Colyseus
