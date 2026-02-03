@@ -2,11 +2,43 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: sprint-13/meta-gameplay @ 27 января 2026 (411a47f)
-- **Текущая ветка**: `sprint-13/meta-gameplay` (worktree: d:/slime-arena-meta/)
-- **Релиз:** v0.6.0 ✅ → **Целевой релиз:** v0.7.0 (Sprint 13)
-- **Soft Launch Status**: ✅ READY (6/6 критериев выполнено)
+- **last_checked_commit**: main @ 3 февраля 2026 (v0.7.8)
+- **Текущая ветка**: `main`
+- **Релиз:** v0.7.8 ✅ (production deployed)
 - **GDD версия**: v3.3.2
+
+## Server Maintenance Log (2026-02-03)
+
+### Настроен SSH доступ
+- Сгенерирован SSH ключ: `ssh-keygen -t ed25519`
+- Добавлен в панель управления хостинга
+- Подключение: `ssh -i ~/.ssh/id_ed25519 root@147.45.147.175`
+
+### Исправлено на сервере
+| Проблема | Решение | Статус |
+|----------|---------|--------|
+| Redis RDB Permission denied | Перезапуск контейнера | ✅ |
+| Telemetry logs EACCES | `chmod 777 /app/server/dist/server/logs` | ✅ |
+| Memory overcommit warning | `sysctl vm.overcommit_memory=1` | ✅ |
+| Container unhealthy | Restart + права | ✅ Healthy |
+
+### Анализ логов — обнаружено
+| Метрика | Значение |
+|---------|----------|
+| Всего тиков | 34669 |
+| [PERF] warnings | 351 (1%) |
+| Пиковая задержка | 118ms (бюджет 33.3ms) |
+| "Не удалось разместить зон" | 303 раза |
+| 404 на старые endpoints | Несколько |
+
+### Созданные issues
+- #126: UI фаза 'connecting' не рендерится
+- #127: Оптимизировать tick=2700 (конец матча)
+- #128: "Не удалось разместить зон" при создании комнаты
+- #129: Устаревшие API endpoints → 404
+- #130: Docker директория логов телеметрии
+
+---
 
 ## Sprint 13 Progress — 27 января 2026
 
