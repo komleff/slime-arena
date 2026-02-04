@@ -16,7 +16,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
 import { getPostgresPool } from '../../db/pool';
-import { rateLimit } from '../middleware/rateLimiter';
+import { rateLimit, totpRateLimiter } from '../middleware/rateLimiter';
 import { logAction, getAuditLogs } from '../services/auditService';
 import {
   requireAdminAuth,
@@ -66,23 +66,23 @@ function getClientIP(req: Request): string {
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
 
+// P2-1: Общие опции cookie вынесены в константу
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  path: '/api/v1/admin',
+};
+
 function setRefreshCookie(res: Response, token: string): void {
   res.cookie(REFRESH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/api/v1/admin',
+    ...REFRESH_COOKIE_OPTIONS,
     maxAge: REFRESH_COOKIE_MAX_AGE * 1000, // cookie maxAge is in ms
   });
 }
 
 function clearRefreshCookie(res: Response): void {
-  res.clearCookie(REFRESH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/api/v1/admin',
-  });
+  res.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_OPTIONS);
 }
 
 // ============================================================================
@@ -127,30 +127,15 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
       user?.password_hash || dummyHash
     );
 
-    if (userResult.rows.length === 0) {
-      // Log failed attempt (fire-and-forget)
-      logAction({
-        userId: null,
-        action: 'login_failed',
-        target: username,
-        ip,
-        details: { reason: 'user_not_found' },
-      }).catch((err) => console.error('[Audit]', err));
-
-      return res.status(401).json({
-        error: 'UNAUTHORIZED',
-        message: 'Invalid credentials',
-      });
-    }
-
-    if (!passwordValid) {
+    // P2-2: Объединённая проверка — единый ответ для обоих случаев (защита от enumeration)
+    if (!user || !passwordValid) {
       // Fire-and-forget audit logging
       logAction({
-        userId: user.id,
+        userId: user?.id || null,
         action: 'login_failed',
-        target: user.username,
+        target: user?.username || username,
         ip,
-        details: { reason: 'invalid_password' },
+        details: { reason: user ? 'invalid_password' : 'user_not_found' },
       }).catch((err) => console.error('[Audit]', err));
 
       return res.status(401).json({
@@ -338,7 +323,7 @@ router.post('/logout', requireAdminAuth, async (req: Request, res: Response) => 
 // POST /totp/setup
 // ============================================================================
 
-router.post('/totp/setup', requireAdminAuth, adminPostRateLimiter, async (req: Request, res: Response) => {
+router.post('/totp/setup', requireAdminAuth, totpRateLimiter, async (req: Request, res: Response) => {
   try {
     const adminUser = req.adminUser!;
     const ip = getClientIP(req);
@@ -397,7 +382,7 @@ router.post('/totp/setup', requireAdminAuth, adminPostRateLimiter, async (req: R
 // POST /totp/verify
 // ============================================================================
 
-router.post('/totp/verify', requireAdminAuth, adminPostRateLimiter, async (req: Request, res: Response) => {
+router.post('/totp/verify', requireAdminAuth, totpRateLimiter, async (req: Request, res: Response) => {
   try {
     const adminUser = req.adminUser!;
     const ip = getClientIP(req);

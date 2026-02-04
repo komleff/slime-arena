@@ -31,6 +31,8 @@ CREATE INDEX IF NOT EXISTS idx_admin_sessions_user_created
     ON admin_sessions(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires
     ON admin_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_refresh_token_hash
+    ON admin_sessions(refresh_token_hash);
 
 -- Table: audit_log
 -- Stores all admin actions for security audit

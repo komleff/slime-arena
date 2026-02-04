@@ -126,3 +126,9 @@ export const authRateLimiter = rateLimit(60 * 1000, 10, 'auth');
  * 5 запросов в минуту — OAuth коды одноразовые, частые запросы подозрительны
  */
 export const oauthRateLimiter = rateLimit(60 * 1000, 5, 'oauth');
+
+/**
+ * Строгий rate limiter для TOTP endpoints
+ * 3 запроса в минуту — защита от брутфорса 6-значных кодов
+ */
+export const totpRateLimiter = rateLimit(60 * 1000, 3, 'totp');
