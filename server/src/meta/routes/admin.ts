@@ -40,6 +40,10 @@ const router = Router();
 // POST /login: 5 req/min per IP (pre-auth, IP-based)
 const loginRateLimiter = rateLimit(60 * 1000, 5, 'admin_login');
 
+// POST /refresh: 10 req/min per IP (pre-auth — access token истёк, user неизвестен)
+// P2: Явный IP-based rate limit вместо fallback в userRateLimit
+const refreshRateLimiter = rateLimit(60 * 1000, 10, 'admin_refresh');
+
 // POST /admin/* (authenticated): 10 req/min per user (per ТЗ)
 const adminPostRateLimiter = userRateLimit(60 * 1000, 10, 'admin_post');
 
@@ -187,7 +191,7 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
 // POST /refresh
 // ============================================================================
 
-router.post('/refresh', adminPostRateLimiter, async (req: Request, res: Response) => {
+router.post('/refresh', refreshRateLimiter, async (req: Request, res: Response) => {
   try {
     // Read refresh token from cookie
     const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
