@@ -11,6 +11,9 @@ export const accessToken = signal<string | null>(null);
 /** Требуется ли настройка 2FA после логина */
 export const totpRequired = signal<boolean>(false);
 
+/** 2FA успешно настроена в текущей сессии */
+export const totpSuccess = signal<boolean>(false);
+
 /** Вычисляемый сигнал: авторизован ли пользователь */
 export const isAuthenticated = computed(() => accessToken.value !== null);
 
@@ -30,8 +33,10 @@ export function setTotpRequired(required: boolean): void {
 
 /**
  * Очистить состояние аутентификации (logout).
+ * P2: Сбрасываем totpSuccess чтобы при следующем логине не показывалось "2FA включена"
  */
 export function clearAuth(): void {
   accessToken.value = null;
   totpRequired.value = false;
+  totpSuccess.value = false;
 }

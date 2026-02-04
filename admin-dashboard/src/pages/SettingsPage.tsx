@@ -3,13 +3,13 @@
  */
 import { signal } from '@preact/signals';
 import { getTotpSetup, verifyTotp, logout, ApiError } from '../api/client';
-import { totpRequired, setTotpRequired } from '../auth/signals';
+import { totpRequired, setTotpRequired, totpSuccess } from '../auth/signals';
 
-/** Состояние настройки 2FA */
+/** Состояние настройки 2FA (локальное) */
 const totpSetupData = signal<{ secret: string; qrCodeUrl: string } | null>(null);
 const totpCode = signal('');
 const totpError = signal<string | null>(null);
-const totpSuccess = signal(false);
+// P2: totpSuccess перенесён в auth/signals.ts для сброса при logout
 const isLoadingSetup = signal(false);
 const isVerifying = signal(false);
 
