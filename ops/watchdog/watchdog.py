@@ -37,6 +37,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Директория для файлов-флагов взаимодействия с сервером
+# ВАЖНО: Watchdog (на хосте) и MetaServer (в контейнере) должны использовать
+# одну директорию. Docker volume монтирует этот путь в /shared контейнера.
+# При деплое убедитесь, что SHARED_DIR настроен корректно в обоих местах.
 SHARED_DIR = Path(os.getenv("SHARED_DIR", "/opt/slime-arena/shared"))
 
 # Имя Docker-контейнера
@@ -301,9 +304,8 @@ def recovery_check() -> None:
             # Удаляем повреждённый флаг
             try:
                 processing_path.unlink()
-            except Exception:
-                # Игнорируем ошибку удаления - файл мог не существовать
-                pass
+            except Exception as cleanup_error:
+                logger.warning(f"Не удалось удалить флаг recovery после ошибки: {cleanup_error}")
 
 
 # ============================================================================
@@ -377,9 +379,8 @@ def process_restart_request() -> bool:
         # Удаляем повреждённый файл
         try:
             requested_path.unlink()
-        except Exception:
-            # Игнорируем ошибку - файл мог быть уже удалён или переименован
-            pass
+        except Exception as cleanup_error:
+            logger.warning(f"Не удалось удалить повреждённый файл запроса: {cleanup_error}")
         return False
     except Exception as e:
         logger.error(f"Ошибка обработки запроса: {e}")

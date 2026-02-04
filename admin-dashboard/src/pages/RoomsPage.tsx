@@ -159,14 +159,26 @@ function EmptyState() {
 export function RoomsPage() {
   // Запуск polling при монтировании
   useEffect(() => {
-    // Первоначальная загрузка
-    fetchRooms();
+    let mounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    // Polling каждые 5 секунд
-    const intervalId = setInterval(fetchRooms, POLLING_INTERVAL);
+    // Polling с setTimeout для предотвращения наложения запросов
+    async function poll() {
+      await fetchRooms();
+      // Следующий запрос только после завершения предыдущего
+      if (mounted) {
+        timeoutId = setTimeout(poll, POLLING_INTERVAL);
+      }
+    }
+
+    // Запуск polling
+    poll();
 
     // Очистка при размонтировании
-    return () => clearInterval(intervalId);
+    return () => {
+      mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   // Состояние загрузки

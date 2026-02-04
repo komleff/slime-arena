@@ -663,6 +663,10 @@ router.get('/stats', requireAdminAuth, adminGetRateLimiter, async (req: Request,
 /**
  * Директория для outbox-файлов взаимодействия с watchdog.
  * По умолчанию /shared, переопределяется через SHARED_DIR.
+ *
+ * ВАЖНО: MetaServer (в контейнере) и watchdog (на хосте) должны использовать
+ * одну директорию. Docker volume монтирует хостовой путь в /shared контейнера.
+ * При деплое убедитесь, что SHARED_DIR настроен корректно в обоих местах.
  */
 function getSharedDir(): string {
   return process.env.SHARED_DIR || '/shared';

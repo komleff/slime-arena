@@ -12,7 +12,7 @@
 
 [Unit]
 Description=Slime Arena Watchdog — мониторинг и рестарт сервера
-Documentation=https://github.com/example/slime-arena
+Documentation=https://github.com/komleff/slime-arena
 After=docker.service network.target
 Requires=docker.service
 

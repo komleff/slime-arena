@@ -162,14 +162,26 @@ function formatUptime(seconds: number): string {
 export function DashboardPage() {
   // Запуск polling при монтировании
   useEffect(() => {
-    // Первоначальная загрузка
-    fetchStats();
+    let mounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    // Polling каждые 5 секунд
-    const intervalId = setInterval(fetchStats, POLLING_INTERVAL);
+    // Polling с setTimeout для предотвращения наложения запросов
+    async function poll() {
+      await fetchStats();
+      // Следующий запрос только после завершения предыдущего
+      if (mounted) {
+        timeoutId = setTimeout(poll, POLLING_INTERVAL);
+      }
+    }
+
+    // Запуск polling
+    poll();
 
     // Очистка при размонтировании
-    return () => clearInterval(intervalId);
+    return () => {
+      mounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   // Состояние загрузки
