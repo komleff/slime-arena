@@ -154,6 +154,9 @@ export class ArenaRoom extends Room<GameState> {
     private metricsTickCount = 0;
     private metricsIntervalTicks = 0;
     private metricsMaxTickMs = 0;
+    // Последние рассчитанные метрики tick latency (для API мониторинга)
+    private lastMetricsAvgMs = 0;
+    private lastMetricsMaxMs = 0;
     private maxTalentQueue = 3;
     private telemetry: TelemetryService | null = null;
     private matchIndex = 0;
@@ -2718,6 +2721,9 @@ export class ArenaRoom extends Room<GameState> {
         
         if (this.metricsTickCount >= this.metricsIntervalTicks) {
             const avg = this.metricsAccumulatorMs / this.metricsTickCount;
+            // Сохраняем последние метрики для API мониторинга
+            this.lastMetricsAvgMs = avg;
+            this.lastMetricsMaxMs = this.metricsMaxTickMs;
             console.log(
                 `tick=${this.tick} dt_avg=${avg.toFixed(2)}ms dt_max=${this.metricsMaxTickMs.toFixed(2)}ms players=${this.state.players.size} orbs=${this.state.orbs.size} chests=${this.state.chests.size}`
             );
@@ -2725,6 +2731,48 @@ export class ArenaRoom extends Room<GameState> {
             this.metricsTickCount = 0;
             this.metricsMaxTickMs = 0;
         }
+    }
+
+    /**
+     * Возвращает статистику комнаты для API мониторинга.
+     * Вызывается через matchMaker.remoteRoomCall().
+     */
+    getRoomStats(): {
+        roomId: string;
+        playerCount: number;
+        maxPlayers: number;
+        state: string;
+        phase: string;
+        duration: number;
+        tick: { avg: number; max: number };
+    } {
+        // Определяем состояние матча
+        let matchState: string;
+        const phase = this.state.phase;
+        if (phase === "Spawn") {
+            matchState = "spawning";
+        } else if (phase === "Results") {
+            matchState = "ending";
+        } else {
+            matchState = "playing";
+        }
+
+        // Длительность матча в секундах (от начала)
+        const totalDuration = this.balance.match.durationSec;
+        const duration = totalDuration - this.state.timeRemaining;
+
+        return {
+            roomId: this.roomId,
+            playerCount: this.state.players.size,
+            maxPlayers: this.maxClients,
+            state: matchState,
+            phase: phase,
+            duration: Math.round(duration),
+            tick: {
+                avg: Math.round(this.lastMetricsAvgMs * 100) / 100,
+                max: Math.round(this.lastMetricsMaxMs * 100) / 100,
+            },
+        };
     }
 }
 

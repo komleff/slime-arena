@@ -15,11 +15,16 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
+import fs from 'fs/promises';
+import path from 'path';
+import { randomUUID } from 'crypto';
 import { getPostgresPool } from '../../db/pool';
 import { rateLimit, totpRateLimiter, userRateLimit, getClientIP } from '../middleware/rateLimiter';
 import { logAction, getAuditLogs } from '../services/auditService';
+import { getCpuUsage, getRamUsage, getUptime } from '../services/systemMetrics';
 import {
   requireAdminAuth,
+  require2FA,
   generateAdminAccessToken,
   generateRefreshToken,
   hashRefreshToken,
@@ -52,6 +57,9 @@ const adminGetRateLimiter = userRateLimit(60 * 1000, 60, 'admin_get');
 
 // POST /logout: 10 req/min per user
 const logoutRateLimiter = userRateLimit(60 * 1000, 10, 'admin_logout');
+
+// POST /restart: 2 req/min per user (ограничение для предотвращения abuse)
+const restartRateLimiter = userRateLimit(60 * 1000, 2, 'admin_restart');
 
 // ============================================================================
 // Helpers
@@ -482,5 +490,303 @@ router.get('/audit', requireAdminAuth, adminGetRateLimiter, async (req: Request,
     });
   }
 });
+
+// ============================================================================
+// GET /rooms — список активных игровых комнат
+// ============================================================================
+
+/**
+ * Интерфейс статистики комнаты (соответствует ArenaRoom.getRoomStats())
+ */
+interface RoomStats {
+  roomId: string;
+  playerCount: number;
+  maxPlayers: number;
+  state: 'spawning' | 'playing' | 'ending';
+  phase: string;
+  duration: number;
+  tick: { avg: number; max: number };
+}
+
+/**
+ * Получает список комнат с MatchServer.
+ * Возвращает null при ошибке или недоступности сервера.
+ */
+async function fetchRoomsFromMatchServer(): Promise<RoomStats[] | null> {
+  const matchServerHost = process.env.MATCH_SERVER_HOST || 'localhost';
+  const matchServerPort = process.env.MATCH_SERVER_PORT || '2567';
+  const matchServerToken = process.env.MATCH_SERVER_TOKEN;
+
+  if (!matchServerToken) {
+    console.warn('[Admin Rooms] MATCH_SERVER_TOKEN not configured');
+    return null;
+  }
+
+  const url = `http://${matchServerHost}:${matchServerPort}/api/internal/rooms`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 секунд таймаут
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${matchServerToken}`,
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`[Admin Rooms] MatchServer returned ${response.status}`);
+      return null;
+    }
+
+    const rooms = await response.json() as RoomStats[];
+    return rooms;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[Admin Rooms] MatchServer request timeout');
+    } else {
+      console.error('[Admin Rooms] Failed to fetch from MatchServer:', error);
+    }
+    return null;
+  }
+}
+
+/**
+ * GET /api/v1/admin/rooms
+ *
+ * Возвращает список активных игровых комнат с метриками:
+ * - roomId: идентификатор комнаты
+ * - playerCount: количество игроков
+ * - maxPlayers: максимум игроков
+ * - state: состояние матча (spawning | playing | ending)
+ * - phase: текущая фаза игры
+ * - duration: секунд с начала матча
+ * - tick: { avg, max } — статистика tick latency
+ *
+ * Требования: REQ-MON-003 (ТЗ TZ-MON-v1.6)
+ */
+router.get('/rooms', requireAdminAuth, adminGetRateLimiter, async (req: Request, res: Response) => {
+  try {
+    const rooms = await fetchRoomsFromMatchServer();
+
+    if (rooms === null) {
+      // MatchServer недоступен — возвращаем пустой массив с заголовком
+      res.setHeader('X-MatchServer-Available', 'false');
+      return res.json([]);
+    }
+
+    res.setHeader('X-MatchServer-Available', 'true');
+    res.json(rooms);
+  } catch (error) {
+    console.error('[Admin Rooms] Error:', error);
+    res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: 'Failed to fetch rooms',
+    });
+  }
+});
+
+// ============================================================================
+// GET /stats — системные метрики для Dashboard
+// ============================================================================
+
+/**
+ * GET /api/v1/admin/stats
+ *
+ * Возвращает системные метрики сервера:
+ * - cpu: загрузка CPU (0-100%)
+ * - memory: использование RAM (used/total в МБ, percent)
+ * - uptime: время работы процесса (секунды)
+ * - rooms: количество активных комнат (null — данные с MatchServer недоступны)
+ * - players: количество игроков онлайн (null — данные с MatchServer недоступны)
+ * - tick: статистика tick latency (null — данные с MatchServer недоступны)
+ * - timestamp: время замера (ISO 8601)
+ *
+ * Требования: REQ-MON-009 (ТЗ TZ-MON-v1.6), ACC-MON-009
+ */
+router.get('/stats', requireAdminAuth, adminGetRateLimiter, async (req: Request, res: Response) => {
+  try {
+    // Системные метрики (CPU, RAM, Uptime) — из текущего процесса MetaServer
+    const cpu = getCpuUsage();
+    const memory = getRamUsage();
+    const uptime = getUptime();
+
+    // Получаем данные о комнатах с MatchServer
+    const roomsData = await fetchRoomsFromMatchServer();
+
+    let rooms: number | null = null;
+    let players: number | null = null;
+    let tick: { avg: number; max: number } | null = null;
+
+    if (roomsData !== null) {
+      rooms = roomsData.length;
+      players = roomsData.reduce((sum, r) => sum + r.playerCount, 0);
+
+      // Агрегируем tick latency по всем комнатам
+      if (roomsData.length > 0) {
+        const avgTicks = roomsData.map((r) => r.tick.avg);
+        const maxTicks = roomsData.map((r) => r.tick.max);
+        tick = {
+          avg: Math.round((avgTicks.reduce((a, b) => a + b, 0) / avgTicks.length) * 100) / 100,
+          max: Math.max(...maxTicks),
+        };
+      }
+    }
+
+    res.json({
+      cpu,
+      memory,
+      uptime,
+      rooms,
+      players,
+      tick,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[Admin Stats] Error:', error);
+    res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: 'Failed to fetch server stats',
+    });
+  }
+});
+
+// ============================================================================
+// POST /restart — рестарт сервера через watchdog (REQ-MON-011, REQ-MON-012)
+// ============================================================================
+
+/**
+ * Директория для outbox-файлов взаимодействия с watchdog.
+ * По умолчанию /shared, переопределяется через SHARED_DIR.
+ */
+function getSharedDir(): string {
+  return process.env.SHARED_DIR || '/shared';
+}
+
+/**
+ * Пути к файлам-флагам для координации рестарта с watchdog.
+ */
+function getRestartPaths() {
+  const sharedDir = getSharedDir();
+  return {
+    requested: path.join(sharedDir, 'restart-requested'),
+    processing: path.join(sharedDir, 'restart-processing'),
+  };
+}
+
+/**
+ * Проверяет существование файла (не выбрасывает исключение).
+ */
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Атомарная запись JSON-файла через временный файл + rename.
+ * Гарантирует целостность данных при сбое.
+ */
+async function atomicWriteJson(filePath: string, data: object): Promise<void> {
+  const tmpPath = `${filePath}.tmp.${randomUUID()}`;
+  await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+  await fs.rename(tmpPath, filePath);
+}
+
+/**
+ * POST /api/v1/admin/restart
+ *
+ * Инициирует рестарт сервера через watchdog.
+ * Требует JWT авторизацию и 2FA код в заголовке X-2FA-Code.
+ *
+ * Responses:
+ * - 202 Accepted: рестарт запланирован
+ * - 403 Forbidden: 2FA не включён или неверный код
+ * - 409 Conflict: рестарт уже выполняется
+ *
+ * Требования: REQ-MON-011, REQ-MON-012, ACC-MON-011, ACC-MON-012, ACC-MON-012a
+ */
+router.post(
+  '/restart',
+  requireAdminAuth,
+  require2FA,
+  restartRateLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const adminUser = req.adminUser!;
+      const ip = getClientIP(req);
+      const paths = getRestartPaths();
+
+      // Проверяем, не выполняется ли уже рестарт
+      const [requestedExists, processingExists] = await Promise.all([
+        fileExists(paths.requested),
+        fileExists(paths.processing),
+      ]);
+
+      if (requestedExists || processingExists) {
+        // Рестарт уже запланирован или выполняется
+        return res.status(409).json({
+          error: 'CONFLICT',
+          message: 'Restart already in progress or requested',
+        });
+      }
+
+      // Генерируем уникальный ID для отслеживания
+      const auditId = randomUUID();
+
+      // Логируем действие в audit_log (fire-and-forget)
+      logAction({
+        userId: adminUser.id,
+        action: 'server_restart_requested',
+        target: auditId,
+        ip,
+        details: {
+          auditId,
+          requestedBy: adminUser.username,
+        },
+      }).catch((err) => console.error('[Audit]', err));
+
+      // Создаём outbox-файл для watchdog (атомарно)
+      const outboxData = {
+        auditId,
+        requestedAt: new Date().toISOString(),
+        requestedBy: adminUser.username,
+      };
+
+      try {
+        await atomicWriteJson(paths.requested, outboxData);
+      } catch (writeError) {
+        console.error('[Admin Restart] Failed to write outbox file:', writeError);
+        return res.status(500).json({
+          error: 'INTERNAL_ERROR',
+          message: 'Failed to schedule restart',
+        });
+      }
+
+      console.log(
+        `[Admin Restart] Restart requested by ${adminUser.username} (auditId: ${auditId})`
+      );
+
+      res.status(202).json({
+        message: 'Restart scheduled',
+        auditId,
+      });
+    } catch (error) {
+      console.error('[Admin Restart] Error:', error);
+      res.status(500).json({
+        error: 'INTERNAL_ERROR',
+        message: 'Restart request failed',
+      });
+    }
+  }
+);
 
 export default router;
