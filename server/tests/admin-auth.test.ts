@@ -411,8 +411,8 @@ async function runTests(): Promise<void> {
       const data = await response.json();
       assert(data.secret, 'Response should contain secret (otpauth:// URI)');
       assert(data.secret.startsWith('otpauth://totp/'), `Secret should be otpauth:// URI, got: ${data.secret.substring(0, 30)}...`);
-      assert(data.qrCodeDataUrl, 'Response should contain qrCodeDataUrl');
-      assert(data.qrCodeDataUrl.startsWith('data:image/png;base64,'), 'qrCodeDataUrl should be data URI');
+      assert(data.qrCodeUrl, 'Response should contain qrCodeUrl');
+      assert(data.qrCodeUrl.startsWith('data:image/png;base64,'), 'qrCodeUrl should be data URI');
 
       // Extract secret from URI for verification test
       const secretMatch = data.secret.match(/secret=([A-Z2-7]+)/i);

@@ -132,3 +132,80 @@ export const oauthRateLimiter = rateLimit(60 * 1000, 5, 'oauth');
  * 3 запроса в минуту — защита от брутфорса 6-значных кодов
  */
 export const totpRateLimiter = rateLimit(60 * 1000, 3, 'totp');
+
+/**
+ * Rate limiter для authenticated endpoints (per-user).
+ * Использует user ID из req.adminId вместо IP.
+ * Требует adminAuth middleware перед собой.
+ *
+ * @see TZ-MON-v1_6-Backend.md:170-172
+ */
+export function userRateLimit(
+  windowMs = 60 * 1000,
+  maxRequests = 10,
+  keyPrefix = 'user'
+): (req: Request, res: Response, next: NextFunction) => void {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    // Используем adminId (устанавливается adminAuth middleware)
+    const userId = (req as any).adminId;
+    if (!userId) {
+      // Fallback на IP если adminId отсутствует
+      return rateLimit(windowMs, maxRequests, keyPrefix)(req, res, next);
+    }
+
+    const key = `${keyPrefix}:user:${userId}`;
+    const now = Date.now();
+
+    const record = limits.get(key);
+
+    if (!record || now > record.resetAt) {
+      limits.set(key, { count: 1, resetAt: now + windowMs });
+      res.setHeader('X-RateLimit-Limit', maxRequests);
+      res.setHeader('X-RateLimit-Remaining', maxRequests - 1);
+      res.setHeader('X-RateLimit-Reset', Math.ceil((now + windowMs) / 1000));
+      return next();
+    }
+
+    if (record.count >= maxRequests) {
+      const retryAfter = Math.ceil((record.resetAt - now) / 1000);
+      res.setHeader('Retry-After', retryAfter);
+      res.setHeader('X-RateLimit-Limit', maxRequests);
+      res.setHeader('X-RateLimit-Remaining', 0);
+      res.setHeader('X-RateLimit-Reset', Math.ceil(record.resetAt / 1000));
+
+      console.warn(`[RateLimiter] User rate limit exceeded for user ${userId} on ${req.path}`);
+
+      res.status(429).json({
+        error: 'rate_limit_exceeded',
+        message: 'Слишком много запросов. Попробуйте позже.',
+        retryAfter,
+      });
+      return;
+    }
+
+    record.count++;
+    res.setHeader('X-RateLimit-Limit', maxRequests);
+    res.setHeader('X-RateLimit-Remaining', maxRequests - record.count);
+    res.setHeader('X-RateLimit-Reset', Math.ceil(record.resetAt / 1000));
+
+    next();
+  };
+}
+
+/**
+ * Per-user rate limiter для admin POST endpoints
+ * 10 запросов в минуту per user (согласно ТЗ)
+ */
+export const adminPostRateLimiter = userRateLimit(60 * 1000, 10, 'admin-post');
+
+/**
+ * Per-user rate limiter для admin GET endpoints
+ * 60 запросов в минуту per user (согласно ТЗ)
+ */
+export const adminGetRateLimiter = userRateLimit(60 * 1000, 60, 'admin-get');
+
+/**
+ * Per-user rate limiter для restart endpoint
+ * 3 запроса в минуту per user (согласно ТЗ)
+ */
+export const restartRateLimiter = userRateLimit(60 * 1000, 3, 'restart');

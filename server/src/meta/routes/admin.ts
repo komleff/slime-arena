@@ -16,7 +16,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
 import { getPostgresPool } from '../../db/pool';
-import { rateLimit, totpRateLimiter } from '../middleware/rateLimiter';
+import { rateLimit, totpRateLimiter, userRateLimit } from '../middleware/rateLimiter';
 import { logAction, getAuditLogs } from '../services/auditService';
 import {
   requireAdminAuth,
@@ -37,14 +37,17 @@ const router = Router();
 // Rate Limiters
 // ============================================================================
 
-// POST /login: 5 req/min per IP
+// POST /login: 5 req/min per IP (pre-auth, IP-based)
 const loginRateLimiter = rateLimit(60 * 1000, 5, 'admin_login');
 
-// POST /admin/* (general): 10 req/min per IP (for now IP-based, user-based would need auth first)
-const adminPostRateLimiter = rateLimit(60 * 1000, 10, 'admin_post');
+// POST /admin/* (authenticated): 10 req/min per user (per ТЗ)
+const adminPostRateLimiter = userRateLimit(60 * 1000, 10, 'admin_post');
 
-// GET /admin/*: 60 req/min per IP
-const adminGetRateLimiter = rateLimit(60 * 1000, 60, 'admin_get');
+// GET /admin/* (authenticated): 60 req/min per user (per ТЗ)
+const adminGetRateLimiter = userRateLimit(60 * 1000, 60, 'admin_get');
+
+// POST /logout: 10 req/min per user
+const logoutRateLimiter = userRateLimit(60 * 1000, 10, 'admin_logout');
 
 // ============================================================================
 // Helpers
@@ -282,7 +285,7 @@ router.post('/refresh', adminPostRateLimiter, async (req: Request, res: Response
 // POST /logout
 // ============================================================================
 
-router.post('/logout', requireAdminAuth, async (req: Request, res: Response) => {
+router.post('/logout', requireAdminAuth, logoutRateLimiter, async (req: Request, res: Response) => {
   try {
     const adminUser = req.adminUser!;
     const ip = getClientIP(req);
