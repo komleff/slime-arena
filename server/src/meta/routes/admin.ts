@@ -16,7 +16,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import QRCode from 'qrcode';
 import { getPostgresPool } from '../../db/pool';
-import { rateLimit, totpRateLimiter, userRateLimit } from '../middleware/rateLimiter';
+import { rateLimit, totpRateLimiter, userRateLimit, getClientIP } from '../middleware/rateLimiter';
 import { logAction, getAuditLogs } from '../services/auditService';
 import {
   requireAdminAuth,
@@ -53,17 +53,7 @@ const logoutRateLimiter = userRateLimit(60 * 1000, 10, 'admin_logout');
 // Helpers
 // ============================================================================
 
-function getClientIP(req: Request): string {
-  const trustProxy = process.env.TRUST_PROXY === 'true';
-  if (trustProxy) {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
-      const clientIP = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
-      return clientIP.trim();
-    }
-  }
-  return req.ip || req.socket.remoteAddress || 'unknown';
-}
+// getClientIP импортирован из rateLimiter.ts (P2-2: убрано дублирование)
 
 // Cookie options for refresh token
 const REFRESH_COOKIE_NAME = 'refresh_token';
@@ -122,8 +112,9 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
     );
 
     // P1-1: Защита от timing attack — всегда выполняем bcrypt.compare
-    // Dummy hash для случая когда пользователь не найден
-    const dummyHash = '$2b$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+    // Валидный bcrypt hash (cost=10) для защиты от timing attack при отсутствии пользователя
+    // Реальный hash гарантирует корректную работу bcrypt.compare без исключений
+    const dummyHash = '$2b$10$TQ5Mt1SfuRH/0cbAxjF5EOpfbCThAjVZ2Q8091.QZkDhaJ/e3D2K.';
     const user = userResult.rows[0];
     const passwordValid = await bcrypt.compare(
       password,

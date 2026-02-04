@@ -44,8 +44,9 @@ const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
 /**
  * Получить IP-адрес клиента с учётом прокси.
  * P2-1: X-Forwarded-For доверяем только при TRUST_PROXY=true.
+ * @public Экспортируется для использования в admin.ts и других модулях
  */
-function getClientIP(req: Request): string {
+export function getClientIP(req: Request): string {
   // P2-1: Доверяем X-Forwarded-For только при явном TRUST_PROXY=true
   if (TRUST_PROXY) {
     const forwarded = req.headers['x-forwarded-for'];
