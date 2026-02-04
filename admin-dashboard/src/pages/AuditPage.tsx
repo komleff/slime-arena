@@ -70,13 +70,18 @@ function formatTimestamp(isoString: string): string {
 function formatAction(action: string): string {
   const actionMap: Record<string, string> = {
     login: 'Вход',
+    login_failed: 'Неудачный вход',
     logout: 'Выход',
     settings_change: 'Изменение настроек',
     totp_setup: 'Настройка 2FA',
+    totp_setup_initiated: 'Инициирована настройка 2FA',
     totp_verify: 'Верификация 2FA',
+    totp_verify_failed: 'Неудачная верификация 2FA',
+    totp_enabled: '2FA включена',
     password_change: 'Смена пароля',
     room_restart: 'Перезапуск комнаты',
     server_restart: 'Перезапуск сервера',
+    server_restart_requested: 'Запрошен перезапуск сервера',
   };
   return actionMap[action] || action;
 }

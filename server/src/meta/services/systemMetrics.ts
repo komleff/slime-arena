@@ -57,18 +57,6 @@ function readFileSync(path: string): string | null {
   }
 }
 
-/**
- * Проверка существования файла
- */
-function fileExists(path: string): boolean {
-  try {
-    fs.accessSync(path, fs.constants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 // ============================================================================
 // CPU метрики
 // ============================================================================
@@ -184,7 +172,6 @@ export function getCpuUsage(): number {
 
   // Пробуем cgroup v2
   let currentCpuTime = getCpuFromCgroupV2();
-  let isCgroup = true;
 
   // Пробуем cgroup v1
   if (currentCpuTime === null) {
@@ -200,7 +187,7 @@ export function getCpuUsage(): number {
 
       // CPU% = (cpuTimeDelta / realTimeDelta) * 100 / numCpus
       // Делим на numCpus т.к. контейнер может использовать все ядра
-      cachedCpuPercent = Math.min(100, Math.round((cpuTimeDelta / realTimeDelta) * 100));
+      cachedCpuPercent = Math.min(100, Math.round((cpuTimeDelta / realTimeDelta) * 100 / numCpus));
     }
 
     lastCpuTime = currentCpuTime;
@@ -209,7 +196,6 @@ export function getCpuUsage(): number {
   }
 
   // Пробуем /proc/stat
-  isCgroup = false;
   const procStat = getCpuFromProcStat();
 
   if (procStat !== null) {

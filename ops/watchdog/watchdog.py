@@ -23,9 +23,8 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -50,13 +49,16 @@ HEALTH_URL = os.getenv("HEALTH_URL", "http://127.0.0.1:3000/health")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
-# Интервалы проверок (секунды)
-OUTBOX_CHECK_INTERVAL = 5
-HEALTH_CHECK_INTERVAL = 30
-HEALTH_TIMEOUT = 5
+# Интервалы проверок (секунды) — конфигурируются через env
+OUTBOX_CHECK_INTERVAL = int(os.getenv("OUTBOX_POLL_INTERVAL", "5"))
+HEALTH_CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))
+HEALTH_TIMEOUT = int(os.getenv("HEALTH_TIMEOUT", "5"))
 
 # Порог для auto-restart при health failures
-HEALTH_FAIL_THRESHOLD = 3
+HEALTH_FAIL_THRESHOLD = int(os.getenv("FAILURE_THRESHOLD", "3"))
+
+# Пауза после рестарта перед следующими проверками (секунды)
+COOLDOWN_AFTER_RESTART = int(os.getenv("COOLDOWN_AFTER_RESTART", "60"))
 
 # ============================================================================
 # Логирование
@@ -89,6 +91,52 @@ def get_restart_processing_path() -> Path:
 def get_restart_result_path() -> Path:
     """Путь к файлу-результату рестарта."""
     return SHARED_DIR / "restart-result"
+
+
+def get_state_path() -> Path:
+    """Путь к файлу состояния watchdog (для idempotency)."""
+    return SHARED_DIR / ".watchdog-state"
+
+
+# ============================================================================
+# Состояние watchdog (idempotency)
+# ============================================================================
+
+
+def load_state() -> dict:
+    """
+    Загружает состояние watchdog из файла.
+
+    Returns:
+        Словарь с состоянием (lastAuditId, lastRestartTime и т.д.)
+    """
+    state_path = get_state_path()
+    if state_path.exists():
+        try:
+            return json.loads(state_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            logger.warning(f"Не удалось загрузить состояние: {e}")
+    return {}
+
+
+def save_state(audit_id: str) -> None:
+    """
+    Сохраняет состояние watchdog в файл.
+
+    Args:
+        audit_id: ID последней выполненной операции
+    """
+    state_path = get_state_path()
+    state_data = {
+        "lastAuditId": audit_id,
+        "lastRestartTime": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        tmp_path = state_path.with_suffix(".tmp")
+        tmp_path.write_text(json.dumps(state_data, indent=2), encoding="utf-8")
+        tmp_path.rename(state_path)
+    except Exception as e:
+        logger.error(f"Ошибка сохранения состояния: {e}")
 
 
 # ============================================================================
@@ -172,21 +220,24 @@ def docker_restart() -> tuple[bool, str]:
 # ============================================================================
 
 
-def write_result(audit_id: str, status: str, message: str = "") -> None:
+def write_result(audit_id: str, status: str, error: str = "") -> None:
     """
     Записывает результат рестарта в файл.
+
+    Формат по контракту TZ-MON-v1.6-Ops:
+    {auditId, status, timestamp, error}
 
     Args:
         audit_id: ID операции из запроса
         status: Статус (ok, error)
-        message: Дополнительное сообщение
+        error: Сообщение об ошибке (пустое при успехе)
     """
     result_path = get_restart_result_path()
     result_data = {
         "auditId": audit_id,
         "status": status,
-        "message": message,
-        "completedAt": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "error": error if status == "error" else "",
     }
 
     try:
@@ -224,8 +275,13 @@ def recovery_check() -> None:
             # Выполняем рестарт
             success, message = docker_restart()
 
-            # Записываем результат
-            write_result(audit_id, "ok" if success else "error", message)
+            # Записываем результат (error пустой при успехе)
+            error_msg = "" if success else message
+            write_result(audit_id, "ok" if success else "error", error_msg)
+
+            # Сохраняем состояние для idempotency
+            if success:
+                save_state(audit_id)
 
             # Уведомляем в Telegram
             status_emoji = "✅" if success else "❌"
@@ -246,6 +302,7 @@ def recovery_check() -> None:
             try:
                 processing_path.unlink()
             except Exception:
+                # Игнорируем ошибку удаления - файл мог не существовать
                 pass
 
 
@@ -276,6 +333,13 @@ def process_restart_request() -> bool:
         requested_by = data.get("requestedBy", "unknown")
         requested_at = data.get("requestedAt", "unknown")
 
+        # Idempotency check: пропускаем если этот auditId уже обработан
+        state = load_state()
+        if state.get("lastAuditId") == audit_id:
+            logger.warning(f"Запрос {audit_id} уже был обработан, пропускаем")
+            requested_path.unlink()
+            return False
+
         logger.info(f"Рестарт запрошен: {requested_by} в {requested_at}")
 
         # Атомарно переименовываем в processing (делает исходный файл недоступным)
@@ -284,8 +348,13 @@ def process_restart_request() -> bool:
         # Выполняем рестарт
         success, message = docker_restart()
 
-        # Записываем результат
-        write_result(audit_id, "ok" if success else "error", message)
+        # Записываем результат (error пустой при успехе)
+        error_msg = "" if success else message
+        write_result(audit_id, "ok" if success else "error", error_msg)
+
+        # Сохраняем состояние для idempotency
+        if success:
+            save_state(audit_id)
 
         # Уведомляем в Telegram
         status_emoji = "✅" if success else "❌"
@@ -309,6 +378,7 @@ def process_restart_request() -> bool:
         try:
             requested_path.unlink()
         except Exception:
+            # Игнорируем ошибку - файл мог быть уже удалён или переименован
             pass
         return False
     except Exception as e:
@@ -327,10 +397,15 @@ class HealthMonitor:
     def __init__(self):
         self.fail_count = 0
         self.last_check_time = 0.0
+        self.last_restart_time = 0.0  # Для COOLDOWN после рестарта
 
     def should_check(self) -> bool:
         """Проверяет, пора ли выполнять health check."""
-        return time.time() - self.last_check_time >= HEALTH_CHECK_INTERVAL
+        now = time.time()
+        # Пропускаем health check в период COOLDOWN после рестарта
+        if self.last_restart_time > 0 and now - self.last_restart_time < COOLDOWN_AFTER_RESTART:
+            return False
+        return now - self.last_check_time >= HEALTH_CHECK_INTERVAL
 
     def check_health(self) -> bool:
         """
@@ -376,6 +451,12 @@ class HealthMonitor:
 
             # Выполняем рестарт
             success, message = docker_restart()
+
+            # Устанавливаем COOLDOWN период
+            if success:
+                self.last_restart_time = time.time()
+                # Сохраняем состояние для idempotency (auto-restart имеет специальный auditId)
+                save_state(f"auto-health-{int(time.time())}")
 
             # Уведомляем в Telegram
             status_emoji = "✅" if success else "❌"

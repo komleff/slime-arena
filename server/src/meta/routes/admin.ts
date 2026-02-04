@@ -693,11 +693,23 @@ async function fileExists(filePath: string): Promise<boolean> {
 
 /**
  * Атомарная запись JSON-файла через временный файл + rename.
- * Гарантирует целостность данных при сбое.
+ * Использует O_EXCL (флаг 'wx') для эксклюзивного создания tmp-файла.
+ * Предотвращает race condition при параллельных запросах.
+ *
+ * @throws Error с code='EEXIST' если tmp-файл уже существует (race condition)
  */
 async function atomicWriteJson(filePath: string, data: object): Promise<void> {
   const tmpPath = `${filePath}.tmp.${randomUUID()}`;
-  await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+
+  // Используем 'wx' флаг для эксклюзивного создания (O_EXCL)
+  // Если файл уже существует, выбрасывает EEXIST
+  const handle = await fs.open(tmpPath, 'wx');
+  try {
+    await handle.writeFile(JSON.stringify(data, null, 2), 'utf8');
+  } finally {
+    await handle.close();
+  }
+
   await fs.rename(tmpPath, filePath);
 }
 
