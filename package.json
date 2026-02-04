@@ -14,7 +14,7 @@
     "dev:client": "npm run dev --workspace=client",
     "start:servers": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"server,client\" \"npm run dev:server\" \"npm run dev:client\"",
     "stop:servers": "node -e \"const { exec } = require('child_process'); exec(process.platform === 'win32' ? 'scripts\\\\stop-servers.bat' : 'scripts/stop-servers.sh')\"",
-    "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client",
+    "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client && npm run build --workspace=admin-dashboard",
     "test": "npm --workspaces --if-present test",
     "sync-version": "node scripts/sync-version.js"
   },
