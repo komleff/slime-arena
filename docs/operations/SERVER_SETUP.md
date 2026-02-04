@@ -28,10 +28,26 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
 ## Docker Container
 
 ```bash
-# Текущий образ
+# Production (текущая версия)
 ghcr.io/komleff/slime-arena-monolith-full:0.7.8
 
-# Запуск контейнера
+# Тестирование (v0.8.0 с админкой — требует доделки Phase 2)
+ghcr.io/komleff/slime-arena-monolith-full:0.8.0
+```
+
+### ⚠️ Версия 0.8.0 — Admin Dashboard (Phase 1)
+
+**Статус:** Базовая функциональность ✅, Phase 2 в backlog
+- ✅ Авторизация администраторов (JWT + cookies)
+- ✅ TOTP 2FA (AES-256-GCM)
+- ✅ Журнал аудита (audit_log)
+- ⏳ Метрики CPU/RAM (placeholder в дизайне)
+- ⏳ Список активных комнат (placeholder)
+- ⏳ Рестарт сервиса (требует watchdog)
+
+**Рекомендация:** Оставить на v0.7.8 для production до Sprint 19.
+
+### Запуск контейнера (v0.7.8)
 
 ```bash
 # Загрузить переменные из .env.production (не коммитится!)

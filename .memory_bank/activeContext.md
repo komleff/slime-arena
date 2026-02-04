@@ -5,16 +5,105 @@
 ## Текущее состояние
 **База:** main (v0.8.0)
 **GDD версия:** 3.3.2
-**Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 released
-**Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
-**Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
-**Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
-**Sprint 18 Status:** ✅ ЗАВЕРШЁН — v0.7.8 deployed to VPS
-**Sprint MON Status:** ✅ ЗАВЕРШЁН — v0.8.0 released (Server Monitoring Dashboard)
+**Sprint MON Status:** ✅ ЗАВЕРШЁН — v0.8.0 протестирована, Phase 2 → Sprint 19
+**Production:** v0.7.8 ✅ (остаётся в production, v0.8.0 не рекомендуется)
 
 ---
 
-## ✅ Sprint MON — Server Monitoring Dashboard (2026-02-04)
+## ✅ Sprint MON — Admin Dashboard Phase 1 (2026-02-04)
+
+**Цель:** Базовая админка для мониторинга
+**Версия:** 0.8.0
+**Статус:** Phase 1 ✅ ЗАВЕРШЕНА, Phase 2 ⏳ (backlog для Sprint 19)
+
+### Что работает (Phase 1)
+
+✅ **Авторизация администраторов**
+- JWT access token (15 мин) + refresh token cookie (7 дней)
+- Bcrypt password hashing (cost=10)
+- Rate limiting: 5 req/min на login
+
+✅ **2FA TOTP**
+- AES-256-GCM encryption для секретов
+- QR генерируется локально (не утекает)
+- Enable/disable по требованию
+
+✅ **Audit Log**
+- Все admin действия логируются
+- Таблица `audit_log` (id, user_id, action, target, timestamp, details_json)
+- GET /api/v1/admin/audit доступен для admin
+
+✅ **Игровая логика (неизменена)**
+- Guest auth → guestToken выдаётся
+- Яндекс OAuth работает полностью
+- Результаты матчей сохраняются
+- Leaderboard обновляется
+
+### Что в Phase 2 (Sprint 19)
+
+⏳ **Метрики сервера** (placeholder в дизайне)
+- CPU/RAM из /proc/, /sys/fs/cgroup/
+- Tick latency (кольцевой буфер)
+- Список активных комнат
+
+⏳ **Рестарт сервиса** (требует watchdog)
+- Создание outbox-файла /shared/restart-requested
+- Требуется TOTP для выполнения
+
+⏳ **Рефакторинг на Preact** (ТЗ requirement)
+- Текущее: React + TypeScript
+- Требуется: Preact + @preact/signals (как в клиенте)
+
+### Тестирование (локально 2026-02-04)
+
+| Сценарий | Результат |
+|----------|-----------|
+| Login test_admin/Admin123 | ✅ OK — JWT токен получен |
+| Refresh token | ✅ OK — новый accessToken выдан |
+| Logout | ✅ OK — очистка сессии |
+| Audit log GET | ✅ OK — логин зафиксирован |
+| Guest auth | ✅ OK — guestToken выдан |
+| Яндекс OAuth | ✅ OK — upgrade в существующий аккаунт |
+| Leaderboard | ✅ OK — 3 записи загружены |
+| Match play (guest) | ✅ OK — результат сохранён |
+
+### Выявленные баги и решения
+
+| Проблема | Решение | Статус |
+|----------|---------|--------|
+| audit_log schema mismatch (actor_user_id в БД, user_id в коде) | Пересоздать таблицу | ✅ Фиксировано вручную |
+| Миграция 009 не в образе 0.8.0 | Таблицы созданы в контейнере | ⚠️ Требуется rebuild образа |
+| supervisord требует CLAIM_TOKEN_TTL_MINUTES | Добавлено в docker run | ✅ |
+| localStorage содержал старый гостевой токен | Очистить localStorage перед тестом | ✅ |
+| Chrome расширение FILE_ERROR_NO_SPACE | Очистить Chrome cache | ✅ (не игры) |
+
+### Рекомендация для production
+
+**НЕ РЕКОМЕНДУЕТСЯ заливать v0.8.0 на боевой сервер:**
+- Phase 2 не завершена (метрики, комнаты, рестарт — placeholder)
+- Требуется пересборка образа (фиксы миграций)
+- Админка на React вместо Preact
+
+**План:** Оставить v0.7.8 в production, v0.8.0 → Sprint 19 Phase 2.
+
+---
+
+## ⏳ Sprint 19 — Backlog
+
+### Admin Dashboard Phase 2
+
+- [ ] Метрики CPU/RAM (Prometheus/Node Exporter интеграция)
+- [ ] Список активных комнат (GET /admin/rooms)
+- [ ] Рестарт сервиса (watchdog скрипт + UI кнопка)
+- [ ] Рефакторинг React → Preact
+
+### Tech Debt (из логов production)
+
+- #126: UI фаза 'connecting' не рендерится
+- #127: Оптимизация tick=2700 (просадки до 118ms)
+- #128: "Не удалось разместить зон" (303 события)
+- #129: Устаревшие endpoints → 404
+- #130: Docker logs директория permissions
 
 **Цель:** Административная панель мониторинга сервера
 **PR Backend:** #133 (sprint-mon/backend-ops) → main ✅ MERGED

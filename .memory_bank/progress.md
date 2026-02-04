@@ -2,12 +2,52 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 3 февраля 2026 (v0.7.8)
-- **Текущая ветка**: `main`
+- **last_checked_commit**: main @ 4 февраля 2026 (v0.7.8 production)
+- **Текущая ветка**: `main` 
 - **Релиз:** v0.7.8 ✅ (production deployed)
+- **v0.8.0 (Admin):** ✅ Phase 1 тестирование завершено, Phase 2 → Sprint 19
 - **GDD версия**: v3.3.2
 
-## Server Maintenance Log (2026-02-03)
+---
+
+## Sprint MON (2026-02-04) — ✅ ЗАВЕРШЁН
+
+**Цель:** Admin Dashboard v0.8.0 (Phase 1)
+**Статус:** Тестирование завершено, Phase 2 отложена на Sprint 19
+
+### Результаты тестирования (локально)
+
+✅ **Базовая функциональность**
+- Admin auth (JWT + refresh cookies)
+- TOTP 2FA setup
+- Audit log (все действия логируются)
+
+✅ **Игровая логика (неизменена)**
+- Guest auth работает
+- Яндекс OAuth работает
+- Leaderboard обновляется
+- Статистика матчей сохраняется
+
+⚠️ **Admin Phase 2 (backlog)**
+- Метрики CPU/RAM (placeholder)
+- Список комнат (placeholder)
+- Рестарт сервиса (требует watchdog)
+
+### Выявленные проблемы
+
+| Проблема | Решение | Критичность |
+|----------|---------|-------------|
+| audit_log schema (actor_user_id vs user_id) | Пересоздать таблицу | P2 |
+| Миграция 009 не в образе | Требуется rebuild | P2 |
+| Админка на React вместо Preact | Рефакторинг Sprint 19 | P3 |
+
+### Вывод
+
+**v0.8.0 НЕ ГОТОВА для production.** Оставить на v0.7.8 до Sprint 19.
+
+---
+
+## Server Maintenance Log (2026-02-03/04)
 
 ### Настроен SSH доступ
 - Сгенерирован SSH ключ: `ssh-keygen -t ed25519`
