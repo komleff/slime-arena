@@ -5,7 +5,8 @@
   "workspaces": [
     "client",
     "server",
-    "shared"
+    "shared",
+    "admin-dashboard"
   ],
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --prefix \"[{name}]\" --names \"meta,match,client\" \"npm run dev:meta --workspace=server\" \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
