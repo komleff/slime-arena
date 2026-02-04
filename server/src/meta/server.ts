@@ -6,6 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
 
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { initializePostgres, closePostgres, initializeRedis, closeRedis } from '../db/pool';
 import { AuthProviderFactory } from './platform/AuthProviderFactory';
 import { PaymentProviderFactory } from './payment/PaymentProviderFactory';
@@ -22,6 +23,7 @@ import paymentRoutes from './routes/payment';
 import analyticsRoutes from './routes/analytics';
 import matchResultsRoutes from './routes/matchResults';
 import leaderboardRoutes from './routes/leaderboard';
+import adminRoutes from './routes/admin';
 
 const app = express();
 const port = Number(process.env.META_PORT || 3000);
@@ -30,6 +32,7 @@ const host = process.env.META_HOST || '0.0.0.0';
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Request logging
 app.use((req, res, next) => {
@@ -91,6 +94,7 @@ app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
 app.use('/api/v1/match-results', matchResultsRoutes);
 app.use('/api/v1/leaderboard', leaderboardRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // 404 handler
 app.use((req, res) => {
