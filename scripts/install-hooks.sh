@@ -30,13 +30,15 @@ for hook in "$HOOKS_DIR"/*; do
     continue
   fi
   
+  # Используем абсолютный путь для символической ссылки
+  hook_abs_path=$(cd "$(dirname "$hook")" && pwd)/$(basename "$hook")
   target="$GIT_HOOKS_DIR/$hook_name"
   
   # Создаем символическую ссылку
   if [ -e "$target" ] || [ -L "$target" ]; then
     echo "⚠️  Файл $hook_name уже существует, пропускаем..."
   else
-    ln -s "$hook" "$target"
+    ln -s "$hook_abs_path" "$target"
     echo "✅ Установлен hook: $hook_name"
   fi
 done

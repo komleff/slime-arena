@@ -17,7 +17,7 @@
     "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client && npm run build --workspace=admin-dashboard",
     "test": "npm --workspaces --if-present test",
     "sync-version": "node scripts/sync-version.js",
-    "install-hooks": "node -e \"const { execSync } = require('child_process'); const cmd = process.platform === 'win32' ? 'scripts\\\\install-hooks.bat' : 'bash scripts/install-hooks.sh'; execSync(cmd, {stdio: 'inherit'})\"",
+    "install-hooks": "node scripts/install-hooks.js",
     "postinstall": "npm run install-hooks"
   },
   "devDependencies": {
