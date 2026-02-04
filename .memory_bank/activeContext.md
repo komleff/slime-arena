@@ -3,10 +3,10 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.8.0)
+**База:** main (v0.8.0) → **PR#136** (v0.8.1)
 **GDD версия:** 3.3.2
-**Sprint MON Status:** ✅ ЗАВЕРШЁН — v0.8.0 протестирована, Phase 2 → Sprint 19
-**Production:** v0.7.8 ✅ (остаётся в production, v0.8.0 не рекомендуется)
+**Sprint 19 Status:** ✅ Phase 2 ЗАВЕРШЕНА — PR#136 готов к merge
+**Production:** v0.7.8 ✅ (обновление до v0.8.1 после merge)
 
 ---
 
@@ -88,14 +88,59 @@
 
 ---
 
-## ⏳ Sprint 19 — Backlog
+## ✅ Sprint 19 — Admin Dashboard Phase 2 (2026-02-05)
 
-### Admin Dashboard Phase 2
+**Цель:** Завершить Admin Dashboard Phase 2
+**Версия:** 0.8.1
+**PR:** #136 (sprint-19/admin-dashboard-phase2)
+**Статус:** ✅ ГОТОВ К MERGE — консенсус 3/3 APPROVED
 
-- [ ] Метрики CPU/RAM (Prometheus/Node Exporter интеграция)
-- [ ] Список активных комнат (GET /admin/rooms)
-- [ ] Рестарт сервиса (watchdog скрипт + UI кнопка)
-- [ ] Рефакторинг React → Preact
+### Что реализовано (Phase 2)
+
+✅ **Метрики сервера** (`systemMetrics.ts`)
+- CPU/RAM из cgroup v2 → v1 → /proc → os module (fallback chain)
+- Tick latency буфер в ArenaRoom
+- GET /api/v1/admin/stats endpoint
+
+✅ **Список комнат** (`RoomsPage.tsx`)
+- GET /api/v1/admin/rooms endpoint
+- Real-time polling каждые 5 сек
+- Карточки с фазой, игроками, tick latency
+
+✅ **Аудит-лог** (`AuditPage.tsx`)
+- GET /api/v1/admin/audit с пагинацией
+- Мобильная и десктопная версия
+- Локализация action names
+
+✅ **Рестарт сервиса** (`watchdog.py`)
+- POST /api/v1/admin/restart (требует 2FA)
+- Outbox pattern с атомарными операциями
+- Recovery при старте watchdog
+- Telegram уведомления
+- systemd service файл
+
+✅ **Версионирование** (`sync-version.js`)
+- Централизованная версия в version.json
+- Синхронизация 8 файлов (package.json + docker)
+
+### Ревью (2026-02-05)
+
+| Агент | Статус | Замечаний |
+|-------|--------|-----------|
+| Security Agent | ✅ APPROVED | 2 P1, 2 P2 |
+| Code Quality Agent | ✅ APPROVED | 5 P2, 10 P3 |
+| Architecture Agent | ✅ APPROVED | 5 P2, 3 P3 |
+| GitHub Copilot | ✅ COMMENTED | 7 |
+
+**Консенсус:** ✅ ДОСТИГНУТ (3/3 APPROVED)
+
+### Закрытые задачи
+
+- ✅ `slime-arena-wld1` — Версия 0.8.1 синхронизирована
+- ✅ `slime-arena-mon1` — React → Preact (PR#136)
+- ✅ `slime-arena-mon2` — Server Metrics (PR#136)
+- ✅ `slime-arena-mon3` — Active Rooms List (PR#136)
+- ✅ `slime-arena-mon4` — Audit Log UI (PR#136)
 
 ### Tech Debt (из логов production)
 
