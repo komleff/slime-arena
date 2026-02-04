@@ -10,6 +10,60 @@
 **Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
 **Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
 **Sprint 18 Status:** ✅ ЗАВЕРШЁН — v0.7.8 deployed to VPS
+**Sprint MON Status:** ✅ ЗАВЕРШЁН — PR#133 + PR#134 merged (Server Monitoring Dashboard)
+
+---
+
+## ✅ Sprint MON — Server Monitoring Dashboard (2026-02-04)
+
+**Цель:** Административная панель мониторинга сервера
+**PR Backend:** #133 (sprint-mon/backend-ops) → main ✅ MERGED
+**PR Frontend:** #134 (sprint-mon/frontend) → main ✅ MERGED
+
+### Backend (PR #133)
+
+| Компонент | Описание | Статус |
+|-----------|----------|--------|
+| Admin Auth | JWT access + refresh tokens, httpOnly cookies | ✅ |
+| TOTP 2FA | AES-256-GCM encryption, QR генерация локально | ✅ |
+| Rate Limiting | IP-based (login) + per-user (authenticated) | ✅ |
+| Audit Service | Логирование всех действий администратора | ✅ |
+| DB Migration | 009_admin_tables.sql | ✅ |
+
+**Безопасность:**
+- ✅ Timing attack protection (bcrypt с dummy hash)
+- ✅ QR генерируется локально (не утекает на внешние API)
+- ✅ TOTP rate limit 3 req/min
+- ✅ Индекс на refresh_token_hash
+
+### Frontend (PR #134)
+
+| Компонент | Описание | Статус |
+|-----------|----------|--------|
+| Login Page | Форма входа с rate limit handling | ✅ |
+| Settings Page | TOTP setup flow с QR-кодом | ✅ |
+| API Client | 401 interceptor + refresh queue | ✅ |
+| Auth Signals | Access token в памяти (не localStorage) | ✅ |
+
+**Стек:** Preact + @preact/signals + Vite
+
+### Review Summary
+
+| Агент | PR #133 | PR #134 |
+|-------|---------|---------|
+| Security Agent | ✅ | ✅ |
+| Code Quality Agent | ✅ | ✅ |
+| Architecture Agent | ✅ | ✅ |
+| GPT-5.2-Codex | ✅ | ✅ |
+| Copilot | ✅ | ✅ |
+
+### Tech Debt (Backlog)
+
+| ID | Priority | Description |
+|----|----------|-------------|
+| TD-MON-1 | P3 | In-memory rate limiter → Redis при масштабировании |
+| TD-MON-2 | P3 | TODO без issue-id в заглушках Phase 2 |
+| TD-MON-3 | P3 | Emoji → SVG иконки в Phase 2 |
 
 ---
 
