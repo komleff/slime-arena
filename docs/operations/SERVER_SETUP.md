@@ -32,6 +32,11 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
 ghcr.io/komleff/slime-arena-monolith-full:0.7.8
 
 # Запуск контейнера
+
+```bash
+# Загрузить переменные из .env.production (не коммитится!)
+source /root/.env.production
+
 docker run -d \
   --name slime-arena \
   --restart unless-stopped \
@@ -40,16 +45,26 @@ docker run -d \
   -p 5173:5173 \
   -v slime-arena-pgdata:/var/lib/postgresql/data \
   -v slime-arena-redisdata:/var/lib/redis \
-  -e JWT_SECRET="your-secret-here" \
-  -e YANDEX_CLIENT_ID="bfd4855a924f4bc7a16ccfc367f3a067" \
-  -e YANDEX_CLIENT_SECRET="your-secret-here" \
-  -e YANDEX_REDIRECT_URI="https://slime-arena.overmobile.space/oauth/yandex/callback" \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
+  -e CLAIM_TOKEN_TTL_MINUTES="$CLAIM_TOKEN_TTL_MINUTES" \
+  -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
+  -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
+  -e OAUTH_YANDEX_ENABLED=true \
   ghcr.io/komleff/slime-arena-monolith-full:0.7.8
+```
+
+**⚠️ Примечание:** Все секретные переменные хранятся в `/root/.env.production` (не коммитится в git).  
+См. `.env.production.example` для шаблона.
 
 # Volumes (персистентные данные)
-slime-arena-pgdata    # PostgreSQL data
-slime-arena-redisdata # Redis data
+
 ```
+slime-arena-pgdata    # PostgreSQL data (пользователи, профили, лидерборд)
+slime-arena-redisdata # Redis data (сессии, кеш)
+```
+
+**ВАЖНО:** Никогда не удалять эти volumes! Они содержат все данные пользователей.
 
 ## Ports
 
