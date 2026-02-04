@@ -20,6 +20,8 @@ export interface AdminUser {
   username: string;
   role: string;
   totpEnabled: boolean;
+  /** P1: Зашифрованный TOTP секрет — загружается сразу для избежания N+1 в require2FA */
+  totpSecretEncrypted?: string;
 }
 
 export interface AdminTokenPayload {
@@ -268,14 +270,16 @@ export async function requireAdminAuth(
     }
 
     // Load admin user from DB to verify they still exist and get current role
+    // P1: Загружаем totp_secret_encrypted сразу для избежания N+1 запроса в require2FA
     const pool = getPostgresPool();
     const result = await pool.query<{
       id: string;
       username: string;
       role: string;
       totp_enabled: boolean;
+      totp_secret_encrypted: string | null;
     }>(
-      `SELECT id, username, role, totp_enabled FROM admin_users WHERE id = $1`,
+      `SELECT id, username, role, totp_enabled, totp_secret_encrypted FROM admin_users WHERE id = $1`,
       [payload.sub]
     );
 
@@ -293,6 +297,7 @@ export async function requireAdminAuth(
       username: row.username,
       role: row.role,
       totpEnabled: row.totp_enabled,
+      totpSecretEncrypted: row.totp_secret_encrypted || undefined,
     };
 
     next();
@@ -344,14 +349,9 @@ export async function require2FA(
       return;
     }
 
-    // Get encrypted TOTP secret from DB
-    const pool = getPostgresPool();
-    const result = await pool.query<{ totp_secret_encrypted: string }>(
-      `SELECT totp_secret_encrypted FROM admin_users WHERE id = $1`,
-      [adminUser.id]
-    );
-
-    if (result.rows.length === 0 || !result.rows[0].totp_secret_encrypted) {
+    // P1: Используем totp_secret_encrypted из adminUser (загружен в requireAdminAuth)
+    // Это устраняет N+1 запрос — больше не нужен отдельный запрос к БД
+    if (!adminUser.totpSecretEncrypted) {
       res.status(403).json({
         error: 'FORBIDDEN',
         message: 'TOTP not configured',
@@ -360,7 +360,7 @@ export async function require2FA(
     }
 
     // Decrypt and verify
-    const secret = decryptTotpSecret(result.rows[0].totp_secret_encrypted);
+    const secret = decryptTotpSecret(adminUser.totpSecretEncrypted);
     const isValid = verifyTotpCode(secret, totpCode, adminUser.username);
 
     if (!isValid) {

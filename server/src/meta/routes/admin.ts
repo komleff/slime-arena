@@ -14,9 +14,10 @@
 
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import QRCode from 'qrcode';
 import { getPostgresPool } from '../../db/pool';
 import { rateLimit } from '../middleware/rateLimiter';
-import { logAction } from '../services/auditService';
+import { logAction, getAuditLogs } from '../services/auditService';
 import {
   requireAdminAuth,
   generateAdminAccessToken,
@@ -117,15 +118,24 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
       [username]
     );
 
+    // P1-1: Защита от timing attack — всегда выполняем bcrypt.compare
+    // Dummy hash для случая когда пользователь не найден
+    const dummyHash = '$2b$10$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
+    const user = userResult.rows[0];
+    const passwordValid = await bcrypt.compare(
+      password,
+      user?.password_hash || dummyHash
+    );
+
     if (userResult.rows.length === 0) {
-      // Log failed attempt
-      await logAction({
+      // Log failed attempt (fire-and-forget)
+      logAction({
         userId: null,
         action: 'login_failed',
         target: username,
         ip,
         details: { reason: 'user_not_found' },
-      });
+      }).catch((err) => console.error('[Audit]', err));
 
       return res.status(401).json({
         error: 'UNAUTHORIZED',
@@ -133,19 +143,15 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
       });
     }
 
-    const user = userResult.rows[0];
-
-    // Verify password
-    const passwordValid = await bcrypt.compare(password, user.password_hash);
-
     if (!passwordValid) {
-      await logAction({
+      // Fire-and-forget audit logging
+      logAction({
         userId: user.id,
         action: 'login_failed',
         target: user.username,
         ip,
         details: { reason: 'invalid_password' },
-      });
+      }).catch((err) => console.error('[Audit]', err));
 
       return res.status(401).json({
         error: 'UNAUTHORIZED',
@@ -175,12 +181,12 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
       [user.id, refreshTokenHash, ip, userAgent.substring(0, 255), expiresAt]
     );
 
-    // Log successful login
-    await logAction({
+    // P2: Fire-and-forget audit logging — не блокируем ответ
+    logAction({
       userId: user.id,
       action: 'login',
       ip,
-    });
+    }).catch((err) => console.error('[Audit]', err));
 
     // Set refresh token cookie
     setRefreshCookie(res, refreshToken);
@@ -308,12 +314,12 @@ router.post('/logout', requireAdminAuth, async (req: Request, res: Response) => 
       );
     }
 
-    // Log logout
-    await logAction({
+    // P2: Fire-and-forget audit logging
+    logAction({
       userId: adminUser.id,
       action: 'logout',
       ip,
-    });
+    }).catch((err) => console.error('[Audit]', err));
 
     // Clear cookie
     clearRefreshCookie(res);
@@ -358,19 +364,24 @@ router.post('/totp/setup', requireAdminAuth, adminPostRateLimiter, async (req: R
       [encryptedSecret, adminUser.id]
     );
 
-    // Log setup initiation
-    await logAction({
+    // P2: Fire-and-forget audit logging
+    logAction({
       userId: adminUser.id,
       action: 'totp_setup_initiated',
       ip,
-    });
+    }).catch((err) => console.error('[Audit]', err));
 
-    // Generate QR code URL using Google Charts API (simple, no extra deps)
-    const qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(otpauthUri)}`;
+    // P1-2: Генерация QR на сервере вместо Google Charts API
+    // Исключает утечку TOTP секрета на внешний сервис
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUri, {
+      errorCorrectionLevel: 'M',
+      width: 200,
+      margin: 2,
+    });
 
     res.json({
       secret: otpauthUri,
-      qrCodeUrl,
+      qrCodeDataUrl,
     });
   } catch (error) {
     console.error('[Admin TOTP Setup] Error:', error);
@@ -426,11 +437,12 @@ router.post('/totp/verify', requireAdminAuth, adminPostRateLimiter, async (req: 
     const isValid = verifyTotpCode(secret, code, adminUser.username);
 
     if (!isValid) {
-      await logAction({
+      // P2: Fire-and-forget audit logging
+      logAction({
         userId: adminUser.id,
         action: 'totp_verify_failed',
         ip,
-      });
+      }).catch((err) => console.error('[Audit]', err));
 
       return res.status(401).json({
         error: 'UNAUTHORIZED',
@@ -444,12 +456,12 @@ router.post('/totp/verify', requireAdminAuth, adminPostRateLimiter, async (req: 
       [adminUser.id]
     );
 
-    // Log success
-    await logAction({
+    // P2: Fire-and-forget audit logging
+    logAction({
       userId: adminUser.id,
       action: 'totp_enabled',
       ip,
-    });
+    }).catch((err) => console.error('[Audit]', err));
 
     res.json({ message: 'TOTP enabled successfully' });
   } catch (error) {
@@ -469,8 +481,7 @@ router.get('/audit', requireAdminAuth, adminGetRateLimiter, async (req: Request,
   try {
     const { limit = '50', offset = '0', userId, action } = req.query;
 
-    const { getAuditLogs } = await import('../services/auditService');
-
+    // P2: Статический импорт вместо динамического (import уже вверху файла)
     const result = await getAuditLogs({
       limit: Math.min(parseInt(limit as string, 10) || 50, 100),
       offset: parseInt(offset as string, 10) || 0,
