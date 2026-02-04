@@ -3,14 +3,14 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.7.8)
+**База:** main (v0.8.0)
 **GDD версия:** 3.3.2
 **Sprint 14 Status:** ✅ ЗАВЕРШЁН — v0.7.0 released
 **Sprint 15 Status:** ✅ ЗАВЕРШЁН — PR#112 merged (v0.7.1-dev)
 **Sprint 16 Status:** ✅ ЗАВЕРШЁН — PR#115 merged (v0.7.3)
 **Sprint 17 Status:** ✅ ЗАВЕРШЁН — PR#116 merged (v0.7.4)
 **Sprint 18 Status:** ✅ ЗАВЕРШЁН — v0.7.8 deployed to VPS
-**Sprint MON Status:** ✅ ЗАВЕРШЁН — PR#133 + PR#134 merged (Server Monitoring Dashboard)
+**Sprint MON Status:** ✅ ЗАВЕРШЁН — v0.8.0 released (Server Monitoring Dashboard)
 
 ---
 
@@ -19,6 +19,8 @@
 **Цель:** Административная панель мониторинга сервера
 **PR Backend:** #133 (sprint-mon/backend-ops) → main ✅ MERGED
 **PR Frontend:** #134 (sprint-mon/frontend) → main ✅ MERGED
+**Релиз:** v0.8.0 ✅ https://github.com/komleff/slime-arena/releases/tag/v0.8.0
+**Docker:** `ghcr.io/komleff/slime-arena-monolith-full:0.8.0` ✅
 
 ### Backend (PR #133)
 
