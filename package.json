@@ -16,7 +16,9 @@
     "stop:servers": "node -e \"const { exec } = require('child_process'); exec(process.platform === 'win32' ? 'scripts\\\\stop-servers.bat' : 'scripts/stop-servers.sh')\"",
     "build": "npm run build --workspace=shared && npm run build --workspace=server && npm run build --workspace=client && npm run build --workspace=admin-dashboard",
     "test": "npm --workspaces --if-present test",
-    "sync-version": "node scripts/sync-version.js"
+    "sync-version": "node scripts/sync-version.js",
+    "install-hooks": "node -e \"const { execSync } = require('child_process'); const cmd = process.platform === 'win32' ? 'scripts\\\\install-hooks.bat' : 'bash scripts/install-hooks.sh'; execSync(cmd, {stdio: 'inherit'})\"",
+    "postinstall": "npm run install-hooks"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Git hook для предупреждения при работе в ветке main
+
+BRANCH=$(git symbolic-ref HEAD 2>/dev/null | sed 's!refs/heads/!!')
+
+if [ "$BRANCH" = "main" ]; then
+  echo ""
+  echo "⚠️  ВНИМАНИЕ: Вы находитесь в ветке main"
+  echo ""
+  echo "Рекомендуется создать отдельную ветку для изменений."
+  echo "Коммиты в main будут заблокированы pre-commit hook."
+  echo ""
+fi

@@ -1,0 +1,29 @@
+#!/bin/bash
+# Git hook для предотвращения push напрямую в ветку main
+
+# Текущая ветка
+CURRENT_BRANCH=$(git symbolic-ref HEAD 2>/dev/null | sed 's!refs/heads/!!')
+
+# Проверяем, куда пушим
+while read local_ref local_sha remote_ref remote_sha
+do
+  # Извлекаем имя удаленной ветки
+  REMOTE_BRANCH=$(echo "$remote_ref" | sed 's!refs/heads/!!')
+  
+  if [ "$REMOTE_BRANCH" = "main" ]; then
+    echo ""
+    echo "❌ ОШИБКА: Запрещен push напрямую в ветку main"
+    echo ""
+    echo "Ветка main защищена от прямых изменений."
+    echo "Все изменения должны проходить через Pull Request."
+    echo ""
+    echo "Пожалуйста:"
+    echo "  1. Создайте отдельную ветку: git checkout -b feature/my-feature"
+    echo "  2. Запушьте вашу ветку: git push origin feature/my-feature"
+    echo "  3. Создайте Pull Request на GitHub"
+    echo ""
+    exit 1
+  fi
+done
+
+exit 0

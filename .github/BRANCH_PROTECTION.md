@@ -2,6 +2,67 @@
 
 Документ описывает настройки защиты ветки `main` от прямых изменений.
 
+## Локальные Git Hooks
+
+Репозиторий настроен с автоматической установкой git hooks для защиты ветки main на локальной машине разработчика.
+
+### Автоматическая установка
+
+Git hooks устанавливаются автоматически при выполнении `npm install`:
+
+```bash
+npm install
+```
+
+### Ручная установка
+
+Если нужно установить hooks вручную:
+
+**Linux/macOS:**
+```bash
+npm run install-hooks
+# или
+bash scripts/install-hooks.sh
+```
+
+**Windows (CMD):**
+```cmd
+npm run install-hooks
+# или
+scripts\install-hooks.bat
+```
+
+**Windows (PowerShell):**
+```powershell
+npm run install-hooks
+# или
+.\scripts\install-hooks.ps1
+```
+
+### Установленные hooks
+
+1. **pre-commit** — блокирует коммиты напрямую в ветку main
+2. **pre-push** — блокирует push напрямую в ветку main  
+3. **prepare-commit-msg** — предупреждает при работе в ветке main
+
+### Пример работы
+
+При попытке коммита в main:
+```bash
+❌ ОШИБКА: Запрещены коммиты напрямую в ветку main
+
+Пожалуйста, создайте отдельную ветку для ваших изменений:
+  git checkout -b feature/my-feature
+```
+
+При попытке push в main:
+```bash
+❌ ОШИБКА: Запрещен push напрямую в ветку main
+
+Ветка main защищена от прямых изменений.
+Все изменения должны проходить через Pull Request.
+```
+
 ## Автоматизация через GitHub Actions
 
 Настроены процессы:

@@ -83,6 +83,8 @@
 npm install
 ```
 
+**Важно:** При установке автоматически настраиваются git hooks для защиты ветки main от прямых изменений. Все изменения должны проходить через Pull Request.
+
 ### Разработка
 
 Рекомендуется запускать сервер и клиент в разных терминалах:
@@ -349,6 +351,33 @@ if (isHttps && window.location.hostname.includes("overmobile.space")) {
     defaultWsUrl = `wss://slime-arena-server.overmobile.space`;
 }
 ```
+
+## Работа с репозиторием
+
+### Защита ветки main
+
+Ветка `main` защищена от прямых изменений. Все изменения должны проходить через Pull Request:
+
+1. **Локальная защита:** Git hooks автоматически блокируют commit и push в main
+2. **GitHub Actions:** Автоматическая проверка PR перед слиянием
+3. **Branch Protection Rules:** Серверная защита от прямых push (настраивается в GitHub Settings)
+
+**Процесс работы:**
+```bash
+# Создайте feature-ветку
+git checkout -b feature/my-feature
+
+# Внесите изменения и закоммитьте
+git add .
+git commit -m "Add new feature"
+
+# Запушьте ветку
+git push origin feature/my-feature
+
+# Создайте Pull Request на GitHub
+```
+
+Подробности в [.github/BRANCH_PROTECTION.md](.github/BRANCH_PROTECTION.md)
 
 ## Журнал изменений
 

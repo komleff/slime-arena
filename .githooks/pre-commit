@@ -1,0 +1,23 @@
+#!/bin/bash
+# Git hook для предотвращения коммитов напрямую в ветку main
+
+BRANCH=$(git symbolic-ref HEAD 2>/dev/null | sed 's!refs/heads/!!')
+
+if [ "$BRANCH" = "main" ]; then
+  echo ""
+  echo "❌ ОШИБКА: Запрещены коммиты напрямую в ветку main"
+  echo ""
+  echo "Пожалуйста, создайте отдельную ветку для ваших изменений:"
+  echo "  git checkout -b feature/my-feature"
+  echo ""
+  echo "Или если вы уже внесли изменения:"
+  echo "  git stash"
+  echo "  git checkout -b feature/my-feature"
+  echo "  git stash pop"
+  echo ""
+  echo "После этого сделайте коммит и создайте Pull Request."
+  echo ""
+  exit 1
+fi
+
+exit 0
