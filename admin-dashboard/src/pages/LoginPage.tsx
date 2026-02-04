@@ -2,6 +2,7 @@
  * Страница логина администратора.
  */
 import { signal } from '@preact/signals';
+import { useEffect } from 'preact/hooks';
 import { login, ApiError } from '../api/client';
 import { setAccessToken, setTotpRequired } from '../auth/signals';
 import { currentTab } from '../App';
@@ -13,6 +14,11 @@ const error = signal<string | null>(null);
 const isSubmitting = signal(false);
 
 export function LoginPage() {
+  // P2-2: Сбрасываем ошибку при монтировании компонента
+  useEffect(() => {
+    error.value = null;
+  }, []);
+
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
 

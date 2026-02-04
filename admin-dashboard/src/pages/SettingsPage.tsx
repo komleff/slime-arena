@@ -3,7 +3,7 @@
  */
 import { signal } from '@preact/signals';
 import { getTotpSetup, verifyTotp, logout, ApiError } from '../api/client';
-import { totpRequired } from '../auth/signals';
+import { totpRequired, setTotpRequired } from '../auth/signals';
 
 /** Состояние настройки 2FA */
 const totpSetupData = signal<{ secret: string; qrCodeUrl: string } | null>(null);
@@ -89,13 +89,20 @@ function TotpSetup() {
 
       <div class="qr-code-container">
         {/* P1: Используем data URL от backend — секрет не утекает на внешний сервис */}
-        <img
-          src={totpSetupData.value.qrCodeUrl}
-          alt="QR-код для настройки 2FA"
-          class="qr-code"
-          width="200"
-          height="200"
-        />
+        {/* P2-1: Валидация что URL начинается с data:image/ */}
+        {totpSetupData.value.qrCodeUrl.startsWith('data:image/') ? (
+          <img
+            src={totpSetupData.value.qrCodeUrl}
+            alt="QR-код для настройки 2FA"
+            class="qr-code"
+            width="200"
+            height="200"
+          />
+        ) : (
+          <div class="error-message" role="alert">
+            Некорректный формат QR-кода. Используйте ручной ввод.
+          </div>
+        )}
       </div>
 
       <details class="manual-entry">
@@ -200,8 +207,8 @@ async function handleVerify(e: Event) {
     totpSuccess.value = true;
     totpSetupData.value = null;
     totpCode.value = '';
-    // Сбрасываем флаг требования 2FA
-    totpRequired.value = false;
+    // Сбрасываем флаг требования 2FA (P2-3: используем setter)
+    setTotpRequired(false);
   } catch (err) {
     if (err instanceof ApiError) {
       if (err.status === 401) {

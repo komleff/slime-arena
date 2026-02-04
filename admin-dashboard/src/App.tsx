@@ -1,7 +1,7 @@
 /**
  * Корневой компонент приложения с роутингом.
  */
-import { signal, computed } from '@preact/signals';
+import { signal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { isAuthenticated } from './auth/signals';
 import { tryRestoreSession } from './api/client';
