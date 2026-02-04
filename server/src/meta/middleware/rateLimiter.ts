@@ -135,8 +135,8 @@ export const totpRateLimiter = rateLimit(60 * 1000, 3, 'totp');
 
 /**
  * Rate limiter для authenticated endpoints (per-user).
- * Использует user ID из req.adminId вместо IP.
- * Требует adminAuth middleware перед собой.
+ * Использует user ID из req.adminUser.id вместо IP.
+ * Требует requireAdminAuth middleware перед собой.
  *
  * @see TZ-MON-v1_6-Backend.md:170-172
  */
@@ -146,10 +146,10 @@ export function userRateLimit(
   keyPrefix = 'user'
 ): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // Используем adminId (устанавливается adminAuth middleware)
-    const userId = (req as any).adminId;
+    // Используем adminUser.id (устанавливается requireAdminAuth middleware)
+    const userId = (req as any).adminUser?.id;
     if (!userId) {
-      // Fallback на IP если adminId отсутствует
+      // Fallback на IP если adminUser отсутствует
       return rateLimit(windowMs, maxRequests, keyPrefix)(req, res, next);
     }
 
