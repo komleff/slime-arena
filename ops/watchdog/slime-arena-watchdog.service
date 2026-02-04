@@ -1,0 +1,47 @@
+# Slime Arena Watchdog — systemd unit файл
+#
+# Установка:
+#   sudo cp slime-arena-watchdog.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable slime-arena-watchdog
+#   sudo systemctl start slime-arena-watchdog
+#
+# Логи:
+#   journalctl -u slime-arena-watchdog -f
+#
+
+[Unit]
+Description=Slime Arena Watchdog — мониторинг и рестарт сервера
+Documentation=https://github.com/komleff/slime-arena
+After=docker.service network.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# Рабочая директория
+WorkingDirectory=/opt/slime-arena/ops/watchdog
+
+# Переменные окружения из .env файла
+EnvironmentFile=/opt/slime-arena/ops/watchdog/.env
+
+# Запуск скрипта
+ExecStart=/usr/bin/python3 /opt/slime-arena/ops/watchdog/watchdog.py
+
+# Автоматический перезапуск при сбое
+Restart=always
+RestartSec=5
+
+# Лимиты ресурсов
+MemoryMax=128M
+CPUQuota=10%
+
+# Логирование в journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slime-arena-watchdog
+
+[Install]
+WantedBy=multi-user.target

@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
-import { Server } from "colyseus";
+import { Server, matchMaker } from "colyseus";
 import { createServer } from "http";
 import express from "express";
 import cors from "cors";
@@ -44,6 +44,66 @@ const enableMonitor =
 if (enableMonitor) {
     app.use("/colyseus", monitor());
 }
+
+// ============================================================================
+// Internal API для MetaServer (защищён токеном)
+// ============================================================================
+
+/**
+ * GET /api/internal/rooms
+ * Возвращает список активных игровых комнат с метриками.
+ * Требует MATCH_SERVER_TOKEN в заголовке Authorization.
+ */
+app.get("/api/internal/rooms", async (req, res) => {
+    // Проверяем токен авторизации
+    const authHeader = req.get("authorization");
+    const expectedToken = process.env.MATCH_SERVER_TOKEN;
+
+    if (!expectedToken) {
+        console.error("[MatchServer] MATCH_SERVER_TOKEN not configured");
+        return res.status(500).json({ error: "Server misconfiguration" });
+    }
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Missing authorization header" });
+    }
+
+    const token = authHeader.substring(7);
+    if (token !== expectedToken) {
+        return res.status(403).json({ error: "Invalid token" });
+    }
+
+    try {
+        // Получаем список комнат через matchMaker
+        const rooms = await matchMaker.query({ name: "arena" });
+
+        // Собираем детальную статистику для каждой комнаты
+        const roomsStats = await Promise.all(
+            rooms.map(async (room) => {
+                try {
+                    // Вызываем метод getRoomStats() на удалённой комнате
+                    const stats = await matchMaker.remoteRoomCall(
+                        room.roomId,
+                        "getRoomStats"
+                    );
+                    return stats;
+                } catch (err) {
+                    // Комната могла закрыться между query и remoteRoomCall
+                    console.warn(`[MatchServer] Failed to get stats for room ${room.roomId}:`, err);
+                    return null;
+                }
+            })
+        );
+
+        // Фильтруем null (закрытые комнаты)
+        const validRooms = roomsStats.filter((r) => r !== null);
+
+        res.json(validRooms);
+    } catch (error) {
+        console.error("[MatchServer] Error fetching rooms:", error);
+        res.status(500).json({ error: "Failed to fetch rooms" });
+    }
+});
 
 // Глобальные обработчики ошибок — логируем и завершаем (supervisord перезапустит)
 process.on("uncaughtException", (error: Error) => {

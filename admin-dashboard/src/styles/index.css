@@ -422,6 +422,370 @@ input:disabled {
   letter-spacing: 0.3em;
 }
 
+/* === Dashboard Page === */
+
+/* Индикатор загрузки */
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  color: var(--color-text-muted);
+}
+
+/* Карточка статуса сервера */
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.status-card__indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  /* Пульсация для визуальной обратной связи */
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.status-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.status-card__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.status-card__value {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+/* Сетка метрик */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Карточка метрики */
+.metric-card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.metric-card__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.metric-card__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+}
+
+.metric-card__value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.metric-card__unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.metric-card__subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Информация о времени работы */
+.uptime-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.uptime-info__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.uptime-info__value {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+/* Время последнего обновления */
+.last-update {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* === Rooms Page === */
+
+/* Счётчик комнат */
+.rooms-count {
+  font-size: var(--font-size-lg);
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: var(--spacing-sm);
+}
+
+/* Список комнат */
+.rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Карточка комнаты */
+.room-card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+
+.room-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.room-card__id {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  font-family: monospace;
+  /* Обрезка длинного ID */
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-card__state {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  color: white;
+}
+
+.room-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.room-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-card__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.room-card__value {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.room-card__tick-max {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-left: var(--spacing-xs);
+}
+
+/* Пустое состояние */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+
+.empty-state__icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.empty-state__text {
+  font-size: var(--font-size-md);
+}
+
+/* === Audit Page === */
+.audit-page {
+  max-width: 100%;
+}
+
+.audit-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  gap: var(--spacing-md);
+  color: var(--color-text-muted);
+}
+
+.audit-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.audit-retry-btn {
+  align-self: flex-start;
+}
+
+/* Мобильный вид: карточки */
+.audit-list-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.audit-card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.audit-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-bg-input);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audit-card-time {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.audit-card-body {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.audit-card-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.audit-card-label {
+  color: var(--color-text-muted);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.audit-card-value {
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.audit-card-details {
+  font-family: monospace;
+  font-size: 12px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Десктопная таблица скрыта на мобильных */
+.audit-table-desktop {
+  display: none;
+}
+
+/* Метки действий */
+.audit-action {
+  display: inline-block;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  background-color: var(--color-bg-input);
+}
+
+.audit-action--login {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: var(--color-online);
+}
+
+.audit-action--logout {
+  background-color: rgba(107, 114, 128, 0.2);
+  color: var(--color-unknown);
+}
+
+.audit-action--settings_change,
+.audit-action--totp_setup,
+.audit-action--totp_verify,
+.audit-action--password_change {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: var(--color-primary);
+}
+
+.audit-action--room_restart,
+.audit-action--server_restart {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: var(--color-degraded);
+}
+
+/* Кнопка загрузки ещё */
+.audit-load-more {
+  margin-top: var(--spacing-lg);
+}
+
+/* Индикатор конца списка */
+.audit-end-marker {
+  text-align: center;
+  padding: var(--spacing-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
 /* === Responsive (Tablet) === */
 @media (min-width: 480px) {
   .app-content {
@@ -438,6 +802,74 @@ input:disabled {
 @media (min-width: 768px) {
   .page {
     max-width: 800px;
+  }
+
+  /* Audit Page: переключение на таблицу */
+  .audit-page {
+    max-width: 1000px;
+  }
+
+  .audit-list-mobile {
+    display: none;
+  }
+
+  .audit-table-desktop {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--color-bg-card);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .audit-table th,
+  .audit-table td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .audit-table th {
+    background-color: var(--color-bg-input);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .audit-table tbody tr:hover {
+    background-color: var(--color-bg-input);
+  }
+
+  .audit-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .audit-cell-timestamp {
+    white-space: nowrap;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .audit-cell-admin {
+    font-weight: 500;
+  }
+
+  .audit-cell-target {
+    font-size: var(--font-size-sm);
+  }
+
+  .audit-cell-details {
+    font-family: monospace;
+    font-size: 12px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tab-bar {
