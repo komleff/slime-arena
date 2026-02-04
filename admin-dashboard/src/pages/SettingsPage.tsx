@@ -88,9 +88,9 @@ function TotpSetup() {
       </p>
 
       <div class="qr-code-container">
-        {/* Используем внешний сервис для генерации QR */}
+        {/* P1: Используем data URL от backend — секрет не утекает на внешний сервис */}
         <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totpSetupData.value.qrCodeUrl)}`}
+          src={totpSetupData.value.qrCodeUrl}
           alt="QR-код для настройки 2FA"
           class="qr-code"
           width="200"
@@ -217,12 +217,13 @@ async function handleVerify(e: Event) {
   }
 }
 
+/** P2: Вынесен из компонента чтобы не пересоздаваться при каждом рендере */
+const isLoggingOut = signal(false);
+
 /**
  * Кнопка выхода.
  */
 function LogoutButton() {
-  const isLoggingOut = signal(false);
-
   const handleLogout = async () => {
     if (isLoggingOut.value) return;
     isLoggingOut.value = true;

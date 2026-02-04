@@ -76,15 +76,18 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}): Promi
  * Попытка обновить access token через refresh endpoint.
  * Использует очередь для предотвращения параллельных запросов.
  */
+let lastRefreshResult = false;
+
 async function tryRefreshToken(): Promise<boolean> {
   if (isRefreshing) {
-    // Ждём завершения текущего refresh
+    // P2: Ждём завершения текущего refresh и используем его результат
     return new Promise((resolve) => {
-      refreshQueue.push(() => resolve(accessToken.value !== null));
+      refreshQueue.push(() => resolve(lastRefreshResult));
     });
   }
 
   isRefreshing = true;
+  lastRefreshResult = false;
 
   try {
     const response = await fetch(`${API_BASE}/refresh`, {
@@ -95,15 +98,20 @@ async function tryRefreshToken(): Promise<boolean> {
     if (response.ok) {
       const data = await response.json();
       setAccessToken(data.accessToken);
+      lastRefreshResult = true;
       return true;
     }
 
+    // P2: При неуспешном refresh очищаем токен до уведомления очереди
+    clearAuth();
     return false;
   } catch {
+    // P2: При ошибке также очищаем токен
+    clearAuth();
     return false;
   } finally {
     isRefreshing = false;
-    // Уведомить все ожидающие запросы
+    // Уведомить все ожидающие запросы с результатом refresh
     const queue = refreshQueue;
     refreshQueue = [];
     queue.forEach((callback) => callback());
