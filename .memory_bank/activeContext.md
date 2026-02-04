@@ -3,10 +3,10 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.8.0) → **PR#136** (v0.8.1)
+**База:** main (v0.8.0) → **v0.8.1** (после merge PR#136)
 **GDD версия:** 3.3.2
-**Sprint 19 Status:** ✅ Phase 2 ЗАВЕРШЕНА — PR#136 готов к merge
-**Production:** v0.7.8 ✅ (обновление до v0.8.1 после merge)
+**Sprint 19 Status:** ✅ ЗАВЕРШЁН — PR#136 merged, v0.8.1 released
+**Production:** v0.8.1 ✅
 
 ---
 
@@ -39,15 +39,21 @@
 - Результаты матчей сохраняются
 - Leaderboard обновляется
 
-### Что в Phase 2 (Sprint 19)
+### ✅ Phase 2 (Sprint 19) — ЗАВЕРШЕНА
 
-⏳ **Метрики сервера** (placeholder в дизайне)
-- CPU/RAM из /proc/, /sys/fs/cgroup/
-- Tick latency (кольцевой буфер)
-- Список активных комнат
+✅ **Метрики сервера**
+- CPU/RAM из cgroup v2/v1 → /proc → os fallback
+- Tick latency (avgMs, maxMs из ArenaRoom)
+- Список активных комнат с players/tick stats
 
-⏳ **Рестарт сервиса** (требует watchdog)
-- Создание outbox-файла /shared/restart-requested
+✅ **Рестарт сервиса**
+- Outbox pattern: restart-requested → watchdog → docker restart
+- Idempotency по auditId, COOLDOWN после рестарта
+- Telegram уведомления
+
+✅ **Audit Log UI**
+- Пагинация, мобильная/десктопная вёрстка
+- Human-readable action labels
 - Требуется TOTP для выполнения
 
 ⏳ **Рефакторинг на Preact** (ТЗ requirement)
