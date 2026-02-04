@@ -47,3 +47,11 @@ __pycache__/
 # Temp files
 tmp_*.md
 setup-bash.ps1
+
+# PR review artifacts
+pr-review-comment.md
+pr*_review.md
+docs/plans/hashed-*.md
+
+# VS Code local settings (corrupted paths)
+D:GitHub*claudesettings.local.json
