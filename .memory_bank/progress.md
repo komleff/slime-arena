@@ -125,34 +125,6 @@
 
 ---
 
-## Sprint MON Testing (2026-02-04)
-
-### Локальное тестирование контейнера 0.8.0
-
-**✅ Тестировано и работает:**
-- Admin auth (login/refresh/logout)
-- Guest авторизация
-- Яндекс OAuth (с реальными credentials)
-- Leaderboard (total/best режимы)
-- Игровая логика
-
-**⚠️ Выявленные проблемы:**
-1. **audit_log schema** — старая таблица в БД не соответствует коду (fixed вручную)
-2. **Migration 009** — не включена в образ 0.8.0
-3. **supervisord env vars** — требует обязательный CLAIM_TOKEN_TTL_MINUTES
-4. **Admin Dashboard фреймворк** — React вместо Preact по ТЗ
-
-**Статус для production:**
-❌ НЕ ГОТОВО — недостаёт Phase 2 функциональности
-
-### Созданные issues для Sprint 19
-- `slime-arena-mon1` — Refactor React → Preact
-- `slime-arena-mon2` — Server Metrics (CPU/RAM)
-- `slime-arena-mon3` — Active Rooms List
-- `slime-arena-mon4` — Audit Log UI
-
----
-
 ## Последние изменения (20 января 2026)
 - **Sprint 12 COMPLETED:** Декомпозиция God Objects (ArenaRoom.ts, main.ts)
 - **v0.6.0 Released:** 8 модулей извлечено, 2043 LOC рефакторено, все тесты пройдены

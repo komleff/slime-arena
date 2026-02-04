@@ -3,51 +3,10 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** test-0.8.0 (PR #133/134 merged to main)
+**База:** main (v0.8.0)
 **GDD версия:** 3.3.2
-**Sprint MON Status:** ✅ PHASE 1 ЗАВЕРШЁН, локально протестирован
-**Production:** v0.7.8 ✅ (продолжает работать, v0.8.0 имеет issues)
-
----
-
-## ✅ Sprint MON — Admin Dashboard Phase 1 Complete (2026-02-04)
-
-**Тестирование:** v0.8.0 локально, all game features ✅, admin features 70%
-
-### Результаты тестирования
-
-| Функция | Статус | Примечания |
-|---------|--------|-----------|
-| Guest авторизация | ✅ | Works without registration |
-| Яндекс OAuth | ✅ | Conflict detection OK |
-| Leaderboard | ✅ | total/best modes |
-| Game play | ✅ | No logic changes |
-| Admin login/refresh/logout | ✅ | JWT workflow |
-| Admin audit API | ✅ | After schema fix |
-| Metrics (CPU/RAM) | ❌ | Phase 2, Sprint 19 |
-| Rooms list | ❌ | Phase 2, Sprint 19 |
-| Audit UI | ❌ | Phase 2, Sprint 19 |
-
-### Issues выявлены + issues созданы
-
-1. **slime-arena-mon1** — React → Preact refactor (P2)
-2. **slime-arena-mon2** — Server metrics (Sprint 19)
-3. **slime-arena-mon3** — Active rooms list (Sprint 19)
-4. **slime-arena-mon4** — Audit log UI (Sprint 19)
-
-### Production readiness
-
-**v0.8.0 не готова к production:**
-- ❌ Phase 2 не реализована (TZ требует)
-- ⚠️ React вместо Preact (violation ТЗ)
-- ⚠️ Таблица audit_log требует ручной миграции
-- ⚠️ Migration 009 не в образе
-
-**Решение:**
-1. Rebuild image с fixes
-2. Merge to main (уже merged #133, #134)
-3. Deploy v0.8.1 с Phase 2 в Sprint 19
-4. v0.7.8 остаётся в production до окончания Phase 2
+**Sprint MON Status:** ✅ ЗАВЕРШЁН — v0.8.0 протестирована, Phase 2 → Sprint 19
+**Production:** v0.7.8 ✅ (остаётся в production, v0.8.0 не рекомендуется)
 
 ---
 
