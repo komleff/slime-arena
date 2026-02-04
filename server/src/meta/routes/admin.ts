@@ -379,9 +379,10 @@ router.post('/totp/setup', requireAdminAuth, adminPostRateLimiter, async (req: R
       margin: 2,
     });
 
+    // Используем qrCodeUrl для совместимости с frontend
     res.json({
       secret: otpauthUri,
-      qrCodeDataUrl,
+      qrCodeUrl: qrCodeDataUrl,
     });
   } catch (error) {
     console.error('[Admin TOTP Setup] Error:', error);

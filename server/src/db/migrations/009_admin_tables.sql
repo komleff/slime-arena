@@ -5,7 +5,7 @@
 -- Table: admin_users
 -- Stores admin accounts, separate from player accounts
 CREATE TABLE IF NOT EXISTS admin_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     totp_secret_encrypted VARCHAR(255),
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
 -- Table: admin_sessions
 -- Stores refresh token sessions for admins
 CREATE TABLE IF NOT EXISTS admin_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
     refresh_token_hash VARCHAR(255) NOT NULL,
     ip VARCHAR(64),
