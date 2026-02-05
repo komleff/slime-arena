@@ -3,10 +3,24 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.8.0) → **v0.8.1** (после merge PR#136)
+**База:** main (v0.8.0) → **v0.8.1-pre** (pre-release)
 **GDD версия:** 3.3.2
-**Sprint 19 Status:** ✅ ЗАВЕРШЁН — PR#136 merged, v0.8.1 released
-**Production:** v0.8.1 ✅
+**Sprint 19 Status:** ⚠️ PARTIAL — PR#136 merged, тестирование выявило P0 баги
+**Production:** v0.7.8 (v0.8.1 ожидает фиксов)
+
+### Результаты тестирования v0.8.1-pre (2026-02-05)
+
+| Категория | Результат |
+|-----------|-----------|
+| Smoke Tests (health, DB, Redis) | ✅ PASS |
+| Guest Auth + Client | ✅ PASS |
+| Admin Login + Stats + Rooms | ✅ PASS |
+| Audit Log API | ❌ FAIL (P0) |
+
+**P0-1:** Несовместимость audit_log — seed-data создаёт `actor_user_id`, код ожидает `user_id`
+**P0-2:** Admin таблицы (`admin_users`, `admin_sessions`) не в seed-data
+
+**Отчёт:** `docs/testing/v0.8.1-test-report.md`
 
 ---
 

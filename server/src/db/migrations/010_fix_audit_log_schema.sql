@@ -1,0 +1,4 @@
+-- Migration: 010_fix_audit_log_schema
+-- Description: No-op - fix moved to 009_admin_tables.sql
+-- Date: 2026-02-05
+-- This migration is intentionally empty as the fix was integrated into 009
