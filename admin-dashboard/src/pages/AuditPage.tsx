@@ -6,24 +6,22 @@ import { signal, computed } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { apiRequest, ApiError } from '../api/client';
 
-/** Запись аудит-лога */
+/** Запись аудит-лога (соответствует API response) */
 interface AuditEntry {
-  id: string;
+  id: number;
   timestamp: string;       // ISO-8601
-  actorUserId: string;
+  userId: string | null;   // UUID admin user
+  username: string | null; // admin username
   action: string;          // "login", "logout", "settings_change", etc.
-  targetType?: string;
-  targetId?: string;
-  details?: Record<string, unknown>;
-  ipAddress?: string;
+  target: string | null;
+  details: Record<string, unknown> | null;
+  ip: string | null;
 }
 
 /** Ответ API аудит-лога */
 interface AuditResponse {
-  entries: AuditEntry[];
+  items: AuditEntry[];
   total: number;
-  limit: number;
-  offset: number;
 }
 
 /** Размер страницы для пагинации */
@@ -120,16 +118,16 @@ async function loadAuditEntries(loadMore = false): Promise<void> {
     );
 
     if (loadMore) {
-      auditEntries.value = [...auditEntries.value, ...response.entries];
+      auditEntries.value = [...auditEntries.value, ...response.items];
     } else {
-      auditEntries.value = response.entries;
+      auditEntries.value = response.items;
     }
 
     // Обновляем offset для следующей загрузки
-    offset.value = currentOffset + response.entries.length;
+    offset.value = currentOffset + response.items.length;
 
     // Проверяем, есть ли ещё записи
-    hasMore.value = response.entries.length === PAGE_SIZE &&
+    hasMore.value = response.items.length === PAGE_SIZE &&
                     offset.value < response.total;
   } catch (err) {
     if (err instanceof ApiError) {
@@ -216,19 +214,17 @@ export function AuditPage() {
                     <td class="audit-cell-timestamp">
                       {formatTimestamp(entry.timestamp)}
                     </td>
-                    <td class="audit-cell-admin">{entry.actorUserId}</td>
+                    <td class="audit-cell-admin">{entry.username || entry.userId || '-'}</td>
                     <td class="audit-cell-action">
                       <span class={`audit-action audit-action--${entry.action}`}>
                         {formatAction(entry.action)}
                       </span>
                     </td>
                     <td class="audit-cell-target">
-                      {entry.targetType
-                        ? `${entry.targetType}${entry.targetId ? `: ${entry.targetId}` : ''}`
-                        : '-'}
+                      {entry.target || '-'}
                     </td>
                     <td class="audit-cell-details">
-                      {formatDetails(entry.details)}
+                      {formatDetails(entry.details ?? undefined)}
                     </td>
                   </tr>
                 ))}
@@ -276,14 +272,12 @@ function AuditEntryCard({ entry }: { entry: AuditEntry }) {
       <div class="audit-card-body">
         <div class="audit-card-row">
           <span class="audit-card-label">Админ:</span>
-          <span class="audit-card-value">{entry.actorUserId}</span>
+          <span class="audit-card-value">{entry.username || entry.userId || '-'}</span>
         </div>
-        {entry.targetType && (
+        {entry.target && (
           <div class="audit-card-row">
             <span class="audit-card-label">Цель:</span>
-            <span class="audit-card-value">
-              {entry.targetType}{entry.targetId ? `: ${entry.targetId}` : ''}
-            </span>
+            <span class="audit-card-value">{entry.target}</span>
           </div>
         )}
         {entry.details && Object.keys(entry.details).length > 0 && (
@@ -294,10 +288,10 @@ function AuditEntryCard({ entry }: { entry: AuditEntry }) {
             </span>
           </div>
         )}
-        {entry.ipAddress && (
+        {entry.ip && (
           <div class="audit-card-row">
             <span class="audit-card-label">IP:</span>
-            <span class="audit-card-value">{entry.ipAddress}</span>
+            <span class="audit-card-value">{entry.ip}</span>
           </div>
         )}
       </div>
