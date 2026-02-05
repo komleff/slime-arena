@@ -30,7 +30,26 @@ const port = Number(process.env.META_PORT || 3000);
 const host = process.env.META_HOST || '0.0.0.0';
 
 // Middleware
-app.use(cors());
+// CORS: allow admin dashboard (5175) and client (5173) with credentials
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, mobile apps, same-origin)
+    if (!origin) return callback(null, true);
+    // Allow localhost ports for development and Docker
+    const allowedPorts = ['5173', '5174', '5175', '3000'];
+    try {
+      const url = new URL(origin);
+      if (url.hostname === 'localhost' && allowedPorts.includes(url.port)) {
+        return callback(null, true);
+      }
+    } catch {
+      // Invalid URL
+    }
+    // Allow same origin
+    callback(null, true);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(cookieParser());
 
