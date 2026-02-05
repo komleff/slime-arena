@@ -3,10 +3,32 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main (v0.8.0) → **v0.8.1** (после merge PR#136)
+**База:** main → **v0.8.2** (pre-release)
 **GDD версия:** 3.3.2
-**Sprint 19 Status:** ✅ ЗАВЕРШЁН — PR#136 merged, v0.8.1 released
-**Production:** v0.8.1 ✅
+**Sprint 19 Status:** ✅ ЗАВЕРШЁН — Admin Dashboard Phase 2 полностью работает
+**Production:** v0.7.8 (обновление до v0.8.2 после тестирования)
+
+### Результаты тестирования v0.8.2 (2026-02-05)
+
+| Категория | Результат |
+|-----------|-----------|
+| Smoke Tests (health, DB, Redis) | ✅ PASS |
+| Guest Auth + Client | ✅ PASS |
+| Admin Dashboard /admin/ | ✅ PASS |
+| Admin Login + Stats + Rooms | ✅ PASS |
+| Audit Log API + UI | ✅ PASS |
+| CORS cross-origin | ✅ PASS |
+
+**Исправления в v0.8.2:**
+- P0-1: Миграция 009 — audit_log schema fix
+- P0-2: Admin таблицы создаются корректно
+- P0-3: Admin Dashboard добавлен в Docker (порт 5175)
+- P0-4: CORS настроен для credentials
+- P0-5: AuditPage — items vs entries fix
+- P0-6: API_BASE для production (hostname:3000)
+
+**Отчёт:** `docs/testing/v0.8.1-test-report.md`
+**Hotfix PR:** https://github.com/komleff/slime-arena/pull/137
 
 ---
 

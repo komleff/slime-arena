@@ -18,6 +18,15 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Data for Name: admin_users; Type: TABLE DATA; Schema: public; Owner: -
+-- Default admin: admin / Admin123!@#
+--
+
+INSERT INTO public.admin_users (id, username, password_hash, totp_enabled, role)
+VALUES ('563c90c5-a595-4b94-8fba-e22302ee2bac', 'admin', '$2b$10$Ctkt36RyMu9Nq36O7TNwSOW4.N8AR9.X2hFy1i6y3qKQRVdfulfdq', false, 'admin')
+ON CONFLICT (username) DO NOTHING;
+
+--
 -- Data for Name: match_results; Type: TABLE DATA; Schema: public; Owner: -
 --
 

@@ -1,0 +1,22 @@
+{
+  "public": "admin-dashboard/dist",
+  "rewrites": [
+    { "source": "/admin/assets/:path*", "destination": "/assets/:path*" },
+    { "source": "/admin/**", "destination": "/index.html" },
+    { "source": "/admin", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "**/*.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript" }
+      ]
+    },
+    {
+      "source": "**/*.css",
+      "headers": [
+        { "key": "Content-Type", "value": "text/css" }
+      ]
+    }
+  ]
+}
