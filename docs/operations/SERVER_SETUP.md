@@ -28,26 +28,27 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
 ## Docker Container
 
 ```bash
-# Production (текущая версия)
-ghcr.io/komleff/slime-arena-monolith-full:0.7.8
+# Production (рекомендуемая версия)
+ghcr.io/komleff/slime-arena-monolith-full:0.8.2
 
-# Тестирование (v0.8.0 с админкой — требует доделки Phase 2)
-ghcr.io/komleff/slime-arena-monolith-full:0.8.0
+# Предыдущая стабильная
+ghcr.io/komleff/slime-arena-monolith-full:0.7.8
 ```
 
-### ⚠️ Версия 0.8.0 — Admin Dashboard (Phase 1)
+### ✅ Версия 0.8.2 — Admin Dashboard (Phase 2)
 
-**Статус:** Базовая функциональность ✅, Phase 2 в backlog
+**Статус:** Полностью функциональна ✅
 - ✅ Авторизация администраторов (JWT + cookies)
 - ✅ TOTP 2FA (AES-256-GCM)
-- ✅ Журнал аудита (audit_log)
-- ⏳ Метрики CPU/RAM (placeholder в дизайне)
-- ⏳ Список активных комнат (placeholder)
-- ⏳ Рестарт сервиса (требует watchdog)
+- ✅ Журнал аудита (audit_log) с UI
+- ✅ Метрики CPU/RAM/Tick/Rooms/Players
+- ✅ Список активных комнат
+- ⏳ Рестарт сервиса (требует 2FA, issue #138)
 
-**Рекомендация:** Оставить на v0.7.8 для production до Sprint 19.
+**Admin Dashboard URL:** `http://server:5175/admin/`
+**Логин по умолчанию:** `admin` / `Admin123!@#`
 
-### Запуск контейнера (v0.7.8)
+### Запуск контейнера (v0.8.2)
 
 ```bash
 # Загрузить переменные из .env.production (не коммитится!)
@@ -59,15 +60,16 @@ docker run -d \
   -p 3000:3000 \
   -p 2567:2567 \
   -p 5173:5173 \
+  -p 5175:5175 \
   -v slime-arena-pgdata:/var/lib/postgresql/data \
   -v slime-arena-redisdata:/var/lib/redis \
   -e JWT_SECRET="$JWT_SECRET" \
   -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
-  -e CLAIM_TOKEN_TTL_MINUTES="$CLAIM_TOKEN_TTL_MINUTES" \
+  -e ADMIN_ENCRYPTION_KEY="$ADMIN_ENCRYPTION_KEY" \
   -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
   -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
   -e OAUTH_YANDEX_ENABLED=true \
-  ghcr.io/komleff/slime-arena-monolith-full:0.7.8
+  ghcr.io/komleff/slime-arena-monolith-full:0.8.2
 ```
 
 **⚠️ Примечание:** Все секретные переменные хранятся в `/root/.env.production` (не коммитится в git).  
@@ -86,9 +88,10 @@ slime-arena-redisdata # Redis data (сессии, кеш)
 
 | Порт | Сервис | Описание |
 |------|--------|----------|
-| 3000 | MetaServer | REST API (auth, profile, leaderboard) |
+| 3000 | MetaServer | REST API (auth, profile, leaderboard, admin) |
 | 2567 | Colyseus | WebSocket game server |
-| 5173 | Vite | Static client files |
+| 5173 | Client | Static client files |
+| 5175 | Admin | Admin Dashboard (/admin/) |
 
 ## Nginx Configuration
 
