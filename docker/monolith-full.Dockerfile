@@ -21,6 +21,7 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
 COPY shared/package.json shared/
+COPY admin-dashboard/package.json admin-dashboard/
 
 # Install ALL dependencies (dev deps needed for build)
 RUN npm ci
@@ -29,6 +30,7 @@ RUN npm ci
 COPY shared/ shared/
 COPY server/ server/
 COPY client/ client/
+COPY admin-dashboard/ admin-dashboard/
 COPY config/ config/
 COPY assets-dist/ assets-dist/
 COPY version.json ./
@@ -37,9 +39,11 @@ COPY version.json ./
 # 1. shared (dependency for both server and client)
 # 2. server (TypeScript compilation)
 # 3. client (Vite production build)
+# 4. admin-dashboard (Vite production build)
 RUN npm run build --workspace=shared && \
     npm run build --workspace=server && \
-    npm run build --workspace=client
+    npm run build --workspace=client && \
+    npm run build --workspace=admin-dashboard
 
 # Copy SQL migration files (not compiled by tsc)
 RUN mkdir -p server/dist/server/src/db/migrations && \
@@ -91,12 +95,15 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
 COPY shared/package.json shared/
+COPY admin-dashboard/package.json admin-dashboard/
 RUN npm ci --omit=dev
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/shared/dist ./shared/dist
 COPY --from=builder /app/server/dist ./server/dist
 COPY --from=builder /app/client/dist ./client/dist
+COPY --from=builder /app/admin-dashboard/dist ./admin-dashboard/dist
+COPY --from=builder /app/admin-dashboard/serve.json ./admin-dashboard/serve.json
 
 # Copy configuration files to root (for meta server)
 COPY --from=builder /app/config ./config
@@ -108,6 +115,7 @@ COPY --from=builder /app/config ./server/dist/config
 COPY --from=builder /app/shared/package.json ./shared/
 COPY --from=builder /app/server/package.json ./server/
 COPY --from=builder /app/client/package.json ./client/
+COPY --from=builder /app/admin-dashboard/package.json ./admin-dashboard/
 
 # Install serve globally for static file hosting
 RUN npm install -g serve
@@ -127,7 +135,8 @@ COPY docker/seed-data.sql /docker-entrypoint-initdb.d/seed-data.sql
 # 3000 - MetaServer (HTTP API)
 # 2567 - MatchServer (WebSocket/Colyseus)
 # 5173 - Client (static files)
-EXPOSE 3000 2567 5173
+# 5175 - Admin Dashboard
+EXPOSE 3000 2567 5173 5175
 
 # Health check for MetaServer
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

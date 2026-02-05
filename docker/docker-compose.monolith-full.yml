@@ -18,6 +18,7 @@ services:
       - "3000:3000"   # MetaServer (HTTP API)
       - "2567:2567"   # MatchServer (WebSocket/Colyseus)
       - "5173:5173"   # Client (static files)
+      - "5175:5175"   # Admin Dashboard
     volumes:
       # Data persistence
       - pgdata:/var/lib/postgresql/data
