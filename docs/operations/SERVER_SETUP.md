@@ -29,13 +29,13 @@ ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
 
 ```bash
 # Production (рекомендуемая версия)
-ghcr.io/komleff/slime-arena-monolith-full:0.8.2
+ghcr.io/komleff/slime-arena-monolith-full:0.8.3
 
 # Предыдущая стабильная
 ghcr.io/komleff/slime-arena-monolith-full:0.7.8
 ```
 
-### ✅ Версия 0.8.2 — Admin Dashboard (Phase 2)
+### ✅ Версия 0.8.3 — Admin Dashboard (Phase 2)
 
 **Статус:** Полностью функциональна ✅
 - ✅ Авторизация администраторов (JWT + cookies)
@@ -48,7 +48,7 @@ ghcr.io/komleff/slime-arena-monolith-full:0.7.8
 **Admin Dashboard URL:** `http://server:5175/admin/`
 **Логин по умолчанию:** `admin` / `Admin123!@#`
 
-### Запуск контейнера (v0.8.2)
+### Запуск контейнера (v0.8.3)
 
 ```bash
 # Загрузить переменные из .env.production (не коммитится!)
@@ -69,7 +69,7 @@ docker run -d \
   -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
   -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
   -e OAUTH_YANDEX_ENABLED=true \
-  ghcr.io/komleff/slime-arena-monolith-full:0.8.2
+  ghcr.io/komleff/slime-arena-monolith-full:0.8.3
 ```
 
 **⚠️ Примечание:** Все секретные переменные хранятся в `/root/.env.production` (не коммитится в git).  

@@ -141,21 +141,22 @@ scp -i ~/.ssh/deploy_key root@147.45.147.175:/root/backups/pre-update-*.sql.gz .
 
 ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
   source /root/.env.production
-  docker pull ghcr.io/komleff/slime-arena-monolith-full:0.8.0
+  docker pull ghcr.io/komleff/slime-arena-monolith-full:0.8.3
   docker stop slime-arena && docker rm slime-arena
   docker run -d \
     --name slime-arena \
     --restart unless-stopped \
-    -p 3000:3000 -p 2567:2567 -p 5173:5173 \
+    -p 3000:3000 -p 2567:2567 -p 5173:5173 -p 5175:5175 \
     -v slime-arena-pgdata:/var/lib/postgresql/data \
     -v slime-arena-redisdata:/var/lib/redis \
     -e JWT_SECRET="$JWT_SECRET" \
     -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
+    -e ADMIN_ENCRYPTION_KEY="$ADMIN_ENCRYPTION_KEY" \
     -e CLAIM_TOKEN_TTL_MINUTES="$CLAIM_TOKEN_TTL_MINUTES" \
     -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
     -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
     -e OAUTH_YANDEX_ENABLED=true \
-    ghcr.io/komleff/slime-arena-monolith-full:0.8.0
+    ghcr.io/komleff/slime-arena-monolith-full:0.8.3
   sleep 5
   docker logs slime-arena --tail 50
 EOF
@@ -171,11 +172,12 @@ ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
   docker run -d \
     --name slime-arena \
     --restart unless-stopped \
-    -p 3000:3000 -p 2567:2567 -p 5173:5173 \
+    -p 3000:3000 -p 2567:2567 -p 5173:5173 -p 5175:5175 \
     -v slime-arena-pgdata:/var/lib/postgresql/data \
     -v slime-arena-redisdata:/var/lib/redis \
     -e JWT_SECRET="$JWT_SECRET" \
     -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
+    -e ADMIN_ENCRYPTION_KEY="$ADMIN_ENCRYPTION_KEY" \
     -e CLAIM_TOKEN_TTL_MINUTES="$CLAIM_TOKEN_TTL_MINUTES" \
     -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
     -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
