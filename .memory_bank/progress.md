@@ -2,11 +2,36 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 4 февраля 2026 (v0.7.8 production)
-- **Текущая ветка**: `main` 
+- **last_checked_commit**: sprint-20/infra-v0.8.3 @ 7 февраля 2026
+- **Текущая ветка**: `sprint-20/infra-v0.8.3`
 - **Релиз:** v0.7.8 ✅ (production deployed)
-- **v0.8.0 (Admin):** ✅ Phase 1 тестирование завершено, Phase 2 → Sprint 19
+- **v0.8.3 (Infra):** в работе — бэкапы, restart, auth UX, Docker split
 - **GDD версия**: v3.3.2
+
+---
+
+## Sprint 20 (2026-02-07) — Infrastructure v0.8.3
+
+**Цель:** Бэкапы, безопасное обновление, UX авторизации
+**Ветка:** `sprint-20/infra-v0.8.3`
+
+### Код — завершён
+
+- scripts/backup-remote.sh — удалённый pg_dump + ротация
+- admin-dashboard/RestartPage.tsx — перезапуск с 2FA
+- client/MainScreen.tsx — кнопка «Войти» для гостей
+- client/RegistrationPromptModal.tsx — prop intent (login/convert_guest)
+- app.Dockerfile, db.Dockerfile, docker-compose.app-db.yml → v0.8.3
+- monolith-full.Dockerfile, docker-compose.monolith-full.yml → v0.8.3
+- CHANGELOG.md — записи v0.7.5 — v0.8.3
+- AI_AGENT_GUIDE.md — протокол бэкапов
+- SERVER_SETUP.md — nginx /admin/
+
+### Ожидает
+
+- PR review + merge
+- Docker build + push (оператор)
+- Деплой на production (оператор)
 
 ---
 

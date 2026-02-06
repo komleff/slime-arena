@@ -10,10 +10,11 @@ import { DashboardPage } from './pages/DashboardPage';
 import { RoomsPage } from './pages/RoomsPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { RestartPage } from './pages/RestartPage';
 import { TabBar } from './components/TabBar';
 
 /** Текущая вкладка */
-export type TabId = 'dashboard' | 'rooms' | 'audit' | 'settings';
+export type TabId = 'dashboard' | 'rooms' | 'audit' | 'restart' | 'settings';
 export const currentTab = signal<TabId>('dashboard');
 
 /** Состояние загрузки при восстановлении сессии */
@@ -64,6 +65,8 @@ function PageRouter() {
       return <RoomsPage />;
     case 'audit':
       return <AuditPage />;
+    case 'restart':
+      return <RestartPage />;
     case 'settings':
       return <SettingsPage />;
     default:

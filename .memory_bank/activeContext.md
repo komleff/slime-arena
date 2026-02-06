@@ -3,10 +3,33 @@
 Текущее состояние проекта и фокус работы.
 
 ## Текущее состояние
-**База:** main → **v0.8.2** (pre-release)
+**База:** main → **v0.8.3** (в разработке, ветка `sprint-20/infra-v0.8.3`)
 **GDD версия:** 3.3.2
-**Sprint 19 Status:** ✅ ЗАВЕРШЁН — Admin Dashboard Phase 2 полностью работает
-**Production:** v0.7.8 (обновление до v0.8.2 после тестирования)
+**Sprint 20 Status:** в работе — Infrastructure v0.8.3
+**Production:** v0.7.8 (обновление до v0.8.3 после мержа и деплоя)
+
+---
+
+## Sprint 20 — Infrastructure v0.8.3 (2026-02-07)
+
+**Цель:** Бэкапы, безопасное обновление, UX авторизации
+**Ветка:** `sprint-20/infra-v0.8.3`
+
+### Выполнено
+
+| Задача | Описание | Статус |
+|--------|----------|--------|
+| A1 | scripts/backup-remote.sh + протокол бэкапов в AI_AGENT_GUIDE.md | done |
+| A2 | RestartPage в Admin Dashboard (2FA, статусы, ошибки) | done |
+| A3 | app.Dockerfile, db.Dockerfile, compose обновлены до v0.8.3 | done |
+| A4 | CHANGELOG.md дополнен записями v0.7.5 — v0.8.2 | done |
+| A5 | Версионирование: version.json, Dockerfile, compose → 0.8.3 | done |
+| A6 | Nginx location /admin/ в SERVER_SETUP.md | done |
+| B | Кнопка «Войти» для гостей в лобби (MainScreen + RegistrationPromptModal) | done |
+| A7 | Сборка и push Docker-образов | оператор |
+| A8 | Деплой на production | оператор |
+
+---
 
 ### Результаты тестирования v0.8.2 (2026-02-05)
 

@@ -105,7 +105,35 @@ ssh -i ~/.ssh/deploy_key root@147.45.147.175 'docker logs slime-arena -f --tail 
 - `Connection refused` — что-то не слушает
 - `EACCES` — проблема с правами доступа
 
-### 3️⃣ Обновление на новую версию
+### 3️⃣ Обязательный бэкап перед обновлением
+
+> **P0: pg_dump ОБЯЗАТЕЛЕН перед любым `docker rm` или `docker stop` + обновлением.**
+> Без бэкапа данные пользователей могут быть потеряны при неудачном обновлении.
+
+```bash
+# Бэкап перед обновлением (ОБЯЗАТЕЛЬНО!)
+ssh -i ~/.ssh/deploy_key root@147.45.147.175 \
+  'docker exec slime-arena pg_dump -U slime slime_arena | gzip > /root/backups/pre-update-$(date +%F-%H%M).sql.gz && ls -la /root/backups/'
+
+# Скачать дамп локально (рекомендуется)
+scp -i ~/.ssh/deploy_key root@147.45.147.175:/root/backups/pre-update-*.sql.gz ./backups/
+```
+
+**Автоматический бэкап на сервере (cron):**
+```
+0 */6 * * * docker exec slime-arena pg_dump -U slime slime_arena | gzip > /root/backups/slime-arena-$(date +\%F-\%H\%M).sql.gz && find /root/backups/ -name "slime-arena-*.sql.gz" -mtime +7 -delete
+```
+
+**Протокол обновления:**
+1. `pg_dump` + скачать дамп локально
+2. Скачать `/root/.env.production` локально
+3. `docker stop` + `docker rm` (volumes сохраняются!)
+4. `docker pull` новый образ
+5. `docker run` с правильными env vars
+6. Проверить `curl /health`
+7. Если ошибка — откат на предыдущий образ
+
+### 4️⃣ Обновление на новую версию
 
 ```bash
 # 1. Спросить пользователя о текущих переменных из .env.production
@@ -133,7 +161,7 @@ ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
 EOF
 ```
 
-### 4️⃣ Откат на предыдущую версию
+### 5️⃣ Откат на предыдущую версию
 
 ```bash
 ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
@@ -156,7 +184,7 @@ ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
 EOF
 ```
 
-### 5️⃣ Полная проверка здоровья
+### 6️⃣ Полная проверка здоровья
 
 ```bash
 echo "=== Container Status ===" && \

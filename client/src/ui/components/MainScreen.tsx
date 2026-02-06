@@ -5,9 +5,11 @@
  * На основе макета assets/templates/main.html
  */
 
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { currentUser, currentProfile, openLeaderboard } from '../signals/gameState';
+import { authService } from '../../services/authService';
+import { RegistrationPromptModal } from './RegistrationPromptModal';
 
 const STYLES_ID = 'main-screen-styles';
 
@@ -177,6 +179,26 @@ const styles = `
     border-radius: 6px;
     box-shadow: inset 0 2px 2px rgba(255,255,255,0.5);
     transition: width 0.3s ease;
+  }
+
+  .hud-auth-link {
+    color: #4FC3F7;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    padding: 4px 0;
+    transition: color 150ms;
+  }
+
+  .hud-auth-link:hover {
+    color: #81D4FA;
+  }
+
+  .hud-auth-link:active {
+    color: #29B6F6;
   }
 
   /* === ВАЛЮТА === */
@@ -602,7 +624,8 @@ export function MainScreen({ onArena }: MainScreenProps) {
   const user = currentUser.value;
   const profile = currentProfile.value;
 
-  const playerName = user?.nickname || 'PLAYER';
+  const isGuest = authService.isAnonymous();
+  const playerName = isGuest ? 'Гость' : (user?.nickname || 'PLAYER');
   const level = profile?.level ?? 1;
   const avatarUrl = profile?.avatarUrl || '/hud/hud_avatar_hero_01.webp';
   const coins = 0; // Валюта пока не реализована
@@ -610,6 +633,9 @@ export function MainScreen({ onArena }: MainScreenProps) {
 
   // XP прогресс (заглушка)
   const xpPercent = profile ? Math.min(100, (profile.xp / 1000) * 100) : 50;
+
+  // Модал авторизации для гостей
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Обработчики заглушек
   const handleAddCoins = () => {
@@ -649,15 +675,23 @@ export function MainScreen({ onArena }: MainScreenProps) {
           </div>
           <div class="hud-info">
             <div class="hud-name">{playerName}</div>
-            <div class="medals-row">
-              <div class="medal" style={{ background: '#FFD700' }} />
-              <div class="medal" style={{ background: '#C0C0C0' }} />
-              <div class="medal" style={{ background: '#E91E63' }} />
+            {isGuest ? (
+              <div class="hud-auth-link" onClick={() => setShowAuthModal(true)}>
+                Войти
+              </div>
+            ) : (
+              <div class="medals-row">
+                <div class="medal" style={{ background: '#FFD700' }} />
+                <div class="medal" style={{ background: '#C0C0C0' }} />
+                <div class="medal" style={{ background: '#E91E63' }} />
+              </div>
+            )}
+          </div>
+          {isGuest ? null : (
+            <div class="xp-track">
+              <div class="xp-fill" style={{ width: `${xpPercent}%` }} />
             </div>
-          </div>
-          <div class="xp-track">
-            <div class="xp-fill" style={{ width: `${xpPercent}%` }} />
-          </div>
+          )}
         </div>
       </div>
 
@@ -707,6 +741,14 @@ export function MainScreen({ onArena }: MainScreenProps) {
 
       {/* Version */}
       <div class="version-tag">v{__APP_VERSION__}</div>
+
+      {/* Модал авторизации для гостей */}
+      {showAuthModal && (
+        <RegistrationPromptModal
+          intent="login"
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
     </div>
   );
 }

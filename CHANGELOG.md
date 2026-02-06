@@ -1,5 +1,140 @@
 # Журнал изменений
 
+## v0.8.3 — Infrastructure & Auth UX (7 февраля 2026)
+
+Инфраструктурное обновление: бэкапы, кнопка перезапуска в админке, кнопка входа для гостей.
+
+### Добавлено
+
+- **Кнопка «Войти» для гостей** в лобби — ссылка в панели профиля для возвращающихся игроков
+- **RestartPage** в Admin Dashboard — перезапуск сервера с 2FA подтверждением
+- **scripts/backup-remote.sh** — удалённый бэкап PostgreSQL (SSH + pg_dump + ротация 7 дней)
+- **Протокол бэкапов** в AI_AGENT_GUIDE.md — P0 правило: pg_dump обязателен перед обновлением
+
+### Изменено
+
+- **app.Dockerfile** обновлён до v0.8.3 — добавлен admin-dashboard, порт 5175
+- **db.Dockerfile** обновлён до v0.8.3
+- **docker-compose.app-db.yml** обновлён до v0.8.3 — добавлены JWT_SECRET, ADMIN_ENCRYPTION_KEY, OAuth переменные
+- **RegistrationPromptModal** — добавлен prop `intent` (`login` / `convert_guest`)
+- **Nginx** — добавлен location `/admin/` для Admin Dashboard в SERVER_SETUP.md
+
+### Документация
+
+- CHANGELOG.md дополнен записями v0.7.5 — v0.8.2 (были пропущены)
+
+---
+
+## v0.8.2 — Admin Dashboard Phase 2 (5 февраля 2026)
+
+Полноценная панель администратора: метрики сервера, управление комнатами, аудит действий.
+
+### Добавлено
+
+- **DashboardPage** — метрики сервера (CPU, RAM, uptime, игроки) с real-time polling
+- **RoomsPage** — список активных комнат с деталями
+- **AuditPage** — журнал действий администратора
+- **systemMetrics service** — сбор метрик ОС и процессов
+- **POST /api/v1/admin/restart** — перезапуск сервера с 2FA подтверждением
+- **GET /api/v1/admin/stats** — метрики для дашборда
+- **GET /api/v1/admin/rooms** — список комнат
+- **watchdog.py** — мониторинг процессов и auto-restart на хосте
+
+### Исправлено
+
+- Конфликт схемы audit_log в миграции 009 (PR #137)
+
+### Статистика
+
+- **PR #136:** Sprint 19, +2300 строк (backend + frontend + ops)
+- **PR #137:** Hotfix миграции
+
+---
+
+## v0.8.0 — Server Monitoring Dashboard (4 февраля 2026)
+
+Первый релиз Admin Dashboard: аутентификация, двухфакторная авторизация, базовый UI.
+
+### Добавлено
+
+- **Admin Auth:** login, refresh, logout с JWT + HttpOnly cookie
+- **2FA (TOTP):** setup/verify с AES-256-GCM шифрованием секрета
+- **Middleware:** requireAdminAuth, require2FA для защищённых эндпоинтов
+- **Audit Service:** логирование действий администратора в БД
+- **Rate limiting:** 5 req/min для admin login
+- **Admin Dashboard UI:** Preact SPA с login-экраном и Settings-страницей
+- **Миграции:** admin_users, admin_sessions, audit_log (009_admin_tables.sql)
+
+### Документация
+
+- AI_AGENT_GUIDE.md — инструкции по управлению production-сервером
+- SERVER_SETUP.md — Nginx конфигурация и деплой
+
+### Статистика
+
+- **PR #133:** Backend Sprint 1, 4 файла (+1500 строк)
+- **PR #134:** Frontend Sprint 1
+
+---
+
+## v0.7.8 — Reverse Proxy Support (2 февраля 2026)
+
+Поддержка работы за Nginx reverse proxy.
+
+### Исправлено
+
+- Определение URL мета-сервера при работе за reverse proxy (PR #124)
+- Передача переменных окружения в MetaServer через supervisord
+
+---
+
+## v0.7.7 — Docker Env Hotfix (2 февраля 2026)
+
+### Исправлено
+
+- Передача переменных окружения в Docker-контейнере для v0.7.6 (PR #122)
+
+---
+
+## v0.7.6 — Client URL Auto-Detect (2 февраля 2026)
+
+### Исправлено
+
+- Автоопределение URL мета-сервера при доступе через IP-адрес (PR #120)
+
+---
+
+## v0.7.5 — Tech Debt Reduction + DX (1 февраля 2026)
+
+Sprint 18: устранение технического долга, улучшение безопасности и опыта разработки.
+
+### Добавлено
+
+- **Vite proxy** для тестирования на мобильных устройствах в LAN (PR #118)
+- **Rate limiting** /auth/* — 10 req/min auth, 5 req/min OAuth
+- **Nickname validation** — validateAndNormalize() в /auth/upgrade, /join-token
+- **Auth caching** — cachedJoinToken signal вместо прямого чтения localStorage
+- **Локальные данные БД** включены в Docker-образ для быстрого старта (PR #119)
+
+### Исправлено
+
+- Дрейф джойстика в adaptive режиме — база фиксируется в точке активации
+- Сохранение скина после OAuth upgrade (guest_skin_id → selected_skin_id)
+- Стабилизация Play Again — добавлен setPhase("menu") при выходе из Results
+
+### Изменено
+
+- REWARDS_CONFIG перенесён в balance.json (секция rating)
+- Results UI — логика buttonText вынесена в отдельную переменную
+
+### Статистика
+
+- **PR #117:** Sprint 18, 8 задач
+- **PR #118:** Vite proxy + DX
+- **PR #119:** Docker seed data
+
+---
+
 ## v0.7.4 — OAuth Hotfix + LeaderboardScreen (1 февраля 2026)
 
 Критические исправления OAuth авторизации и полная реализация экрана лидеров.
