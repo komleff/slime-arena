@@ -34,6 +34,7 @@ COPY admin-dashboard/ admin-dashboard/
 COPY config/ config/
 COPY assets-dist/ assets-dist/
 COPY version.json ./
+COPY scripts/ scripts/
 
 # Build all packages in correct order
 # 1. shared (dependency for both server and client)
