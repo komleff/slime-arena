@@ -25,57 +25,113 @@ ssh-keygen -t ed25519 -C "your@email.com"
 ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
 ```
 
-## Docker Container
+## Архитектура (v0.8.4+) — Split: db + app
 
-```bash
-# Production (рекомендуемая версия)
-ghcr.io/komleff/slime-arena-monolith-full:0.8.3
+Production использует **два контейнера**, управляемых docker-compose:
 
-# Предыдущая стабильная
-ghcr.io/komleff/slime-arena-monolith-full:0.7.8
+- `slime-arena-db` — PostgreSQL 16 + Redis
+- `slime-arena-app` — MetaServer + MatchServer + Client + Admin Dashboard
+
+```
+/root/slime-arena/
+├── docker-compose.yml   ← конфигурация контейнеров
+├── .env                 ← секреты (НЕ коммитится в git)
 ```
 
-### ✅ Версия 0.8.3 — Admin Dashboard (Phase 2)
-
-**Статус:** Полностью функциональна ✅
-- ✅ Авторизация администраторов (JWT + cookies)
-- ✅ TOTP 2FA (AES-256-GCM)
-- ✅ Журнал аудита (audit_log) с UI
-- ✅ Метрики CPU/RAM/Tick/Rooms/Players
-- ✅ Список активных комнат
-- ⏳ Рестарт сервиса (требует 2FA, issue #138)
-
-**Admin Dashboard URL:** `http://server:5175/admin/`
-**Логин по умолчанию:** `admin` / `Admin123!@#`
-
-### Запуск контейнера (v0.8.3)
+### Docker Images
 
 ```bash
-# Загрузить переменные из .env.production (не коммитится!)
-source /root/.env.production
+# App (обновляется часто)
+ghcr.io/komleff/slime-arena-app:0.8.4
 
-docker run -d \
-  --name slime-arena \
-  --restart unless-stopped \
-  -p 3000:3000 \
-  -p 2567:2567 \
-  -p 5173:5173 \
-  -p 5175:5175 \
-  -v slime-arena-pgdata:/var/lib/postgresql/data \
-  -v slime-arena-redisdata:/var/lib/redis \
-  -e JWT_SECRET="$JWT_SECRET" \
-  -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
-  -e ADMIN_ENCRYPTION_KEY="$ADMIN_ENCRYPTION_KEY" \
-  -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
-  -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
-  -e OAUTH_YANDEX_ENABLED=true \
-  ghcr.io/komleff/slime-arena-monolith-full:0.8.3
+# DB (обновляется редко)
+ghcr.io/komleff/slime-arena-db:0.8.4
 ```
 
-**⚠️ Примечание:** Все секретные переменные хранятся в `/root/.env.production` (не коммитится в git).  
-См. `.env.production.example` для шаблона.
+### Первоначальная установка
 
-# Volumes (персистентные данные)
+#### 1. Подготовка сервера
+
+```bash
+# Проверить docker compose
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker compose version'
+# Если нет: apt-get update && apt-get install -y docker-compose-plugin
+
+# Создать рабочую директорию
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'mkdir -p /root/slime-arena /root/backups'
+
+# Скопировать compose-файл
+scp -i ~/.ssh/id_ed25519 docker/docker-compose.app-db.yml root@147.45.147.175:/root/slime-arena/docker-compose.yml
+```
+
+#### 2. Создать .env на сервере
+
+Оператор создаёт `/root/slime-arena/.env`:
+
+```env
+# Database
+POSTGRES_USER=slime
+POSTGRES_PASSWORD=<сгенерировать: openssl rand -base64 24>
+POSTGRES_DB=slime_arena
+
+# Auth
+JWT_SECRET=<сгенерировать: openssl rand -base64 48>
+MATCH_SERVER_TOKEN=<сгенерировать: openssl rand -base64 48>
+CLAIM_TOKEN_TTL_MINUTES=60
+
+# Admin Dashboard (ОБЯЗАТЕЛЬНО)
+ADMIN_ENCRYPTION_KEY=<сгенерировать: openssl rand -base64 32>
+
+# OAuth — Yandex
+YANDEX_CLIENT_ID=<из Yandex OAuth>
+YANDEX_CLIENT_SECRET=<из Yandex OAuth>
+OAUTH_YANDEX_ENABLED=true
+```
+
+#### 3. Запуск
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 << 'EOF'
+cd /root/slime-arena
+docker compose pull
+docker compose up -d db
+
+# Дождаться инициализации БД
+sleep 20
+docker inspect slime-arena-db --format="{{.State.Health.Status}}"
+
+# Запустить app
+docker compose up -d app
+sleep 10
+
+# Миграции
+docker exec slime-arena-app npm run db:migrate --workspace=server
+
+# Проверка
+docker compose ps
+EOF
+```
+
+### Обновление app (повседневное)
+
+```bash
+cd /root/slime-arena
+docker compose pull app
+docker compose up -d app
+# Если есть новые миграции:
+docker exec slime-arena-app npm run db:migrate --workspace=server
+```
+
+### Обновление db (редкое, с бэкапом)
+
+```bash
+cd /root/slime-arena
+docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-update-$(date +%F-%H%M).sql.gz
+docker compose pull db
+docker compose up -d db
+```
+
+## Volumes (персистентные данные)
 
 ```
 slime-arena-pgdata    # PostgreSQL data (пользователи, профили, лидерборд)
@@ -173,7 +229,6 @@ server {
     }
 
     # Colyseus WebSocket rooms: /{processId}/{roomId}
-    # processId and roomId are alphanumeric strings (e.g., 2uiBwyoGH/fAWbj08Ou)
     location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
         proxy_pass http://127.0.0.1:2567;
         proxy_http_version 1.1;
@@ -255,48 +310,48 @@ acme.sh --issue -d slime-arena.overmobile.space -w /var/www/acme --keylength ec-
 
 ## Useful Commands
 
-### Container Management
+### Container Management (docker-compose)
 
 ```bash
-# Статус контейнера
-docker ps
-docker inspect slime-arena --format='{{.State.Health.Status}}'
+# Статус контейнеров
+cd /root/slime-arena && docker compose ps
 
 # Логи
-docker logs --tail 100 slime-arena
-docker logs -f slime-arena  # follow
+docker logs --tail 100 slime-arena-app
+docker logs --tail 100 slime-arena-db
+docker compose logs --tail 100
 
-# Перезапуск
-docker restart slime-arena
+# Перезапуск app
+docker compose restart app
 
-# Вход в контейнер
-docker exec -it slime-arena bash
+# Перезапуск всего
+docker compose restart
 ```
 
 ### Database (PostgreSQL)
 
 ```bash
 # Подключение к PostgreSQL
-docker exec -it slime-arena psql -U slime -d slime_arena
+docker exec -it slime-arena-db psql -U slime -d slime_arena
 
 # SQL запросы
-docker exec slime-arena psql -U slime -d slime_arena -c "SELECT COUNT(*) FROM users;"
+docker exec slime-arena-db psql -U slime -d slime_arena -c "SELECT COUNT(*) FROM users;"
 
 # Backup
-docker exec slime-arena pg_dump -U slime slime_arena > backup.sql
+docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/backup-$(date +%F-%H%M).sql.gz
 ```
 
 ### Redis
 
 ```bash
 # Ping
-docker exec slime-arena redis-cli ping
+docker exec slime-arena-db redis-cli ping
 
 # Info
-docker exec slime-arena redis-cli info
+docker exec slime-arena-db redis-cli info
 
 # Очистка (осторожно!)
-docker exec slime-arena redis-cli FLUSHALL
+docker exec slime-arena-db redis-cli FLUSHALL
 ```
 
 ### Health Checks
@@ -326,7 +381,7 @@ curl -s -X POST https://slime-arena.overmobile.space/matchmake/joinOrCreate/aren
 # Решение:
 sysctl vm.overcommit_memory=1
 echo "vm.overcommit_memory=1" >> /etc/sysctl.conf
-docker restart slime-arena
+docker compose restart db
 ```
 
 ### Telemetry Logs Permission
@@ -334,7 +389,7 @@ docker restart slime-arena
 ```bash
 # Симптом: EACCES /app/server/dist/server/logs
 # Решение:
-docker exec slime-arena chmod -R 777 /app/server/dist/server/logs
+docker exec slime-arena-app chmod -R 777 /app/server/dist/server/logs
 ```
 
 ### WebSocket 405 Error
@@ -352,6 +407,7 @@ docker exec slime-arena chmod -R 777 /app/server/dist/server/logs
 **Причина:** Colyseus WebSocket пути `/{processId}/{roomId}` попадают на fallback `/` (клиент)
 
 **Решение:** Добавить location для WebSocket путей:
+
 ```nginx
 location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
     proxy_pass http://127.0.0.1:2567;
@@ -361,17 +417,20 @@ location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
 
 ## Deployment Checklist
 
-- [ ] Docker image pushed to ghcr.io
-- [ ] Container running with correct env vars
-- [ ] PostgreSQL data volume mounted
-- [ ] Redis data volume mounted
-- [ ] Nginx config updated and reloaded
+- [ ] Docker images pushed to ghcr.io (CI/CD автоматически)
+- [ ] `/root/slime-arena/.env` создан с актуальными секретами
+- [ ] `/root/slime-arena/docker-compose.yml` скопирован на сервер
+- [ ] `docker compose up -d` — оба контейнера `Up (healthy)`
+- [ ] Миграции БД применены
+- [ ] Nginx config обновлён и `nginx -t` прошёл
 - [ ] SSL certificate valid
 - [ ] Health endpoint responding
 - [ ] Guest auth working
 - [ ] Matchmake working
 - [ ] WebSocket connection working
+- [ ] Admin Dashboard доступен по `/admin/`
 - [ ] OAuth callback URL configured in Yandex
+- [ ] Cron бэкап настроен (`crontab -l`)
 
 ## Contact
 

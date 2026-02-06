@@ -2,360 +2,272 @@
 
 **Это руководство для ИИ-деплоеров (Claude, Copilot и подобные)**, которые помогают управлять production сервером Slime Arena.
 
-> ⚠️ **Важно:** Это руководство должно дополняться и актуализироваться по мере работы. Если вы (ИИ-агент) сталкиваетесь с новыми сценариями, задачами или открывается новая информация — **обновляйте этот файл**.
+> **Архитектура v0.8.4+:** Split-архитектура (db + app), управляемая docker-compose.
+> Монолитный контейнер (`monolith-full`) **deprecated** — НЕ использовать для production.
 
 ---
 
-## 🔒 Security First
+## Архитектура
+
+```
+/root/slime-arena/              ← на production-сервере
+├── docker-compose.yml          ← конфигурация контейнеров (ПОСТОЯННЫЙ файл)
+├── .env                        ← ВСЕ секреты (ПОСТОЯННЫЙ файл)
+```
+
+**Контейнеры:**
+- `slime-arena-db` — PostgreSQL 16 + Redis (обновляется РЕДКО)
+- `slime-arena-app` — MetaServer + MatchServer + Client + Admin Dashboard (обновляется ЧАСТО)
+
+**Volumes:**
+- `slime-arena-pgdata` — данные PostgreSQL (пользователи, профили, лидерборд)
+- `slime-arena-redisdata` — данные Redis (сессии, кеш)
+
+---
+
+## ЗАПРЕТЫ (P0)
+
+```
+❌ НИКОГДА: docker volume rm slime-arena-pgdata
+❌ НИКОГДА: docker volume rm slime-arena-redisdata
+❌ НИКОГДА: docker compose down --volumes
+❌ НИКОГДА: docker run -e ... (использовать ТОЛЬКО docker compose)
+❌ НИКОГДА: удалять или перезаписывать /root/slime-arena/.env
+❌ НИКОГДА: выводить содержимое .env или docker inspect --format='{{json .Config.Env}}'
+❌ НИКОГДА: удалять /root/slime-arena/docker-compose.yml
+```
+
+---
+
+## Security
 
 **НИКОГДА не запрашивайте и не выводите в открытом виде:**
-- Значения из `JWT_SECRET`
-- `MATCH_SERVER_TOKEN`
-- `YANDEX_CLIENT_SECRET`
-- Другие токены и ключи
+- `JWT_SECRET`, `MATCH_SERVER_TOKEN`, `ADMIN_ENCRYPTION_KEY`
+- `YANDEX_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET`
+- Другие токены и ключи из `.env`
 
-Если нужны эти значения — **попросите пользователя**.
+Если нужны эти значения — **попросите оператора**.
 
 ---
 
-## 📍 Что вам доступно без пароля
+## Информация о сервере
 
-### В GitHub репозитории (открытые данные):
-
-```
-📁 docs/operations/
-├── SERVER_SETUP.md           ✅ Используйте для инструкций
-├── PRODUCTION_CONFIG_BACKUP.md (если существует — СТАРЫЙ, игнорируйте)
-└── .env.production.example   ✅ Шаблон переменных (без реальных значений)
-```
-
-### Информация о сервере:
 - **IP:** 147.45.147.175
 - **Домен:** slime-arena.overmobile.space
 - **ОС:** Ubuntu 20.04+
-- **SSH ключ:** `/root/.ssh/deploy_key` (у пользователя на машине)
-- **Docker:** Установлен
-- **Контейнер:** `slime-arena`
-- **Volumes:** `slime-arena-pgdata`, `slime-arena-redisdata`
-- **Порты:** 3000 (Meta), 2567 (Game), 5173 (Client)
+- **SSH:** `ssh -i ~/.ssh/id_ed25519 root@147.45.147.175`
+- **Docker Compose:** `/root/slime-arena/docker-compose.yml`
+- **Secrets:** `/root/slime-arena/.env`
+- **Порты:** 3000 (Meta), 2567 (Game), 5173 (Client), 5175 (Admin)
 
-### Команды для проверки (без секретов):
+---
+
+## Обновление app (частое — каждый релиз)
+
+Это основная операция. Обновляется только app-контейнер, всё остальное не затрагивается.
 
 ```bash
-# Подключение по SSH (пользователь должен иметь ключ)
-ssh -i ~/.ssh/deploy_key root@147.45.147.175
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 << 'EOF'
+cd /root/slime-arena
+docker compose pull app
+docker compose up -d app
+EOF
+```
 
-# Внутри контейнера
-docker ps
-docker logs -f slime-arena --tail 50
-docker inspect slime-arena  # только структура, без env vars
+Если есть новые миграции БД:
 
-# Health checks
-curl https://slime-arena.overmobile.space/health
-curl -X POST https://slime-arena.overmobile.space/api/v1/auth/guest -H "Content-Type: application/json" -d '{}'
+```bash
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 \
+  'docker exec slime-arena-app npm run db:migrate --workspace=server'
+```
+
+**Проверка после обновления:**
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'cd /root/slime-arena && docker compose ps'
+curl -s https://slime-arena.overmobile.space/health | jq .
+```
+
+**Время простоя:** ~5 секунд. БД, Redis, .env, Nginx — не затрагиваются.
+
+### Что НЕ затрагивается при обновлении app
+
+| Компонент | Расположение | Затрагивается? |
+|-----------|-------------|----------------|
+| PostgreSQL данные | Volume `slime-arena-pgdata` | Нет |
+| Redis данные | Volume `slime-arena-redisdata` | Нет |
+| Секреты (.env) | `/root/slime-arena/.env` | Нет |
+| docker-compose.yml | `/root/slime-arena/` | Нет |
+| Nginx | `/etc/nginx/sites-available/` | Нет |
+| SSL сертификаты | `/root/.acme.sh/` | Нет |
+
+---
+
+## Обновление db (редкое)
+
+**ОБЯЗАТЕЛЬНО:** Бэкап перед обновлением.
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 << 'EOF'
+cd /root/slime-arena
+docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-db-update-$(date +%F-%H%M).sql.gz
+docker compose pull db
+docker compose up -d db
+EOF
 ```
 
 ---
 
-## 🔐 Что требует пользователя
+## Бэкап
 
-### Данные, которые ВСЕГДА должны быть у пользователя локально:
+### Перед любым обновлением (P0)
+
+```bash
+# Бэкап на сервере
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 \
+  'mkdir -p /root/backups && docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-update-$(date +%F-%H%M).sql.gz && ls -lh /root/backups/'
+
+# Скачать дамп локально (рекомендуется)
+scp -i ~/.ssh/id_ed25519 root@147.45.147.175:/root/backups/pre-update-*.sql.gz ./backups/
+```
+
+### Автоматический бэкап (cron на сервере)
 
 ```
-/root/.env.production (на сервере)
+0 */6 * * * docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/slime-arena-$(date +\%F-\%H\%M).sql.gz && find /root/backups/ -name "slime-arena-*.sql.gz" -mtime +7 -delete
 ```
-
-Содержит:
-- `JWT_SECRET` — 48+ символов
-- `MATCH_SERVER_TOKEN` — 48+ символов
-- `CLAIM_TOKEN_TTL_MINUTES` — обычно 60
-- `YANDEX_CLIENT_ID` — Yandex OAuth ID
-- `YANDEX_CLIENT_SECRET` — Yandex OAuth Secret
-- `OAUTH_YANDEX_ENABLED` — true/false
-
-**Когда просить у пользователя:**
-1. **При обновлении контейнера** на новую версию
-2. **При восстановлении сервера** после сбоя
-3. **При добавлении нового сервиса**, требующего переменных
 
 ---
 
-## 📋 Типичные операции
+## Откат app на предыдущую версию
 
-### 1️⃣ Проверка статуса сервера
+Если app сломался после обновления:
 
 ```bash
-ssh -i ~/.ssh/deploy_key root@147.45.147.175 'docker ps -a'
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 << 'EOF'
+cd /root/slime-arena
+# Вариант 1: указать конкретную версию через переменную
+VERSION=0.8.4 docker compose pull app
+VERSION=0.8.4 docker compose up -d app
+
+# Вариант 2: отредактировать docker-compose.yml
+# image: ghcr.io/komleff/slime-arena-app:<ПРЕДЫДУЩАЯ_ВЕРСИЯ>
+# docker compose up -d app
+EOF
 ```
 
-**Что смотреть:**
-- Status: `Up` = работает
-- Status: `Exited` = упал
-- Uptime: сколько прошло времени
+---
 
-### 2️⃣ Просмотр логов
+## Полная проверка здоровья
 
 ```bash
-ssh -i ~/.ssh/deploy_key root@147.45.147.175 'docker logs slime-arena -f --tail 100'
+# Статус контейнеров
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'cd /root/slime-arena && docker compose ps'
+
+# Health endpoint
+curl -s https://slime-arena.overmobile.space/health | jq .
+
+# Guest auth
+curl -s -X POST https://slime-arena.overmobile.space/api/v1/auth/guest \
+  -H "Content-Type: application/json" -d '{}' | jq .
+
+# Leaderboard
+curl -s "https://slime-arena.overmobile.space/api/v1/leaderboard?mode=total&limit=5" | jq .
+
+# WebSocket (matchmake)
+curl -s -X POST https://slime-arena.overmobile.space/matchmake/joinOrCreate/arena \
+  -H "Content-Type: application/json" -d '{}' | jq .
+
+# Admin Dashboard — открыть в браузере:
+# https://slime-arena.overmobile.space/admin/
+```
+
+---
+
+## Просмотр логов
+
+```bash
+# Все контейнеры
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'cd /root/slime-arena && docker compose logs --tail 100'
+
+# Только app
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker logs slime-arena-app --tail 100'
+
+# Только db
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker logs slime-arena-db --tail 100'
+
+# Follow
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker logs -f slime-arena-app --tail 50'
 ```
 
 **Red flags:**
-- `[MetaServer] Environment: production` когда должно быть `development`
 - `Cannot allocate memory` — переполнение памяти
-- `Connection refused` — что-то не слушает
+- `Connection refused` — сервис не слушает порт
 - `EACCES` — проблема с правами доступа
-
-### 3️⃣ Обязательный бэкап перед обновлением
-
-> **P0: pg_dump ОБЯЗАТЕЛЕН перед любым `docker rm` или `docker stop` + обновлением.**
-> Без бэкапа данные пользователей могут быть потеряны при неудачном обновлении.
-
-```bash
-# Бэкап перед обновлением (ОБЯЗАТЕЛЬНО!)
-ssh -i ~/.ssh/deploy_key root@147.45.147.175 \
-  'docker exec slime-arena pg_dump -U slime slime_arena | gzip > /root/backups/pre-update-$(date +%F-%H%M).sql.gz && ls -la /root/backups/'
-
-# Скачать дамп локально (рекомендуется)
-scp -i ~/.ssh/deploy_key root@147.45.147.175:/root/backups/pre-update-*.sql.gz ./backups/
-```
-
-**Автоматический бэкап на сервере (cron):**
-```
-0 */6 * * * docker exec slime-arena pg_dump -U slime slime_arena | gzip > /root/backups/slime-arena-$(date +\%F-\%H\%M).sql.gz && find /root/backups/ -name "slime-arena-*.sql.gz" -mtime +7 -delete
-```
-
-**Протокол обновления:**
-1. `pg_dump` + скачать дамп локально
-2. Скачать `/root/.env.production` локально
-3. `docker stop` + `docker rm` (volumes сохраняются!)
-4. `docker pull` новый образ
-5. `docker run` с правильными env vars
-6. Проверить `curl /health`
-7. Если ошибка — откат на предыдущий образ
-
-### 4️⃣ Обновление на новую версию
-
-```bash
-# 1. Спросить пользователя о текущих переменных из .env.production
-# 2. Выполнить:
-
-ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
-  source /root/.env.production
-  docker pull ghcr.io/komleff/slime-arena-monolith-full:0.8.3
-  docker stop slime-arena && docker rm slime-arena
-  docker run -d \
-    --name slime-arena \
-    --restart unless-stopped \
-    -p 3000:3000 -p 2567:2567 -p 5173:5173 -p 5175:5175 \
-    -v slime-arena-pgdata:/var/lib/postgresql/data \
-    -v slime-arena-redisdata:/var/lib/redis \
-    -e JWT_SECRET="$JWT_SECRET" \
-    -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
-    -e ADMIN_ENCRYPTION_KEY="$ADMIN_ENCRYPTION_KEY" \
-    -e CLAIM_TOKEN_TTL_MINUTES="$CLAIM_TOKEN_TTL_MINUTES" \
-    -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
-    -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
-    -e OAUTH_YANDEX_ENABLED=true \
-    ghcr.io/komleff/slime-arena-monolith-full:0.8.3
-  sleep 5
-  docker logs slime-arena --tail 50
-EOF
-```
-
-### 5️⃣ Откат на предыдущую версию
-
-```bash
-ssh -i ~/.ssh/deploy_key root@147.45.147.175 << 'EOF'
-  source /root/.env.production
-  docker pull ghcr.io/komleff/slime-arena-monolith-full:0.7.8
-  docker stop slime-arena && docker rm slime-arena
-  docker run -d \
-    --name slime-arena \
-    --restart unless-stopped \
-    -p 3000:3000 -p 2567:2567 -p 5173:5173 -p 5175:5175 \
-    -v slime-arena-pgdata:/var/lib/postgresql/data \
-    -v slime-arena-redisdata:/var/lib/redis \
-    -e JWT_SECRET="$JWT_SECRET" \
-    -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
-    -e ADMIN_ENCRYPTION_KEY="$ADMIN_ENCRYPTION_KEY" \
-    -e CLAIM_TOKEN_TTL_MINUTES="$CLAIM_TOKEN_TTL_MINUTES" \
-    -e YANDEX_CLIENT_ID="$YANDEX_CLIENT_ID" \
-    -e YANDEX_CLIENT_SECRET="$YANDEX_CLIENT_SECRET" \
-    -e OAUTH_YANDEX_ENABLED=true \
-    ghcr.io/komleff/slime-arena-monolith-full:0.7.8
-EOF
-```
-
-### 6️⃣ Полная проверка здоровья
-
-```bash
-echo "=== Container Status ===" && \
-ssh -i ~/.ssh/deploy_key root@147.45.147.175 'docker ps --format "{{.Status}}"' && \
-echo "=== Health Endpoint ===" && \
-curl -s https://slime-arena.overmobile.space/health | jq . && \
-echo "=== Guest Auth ===" && \
-curl -s -X POST https://slime-arena.overmobile.space/api/v1/auth/guest \
-  -H "Content-Type: application/json" -d '{}' | jq .status
-```
+- `ECONNREFUSED db:5432` — БД не доступна для app
 
 ---
 
-## ⚠️ ЗАПРЕТЫ
+## Когда просить помощь оператора
 
-### ❌ НИКОГДА:
-
-1. **Выводить реальные значения ключей** даже в приватных логах
-   ```bash
-   # ❌ ПЛОХО:
-   docker inspect slime-arena --format='{{json .Config.Env}}'
-   # Покажет все переменные с реальными значениями!
-   
-   # ✅ ХОРОШО:
-   docker ps --filter name=slime-arena
-   ```
-
-2. **Удалять volumes** с данными
-   ```bash
-   # ❌ НИКОГДА:
-   docker volume rm slime-arena-pgdata slime-arena-redisdata
-   ```
-
-3. **Менять restart policy** без согласования
-   ```bash
-   # ❌ ПЛОХО:
-   docker update --restart=no slime-arena
-   ```
-
-4. **Запускать контейнер без проверки переменных**
-   - Всегда проверить наличие всех нужных env vars перед запуском
-
-5. **Писать логин/пароль** в терминальные команды
-   - Использовать только SSH ключи
-
-6. **Делать ssh без проверки хоста**
-   - Всегда использовать `StrictHostKeyChecking` или сохранять known_hosts
-
----
-
-## 📞 Когда просить помощь пользователя
-
-| Сценарий | Действие |
+| Ситуация | Действие |
 |----------|----------|
-| Контейнер не стартует | Показать логи, попросить проверить переменные в `.env.production` |
-| Нужно обновить версию | Запросить текущие значения всех ENV переменных |
-| Контейнер "упал" | Попросить проверить размер диска (`df -h`) и RAM (`free -h`) |
-| Нужно менять Nginx конфиг | Попросить проверить и отредактировать вручную |
-| SSL сертификат истёк | Попросить обновить через acme.sh (требует знаний) |
-| Проблемы с БД/Redis | Может потребоваться ручной вход в контейнер и проверка |
+| Нужно добавить новую env var | Попросить оператора добавить в `.env` |
+| db-контейнер не стартует | Показать логи, НЕ удалять volumes |
+| Миграция БД провалилась | Остановить app, показать ошибку, ждать оператора |
+| Нужно изменить Nginx | Попросить оператора, не трогать самостоятельно |
+| SSL сертификат истёк | Попросить оператора обновить через acme.sh |
+| Нужны значения секретов | Попросить оператора, НИКОГДА не извлекать из .env |
 
 ---
 
-## 🔍 Диагностика проблем
+## Диагностика проблем
 
-### Проблема: "Нет доступа по SSH"
+### Контейнер не поднимается
+
 ```bash
-# Проверить ключ
-ls -la ~/.ssh/deploy_key
-chmod 600 ~/.ssh/deploy_key
+# Проверить статус
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'cd /root/slime-arena && docker compose ps -a'
 
-# Проверить подключение
-ssh -vvv -i ~/.ssh/deploy_key root@147.45.147.175 'echo OK'
+# Логи конкретного контейнера
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker logs slime-arena-app 2>&1 | tail -50'
+
+# Попробовать перезапустить
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'cd /root/slime-arena && docker compose restart app'
 ```
 
-### Проблема: "Контейнер не поднимается"
+### Память/диск переполнен
+
 ```bash
-# 1. Проверить образ
-docker images | grep slime-arena
-
-# 2. Попробовать запустить без -d для видения ошибок
-docker run --rm \
-  -e JWT_SECRET="$JWT_SECRET" \
-  -e MATCH_SERVER_TOKEN="$MATCH_SERVER_TOKEN" \
-  ... \
-  ghcr.io/komleff/slime-arena-monolith-full:0.8.0
-
-# 3. Проверить логи
-docker logs slime-arena
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 << 'EOF'
+df -h
+free -h
+du -sh /var/lib/docker/volumes/*/
+EOF
 ```
 
-### Проблема: "Память/диск переполнен"
+### БД недоступна для app
+
 ```bash
-# На сервере
-df -h          # Размер диска
-free -h        # Память
-du -sh /var/lib/docker/volumes/*/  # Размер volumes
+# Проверить health БД
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker inspect slime-arena-db --format="{{.State.Health.Status}}"'
+
+# Попробовать подключиться напрямую
+ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker exec slime-arena-db pg_isready -U slime -h localhost'
 ```
 
 ---
 
-## 📚 Ссылки
+## Ссылки
 
-- [SERVER_SETUP.md](SERVER_SETUP.md) — Полная инструкция по запуску
+- [SERVER_SETUP.md](SERVER_SETUP.md) — Полная инструкция по настройке сервера
 - [.env.production.example](../../.env.production.example) — Шаблон переменных
-- [Dockerfile](../../docker/monolith-full.Dockerfile) — Как собирается образ
-- [Docker Compose](../../docker/docker-compose.monolith-full.yml) — Альтернативный способ запуска
+- [docker-compose.app-db.yml](../../docker/docker-compose.app-db.yml) — Compose файл (источник)
+- [app.Dockerfile](../../docker/app.Dockerfile) — Сборка app-образа
+- [db.Dockerfile](../../docker/db.Dockerfile) — Сборка db-образа
 
 ---
 
-## 💡 Best Practices
-
-1. **Всегда проверять статус перед и после изменений**
-   ```bash
-   # ДО
-   docker ps
-   
-   # ДЕЙСТВИЕ
-   docker restart slime-arena
-   
-   # ПОСЛЕ
-   docker ps && curl https://slime-arena.overmobile.space/health
-   ```
-
-2. **Сохранять backup перед обновлением**
-   ```bash
-   ssh -i ~/.ssh/deploy_key root@147.45.147.175 \
-     'docker exec slime-arena pg_dump -U slime slime_arena > /root/backup-$(date +%s).sql'
-   ```
-
-3. **Тестировать на локальной машине перед production**
-   - Используйте локальный docker для тестирования новых контейнеров
-
-4. **Документировать изменения**
-   - Создавайте issues в GitHub при изменении конфигурации
-
----
-
-## 📝 Обновление этого руководства
-
-**Как ИИ-агент:** Если вы столкнулись с чем-то, чего нет в этом руководстве:
-
-1. **Новый сценарий deployment:** Добавьте раздел в секцию "Сценарии"
-2. **Новые доступные команды:** Дополните раздел "Команды для проверки"
-3. **Новые ограничения:** Обновите "Security First" или добавьте пример
-4. **Новые файлы и переменные:** Обновите раздел "Что вам доступно"
-5. **Новые issues/learnings:** Добавьте в раздел "Known Issues & Solutions"
-
-**Форма для обновлений:**
-```markdown
-### [Название нового сценария или проблемы]
-
-**Ситуация:** Описание когда это происходит
-**Решение:** Команды и шаги
-**Результат:** Чего ожидать
-**Примечания:** Что важно помнить
-
-**Дата добавлено:** 2026-02-04
-**Источник:** [Имя деплоера или ссылка на задачу]
-```
-
-**Правила при обновлении:**
-- Не удаляйте старые сценарии (они могут пригодиться)
-- Датируйте добавления
-- Указывайте источник/контекст
-- Сохраняйте структуру и формат
-- После обновления — коммитьте с сообщением `docs: update AI_AGENT_GUIDE.md`
-
----
-**Последнее обновление:** 2026-02-04  
-**Версия сервера:** 0.7.8+ (актуально для 0.8.0+)  
+**Последнее обновление:** 2026-02-07
+**Версия сервера:** 0.8.4 (split-архитектура db + app)
 **Контактная информация:** GitHub Issues с тегом `ops`
