@@ -3,7 +3,7 @@
  * Автоматически добавляет Authorization header.
  * При 401 пытается обновить токен через /refresh.
  */
-import { accessToken, setAccessToken, clearAuth } from '../auth/signals';
+import { accessToken, setAccessToken, setTotpRequired, clearAuth } from '../auth/signals';
 
 // В production (serve) нет proxy, поэтому используем абсолютный URL MetaServer
 // В dev режиме Vite proxy перенаправляет /api на localhost:3000
@@ -102,6 +102,9 @@ async function tryRefreshToken(): Promise<boolean> {
     if (response.ok) {
       const data = await response.json();
       setAccessToken(data.accessToken);
+      if (data.totpRequired !== undefined) {
+        setTotpRequired(data.totpRequired);
+      }
       lastRefreshResult = true;
       return true;
     }

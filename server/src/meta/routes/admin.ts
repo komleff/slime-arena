@@ -274,6 +274,7 @@ router.post('/refresh', refreshRateLimiter, async (req: Request, res: Response) 
 
     res.json({
       accessToken,
+      totpRequired: user.totp_enabled,
     });
   } catch (error) {
     console.error('[Admin Refresh] Error:', error);

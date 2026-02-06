@@ -13,7 +13,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const version = require('../version.json').version;
+const versionData = require('../version.json');
+if (!versionData.version || !/^\d+\.\d+\.\d+$/.test(versionData.version)) {
+  console.error('sync-version: version.json is missing or has invalid "version" field');
+  process.exit(1);
+}
+const version = versionData.version;
 
 console.log(`sync-version: syncing to ${version}`);
 
