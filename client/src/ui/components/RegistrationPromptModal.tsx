@@ -189,9 +189,11 @@ injectStyles(STYLES_ID, styles);
 
 interface RegistrationPromptModalProps {
   onClose: () => void;
+  /** Режим авторизации: login — простой вход, convert_guest — привязка гостевого прогресса */
+  intent?: 'login' | 'convert_guest';
 }
 
-export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProps) {
+export function RegistrationPromptModal({ onClose, intent = 'convert_guest' }: RegistrationPromptModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -204,11 +206,18 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
   const effectiveClaimToken = claimToken.value || localStorage.getItem('registration_claim_token');
   const hasClaimToken = effectiveClaimToken !== null;
   const isTokenLoading = claimStatus.value === 'claiming';
-  const canUpgrade = hasClaimToken || !isTelegram; // Для не-Telegram просто открываем бота
+  // Для intent='login' claimToken не нужен
+  const canUpgrade = intent === 'login' || hasClaimToken || !isTelegram;
 
   const handleTelegramLogin = useCallback(async () => {
     if (!isTelegram) {
       // Если не в Telegram, открываем бота
+      window.open('https://t.me/SlimeArenaBot', '_blank');
+      return;
+    }
+
+    // intent='login' в Telegram: открываем бота для повторного входа
+    if (intent === 'login') {
       window.open('https://t.me/SlimeArenaBot', '_blank');
       return;
     }
@@ -270,7 +279,7 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
     } finally {
       setIsLoading(false);
     }
-  }, [isTelegram, onClose, effectiveClaimToken]);
+  }, [isTelegram, intent, onClose, effectiveClaimToken]);
 
   const handleOverlayClick = useCallback((e: MouseEvent) => {
     if ((e.target as HTMLElement).classList.contains('reg-modal-overlay')) {
@@ -305,33 +314,39 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
               />
             </svg>
           </div>
-          <h2 class="reg-modal-title">Сохранить прогресс</h2>
+          <h2 class="reg-modal-title">
+            {intent === 'login' ? 'Войти в аккаунт' : 'Сохранить прогресс'}
+          </h2>
           <p class="reg-modal-subtitle">
-            {isStandalone
-              ? 'Войдите через соцсеть, чтобы ваши достижения не пропали'
-              : 'Войдите через Telegram, чтобы ваши достижения не пропали'}
+            {intent === 'login'
+              ? 'Войдите, чтобы восстановить свой профиль, рейтинг и прогресс'
+              : isStandalone
+                ? 'Войдите через соцсеть, чтобы ваши достижения не пропали'
+                : 'Войдите через Telegram, чтобы ваши достижения не пропали'}
           </p>
         </div>
 
-        <div class="reg-modal-benefits">
-          <div class="reg-modal-benefits-title">После входа вы получите</div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Сохранение рейтинга и статистики</span>
+        {intent === 'convert_guest' && (
+          <div class="reg-modal-benefits">
+            <div class="reg-modal-benefits-title">После входа вы получите</div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Сохранение рейтинга и статистики</span>
+            </div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Участие в глобальном рейтинге</span>
+            </div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Доступ к скинам и наградам</span>
+            </div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Игра с разных устройств</span>
+            </div>
           </div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Участие в глобальном рейтинге</span>
-          </div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Доступ к скинам и наградам</span>
-          </div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Игра с разных устройств</span>
-          </div>
-        </div>
+        )}
 
         {error && (
           <div class="reg-modal-error">
@@ -342,7 +357,7 @@ export function RegistrationPromptModal({ onClose }: RegistrationPromptModalProp
         <div class="reg-modal-buttons">
           {isStandalone ? (
             <OAuthProviderSelector
-              intent="convert_guest"
+              intent={intent}
               onError={(err) => setError(err)}
               disabled={isLoading}
               showTitle={false}

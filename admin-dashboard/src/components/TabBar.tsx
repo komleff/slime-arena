@@ -13,6 +13,7 @@ const tabs: TabItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
   { id: 'rooms', label: 'Rooms', icon: '👥' },
   { id: 'audit', label: 'Audit', icon: '📋' },
+  { id: 'restart', label: 'Restart', icon: '🔄' },
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 

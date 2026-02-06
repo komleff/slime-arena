@@ -1,10 +1,29 @@
+/**
+ * sync-version.js — Синхронизация версии из version.json во все файлы проекта.
+ *
+ * Единственный источник правды: version.json
+ * Вызывается автоматически через prebuild хук (npm run build).
+ *
+ * Покрытие:
+ *   - 5× package.json (root, client, server, shared, admin-dashboard)
+ *   - 3× Dockerfile (monolith-full, app, db)
+ *   - 2× docker-compose (monolith-full, app-db)
+ */
 
 const fs = require('fs');
 const path = require('path');
 
-const version = require('../version.json').version;
+const versionData = require('../version.json');
+if (!versionData.version || !/^\d+\.\d+\.\d+$/.test(versionData.version)) {
+  console.error('sync-version: version.json is missing or has invalid "version" field');
+  process.exit(1);
+}
+const version = versionData.version;
 
-const files = [
+console.log(`sync-version: syncing to ${version}`);
+
+// --- 1. package.json файлы ---
+const packageFiles = [
   '../package.json',
   '../client/package.json',
   '../server/package.json',
@@ -12,33 +31,19 @@ const files = [
   '../admin-dashboard/package.json'
 ];
 
-files.forEach(file => {
+packageFiles.forEach(file => {
   const filePath = path.resolve(__dirname, file);
   if (fs.existsSync(filePath)) {
-    const pkg = require(filePath);
-    pkg.version = version;
-    fs.writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n');
-    console.log(`Updated ${file} to version ${version}`);
+    const pkg = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (pkg.version !== version) {
+      pkg.version = version;
+      fs.writeFileSync(filePath, JSON.stringify(pkg, null, 2) + '\n');
+      console.log(`  updated ${file}`);
+    }
   }
 });
 
-// Update UI component
-const mainMenuPath = path.resolve(__dirname, '../client/src/ui/components/MainMenu.tsx');
-if (fs.existsSync(mainMenuPath)) {
-  let content = fs.readFileSync(mainMenuPath, 'utf-8');
-  // Match string like "Slime Arena v0.3.1" or similar
-  const regex = /Slime Arena v\d+\.\d+\.\d+/;
-  if (regex.test(content)) {
-    content = content.replace(regex, `Slime Arena v${version}`);
-    fs.writeFileSync(mainMenuPath, content);
-    console.log(`Updated MainMenu.tsx to version ${version}`);
-  } else {
-    // Fallback if not found, try to search for just the text to replace it if format slightly different
-    console.warn("Could not find version string in MainMenu.tsx to update.");
-  }
-}
-
-// Update Docker files
+// --- 2. Docker и Compose файлы ---
 const dockerFiles = [
   {
     path: '../docker/monolith-full.Dockerfile',
@@ -48,32 +53,55 @@ const dockerFiles = [
     ]
   },
   {
+    path: '../docker/app.Dockerfile',
+    patterns: [
+      { regex: /# Version: \d+\.\d+\.\d+/, replacement: `# Version: ${version}` },
+      { regex: /org\.opencontainers\.image\.version="\d+\.\d+\.\d+"/, replacement: `org.opencontainers.image.version="${version}"` }
+    ]
+  },
+  {
+    path: '../docker/db.Dockerfile',
+    patterns: [
+      { regex: /# Version: \d+\.\d+\.\d+/, replacement: `# Version: ${version}` },
+      { regex: /org\.opencontainers\.image\.version="\d+\.\d+\.\d+"/, replacement: `org.opencontainers.image.version="${version}"` }
+    ]
+  },
+  {
     path: '../docker/docker-compose.monolith-full.yml',
     patterns: [
       { regex: /# Version: \d+\.\d+\.\d+/, replacement: `# Version: ${version}` },
-      { regex: /slime-arena-monolith-full:\$\{VERSION:-\d+\.\d+\.\d+\}/, replacement: `slime-arena-monolith-full:\${VERSION:-${version}}` }
+      { regex: /slime-arena-monolith-full:\$\{VERSION:-\d+\.\d+\.\d+\}/g, replacement: `slime-arena-monolith-full:\${VERSION:-${version}}` }
+    ]
+  },
+  {
+    path: '../docker/docker-compose.app-db.yml',
+    patterns: [
+      { regex: /# Version: \d+\.\d+\.\d+/, replacement: `# Version: ${version}` },
+      { regex: /slime-arena-db:\$\{VERSION:-\d+\.\d+\.\d+\}/g, replacement: `slime-arena-db:\${VERSION:-${version}}` },
+      { regex: /slime-arena-app:\$\{VERSION:-\d+\.\d+\.\d+\}/g, replacement: `slime-arena-app:\${VERSION:-${version}}` }
     ]
   }
 ];
 
 dockerFiles.forEach(({ path: filePath, patterns }) => {
   const fullPath = path.resolve(__dirname, filePath);
-  if (fs.existsSync(fullPath)) {
-    let content = fs.readFileSync(fullPath, 'utf-8');
-    let updated = false;
-    patterns.forEach(({ regex, replacement }) => {
-      if (regex.test(content)) {
-        content = content.replace(regex, replacement);
-        updated = true;
-      }
-    });
-    if (updated) {
-      fs.writeFileSync(fullPath, content);
-      console.log(`Updated ${filePath} to version ${version}`);
-    } else {
-      console.warn(`Could not find version patterns in ${filePath}`);
+  if (!fs.existsSync(fullPath)) {
+    console.warn(`  skip (not found): ${filePath}`);
+    return;
+  }
+  let content = fs.readFileSync(fullPath, 'utf-8');
+  let updated = false;
+  patterns.forEach(({ regex, replacement }) => {
+    const newContent = content.replace(regex, replacement);
+    if (newContent !== content) {
+      content = newContent;
+      updated = true;
     }
-  } else {
-    console.warn(`File not found: ${filePath}`);
+  });
+  if (updated) {
+    fs.writeFileSync(fullPath, content);
+    console.log(`  updated ${filePath}`);
   }
 });
+
+console.log('sync-version: done');

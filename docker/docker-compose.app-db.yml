@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena App + DB - Docker Compose
-# Two containers: App (MetaServer + MatchServer + Client) + DB (PostgreSQL + Redis)
-# Version: 0.4.1
+# Two containers: App (MetaServer + MatchServer + Client + Admin) + DB (PostgreSQL + Redis)
+# Version: 0.8.3
 # =============================================================================
 
 name: slime-arena
@@ -12,7 +12,7 @@ services:
   # Contains: PostgreSQL + Redis
   # ---------------------------------------------------------------------------
   db:
-    image: ghcr.io/komleff/slime-arena-db:${VERSION:-0.5.2}
+    image: ghcr.io/komleff/slime-arena-db:${VERSION:-0.8.3}
     container_name: slime-arena-db
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-slime}
@@ -31,22 +31,33 @@ services:
 
   # ---------------------------------------------------------------------------
   # Application Container
-  # Contains: MetaServer + MatchServer + Client
+  # Contains: MetaServer + MatchServer + Client + Admin Dashboard
   # ---------------------------------------------------------------------------
   app:
-    image: ghcr.io/komleff/slime-arena-app:${VERSION:-0.5.2}
+    image: ghcr.io/komleff/slime-arena-app:${VERSION:-0.8.3}
     container_name: slime-arena-app
     ports:
       - "3000:3000"   # MetaServer (HTTP API)
       - "2567:2567"   # MatchServer (WebSocket/Colyseus)
       - "5173:5173"   # Client (static files)
+      - "5175:5175"   # Admin Dashboard
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-slime}:${POSTGRES_PASSWORD:-slime_dev_password}@db:5432/${POSTGRES_DB:-slime_arena}
       - REDIS_URL=redis://db:6379
       - META_SERVER_URL=http://localhost:3000
       - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
-      - JOIN_TOKEN_SECRET=${JOIN_TOKEN_SECRET:-dev-jwt-secret-change-in-prod}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-prod}
+      - CLAIM_TOKEN_TTL_MINUTES=${CLAIM_TOKEN_TTL_MINUTES:-60}
+      - ADMIN_ENCRYPTION_KEY=${ADMIN_ENCRYPTION_KEY:?Set ADMIN_ENCRYPTION_KEY in .env (base64, 32 bytes)}
+      # OAuth — Yandex
+      - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID:-}
+      - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET:-}
+      - OAUTH_YANDEX_ENABLED=${OAUTH_YANDEX_ENABLED:-false}
+      # OAuth — Google (optional)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - OAUTH_GOOGLE_ENABLED=${OAUTH_GOOGLE_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

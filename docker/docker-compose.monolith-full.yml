@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena Monolith Full - Docker Compose
 # All-in-One deployment: PostgreSQL + Redis + Application in single container
-# Version: 0.8.2
+# Version: 0.8.3
 # =============================================================================
 
 name: slime-arena-full
@@ -9,10 +9,10 @@ name: slime-arena-full
 services:
   # ---------------------------------------------------------------------------
   # Slime Arena Monolith Full
-  # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client
+  # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client + Admin Dashboard
   # ---------------------------------------------------------------------------
   monolith:
-    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.8.2}
+    image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.8.3}
     container_name: slime-arena-monolith-full
     ports:
       - "3000:3000"   # MetaServer (HTTP API)
@@ -28,6 +28,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-prod}
       - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
       - CLAIM_TOKEN_TTL_MINUTES=${CLAIM_TOKEN_TTL_MINUTES:-60}
+      - ADMIN_ENCRYPTION_KEY=${ADMIN_ENCRYPTION_KEY:?Set ADMIN_ENCRYPTION_KEY in .env (base64, 32 bytes)}
       # OAuth — Yandex
       - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID:-}
       - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET:-}
