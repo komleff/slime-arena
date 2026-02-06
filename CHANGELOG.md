@@ -1,5 +1,28 @@
 # Журнал изменений
 
+## v0.8.4 — Split Architecture Release (7 февраля 2026)
+
+Переход production на split-архитектуру (db + app). Исправлен CI/CD, обновлена документация для ИИ-деплоеров.
+
+### Исправлено
+
+- **app.Dockerfile** — добавлен `COPY scripts/ scripts/` (CI падал из-за отсутствия sync-version.js)
+
+### Изменено
+
+- **AI_AGENT_GUIDE.md** — полная переработка под split-архитектуру (docker-compose, запреты P0, протокол обновления)
+- **SERVER_SETUP.md** — добавлена секция split-архитектуры, docker-compose команды
+- Все версии обновлены: version.json, package.json, Dockerfiles, docker-compose файлы
+
+### Архитектура
+
+- **Production:** `slime-arena-db` + `slime-arena-app` через docker-compose
+- **Монолит (`monolith-full`)** помечен как deprecated
+- Обновление app: `docker compose pull app && docker compose up -d app` (~5 секунд простоя)
+- Секреты хранятся в `/root/slime-arena/.env` (не теряются при обновлении)
+
+---
+
 ## v0.8.3 — Infrastructure & Auth UX (7 февраля 2026)
 
 Инфраструктурное обновление: бэкапы, кнопка перезапуска в админке, кнопка входа для гостей.
