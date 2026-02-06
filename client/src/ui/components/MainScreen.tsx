@@ -182,14 +182,22 @@ const styles = `
   }
 
   .hud-auth-link {
+    background: none;
+    border: none;
     color: #4FC3F7;
+    font-family: inherit;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     text-decoration: underline;
     text-decoration-style: dotted;
     text-underline-offset: 3px;
-    padding: 4px 0;
+    padding: 6px 8px;
+    margin: -6px -8px;
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
     transition: color 150ms;
   }
 
@@ -676,9 +684,9 @@ export function MainScreen({ onArena }: MainScreenProps) {
           <div class="hud-info">
             <div class="hud-name">{playerName}</div>
             {isGuest ? (
-              <div class="hud-auth-link" onClick={() => setShowAuthModal(true)}>
+              <button class="hud-auth-link" onClick={() => setShowAuthModal(true)}>
                 Войти
-              </div>
+              </button>
             ) : (
               <div class="medals-row">
                 <div class="medal" style={{ background: '#FFD700' }} />

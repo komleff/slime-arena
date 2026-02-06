@@ -9,7 +9,7 @@ name: slime-arena-full
 services:
   # ---------------------------------------------------------------------------
   # Slime Arena Monolith Full
-  # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client
+  # Contains: PostgreSQL + Redis + MetaServer + MatchServer + Client + Admin Dashboard
   # ---------------------------------------------------------------------------
   monolith:
     image: ghcr.io/komleff/slime-arena-monolith-full:${VERSION:-0.8.3}
@@ -28,6 +28,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-prod}
       - MATCH_SERVER_TOKEN=${MATCH_SERVER_TOKEN:-dev-server-token}
       - CLAIM_TOKEN_TTL_MINUTES=${CLAIM_TOKEN_TTL_MINUTES:-60}
+      - ADMIN_ENCRYPTION_KEY=${ADMIN_ENCRYPTION_KEY:-}
       # OAuth — Yandex
       - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID:-}
       - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET:-}

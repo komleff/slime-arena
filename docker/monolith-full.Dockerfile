@@ -57,7 +57,7 @@ FROM node:20-alpine AS runtime
 
 # OCI Image Labels
 LABEL org.opencontainers.image.title="Slime Arena Monolith Full"
-LABEL org.opencontainers.image.description="Slime Arena all-in-one container: PostgreSQL + Redis + MetaServer + MatchServer + Client"
+LABEL org.opencontainers.image.description="Slime Arena all-in-one container: PostgreSQL + Redis + MetaServer + MatchServer + Client + Admin Dashboard"
 LABEL org.opencontainers.image.vendor="komleff"
 LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
 LABEL org.opencontainers.image.version="0.8.3"

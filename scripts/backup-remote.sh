@@ -6,13 +6,13 @@
 #   ./scripts/backup-remote.sh [OUTPUT_DIR]
 #
 # Требования:
-#   - SSH-ключ настроен для root@147.45.147.175
+#   - SSH-ключ настроен для root@SERVER_IP
 #   - Docker запущен на сервере с контейнером slime-arena
 
-set -e
+set -euo pipefail
 
 # --- Конфигурация ---
-SERVER_IP="147.45.147.175"
+SERVER_IP="${SERVER_IP:-147.45.147.175}"
 SERVER_USER="root"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
 CONTAINER_NAME="${CONTAINER_NAME:-slime-arena}"
@@ -55,10 +55,10 @@ echo "      Дамп создан: ${REMOTE_FILE}"
 
 # --- Шаг 2: Скачивание дампа ---
 echo "[2/3] Скачивание дампа..."
-scp -i "$SSH_KEY" "${SERVER_USER}@${SERVER_IP}:${REMOTE_FILE}" "${LOCAL_FILE}"
+scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "${SERVER_USER}@${SERVER_IP}:${REMOTE_FILE}" "${LOCAL_FILE}"
 
 # Удаление временного файла на сервере
-ssh -i "$SSH_KEY" "${SERVER_USER}@${SERVER_IP}" "rm -f ${REMOTE_FILE}"
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "${SERVER_USER}@${SERVER_IP}" "rm -f ${REMOTE_FILE}"
 
 # --- Шаг 3: Проверка и статистика ---
 echo "[3/3] Проверка..."

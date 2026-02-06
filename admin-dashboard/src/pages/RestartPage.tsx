@@ -4,7 +4,7 @@
  */
 import { signal } from '@preact/signals';
 import { apiRequest, ApiError } from '../api/client';
-import { totpSuccess } from '../auth/signals';
+import { totpRequired, totpSuccess } from '../auth/signals';
 import { currentTab } from '../App';
 
 /** Состояние страницы */
@@ -26,7 +26,15 @@ async function restartServer(code: string): Promise<{ auditId: string }> {
 }
 
 export function RestartPage() {
-  const is2FAConfigured = totpSuccess.value;
+  // Сброс состояния при каждом заходе на вкладку
+  restartState.value = 'idle';
+  totpCode.value = '';
+  errorMessage.value = null;
+  auditId.value = null;
+
+  // totpRequired = сервер подтвердил что 2FA включена (при логине)
+  // totpSuccess = 2FA настроена в текущей сессии (через Settings)
+  const is2FAConfigured = totpRequired.value || totpSuccess.value;
 
   return (
     <div class="page restart-page">
