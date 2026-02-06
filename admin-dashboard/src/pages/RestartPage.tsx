@@ -133,7 +133,7 @@ function ConfirmingState() {
       restartState.value = 'sent';
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 401) {
+        if (err.status === 403) {
           errorMessage.value = 'Неверный 2FA-код';
         } else if (err.status === 429) {
           errorMessage.value = 'Слишком частые запросы (лимит: 2 в минуту)';
