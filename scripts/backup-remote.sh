@@ -49,13 +49,19 @@ echo ""
 # --- Шаг 1: pg_dump на сервере ---
 echo "[1/3] Создание дампа на сервере..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "${SERVER_USER}@${SERVER_IP}" \
-    "docker exec ${CONTAINER_NAME} pg_dump -U ${DB_USER} ${DB_NAME} | gzip > ${REMOTE_FILE}"
+    "set -o pipefail; docker exec '${CONTAINER_NAME}' pg_dump -U '${DB_USER}' '${DB_NAME}' | gzip > '${REMOTE_FILE}'"
 
 echo "      Дамп создан: ${REMOTE_FILE}"
 
 # --- Шаг 2: Скачивание дампа ---
 echo "[2/3] Скачивание дампа..."
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "${SERVER_USER}@${SERVER_IP}:${REMOTE_FILE}" "${LOCAL_FILE}"
+
+# Проверка размера файла (защита от пустого дампа)
+if [ ! -s "${LOCAL_FILE}" ]; then
+    echo "ОШИБКА: Скачанный файл пуст. pg_dump мог завершиться с ошибкой."
+    exit 1
+fi
 
 # Удаление временного файла на сервере
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new "${SERVER_USER}@${SERVER_IP}" "rm -f ${REMOTE_FILE}"

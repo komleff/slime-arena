@@ -40,7 +40,8 @@ COPY version.json ./
 # 2. server (TypeScript compilation)
 # 3. client (Vite production build)
 # 4. admin-dashboard (Vite production build)
-RUN npm run build --workspace=shared && \
+RUN node scripts/sync-version.js && \
+    npm run build --workspace=shared && \
     npm run build --workspace=server && \
     npm run build --workspace=client && \
     npm run build --workspace=admin-dashboard
@@ -116,10 +117,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
 # CLIENT: Static file server for web client
 # ADMIN: Admin Dashboard static server
 CMD ["concurrently", \
-    "--kill-others-on-fail", \
+    "--kill-others", \
     "--names", "META,MATCH,CLIENT,ADMIN", \
     "--prefix-colors", "blue.bold,magenta.bold,green.bold,yellow.bold", \
+    "--success", "first", \
     "node server/dist/server/src/meta/server.js", \
     "node server/dist/server/src/index.js", \
     "serve -s client/dist -l 5173 --no-clipboard", \
-    "serve -c admin-dashboard/serve.json -l 5175 --no-clipboard"]
+    "serve admin-dashboard/dist -c admin-dashboard/serve.json -l 5175 --no-clipboard"]

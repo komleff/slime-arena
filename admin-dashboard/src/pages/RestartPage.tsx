@@ -2,6 +2,7 @@
  * Страница перезапуска сервера.
  * Требует 2FA-код для подтверждения.
  */
+import { useEffect } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import { apiRequest, ApiError } from '../api/client';
 import { totpRequired, totpSuccess } from '../auth/signals';
@@ -26,11 +27,13 @@ async function restartServer(code: string): Promise<{ auditId: string }> {
 }
 
 export function RestartPage() {
-  // Сброс состояния при каждом заходе на вкладку
-  restartState.value = 'idle';
-  totpCode.value = '';
-  errorMessage.value = null;
-  auditId.value = null;
+  // Сброс состояния при монтировании (заход на вкладку)
+  useEffect(() => {
+    restartState.value = 'idle';
+    totpCode.value = '';
+    errorMessage.value = null;
+    auditId.value = null;
+  }, []);
 
   // totpRequired = сервер подтвердил что 2FA включена (при логине)
   // totpSuccess = 2FA настроена в текущей сессии (через Settings)

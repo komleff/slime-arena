@@ -632,7 +632,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
   const user = currentUser.value;
   const profile = currentProfile.value;
 
-  const isGuest = authService.isAnonymous();
+  const [isGuest, setIsGuest] = useState(authService.isAnonymous());
   const playerName = isGuest ? 'Гость' : (user?.nickname || 'PLAYER');
   const level = profile?.level ?? 1;
   const avatarUrl = profile?.avatarUrl || '/hud/hud_avatar_hero_01.webp';
@@ -754,7 +754,10 @@ export function MainScreen({ onArena }: MainScreenProps) {
       {showAuthModal && (
         <RegistrationPromptModal
           intent="login"
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => {
+            setShowAuthModal(false);
+            setIsGuest(authService.isAnonymous());
+          }}
         />
       )}
     </div>

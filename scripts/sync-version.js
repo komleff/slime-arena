@@ -39,8 +39,6 @@ packageFiles.forEach(file => {
 });
 
 // --- 2. Docker и Compose файлы ---
-const VER = /\d+\.\d+\.\d+/;
-
 const dockerFiles = [
   {
     path: '../docker/monolith-full.Dockerfile',
@@ -89,10 +87,9 @@ dockerFiles.forEach(({ path: filePath, patterns }) => {
   let content = fs.readFileSync(fullPath, 'utf-8');
   let updated = false;
   patterns.forEach(({ regex, replacement }) => {
-    if (regex.test(content)) {
-      // Reset lastIndex for global regexes
-      regex.lastIndex = 0;
-      content = content.replace(regex, replacement);
+    const newContent = content.replace(regex, replacement);
+    if (newContent !== content) {
+      content = newContent;
       updated = true;
     }
   });

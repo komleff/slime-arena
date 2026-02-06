@@ -326,25 +326,27 @@ export function RegistrationPromptModal({ onClose, intent = 'convert_guest' }: R
           </p>
         </div>
 
-        <div class="reg-modal-benefits">
-          <div class="reg-modal-benefits-title">После входа вы получите</div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Сохранение рейтинга и статистики</span>
+        {intent === 'convert_guest' && (
+          <div class="reg-modal-benefits">
+            <div class="reg-modal-benefits-title">После входа вы получите</div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Сохранение рейтинга и статистики</span>
+            </div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Участие в глобальном рейтинге</span>
+            </div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Доступ к скинам и наградам</span>
+            </div>
+            <div class="reg-modal-benefit">
+              <span class="reg-modal-benefit-icon">*</span>
+              <span>Игра с разных устройств</span>
+            </div>
           </div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Участие в глобальном рейтинге</span>
-          </div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Доступ к скинам и наградам</span>
-          </div>
-          <div class="reg-modal-benefit">
-            <span class="reg-modal-benefit-icon">*</span>
-            <span>Игра с разных устройств</span>
-          </div>
-        </div>
+        )}
 
         {error && (
           <div class="reg-modal-error">

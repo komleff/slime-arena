@@ -12,7 +12,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const version = require('../version.json').version;
+const versionData = require('../version.json');
+if (!versionData.version || !/^\d+\.\d+\.\d+$/.test(versionData.version)) {
+  console.error('check-version: version.json is missing or has invalid "version" field');
+  process.exit(1);
+}
+const version = versionData.version;
 const errors = [];
 
 // --- 1. package.json файлы ---
@@ -33,24 +38,28 @@ packageFiles.forEach(file => {
   }
 });
 
-// --- 2. Docker и Compose файлы ---
+// --- 2. Docker и Compose файлы (проверяем ВСЕ вхождения) ---
 const regexChecks = [
-  { file: 'docker/monolith-full.Dockerfile', pattern: /org\.opencontainers\.image\.version="(\d+\.\d+\.\d+)"/ },
-  { file: 'docker/app.Dockerfile', pattern: /org\.opencontainers\.image\.version="(\d+\.\d+\.\d+)"/ },
-  { file: 'docker/db.Dockerfile', pattern: /org\.opencontainers\.image\.version="(\d+\.\d+\.\d+)"/ },
-  { file: 'docker/docker-compose.monolith-full.yml', pattern: /\$\{VERSION:-(\d+\.\d+\.\d+)\}/ },
-  { file: 'docker/docker-compose.app-db.yml', pattern: /\$\{VERSION:-(\d+\.\d+\.\d+)\}/ },
+  { file: 'docker/monolith-full.Dockerfile', pattern: /org\.opencontainers\.image\.version="(\d+\.\d+\.\d+)"/g },
+  { file: 'docker/app.Dockerfile', pattern: /org\.opencontainers\.image\.version="(\d+\.\d+\.\d+)"/g },
+  { file: 'docker/db.Dockerfile', pattern: /org\.opencontainers\.image\.version="(\d+\.\d+\.\d+)"/g },
+  { file: 'docker/docker-compose.monolith-full.yml', pattern: /\$\{VERSION:-(\d+\.\d+\.\d+)\}/g },
+  { file: 'docker/docker-compose.app-db.yml', pattern: /\$\{VERSION:-(\d+\.\d+\.\d+)\}/g },
 ];
 
 regexChecks.forEach(({ file, pattern }) => {
   const filePath = path.resolve(__dirname, '..', file);
   if (!fs.existsSync(filePath)) return;
   const content = fs.readFileSync(filePath, 'utf-8');
-  const match = content.match(pattern);
-  if (match && match[1] !== version) {
-    errors.push({ file, expected: version, found: match[1] });
-  } else if (!match) {
+  const matches = [...content.matchAll(pattern)];
+  if (matches.length === 0) {
     errors.push({ file, expected: version, found: '(pattern not found)' });
+  } else {
+    matches.forEach(m => {
+      if (m[1] !== version) {
+        errors.push({ file, expected: version, found: m[1] });
+      }
+    });
   }
 });
 
