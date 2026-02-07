@@ -42,7 +42,8 @@ totpRequired: user.totp_enabled,
 totpRequired: !user.totp_enabled,
 ```
 
-Безопасность: `totpRequired` НЕ используется в App.tsx для роутинга (только `isAuthenticated`). Сигнал используется только в SettingsPage.tsx для UI.
+Безопасность: `totpRequired` не участвует в роутинге в `App.tsx` (используется только `isAuthenticated`).
+Контракт: `totpRequired = true` — у пользователя ещё не настроена 2FA (настройка требуется); `totpRequired = false` — 2FA уже настроена. Сигнал читается в `SettingsPage.tsx` и `RestartPage.tsx`.
 
 ### Шаг 2: Фронтенд — `admin-dashboard/src/pages/SettingsPage.tsx`
 
