@@ -200,6 +200,9 @@ export const currentMatchId = signal<string | null>(null);
 // Когда 0 — можно нажать "Играть ещё"
 export const resultsWaitTime = signal<number>(0);
 
+// Timestamp (ms) перезагрузки сервера. 0 = нет перезагрузки.
+export const shutdownAt = signal<number>(0);
+
 // UI состояние
 export const hudVisible = signal(true);
 export const isMobile = signal(false);
@@ -449,6 +452,7 @@ export function resetGameState() {
     matchResults.value = null;
     resultsWaitTime.value = 0; // Сброс таймера результатов
     arenaWaitTime.value = 0; // Сброс таймера ожидания арены
+    shutdownAt.value = 0; // Сброс уведомления о перезагрузке
     // Сбрасываем matchmaking, но НЕ auth
     matchmakingStatus.value = 'idle';
     queuePosition.value = null;

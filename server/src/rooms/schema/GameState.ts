@@ -302,5 +302,7 @@ export class GameState extends Schema {
     @type({ map: Obstacle }) obstacles = new MapSchema<Obstacle>();
     @type({ array: SafeZone }) safeZones = new ArraySchema<SafeZone>();
     @type({ array: "string" }) leaderboard = new ArraySchema<string>();
+    /** Timestamp (ms) когда сервер будет перезагружен. 0 = нет перезагрузки. */
+    @type("number") shutdownAt: number = 0;
 }
 

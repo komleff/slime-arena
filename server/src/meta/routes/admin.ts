@@ -558,6 +558,45 @@ async function fetchRoomsFromMatchServer(): Promise<RoomStats[] | null> {
 }
 
 /**
+ * Уведомляет MatchServer о предстоящей перезагрузке.
+ * Все комнаты покажут игрокам обратный отсчёт.
+ */
+async function notifyMatchServerShutdown(shutdownAt: number): Promise<void> {
+  const matchServerHost = process.env.MATCH_SERVER_HOST || 'localhost';
+  const matchServerPort = process.env.MATCH_SERVER_PORT || '2567';
+  const matchServerToken = process.env.MATCH_SERVER_TOKEN;
+
+  if (!matchServerToken) {
+    console.warn('[Admin Restart] MATCH_SERVER_TOKEN not configured, skipping notification');
+    return;
+  }
+
+  const url = `http://${matchServerHost}:${matchServerPort}/api/internal/shutdown-notify`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${matchServerToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ shutdownAt }),
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    throw new Error(`MatchServer returned ${response.status}`);
+  }
+
+  const result = await response.json() as { notified: number; total: number };
+  console.log(`[Admin Restart] Shutdown notification: ${result.notified}/${result.total} rooms notified`);
+}
+
+/**
  * GET /api/v1/admin/rooms
  *
  * Возвращает список активных игровых комнат с метриками:
@@ -759,6 +798,15 @@ router.post(
       // Генерируем уникальный ID для отслеживания
       const auditId = randomUUID();
 
+      // Задержка перед рестартом (сек) — время на показ уведомления игрокам
+      const SHUTDOWN_DELAY_SEC = 30;
+      const shutdownAt = Date.now() + SHUTDOWN_DELAY_SEC * 1000;
+
+      // Уведомляем игроков о перезагрузке (fire-and-forget)
+      notifyMatchServerShutdown(shutdownAt).catch((err) => {
+        console.error('[Admin Restart] Failed to notify MatchServer:', err);
+      });
+
       // Логируем действие в audit_log (fire-and-forget)
       logAction({
         userId: adminUser.id,
@@ -768,6 +816,7 @@ router.post(
         details: {
           auditId,
           requestedBy: adminUser.username,
+          shutdownAt: new Date(shutdownAt).toISOString(),
         },
       }).catch((err) => console.error('[Audit]', err));
 
@@ -776,6 +825,7 @@ router.post(
         auditId,
         requestedAt: new Date().toISOString(),
         requestedBy: adminUser.username,
+        shutdownAt,
       };
 
       try {

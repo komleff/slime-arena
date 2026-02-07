@@ -105,6 +105,57 @@ app.get("/api/internal/rooms", async (req, res) => {
     }
 });
 
+/**
+ * POST /api/internal/shutdown-notify
+ * Уведомляет все комнаты о предстоящей перезагрузке сервера.
+ * Body: { shutdownAt: number } — Unix timestamp (ms).
+ */
+app.post("/api/internal/shutdown-notify", async (req, res) => {
+    const authHeader = req.get("authorization");
+    const expectedToken = process.env.MATCH_SERVER_TOKEN;
+
+    if (!expectedToken) {
+        console.error("[MatchServer] MATCH_SERVER_TOKEN not configured");
+        return res.status(500).json({ error: "Server misconfiguration" });
+    }
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Missing authorization header" });
+    }
+
+    const token = authHeader.substring(7);
+    if (token !== expectedToken) {
+        return res.status(403).json({ error: "Invalid token" });
+    }
+
+    const { shutdownAt } = req.body;
+    if (!shutdownAt || typeof shutdownAt !== "number") {
+        return res.status(400).json({ error: "shutdownAt (number) is required" });
+    }
+
+    try {
+        const rooms = await matchMaker.query({ name: "arena" });
+        let notified = 0;
+
+        await Promise.all(
+            rooms.map(async (room) => {
+                try {
+                    await matchMaker.remoteRoomCall(room.roomId, "setShutdownAt", [shutdownAt]);
+                    notified++;
+                } catch (err) {
+                    console.warn(`[MatchServer] Failed to notify room ${room.roomId}:`, err);
+                }
+            })
+        );
+
+        console.log(`[MatchServer] Shutdown notification sent to ${notified}/${rooms.length} rooms (shutdownAt: ${new Date(shutdownAt).toISOString()})`);
+        res.json({ notified, total: rooms.length });
+    } catch (error) {
+        console.error("[MatchServer] Error sending shutdown notifications:", error);
+        res.status(500).json({ error: "Failed to notify rooms" });
+    }
+});
+
 // Глобальные обработчики ошибок — логируем и завершаем (supervisord перезапустит)
 process.on("uncaughtException", (error: Error) => {
     console.error("[MatchServer] FATAL: Uncaught exception:", error);

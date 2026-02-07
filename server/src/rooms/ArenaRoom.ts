@@ -2774,7 +2774,13 @@ export class ArenaRoom extends Room<GameState> {
             },
         };
     }
+
+    /**
+     * Устанавливает время перезагрузки сервера.
+     * Вызывается через matchMaker.remoteRoomCall() из MatchServer internal API.
+     * @param shutdownAtMs — Unix timestamp (ms) когда сервер будет перезагружен
+     */
+    setShutdownAt(shutdownAtMs: number) {
+        this.state.shutdownAt = shutdownAtMs;
+    }
 }
-
-
-
