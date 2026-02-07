@@ -4,7 +4,7 @@
 ## Контроль изменений
 - **last_checked_commit**: main @ 7 февраля 2026 (PR #144 merged, v0.8.5)
 - **Текущая ветка**: `main`
-- **Релиз:** v0.8.5 (PR #144 merged, PR #145 pending, Docker ожидает сборку)
+- **Релиз:** v0.8.5 (PR #144, #145 merged, Docker images pushed, tag v0.8.5)
 - **Production:** v0.7.8 → v0.8.5 (деплой оператором)
 - **GDD версия**: v3.3.2
 
@@ -28,8 +28,8 @@
 ### Статус
 
 - v0.8.4: ✅ RELEASED (Docker images на ghcr.io)
-- v0.8.5: PR #144 merged, PR #145 (margin fix) pending
-- Docker v0.8.5: ⏳ ожидает сборку
+- v0.8.5: PR #144, #145 merged, tag v0.8.5
+- Docker v0.8.5: ✅ app:0.8.5 + db:0.8.5 на ghcr.io
 - Деплой: ⏳ оператор
 
 ---

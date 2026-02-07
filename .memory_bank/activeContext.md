@@ -4,15 +4,15 @@
 
 ## Текущее состояние (7 февраля 2026)
 
-**База:** main → **v0.8.5** (PR #144 merged, PR #145 pending)
+**База:** main → **v0.8.5** (PR #144, #145 merged, tag v0.8.5)
 **GDD версия:** 3.3.2
-**Sprint 20 Status:** v0.8.5 — UI фиксы гостя, ожидает сборку Docker + деплой
+**Sprint 20 Status:** v0.8.5 — UI фиксы гостя, Docker images pushed, ожидает деплой
 **Production:** v0.7.8 → обновление до v0.8.5 (split-архитектура db + app)
 
-**Docker images (ожидают сборку):**
+**Docker images (на ghcr.io):**
 
-- `ghcr.io/komleff/slime-arena-app:0.8.5` ⏳
-- `ghcr.io/komleff/slime-arena-db:0.8.5` ⏳
+- `ghcr.io/komleff/slime-arena-app:0.8.5` ✅
+- `ghcr.io/komleff/slime-arena-db:0.8.5` ✅
 
 ---
 
@@ -46,7 +46,7 @@
 | C4 | Favicon из slime-arena-icon.png | done |
 | C5 | GUEST_DEFAULT_NICKNAME → shared/constants | done |
 | C6 | PR review fixes: hit-area 44x44, focus-visible, isAnonymous guard | done |
-| C7 | margin-top alignment | PR #145 ⏳ |
+| C7 | margin-top alignment | done (PR #145 merged) |
 | A8 | Деплой на production | ⏳ оператор |
 
 ---
