@@ -187,14 +187,15 @@ const styles = `
     outline: none;
     cursor: pointer;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 800;
     letter-spacing: 0.5px;
     color: #fff;
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     text-transform: uppercase;
-    padding: 6px 18px;
-    min-height: 32px;
+    padding: 10px 28px;
+    min-height: 44px;
+    min-width: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -212,6 +213,11 @@ const styles = `
   .hud-auth-link:active {
     transform: translateY(2px);
     box-shadow: 0 1px 0 #01579B, 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .hud-auth-link:focus-visible {
+    outline: 2px solid #81D4FA;
+    outline-offset: 2px;
   }
 
   /* === ВАЛЮТА === */
