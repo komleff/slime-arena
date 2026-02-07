@@ -1,107 +1,167 @@
-# Исправление бага: 2FA статус в Admin Dashboard
+# v0.8.5 — Фиксы UI гостя
 
 **Дата:** 2026-02-07
-**Ветка:** `sprint-20/fix-admin-2fa-status`
-**Контекст:** При локальном тестировании v0.8.4 обнаружен баг — после настройки 2FA и повторного логина Settings показывает кнопку «Настроить 2FA» вместо статуса «2FA включена».
+**Ветка:** `sprint-20/v0.8.5-fixes`
+**Контекст:** Локальное тестирование v0.8.4 выявило два UI-бага для гостевых пользователей:
+1. Имя гостя — генерируется «ЛовкийБоец1234» вместо «Гость»
+2. Кнопка «Войти» на главном экране — мелкая синяя ссылка, не в стиле остальных элементов
+3. Нет favicon — `GET /favicon.ico` возвращает 404
 
 ---
 
-## Причина бага
+## Причина
 
-Сигнал `totpRequired` перегружен двумя смыслами:
+`generateGuestNickname()` в `authService.ts:473-481` генерирует имя формата `"ЛовкийБоец1234"` (слитно + числовой суффикс). Это имя:
+1. Сохраняется в `localStorage.guest_nickname`
+2. Передаётся в `createUser('guest', nickname)` → `setAuthState()` → `playerName.value = nickname`
+3. MainMenu видит непустой `playerName` → не генерирует новое случайное имя
 
-| Компонент | Что отправляет/читает | Семантика |
-|-----------|----------------------|-----------|
-| **Бэкенд** (admin.ts:187, 277) | `totpRequired: user.totp_enabled` | «У пользователя включена 2FA» |
-| **SettingsPage** (строка 62) | `totpRequired.value` → показать notice | «Нужно настроить 2FA» |
-
-При `totp_enabled=true` в БД → `totpRequired=true` → Settings думает «нужно настроить» → показывает кнопку.
-При этом `totpSuccess=false` (in-memory, сбрасывается при перезагрузке) → условие «2FA включена» (строка 39) не срабатывает.
+MainScreen (строка 636) уже корректно показывает «Гость» через `isGuest ? 'Гость' : ...`, но `user.nickname` всё равно содержит некрасивое сгенерированное имя.
 
 ---
 
 ## Решение
 
-Инвертировать семантику `totpRequired` на бэкенде: `true` = «настройка нужна» (т.е. `!totp_enabled`).
+### Шаг 1: `client/src/services/authService.ts` — изменить `generateGuestNickname()`
 
-### Шаг 1: Бэкенд — `server/src/meta/routes/admin.ts`
-
-**Login (строка 187):**
 ```ts
-// Было:
-totpRequired: user.totp_enabled,
+// Было (строки 473-481):
+private generateGuestNickname(): string {
+    const adjectives = ['Быстрый', 'Хитрый', 'Весёлый', 'Храбрый', 'Ловкий'];
+    const nouns = ['Охотник', 'Воин', 'Странник', 'Игрок', 'Боец'];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const uniqueId = Date.now() % 10000;
+    return `${adj}${noun}${uniqueId}`;
+}
+
 // Стало:
-totpRequired: !user.totp_enabled,
-```
-
-**Refresh (строка 277):**
-```ts
-// Было:
-totpRequired: user.totp_enabled,
-// Стало:
-totpRequired: !user.totp_enabled,
-```
-
-Безопасность: `totpRequired` не участвует в роутинге в `App.tsx` (используется только `isAuthenticated`).
-Контракт: `totpRequired = true` — у пользователя ещё не настроена 2FA (настройка требуется); `totpRequired = false` — 2FA уже настроена. Сигнал читается в `SettingsPage.tsx` и `RestartPage.tsx`.
-
-### Шаг 2: Фронтенд — `admin-dashboard/src/pages/SettingsPage.tsx`
-
-Переписать логику `TotpSetup()`:
-
-```tsx
-function TotpSetup() {
-  // Только что настроили 2FA в текущей сессии
-  if (totpSuccess.value) {
-    return (
-      <div class="totp-status totp-enabled">
-        <span class="status-icon">&#10003;</span>
-        <span>2FA успешно настроена!</span>
-      </div>
-    );
-  }
-
-  // 2FA уже включена (totpRequired=false означает «настройка НЕ нужна»)
-  if (!totpRequired.value && !totpSetupData.value) {
-    return (
-      <div class="totp-status totp-enabled">
-        <span class="status-icon">&#10003;</span>
-        <span>2FA включена</span>
-      </div>
-    );
-  }
-
-  // Нужна настройка (totpRequired=true означает «настройка нужна»)
-  if (!totpSetupData.value) {
-    return (
-      <div class="totp-setup-start">
-        {totpRequired.value && (
-          <p class="totp-required-notice">...</p>
-        )}
-        <button ...>Настроить 2FA</button>
-      </div>
-    );
-  }
-
-  // Форма верификации (без изменений)
+private generateGuestNickname(): string {
+    return 'Гость';
 }
 ```
 
-Ключевое изменение: порядок проверок. `totpSuccess` проверяется первым (приоритет у «только что настроили»), затем `!totpRequired` для «уже включена».
+Зачем: «Гость» — понятный сигнал, что игрок не авторизован. Вернувшийся игрок увидит «Гость» вместо своего имени и захочет войти. Новичок поймёт, что он гость, а перед матчем ему предложат выбрать случайное игровое имя.
 
-### Шаг 3: Фронтенд — `admin-dashboard/src/auth/signals.ts`
+### Шаг 2: `client/src/ui/components/MainMenu.tsx` — генерировать случайное имя для поля ввода
 
-Обновить комментарий:
-```ts
-// Было:
-/** Требуется ли настройка 2FA после логина */
+```tsx
+// Было (строки 407-414):
+useEffect(() => {
+    const currentName = playerName.value;
+    if (!currentName || currentName.trim() === '') {
+      const newName = generateRandomName();
+      setName(newName);
+      playerName.value = newName;
+      initialNameRef.current = newName;
+    }
+    ...
+}, []);
+
 // Стало:
-/** Требуется ли настройка 2FA (true = 2FA не включена, нужно настроить) */
+useEffect(() => {
+    const currentName = playerName.value;
+    if (!currentName || currentName.trim() === '' || currentName === 'Гость') {
+      const newName = generateRandomName();
+      setName(newName);
+      playerName.value = newName;
+      initialNameRef.current = newName;
+    }
+    ...
+}, []);
 ```
 
-### Шаг 4: `handleVerify()` — без изменений
+Зачем: если имя пустое или «Гость», генерируем красивое двухсловное имя из `generateRandomName()` (например, «Ловкий боец»). Это имя будет отправлено серверу при подключении к матчу.
 
-После успешной верификации `setTotpRequired(false)` уже корректно — 2FA настроена, настройка больше не нужна.
+### Шаг 3: Очистка `guest_nickname` в localStorage
+
+Старые гостевые сессии уже содержат `"ЛовкийБоец1234"` в `localStorage.guest_nickname`. При восстановлении сессии (строка 225) это старое имя будет использовано.
+
+Решение: в `doInitialize()` (restore flow, строка 225) также заменить fallback:
+
+```ts
+// Было:
+const nickname = localStorage.getItem('guest_nickname') || this.generateGuestNickname();
+
+// Оставляем как есть — generateGuestNickname() теперь возвращает "Гость",
+// а для старых сессий localStorage уже содержит "ЛовкийБоец1234".
+// MainMenu заменит это на случайное имя в поле ввода.
+```
+
+Для обратной совместимости со старыми сессиями: MainMenu (шаг 2) генерирует новое имя если `playerName` не является нормальным двухсловным именем. Условие `currentName === 'Гость'` покроет новые сессии. Для старых сессий (формат "ЛовкийБоецXXXX") пользователь увидит старое имя — это приемлемо, со временем все сессии обновятся.
+
+### Шаг 4: `client/src/ui/components/MainScreen.tsx` — стилизация кнопки «Войти»
+
+Текущий стиль `.hud-auth-link` (строки 184-210) — мелкая синяя ссылка с подчёркиванием. Не соответствует стилю экрана (jelly-кнопки, шоколадные плашки).
+
+Заменить на компактную jelly-кнопку в стиле экрана:
+
+```css
+/* Было (строки 184-210): */
+.hud-auth-link {
+    background: none;
+    border: none;
+    color: #4FC3F7;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    ...
+}
+
+/* Стало: */
+.hud-auth-link {
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    text-transform: uppercase;
+    padding: 6px 18px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #81D4FA 0%, #039BE5 50%, #0277BD 100%);
+    border-radius: 999px;
+    box-shadow: 0 3px 0 #01579B, 0 5px 8px rgba(0,0,0,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.hud-auth-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 0 #01579B, 0 6px 10px rgba(0,0,0,0.3);
+}
+
+.hud-auth-link:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #01579B, 0 2px 4px rgba(0,0,0,0.3);
+}
+```
+
+Стиль: компактная «jelly» pill-кнопка в голубых тонах (отличается от красной «АРЕНА»), с 3D-тенью и press-эффектом. Uppercase текст «ВОЙТИ» для consistency.
+
+### Шаг 5: Favicon
+
+Браузер запрашивает `/favicon.ico`, получает 404. Иконка уже есть: `assets/icons/slime-arena-icon.png` (300x300 PNG).
+
+1. Скопировать `assets/icons/slime-arena-icon.png` → `client/public/favicon.png`
+2. Добавить в `client/index.html` в `<head>`:
+
+```html
+<link rel="icon" type="image/png" href="/favicon.png">
+```
+
+Vite автоматически обслуживает файлы из `client/public/` как статику.
+
+### Шаг 6: Bump версии → 0.8.5
+
+`version.json` → `"0.8.5"`
 
 ---
 
@@ -109,9 +169,12 @@ function TotpSetup() {
 
 | Файл | Изменение |
 |------|-----------|
-| `server/src/meta/routes/admin.ts` | Строки 187, 277: инвертировать `totpRequired` |
-| `admin-dashboard/src/pages/SettingsPage.tsx` | Строки 37-56: переписать логику TotpSetup |
-| `admin-dashboard/src/auth/signals.ts` | Строка 11: обновить комментарий |
+| `client/src/services/authService.ts` | Строки 473-481: `generateGuestNickname()` → return `'Гость'` |
+| `client/src/ui/components/MainMenu.tsx` | Строка 409: добавить `\|\| currentName === 'Гость'` |
+| `client/src/ui/components/MainScreen.tsx` | Строки 184-210: заменить стиль `.hud-auth-link` на jelly-кнопку |
+| `client/public/favicon.png` | Копия `assets/icons/slime-arena-icon.png` |
+| `client/index.html` | Добавить `<link rel="icon">` в `<head>` |
+| `version.json` | `"0.8.4"` → `"0.8.5"` |
 
 ---
 
@@ -119,9 +182,11 @@ function TotpSetup() {
 
 1. `npm run build` — сборка без ошибок
 2. `npm run test` — тесты проходят
-3. Локальная проверка:
-   - Логин в Admin Dashboard
-   - Settings показывает «2FA включена» (если уже настроена)
-   - Logout → Login → Settings снова показывает «2FA включена»
-   - Сброс 2FA в БД (`UPDATE admin_users SET totp_enabled=false, totp_secret_encrypted=NULL`) → логин → Settings показывает кнопку «Настроить 2FA»
-4. Коммит в ветку, PR в main
+3. Очистить localStorage (`localStorage.clear()`)
+4. Открыть `http://localhost:5173`
+5. Главный экран: рядом с аватаркой «ГОСТЬ», под ним голубая pill-кнопка «ВОЙТИ»
+6. Кнопка «ВОЙТИ» визуально вписывается в стиль (jelly, 3D-тень, press-эффект)
+7. Нажатие на «ВОЙТИ» открывает модал авторизации
+8. Экран перед матчем (MainMenu): поле ввода содержит случайное двухсловное имя типа «Ловкий боец»
+9. Повторная загрузка: поведение то же
+10. В консоли нет ошибки `favicon.ico 404` — во вкладке браузера отображается иконка слайма

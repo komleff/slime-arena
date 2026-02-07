@@ -1,7 +1,7 @@
 # =============================================================================
 # Slime Arena DB Container
 # PostgreSQL + Redis in one container
-# Version: 0.8.4
+# Version: 0.8.5
 # Platforms: linux/amd64, linux/arm64
 # =============================================================================
 
@@ -12,7 +12,7 @@ LABEL org.opencontainers.image.title="Slime Arena DB"
 LABEL org.opencontainers.image.description="Slime Arena database bundle: PostgreSQL 16 + Redis"
 LABEL org.opencontainers.image.vendor="komleff"
 LABEL org.opencontainers.image.source="https://github.com/komleff/slime-arena"
-LABEL org.opencontainers.image.version="0.8.4"
+LABEL org.opencontainers.image.version="0.8.5"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Install PostgreSQL, Redis, supervisord, and utilities

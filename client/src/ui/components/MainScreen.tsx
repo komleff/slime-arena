@@ -9,6 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { currentUser, currentProfile, openLeaderboard } from '../signals/gameState';
 import { authService } from '../../services/authService';
+import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
 import { RegistrationPromptModal } from './RegistrationPromptModal';
 
 const STYLES_ID = 'main-screen-styles';
@@ -182,31 +183,41 @@ const styles = `
   }
 
   .hud-auth-link {
-    background: none;
     border: none;
-    color: #4FC3F7;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
+    outline: none;
     cursor: pointer;
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 3px;
-    padding: 6px 8px;
-    margin: -6px -8px;
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    text-transform: uppercase;
+    padding: 10px 28px;
     min-height: 44px;
     min-width: 44px;
     display: inline-flex;
     align-items: center;
-    transition: color 150ms;
+    justify-content: center;
+    background: linear-gradient(180deg, #81D4FA 0%, #039BE5 50%, #0277BD 100%);
+    border-radius: 999px;
+    box-shadow: 0 3px 0 #01579B, 0 5px 8px rgba(0,0,0,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
   }
 
   .hud-auth-link:hover {
-    color: #81D4FA;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 0 #01579B, 0 6px 10px rgba(0,0,0,0.3);
   }
 
   .hud-auth-link:active {
-    color: #29B6F6;
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #01579B, 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .hud-auth-link:focus-visible {
+    outline: 2px solid #81D4FA;
+    outline-offset: 2px;
   }
 
   /* === ВАЛЮТА === */
@@ -633,7 +644,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
   const profile = currentProfile.value;
 
   const [isGuest, setIsGuest] = useState(authService.isAnonymous());
-  const playerName = isGuest ? 'Гость' : (user?.nickname || 'PLAYER');
+  const playerName = isGuest ? GUEST_DEFAULT_NICKNAME : (user?.nickname || 'PLAYER');
   const level = profile?.level ?? 1;
   const avatarUrl = profile?.avatarUrl || '/hud/hud_avatar_hero_01.webp';
   const coins = 0; // Валюта пока не реализована

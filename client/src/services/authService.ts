@@ -21,6 +21,7 @@ import {
   type Profile,
 } from '../ui/signals/gameState';
 import balanceConfig from '../../../config/balance.json';
+import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
 
 /**
  * Ответ сервера на /auth/guest
@@ -463,22 +464,11 @@ class AuthService {
   }
 
   /**
-   * Генерация случайного никнейма для гостя.
-   *
-   * Gemini P1: Списки слов проверены против серверных BANNED_WORDS
-   * (admin, moderator, system, bot, dev, staff, gm, gamemaster, slime, arena).
-   * При добавлении новых слов необходимо проверить совместимость.
-   * Сервер выполняет финальную валидацию при /auth/upgrade.
+   * Дефолтный никнейм для гостя.
+   * Случайное игровое имя генерируется в MainMenu через generateRandomName().
    */
   private generateGuestNickname(): string {
-    // Copilot P1: Слова безопасны для BANNED_WORDS на сервере
-    const adjectives = ['Быстрый', 'Хитрый', 'Весёлый', 'Храбрый', 'Ловкий'];
-    const nouns = ['Охотник', 'Воин', 'Странник', 'Игрок', 'Боец'];
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
-    // Copilot P2: Date.now() уменьшает вероятность коллизий никнеймов
-    const uniqueId = Date.now() % 10000;
-    return `${adj}${noun}${uniqueId}`;
+    return GUEST_DEFAULT_NICKNAME;
   }
 
   /**

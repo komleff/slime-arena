@@ -5,7 +5,8 @@
 // JSX runtime imported automatically via jsxImportSource
 import type { JSX } from 'preact';
 import { useState, useCallback, useEffect, useRef } from 'preact/hooks';
-import { generateRandomName } from '@slime-arena/shared';
+import { generateRandomName, GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
+import { authService } from '../../services/authService';
 import { injectStyles } from '../utils/injectStyles';
 import { CLASSES_DATA } from '../data/classes';
 import {
@@ -406,7 +407,8 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
   // имя, которое пользователь начал вводить до срабатывания эффекта
   useEffect(() => {
     const currentName = playerName.value;
-    if (!currentName || currentName.trim() === '') {
+    const isGuest = authService.isAnonymous();
+    if (!currentName || currentName.trim() === '' || (isGuest && currentName === GUEST_DEFAULT_NICKNAME)) {
       const newName = generateRandomName();
       setName(newName);
       playerName.value = newName;

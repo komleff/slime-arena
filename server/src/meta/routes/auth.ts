@@ -27,6 +27,7 @@ import { getPostgresPool } from '../../db/pool';
 import { getRedisClient } from '../../db/redis';
 import { authRateLimiter, oauthRateLimiter } from '../middleware/rateLimiter';
 import { validateAndNormalize, normalizeNickname, NICKNAME_MAX_LENGTH } from '../../utils/generators/nicknameValidator';
+import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -154,7 +155,7 @@ router.post('/join-token', async (req: Request, res: Response) => {
       // Generate a simple joinToken for direct connection
       // matchId and roomId will be empty (not assigned via matchmaking)
       // slime-arena-2q0: Валидация никнейма
-      let nickname = 'Гость';
+      let nickname = GUEST_DEFAULT_NICKNAME;
       if (req.body.nickname) {
         try {
           nickname = validateAndNormalize(req.body.nickname);
