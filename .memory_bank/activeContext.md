@@ -2,26 +2,27 @@
 
 Текущее состояние проекта и фокус работы.
 
-## Текущее состояние (7 февраля 2026 — ПЕРЕД ОТПУСКОМ)
-**База:** main → **v0.8.4** (tag pushed, Docker images built)
-**GDD версия:** 3.3.2
-**Sprint 20 Status:** v0.8.4 ✅ RELEASED — Docker images на ghcr.io, ожидает деплой оператором
-**Production:** v0.7.8 → обновление до v0.8.4 (split-архитектура db + app)
-**Документация:** ✅ Архивирована и синхронизирована (git commit готов)
+## Текущее состояние (7 февраля 2026)
 
-**Docker images (готовы):**
-- `ghcr.io/komleff/slime-arena-app:0.8.4`
-- `ghcr.io/komleff/slime-arena-db:0.8.4`
+**База:** main → **v0.8.5** (PR #144, #145 merged, tag v0.8.5)
+**GDD версия:** 3.3.2
+**Sprint 20 Status:** v0.8.5 — UI фиксы гостя, Docker images pushed, ожидает деплой
+**Production:** v0.7.8 → обновление до v0.8.5 (split-архитектура db + app)
+
+**Docker images (на ghcr.io):**
+
+- `ghcr.io/komleff/slime-arena-app:0.8.5` ✅
+- `ghcr.io/komleff/slime-arena-db:0.8.5` ✅
 
 ---
 
-## Sprint 20 — Infrastructure v0.8.4 (2026-02-07)
+## Sprint 20 — Infrastructure v0.8.4 + UI Fixes v0.8.5 (2026-02-07)
 
-**Цель:** Split-архитектура, бэкапы, безопасное обновление, UX авторизации
-**PRs:** #139 (v0.8.3 code), #140 (Dockerfile fix), #141 (v0.8.4 release)
-**Tag:** v0.8.4
+**Цель:** Split-архитектура, бэкапы, безопасное обновление, UX авторизации, UI фиксы гостя
+**PRs:** #139-#141 (v0.8.4), #142 (2FA fix), #143 (shutdown notification), #144 (v0.8.5 UI), #145 (margin fix)
+**Версии:** v0.8.4 → v0.8.5
 
-### Выполнено
+### v0.8.4 — Infrastructure
 
 | Задача | Описание | Статус |
 |--------|----------|--------|
@@ -30,10 +31,22 @@
 | A3 | Dockerfiles, compose для split-архитектуры | done |
 | A4 | CHANGELOG.md v0.7.5 — v0.8.4 | done |
 | A5 | Версионирование всех файлов → 0.8.4 | done |
-| A6 | AI_AGENT_GUIDE.md — полная переработка для split-архитектуры | done |
+| A6 | AI_AGENT_GUIDE.md — полная переработка | done |
 | A7 | SERVER_SETUP.md — docker-compose секция | done |
 | B | Кнопка «Войти» для гостей в лобби | done |
-| CI | Dockerfile fix (COPY scripts/) + CI/CD → Docker images built | done |
+| CI | Dockerfile fix + CI/CD → Docker images | done |
+
+### v0.8.5 — UI Fixes (PR #144, #145)
+
+| Задача | Описание | Статус |
+|--------|----------|--------|
+| C1 | generateGuestNickname() → GUEST_DEFAULT_NICKNAME | done |
+| C2 | MainMenu: случайное имя вместо «Гость» | done |
+| C3 | .hud-auth-link: jelly pill-кнопка | done |
+| C4 | Favicon из slime-arena-icon.png | done |
+| C5 | GUEST_DEFAULT_NICKNAME → shared/constants | done |
+| C6 | PR review fixes: hit-area 44x44, focus-visible, isAnonymous guard | done |
+| C7 | margin-top alignment | done (PR #145 merged) |
 | A8 | Деплой на production | ⏳ оператор |
 
 ---
@@ -463,20 +476,25 @@ ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 "docker exec slime-arena redis-cli 
 ```
 
 ### Активные задачи в Beads (готовые к работе)
-**P0-P1 критичные:**
-- slime-arena-8yh [P0 epic] — UI P0 Core для софт-лонча
+
+**P1 критичные:**
+
 - slime-arena-vsn5 [P1 bug] — Скин не сохраняется при OAuth upgrade (#121)
-- slime-arena-b48 [P1] — Accessibility: Escape + focus trap в модальных окнах
-- slime-arena-5tp [P1] — UNKNOWN регион: отключить Google OAuth
 
 **P2 высокий:**
+
 - slime-arena-n17m [P2] — normalizeNickname() падает на null/undefined
 - slime-arena-a5h0 [P2 ops] — Настроить cron-бэкап PostgreSQL (после деплоя)
-- slime-arena-tja [P2] — UI Refactoring Phase 3 - Legacy cleanup
 
-**P3 средний:**
-- slime-arena-r6v5 [P3] — Устаревшие API endpoints (DELETE /api/room/join-token)
-- slime-arena-0iy7 [P3] — Docker EACCES: директория логов телеметрии
+**P3 средний (из PR #144 ревью):**
+
+- slime-arena-0jns [P3] — Вынести NICKNAME_MIN/MAX_LENGTH в balance.json
+- slime-arena-90h9 [P3] — Защита от отправки «Гость» как имени в матч
+- slime-arena-r6v5 [P3] — Устаревшие API endpoints
+
+**P4 бэклог:**
+
+- slime-arena-i5mz [P4] — Вынести BANNED_WORDS в отдельный JSON
 
 **Запуск:** `bd ready --limit 20` для полного списка
 

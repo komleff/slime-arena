@@ -194,6 +194,7 @@ const styles = `
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     text-transform: uppercase;
     padding: 10px 28px;
+    /* Компенсация gap контейнера .hud-info (flex-column) для визуального выравнивания кнопки между «ГОСТЬ» и прогресс-баром */
     margin-top: -4px;
     min-height: 44px;
     min-width: 44px;
