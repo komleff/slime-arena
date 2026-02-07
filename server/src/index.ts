@@ -129,8 +129,8 @@ app.post("/api/internal/shutdown-notify", async (req, res) => {
     }
 
     const { shutdownAt } = req.body;
-    if (!shutdownAt || typeof shutdownAt !== "number") {
-        return res.status(400).json({ error: "shutdownAt (number) is required" });
+    if (shutdownAt == null || typeof shutdownAt !== "number" || !Number.isFinite(shutdownAt)) {
+        return res.status(400).json({ error: "shutdownAt (finite number) is required" });
     }
 
     try {
