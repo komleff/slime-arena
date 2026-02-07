@@ -452,7 +452,7 @@ export function resetGameState() {
     matchResults.value = null;
     resultsWaitTime.value = 0; // Сброс таймера результатов
     arenaWaitTime.value = 0; // Сброс таймера ожидания арены
-    shutdownAt.value = 0; // Сброс уведомления о перезагрузке
+    // НЕ сбрасываем shutdownAt — перезагрузка серверное событие, живёт дольше матча
     // Сбрасываем matchmaking, но НЕ auth
     matchmakingStatus.value = 'idle';
     queuePosition.value = null;

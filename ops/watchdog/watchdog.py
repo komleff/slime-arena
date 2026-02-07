@@ -344,6 +344,14 @@ def process_restart_request() -> bool:
 
         logger.info(f"Рестарт запрошен: {requested_by} в {requested_at}")
 
+        # Если указано shutdownAt — ждём до этого момента (игроки видят обратный отсчёт)
+        shutdown_at = data.get("shutdownAt")
+        if shutdown_at and isinstance(shutdown_at, (int, float)):
+            delay = (shutdown_at / 1000) - time.time()
+            if delay > 0:
+                logger.info(f"Ожидание {delay:.0f} сек перед рестартом (уведомление игроков)")
+                time.sleep(delay)
+
         # Атомарно переименовываем в processing (делает исходный файл недоступным)
         requested_path.rename(processing_path)
 
