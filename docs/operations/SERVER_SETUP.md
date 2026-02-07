@@ -1,86 +1,137 @@
-# Slime Arena — Server Setup
+# Slime Arena — Установка сервера
 
-Документация по настройке production-сервера.
+Процедура установки production-сервера с нуля.
 
-## VPS Information
+**Версия:** v0.8.5 (split-архитектура db + app)
+**Обновлено:** 2026-02-07
+**Обновление существующего сервера:** [SERVER_UPDATE.md](SERVER_UPDATE.md)
+
+---
+
+## Общая информация
 
 | Параметр | Значение |
-|----------|----------|
+| -------- | -------- |
 | Провайдер | Timeweb Cloud |
 | Локация | Москва |
 | IP | 147.45.147.175 |
 | Домен | slime-arena.overmobile.space |
-| OS | Ubuntu 20.04+ |
+| OS | Ubuntu 22.04+ |
 
-## SSH Access
+### SSH
 
 ```bash
-# Подключение
-ssh -i ~/.ssh/id_ed25519 root@147.45.147.175
-
-# Генерация ключа (если нет)
-ssh-keygen -t ed25519 -C "your@email.com"
-
-# Копирование публичного ключа на сервер
-ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
+ssh -i ~/.ssh/deploy_key root@147.45.147.175
 ```
 
-## Архитектура (v0.8.5) — Split: db + app
+> SSH-ключ зависит от оператора. В этой документации — `deploy_key`.
 
-Production использует **два контейнера**, управляемых docker-compose:
+### Порты
 
-- `slime-arena-db` — PostgreSQL 16 + Redis
-- `slime-arena-app` — MetaServer + MatchServer + Client + Admin Dashboard
+| Порт | Сервис | Описание |
+| ---- | ------ | -------- |
+| 3000 | MetaServer | REST API (auth, profile, leaderboard, admin) |
+| 2567 | Colyseus | WebSocket game server |
+| 5173 | Client | Static client files |
+| 5175 | Admin | Admin Dashboard (`/admin/`) |
 
-```
+---
+
+## Архитектура
+
+Два контейнера, управляемых docker-compose:
+
+- `slime-arena-db` — PostgreSQL 16 + Redis (supervisord)
+- `slime-arena-app` — MetaServer + MatchServer + Client + Admin Dashboard (concurrently)
+
+```text
 /root/slime-arena/
 ├── docker-compose.yml   ← конфигурация контейнеров
-├── .env                 ← секреты (НЕ коммитится в git)
+├── .env                 ← секреты (НЕ коммитится)
 ```
 
 ### Docker Images
 
-```bash
-# App (обновляется часто)
-ghcr.io/komleff/slime-arena-app:0.8.5
-
-# DB (обновляется редко)
-ghcr.io/komleff/slime-arena-db:0.8.5
+```text
+ghcr.io/komleff/slime-arena-app:<VERSION>   # обновляется часто
+ghcr.io/komleff/slime-arena-db:<VERSION>     # обновляется редко
 ```
 
-### Первоначальная установка
+### Volumes
 
-#### 1. Подготовка сервера
+| Volume | Содержимое | Удалять? |
+| ------ | ---------- | -------- |
+| `slime-arena-pgdata` | PostgreSQL (пользователи, профили, лидерборд) | **НИКОГДА** |
+| `slime-arena-redisdata` | Redis (сессии, кеш) | Можно |
+| `slime-arena-shared` | Outbox для watchdog (рестарт-запросы) | Можно |
+
+---
+
+## Предварительные требования
+
+- VPS с Ubuntu 22.04+ и минимум 2 ГБ RAM
+- Docker Engine + Docker Compose plugin
+- Доменное имя с A-записью на IP сервера
+- SSH-доступ с ключом
+
+---
+
+## Шаг 1: Подготовка сервера
 
 ```bash
-# Проверить docker compose
-ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker compose version'
+SSH="ssh -i ~/.ssh/deploy_key root@<IP>"
+
+# Docker compose
+$SSH 'docker compose version'
 # Если нет: apt-get update && apt-get install -y docker-compose-plugin
 
-# Создать рабочую директорию
-ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'mkdir -p /root/slime-arena /root/backups'
+# Рабочие директории
+$SSH 'mkdir -p /root/slime-arena /root/backups'
 
-# Скопировать compose-файл
-scp -i ~/.ssh/id_ed25519 docker/docker-compose.app-db.yml root@147.45.147.175:/root/slime-arena/docker-compose.yml
+# Overcommit для Redis (без этого — Can't save in background)
+$SSH 'sysctl vm.overcommit_memory=1 && echo "vm.overcommit_memory=1" >> /etc/sysctl.conf'
 ```
 
-#### 2. Создать .env на сервере
+## Шаг 2: docker-compose.yml
+
+```bash
+scp -i ~/.ssh/deploy_key docker/docker-compose.app-db.yml root@<IP>:/root/slime-arena/docker-compose.yml
+```
+
+После копирования добавить shared volume для watchdog. Итоговая секция `app`:
+
+```yaml
+app:
+  # ... существующие настройки ...
+  volumes:
+    - shared:/shared
+
+volumes:
+  pgdata:
+    name: slime-arena-pgdata
+  redisdata:
+    name: slime-arena-redisdata
+  shared:
+    name: slime-arena-shared
+```
+
+## Шаг 3: .env
 
 Оператор создаёт `/root/slime-arena/.env`:
 
 ```env
 # Database
 POSTGRES_USER=slime
-POSTGRES_PASSWORD=<сгенерировать: openssl rand -base64 24>
+POSTGRES_PASSWORD=<openssl rand -base64 24>
 POSTGRES_DB=slime_arena
 
 # Auth
-JWT_SECRET=<сгенерировать: openssl rand -base64 48>
-MATCH_SERVER_TOKEN=<сгенерировать: openssl rand -base64 48>
+JWT_SECRET=<openssl rand -base64 48>
+MATCH_SERVER_TOKEN=<openssl rand -base64 48>
 CLAIM_TOKEN_TTL_MINUTES=60
 
 # Admin Dashboard (ОБЯЗАТЕЛЬНО)
-ADMIN_ENCRYPTION_KEY=<сгенерировать: openssl rand -base64 32>
+ADMIN_ENCRYPTION_KEY=<openssl rand -base64 32>
 
 # OAuth — Yandex
 YANDEX_CLIENT_ID=<из Yandex OAuth>
@@ -88,70 +139,66 @@ YANDEX_CLIENT_SECRET=<из Yandex OAuth>
 OAUTH_YANDEX_ENABLED=true
 ```
 
-#### 3. Запуск
+Быстрая генерация:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 << 'EOF'
+$SSH << 'SECRETS'
+cd /root/slime-arena
+cat > .env << 'EOF'
+POSTGRES_USER=slime
+POSTGRES_PASSWORD=REPLACE_ME
+POSTGRES_DB=slime_arena
+JWT_SECRET=REPLACE_ME
+MATCH_SERVER_TOKEN=REPLACE_ME
+CLAIM_TOKEN_TTL_MINUTES=60
+ADMIN_ENCRYPTION_KEY=REPLACE_ME
+YANDEX_CLIENT_ID=REPLACE_ME
+YANDEX_CLIENT_SECRET=REPLACE_ME
+OAUTH_YANDEX_ENABLED=true
+EOF
+sed -i "0,/REPLACE_ME/s//$(openssl rand -base64 24)/" .env
+sed -i "0,/REPLACE_ME/s//$(openssl rand -base64 48)/" .env
+sed -i "0,/REPLACE_ME/s//$(openssl rand -base64 48)/" .env
+sed -i "0,/REPLACE_ME/s//$(openssl rand -base64 32)/" .env
+echo "=== .env создан. Замените YANDEX_CLIENT_* вручную ==="
+SECRETS
+```
+
+## Шаг 4: Запуск контейнеров
+
+```bash
+$SSH << 'EOF'
 cd /root/slime-arena
 docker compose pull
 docker compose up -d db
-
-# Дождаться инициализации БД
-sleep 20
+echo "Ожидание БД..." && sleep 20
 docker inspect slime-arena-db --format="{{.State.Health.Status}}"
-
-# Запустить app
 docker compose up -d app
-sleep 10
-
-# Миграции
+sleep 15
 docker exec slime-arena-app npm run db:migrate --workspace=server
-
-# Проверка
 docker compose ps
 EOF
 ```
 
-### Обновление app (повседневное)
+## Шаг 5: Nginx + SSL
+
+### 5.1 Nginx и acme.sh
 
 ```bash
-cd /root/slime-arena
-docker compose pull app
-docker compose up -d app
-# Если есть новые миграции:
-docker exec slime-arena-app npm run db:migrate --workspace=server
+$SSH << 'EOF'
+apt-get update && apt-get install -y nginx
+curl https://get.acme.sh | sh
+mkdir -p /var/www/acme
+/root/.acme.sh/acme.sh --issue -d slime-arena.overmobile.space -w /var/www/acme --keylength ec-256
+EOF
 ```
 
-### Обновление db (редкое, с бэкапом)
-
-```bash
-cd /root/slime-arena
-docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-update-$(date +%F-%H%M).sql.gz
-docker compose pull db
-docker compose up -d db
-```
-
-## Volumes (персистентные данные)
-
-```
-slime-arena-pgdata    # PostgreSQL data (пользователи, профили, лидерборд)
-slime-arena-redisdata # Redis data (сессии, кеш)
-```
-
-**ВАЖНО:** Никогда не удалять эти volumes! Они содержат все данные пользователей.
-
-## Ports
-
-| Порт | Сервис | Описание |
-|------|--------|----------|
-| 3000 | MetaServer | REST API (auth, profile, leaderboard, admin) |
-| 2567 | Colyseus | WebSocket game server |
-| 5173 | Client | Static client files |
-| 5175 | Admin | Admin Dashboard (/admin/) |
-
-## Nginx Configuration
+### 5.2 Конфигурация
 
 Файл: `/etc/nginx/sites-available/slime-arena.overmobile.space`
+
+> **Критично:** В `proxy_pass` для `/admin/` обязателен **trailing slash** — он стрипает `/admin/` из пути.
+> В regex WebSocket включены `_-` (`^/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$`).
 
 ```nginx
 server {
@@ -184,7 +231,8 @@ server {
     access_log /var/log/nginx/slime-arena.access.log;
     error_log  /var/log/nginx/slime-arena.error.log;
 
-    # API endpoints
+    # --- API ---
+
     location /api/ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -194,7 +242,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Legacy auth endpoints
     location /auth/ {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -204,7 +251,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Other MetaServer endpoints
     location ~ ^/(join-token|submit|claim|leaderboard|health|config|profile|wallets|match-results) {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -214,7 +260,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Colyseus matchmake
+    # --- Colyseus (WebSocket) ---
+
     location /matchmake/ {
         proxy_pass http://127.0.0.1:2567;
         proxy_http_version 1.1;
@@ -228,8 +275,8 @@ server {
         proxy_send_timeout 3600;
     }
 
-    # Colyseus WebSocket rooms: /{processId}/{roomId}
-    location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
+    # /{processId}/{roomId} — ВАЖНО: _ и - в regex
+    location ~ ^/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$ {
         proxy_pass http://127.0.0.1:2567;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -242,17 +289,6 @@ server {
         proxy_send_timeout 3600;
     }
 
-    # Admin Dashboard
-    location /admin/ {
-        proxy_pass http://127.0.0.1:5175/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Colyseus discovery
     location /.well-known/colyseus {
         proxy_pass http://127.0.0.1:2567;
         proxy_http_version 1.1;
@@ -266,7 +302,24 @@ server {
         proxy_send_timeout 3600;
     }
 
-    # Client (fallback)
+    # --- Admin Dashboard ---
+    # Trailing slash стрипает /admin/, без него serve получит /admin/index.html → 404
+
+    location = /admin {
+        return 301 /admin/;
+    }
+
+    location ^~ /admin/ {
+        proxy_pass http://127.0.0.1:5175/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # --- Client (fallback) ---
+
     location / {
         proxy_pass http://127.0.0.1:5173;
         proxy_http_version 1.1;
@@ -281,157 +334,194 @@ server {
 }
 ```
 
-### Nginx Commands
+### 5.3 Активация
 
 ```bash
-# Проверка конфигурации
-nginx -t
-
-# Перезагрузка
-systemctl reload nginx
-
-# Логи
-tail -f /var/log/nginx/slime-arena.access.log
-tail -f /var/log/nginx/slime-arena.error.log
+$SSH << 'EOF'
+ln -sf /etc/nginx/sites-available/slime-arena.overmobile.space /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+EOF
 ```
 
-## SSL Certificate (acme.sh)
+> **Обновление Nginx через SSH:** конфиг содержит `$host`, `$remote_addr` и другие `$`-переменные. При передаче через SSH используйте Python-скрипт — `sed` и heredoc без кавычек съедают `$`. Подробнее: [SERVER_UPDATE.md](SERVER_UPDATE.md#обновление-nginx).
+
+## Шаг 6: Watchdog
+
+Watchdog — сервис на хосте (systemd). Принимает запросы на перезапуск из Admin Dashboard, мониторит health.
 
 ```bash
-# Установка acme.sh
-curl https://get.acme.sh | sh
+# Зависимости
+$SSH 'apt-get install -y python3-dotenv python3-requests'
 
-# Выпуск сертификата
-acme.sh --issue -d slime-arena.overmobile.space -w /var/www/acme --keylength ec-256
-
-# Автопродление настроено автоматически через cron
-# Сертификаты в: /root/.acme.sh/slime-arena.overmobile.space_ecc/
+# Директория и файлы
+$SSH 'mkdir -p /opt/slime-arena/ops/watchdog'
+scp -i ~/.ssh/deploy_key ops/watchdog/watchdog.py root@<IP>:/opt/slime-arena/ops/watchdog/
+scp -i ~/.ssh/deploy_key ops/watchdog/slime-arena-watchdog.service root@<IP>:/opt/slime-arena/ops/watchdog/
 ```
 
-## Useful Commands
-
-### Container Management (docker-compose)
+`.env` для watchdog:
 
 ```bash
-# Статус контейнеров
-cd /root/slime-arena && docker compose ps
-
-# Логи
-docker logs --tail 100 slime-arena-app
-docker logs --tail 100 slime-arena-db
-docker compose logs --tail 100
-
-# Перезапуск app
-docker compose restart app
-
-# Перезапуск всего
-docker compose restart
+$SSH << 'EOF'
+cat > /opt/slime-arena/ops/watchdog/.env << 'ENVEOF'
+SHARED_DIR=/var/lib/docker/volumes/slime-arena-shared/_data
+CONTAINER_NAME=slime-arena-app
+HEALTH_URL=http://127.0.0.1:3000/health
+OUTBOX_POLL_INTERVAL=5
+CHECK_INTERVAL=30
+HEALTH_TIMEOUT=5
+FAILURE_THRESHOLD=3
+COOLDOWN_AFTER_RESTART=60
+# TELEGRAM_BOT_TOKEN=<bot_token>
+# TELEGRAM_CHAT_ID=<chat_id>
+ENVEOF
+EOF
 ```
 
-### Database (PostgreSQL)
+Запуск:
 
 ```bash
-# Подключение к PostgreSQL
-docker exec -it slime-arena-db psql -U slime -d slime_arena
-
-# SQL запросы
-docker exec slime-arena-db psql -U slime -d slime_arena -c "SELECT COUNT(*) FROM users;"
-
-# Backup
-docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/backup-$(date +%F-%H%M).sql.gz
+$SSH << 'EOF'
+cp /opt/slime-arena/ops/watchdog/slime-arena-watchdog.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable slime-arena-watchdog
+systemctl start slime-arena-watchdog
+systemctl status slime-arena-watchdog
+EOF
 ```
 
-### Redis
+### Как работает рестарт из Admin Dashboard
 
-```bash
-# Ping
-docker exec slime-arena-db redis-cli ping
-
-# Info
-docker exec slime-arena-db redis-cli info
-
-# Очистка (осторожно!)
-docker exec slime-arena-db redis-cli FLUSHALL
+```text
+Admin Dashboard  →  MetaServer API  →  /shared/restart-requested
+                                              ↓
+Watchdog (хост)  →  читает файл  →  ждёт shutdownAt (обратный отсчёт)
+                                              ↓
+                 docker restart -t 30 slime-arena-app
+                                              ↓
+                 /shared/restart-result  →  Telegram
 ```
 
-### Health Checks
+## Шаг 7: Автоматические бэкапы
 
 ```bash
-# API health
+$SSH << 'EOF'
+(crontab -l 2>/dev/null; echo '0 */6 * * * docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/slime-arena-$(date +\%F-\%H\%M).sql.gz && find /root/backups/ -name "slime-arena-*.sql.gz" -mtime +7 -delete') | crontab -
+EOF
+```
+
+## Шаг 8: Настройка администраторов
+
+Стандартный admin: `admin` / `Admin123!@#` (создаётся миграцией 009).
+
+**Установка пароля через node (внутри контейнера):**
+
+```bash
+$SSH << 'REMOTEOF'
+docker exec slime-arena-app node -e "
+const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+async function run() {
+  const hash = await bcrypt.hash('NewPassword123', 10);
+  await pool.query('UPDATE admin_users SET password_hash = \$1 WHERE username = \$2', [hash, 'admin']);
+  console.log('Password updated');
+  await pool.end();
+}
+run();
+"
+REMOTEOF
+```
+
+> **Важно:** Не используйте SQL-команды с bcrypt-хешами напрямую через SSH. Символы `$` в хешах (`$2b$10$...`) интерпретируются shell как переменные. Генерируйте хеши через `node` внутри контейнера и обновляйте через параметризованные запросы.
+
+## Шаг 9: Верификация
+
+```bash
 curl -s https://slime-arena.overmobile.space/health | jq .
-
-# Guest auth
 curl -s -X POST https://slime-arena.overmobile.space/api/v1/auth/guest \
   -H "Content-Type: application/json" -d '{}' | jq .
-
-# Leaderboard
 curl -s "https://slime-arena.overmobile.space/api/v1/leaderboard?mode=total&limit=5" | jq .
-
-# Matchmake (creates room)
-curl -s -X POST https://slime-arena.overmobile.space/matchmake/joinOrCreate/arena \
-  -H "Content-Type: application/json" -d '{}' | jq .
+curl -s -o /dev/null -w "%{http_code}" https://slime-arena.overmobile.space/admin/
+$SSH 'systemctl status slime-arena-watchdog --no-pager -l'
+$SSH 'cd /root/slime-arena && docker compose ps'
 ```
 
+**Ожидаемые результаты:**
+
+- `/health` → 200, `{"status":"ok","database":"connected","redis":"connected"}`
+- `/admin/` → 200 (HTML страница логина)
+- Оба контейнера: `Up (healthy)`
+- Watchdog: `active (running)`
+
+---
+
+## Checklist
+
+- [ ] Docker Engine + Compose plugin установлены
+- [ ] `docker-compose.yml` скопирован (+ shared volume)
+- [ ] `.env` создан со всеми секретами
+- [ ] `ADMIN_ENCRYPTION_KEY` задан
+- [ ] `OAUTH_YANDEX_ENABLED=true` + credentials
+- [ ] Оба контейнера `Up (healthy)`
+- [ ] Миграции применены
+- [ ] Nginx с trailing slash для `/admin/` и `_-` в WebSocket regex
+- [ ] SSL сертификат выпущен
+- [ ] `/health` → 200
+- [ ] `/admin/` → 200
+- [ ] Guest auth работает
+- [ ] WebSocket подключение работает
+- [ ] Watchdog запущен
+- [ ] Cron бэкап настроен
+- [ ] OAuth callback URL настроен в Yandex
+
+---
+
 ## Troubleshooting
+
+### Admin Dashboard не открывается (404)
+
+1. **Nginx:** нет `^~` в `location ^~ /admin/` или нет trailing slash в `proxy_pass`
+
+   ```nginx
+   # ПРАВИЛЬНО
+   location ^~ /admin/ {
+       proxy_pass http://127.0.0.1:5175/;
+   }
+   ```
+
+2. **serve.json:** поле `"public"` конфликтует с позиционным аргументом `serve dir`. Минимальный рабочий: `{"rewrites":[{"source":"**","destination":"/index.html"}]}`
+
+3. **Порт 5175 не слушает:** `docker exec slime-arena-app ps aux | grep serve`
+
+### Admin API — ERR_SSL_PROTOCOL_ERROR
+
+`API_BASE` в клиенте содержит `hostname:3000` (HTTP), браузер шлёт HTTPS.
+**Решение:** `API_BASE` = `/api/v1/admin` (относительный). Файл: `admin-dashboard/src/api/client.ts`.
+
+### bcrypt-хеши ломаются через SSH
+
+`$2b$10$...` → shell съедает `$2b`, `$10`. Генерируйте хеши **внутри контейнера** через `node` (см. Шаг 8).
 
 ### Redis RDB Permission Denied
 
 ```bash
-# Симптом: Can't save in background: fork: Cannot allocate memory
-# Решение:
-sysctl vm.overcommit_memory=1
-echo "vm.overcommit_memory=1" >> /etc/sysctl.conf
-docker compose restart db
+$SSH 'sysctl vm.overcommit_memory=1 && echo "vm.overcommit_memory=1" >> /etc/sysctl.conf'
 ```
 
-### Telemetry Logs Permission
+### WebSocket 405 / Connection Failed
 
-```bash
-# Симптом: EACCES /app/server/dist/server/logs
-# Решение:
-docker exec slime-arena-app chmod -R 777 /app/server/dist/server/logs
-```
+Nginx regex не включает `_-`. Должно быть: `^/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$`
 
-### WebSocket 405 Error
+---
 
-**Симптом:** `POST /matchmake/joinOrCreate/arena` возвращает 405
+## Ссылки
 
-**Причина:** Nginx location не матчит путь
-
-**Решение:** Использовать prefix location `/matchmake/` вместо regex
-
-### WebSocket Connection Failed
-
-**Симптом:** `WebSocket connection to 'wss://domain/{processId}/{roomId}' failed`
-
-**Причина:** Colyseus WebSocket пути `/{processId}/{roomId}` попадают на fallback `/` (клиент)
-
-**Решение:** Добавить location для WebSocket путей:
-
-```nginx
-location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
-    proxy_pass http://127.0.0.1:2567;
-    # ... WebSocket headers
-}
-```
-
-## Deployment Checklist
-
-- [ ] Docker images pushed to ghcr.io (CI/CD автоматически)
-- [ ] `/root/slime-arena/.env` создан с актуальными секретами
-- [ ] `/root/slime-arena/docker-compose.yml` скопирован на сервер
-- [ ] `docker compose up -d` — оба контейнера `Up (healthy)`
-- [ ] Миграции БД применены
-- [ ] Nginx config обновлён и `nginx -t` прошёл
-- [ ] SSL certificate valid
-- [ ] Health endpoint responding
-- [ ] Guest auth working
-- [ ] Matchmake working
-- [ ] WebSocket connection working
-- [ ] Admin Dashboard доступен по `/admin/`
-- [ ] OAuth callback URL configured in Yandex
-- [ ] Cron бэкап настроен (`crontab -l`)
-
-## Contact
-
-При проблемах с сервером: создать issue в репозитории с тегом `ops`.
+| Документ | Описание |
+| -------- | -------- |
+| [SERVER_UPDATE.md](SERVER_UPDATE.md) | Обновление действующего сервера |
+| [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) | Гайд для ИИ-агентов |
+| [backup-restore.md](backup-restore.md) | Бэкап и восстановление |
+| [docker-compose.app-db.yml](../../docker/docker-compose.app-db.yml) | Исходный Compose-файл |
+| [watchdog.py](../../ops/watchdog/watchdog.py) | Исходный код watchdog |

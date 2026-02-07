@@ -1,194 +1,117 @@
 # Progress
+
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 7 февраля 2026 (PR #144 merged, v0.8.5)
+
+- **last_checked_commit**: main @ 7 февраля 2026 (PR #145 merged, v0.8.5)
 - **Текущая ветка**: `main`
-- **Релиз:** v0.8.5 (PR #144, #145 merged, Docker images pushed, tag v0.8.5)
-- **Production:** v0.7.8 → v0.8.5 (деплой оператором)
+- **Релиз:** v0.8.5 (GitHub Release latest, Docker images pushed)
+- **Production:** v0.8.5 (split-архитектура, развёрнут 7 фев 2026)
 - **GDD версия**: v3.3.2
+
+---
+
+## Production Deployment v0.8.5 (7 февраля 2026)
+
+**Выполнено:**
+
+- ✅ Бэкап БД v0.7.8 создан
+- ✅ Монолит v0.7.8 остановлен и удалён
+- ✅ docker-compose.yml + .env подготовлены в /root/slime-arena/
+- ✅ DB-контейнер запущен (PostgreSQL + Redis)
+- ✅ Бэкап восстановлен в новую БД
+- ✅ APP-контейнер запущен (MetaServer + MatchServer + Client + Admin)
+- ✅ Миграции 001-010 применены
+- ✅ Nginx обновлён: добавлен /admin/ location, WebSocket regex
+- ✅ SSL работает (acme.sh / Let's Encrypt)
+- ✅ Watchdog systemd-сервис установлен
+- ✅ Cron-бэкап настроен (каждые 6 часов)
+- ✅ Admin Dashboard — 5 администраторов с уникальными паролями
+- ✅ Health endpoint → 200 OK
+- ✅ Guest auth → работает
+- ✅ Leaderboard → данные сохранены
+- ✅ Admin Dashboard → 200
+
+**Документация:**
+
+- ✅ SERVER_SETUP.md — переписан (установка с нуля)
+- ✅ SERVER_UPDATE.md — новый файл (обновление сервера)
+- ✅ Release notes v0.8.5 — создан
+- ✅ CHANGELOG.md — обновлён
+- ✅ GitHub Release v0.8.5 — опубликован как latest
+- ✅ TECH_DEBT.md — добавлены PlayersPage (P1) и AdminUsersPage (P2)
 
 ---
 
 ## Sprint 20 (2026-02-07) — v0.8.4 Infrastructure + v0.8.5 UI Fixes
 
-**Цель:** Split-архитектура, бэкапы, UX авторизации, UI фиксы гостя
-**PRs:** #139-#141 (v0.8.4), #142 (2FA), #143 (shutdown), #144 (v0.8.5 UI), #145 (margin)
+**Цель:** Split-архитектура, бэкапы, UX авторизации, UI фиксы гостя, деплой
+**PRs:** #139-#146
 **Версии:** v0.8.4 → v0.8.5
+**Статус:** ✅ ЗАВЕРШЁН — production развёрнут
 
-### v0.8.5 изменения (PR #144)
+### Результат
 
-- generateGuestNickname() → возвращает GUEST_DEFAULT_NICKNAME («Гость»)
-- MainMenu: генерация случайного имени вместо «Гость» с isAnonymous() guard
-- MainScreen: .hud-auth-link → jelly pill-кнопка (44x44 hit area, focus-visible)
-- Favicon: assets-dist/favicon.png из slime-arena-icon.png
-- GUEST_DEFAULT_NICKNAME: shared/src/constants.ts → используется в 4 файлах
-- server/auth.ts: использует GUEST_DEFAULT_NICKNAME
-
-### Статус
-
-- v0.8.4: ✅ RELEASED (Docker images на ghcr.io)
-- v0.8.5: PR #144, #145 merged, tag v0.8.5
-- Docker v0.8.5: ✅ app:0.8.5 + db:0.8.5 на ghcr.io
-- Деплой: ⏳ оператор
+- Split-архитектура: db + app через docker-compose
+- Admin Dashboard с 5 страницами
+- Watchdog для автоматического мониторинга
+- Полная документация (SERVER_SETUP, SERVER_UPDATE, AI_AGENT_GUIDE)
+- 5 администраторов с 2FA
 
 ---
 
 ## Sprint MON (2026-02-04) — ✅ ЗАВЕРШЁН
 
-**Цель:** Admin Dashboard v0.8.0 (Phase 1)
-**Статус:** Тестирование завершено, Phase 2 отложена на Sprint 19
-
-### Результаты тестирования (локально)
-
-✅ **Базовая функциональность**
-- Admin auth (JWT + refresh cookies)
-- TOTP 2FA setup
-- Audit log (все действия логируются)
-
-✅ **Игровая логика (неизменена)**
-- Guest auth работает
-- Яндекс OAuth работает
-- Leaderboard обновляется
-- Статистика матчей сохраняется
-
-⚠️ **Admin Phase 2 (backlog)**
-- Метрики CPU/RAM (placeholder)
-- Список комнат (placeholder)
-- Рестарт сервиса (требует watchdog)
-
-### Выявленные проблемы
-
-| Проблема | Решение | Критичность |
-|----------|---------|-------------|
-| audit_log schema (actor_user_id vs user_id) | Пересоздать таблицу | P2 |
-| Миграция 009 не в образе | Требуется rebuild | P2 |
-| Админка на React вместо Preact | Рефакторинг Sprint 19 | P3 |
-
-### Вывод
-
-**v0.8.0 НЕ ГОТОВА для production.** Оставить на v0.7.8 до Sprint 19.
+**Цель:** Admin Dashboard v0.8.0 (Phase 1 + Phase 2)
+**Версии:** v0.8.0 → v0.8.2
+**Статус:** ✅ Завершён, развёрнут в production как часть v0.8.5
 
 ---
 
-## Server Maintenance Log (2026-02-03/04)
+## Sprint 19 (2026-02-05) — ✅ ЗАВЕРШЁН
 
-### Настроен SSH доступ
-- Сгенерирован SSH ключ: `ssh-keygen -t ed25519`
-- Добавлен в панель управления хостинга
-- Подключение: `ssh -i ~/.ssh/id_ed25519 root@147.45.147.175`
-
-### Исправлено на сервере
-| Проблема | Решение | Статус |
-|----------|---------|--------|
-| Redis RDB Permission denied | Перезапуск контейнера | ✅ |
-| Telemetry logs EACCES | `chmod 777 /app/server/dist/server/logs` | ✅ |
-| Memory overcommit warning | `sysctl vm.overcommit_memory=1` | ✅ |
-| Container unhealthy | Restart + права | ✅ Healthy |
-
-### Анализ логов — обнаружено
-| Метрика | Значение |
-|---------|----------|
-| Всего тиков | 34669 |
-| [PERF] warnings | 351 (1%) |
-| Пиковая задержка | 118ms (бюджет 33.3ms) |
-| "Не удалось разместить зон" | 303 раза |
-| 404 на старые endpoints | Несколько |
-
-### Созданные issues
-- #126: UI фаза 'connecting' не рендерится
-- #127: Оптимизировать tick=2700 (конец матча)
-- #128: "Не удалось разместить зон" при создании комнаты
-- #129: Устаревшие API endpoints → 404
-- #130: Docker директория логов телеметрии
+**Цель:** Admin Dashboard Phase 2
+**Версия:** v0.8.1 → v0.8.2
+**PR:** #136 (merged)
+**Статус:** ✅ Завершён
 
 ---
 
-## Sprint 13 Progress — 27 января 2026
+## Sprint 18 (2026-02-01/03) — ✅ ЗАВЕРШЁН
 
-### Фаза 1: База данных и инфраструктура ✅ ЗАВЕРШЕНА
-
-**Завершено 23 января:**
-- [x] Задача 1.1: Migration 007 — новые таблицы (leaderboard_total_mass, leaderboard_best_mass, rating_awards, oauth_links)
-- [x] Задача 1.2: Migration 008 — изменение существующих таблиц (users: is_anonymous + регистрация, match_results: guest_subject_id + claim_consumed_at)
-- [x] Задача 1.3: Модели данных — TypeScript интерфейсы (Leaderboard, Rating, OAuth)
-- [x] Задача 1.4: Генераторы — skinGenerator + nicknameValidator + config/skins.json
-
-### Фаза 2: API и серверная логика ✅ ЗАВЕРШЕНА (PR #109)
-
-**Завершено 27 января:**
-
-- [x] Задача 2.1: JWT utilities — jwtUtils.ts (accessToken, guestToken, claimToken)
-- [x] Задача 2.2: POST /auth/guest — гостевая авторизация
-- [x] Задача 2.3: POST /auth/telegram — Telegram-авторизация с is_anonymous
-- [x] Задача 2.4: POST /auth/oauth — OAuth для Google/Yandex
-- [x] Задача 2.5: POST /match-results/claim — получение claimToken
-- [x] Задача 2.6: POST /auth/upgrade — convert_guest + complete_profile
-- [x] Задача 2.7: RatingService.awardRating — начисление после матча
-- [x] Задача 2.8: RatingService.initializeRating — при регистрации
-- [x] Задача 2.9: GET /leaderboard — лидерборд total/best
-
-**Ревью (10 итераций):**
-
-- Codex 5.2: APPROVED ✅
-- Opus 4.5: APPROVED ✅
-- Исправлены P1 баги: guestSubjectId в matchmaking, guest claim flow
-
-**Ожидает merge:** PR #109 → main (человек-оператор)
-
-**Прогресс:**
-- Фаза 1: [████] 4/4 задач (100%) ✅
-- Фаза 2: [████] 9/9 задач (100%) ✅
-- Фаза 3: [░░░░] 0/9 задач (0%)
-- **Всего:** [████░] 13/22 задач (59%)
-
-**Следующий шаг:**
-
-- Merge PR #109 (человек-оператор)
-- Начать Фазу 3: Клиентская интеграция
+**Цель:** Tech Debt + Production Deploy v0.7.8
+**Версия:** v0.7.4 → v0.7.8
+**Статус:** ✅ Завершён, production обновлён до v0.8.5
 
 ---
 
-## Последние изменения (20 января 2026)
-- **Sprint 12 COMPLETED:** Декомпозиция God Objects (ArenaRoom.ts, main.ts)
-- **v0.6.0 Released:** 8 модулей извлечено, 2043 LOC рефакторено, все тесты пройдены
-- **Результат:** ArenaRoom −34%, main.ts −19%, детерминизм ✅, тесты ✅
+## Активные задачи (после отпуска)
 
-## Открытые PR
-- **PR #91:** fix(hud): correct level progress bar formula — устаревший (работа завершена в PR #93)
+### P1 критичные
 
-## Последние изменения (dev config)
-- client/vite.config.ts: HMR host/protocol теперь задаются через `VITE_HMR_HOST` и `VITE_HMR_PROTOCOL` для корректной работы по локальной сети.
-- Используется `loadEnv()` из Vite для поддержки `.env.local` файлов (исправлено по замечанию Codex P2).
-- README.md обновлён: порт 5173 → 5174, добавлена документация HMR env vars.
+| ID | Описание | Статус |
+|----|----------|--------|
+| #121 | Скин не сохраняется при OAuth upgrade | Открыто |
+| TECH_DEBT | PlayersPage — управление игроками в Admin | Открыто |
+| slime-arena-b1b | PKCE валидация на сервере | Открыто |
+| slime-arena-5tp | UNKNOWN регион: отключить Google | Открыто |
 
-## Последние изменения (main)
-- PR #61-66: Ads Documentation Improvements — MERGED
-- Sprint 11.2: TalentSystem Integration (PR #57) — MERGED
-- Sprint 11: Tech Debt Refactoring (PR #56) — MERGED
-- Sprint 10: Pre-Launch Fixes (PR #54) — MERGED
-- Sprint 8: joinToken JWT Validation (PR #52) — MERGED
-- Sprint 7: Legacy DOM Cleanup (PR #50) — MERGED
+### P2 важные
 
-## PR #74: Env-based HMR config (В РАБОТЕ)
+| ID | Описание | Статус |
+|----|----------|--------|
+| TECH_DEBT | AdminUsersPage — управление администраторами | Открыто |
+| slime-arena-n17m | normalizeNickname() null/undefined | Открыто |
+| slime-arena-74gx | Merge anonymous match into existing account | Открыто |
 
-### Изменения
-- [x] vite.config.ts: функциональный конфиг с `loadEnv()` для чтения из `.env.local`
-- [x] README.md: порт 5173 → 5174 во всех упоминаниях
-- [x] README.md: добавлен раздел "Доступ с мобильных устройств (локальная сеть)"
-- [x] activeContext.md: добавлен раздел "Локальная сеть (dev)"
-- [x] progress.md: добавлен раздел "Последние изменения (dev config)"
-- [x] Resolve.alias сохранены (Preact compat, @slime-arena/shared)
-- [x] allowedHosts: ['*.overmobile.space'] сохранён
+### P3 средние
 
-### Review Fixes
-- [x] **Codex P2**: `process.env` → `loadEnv(mode, process.cwd(), 'VITE_')` для поддержки `.env.local`
-- [x] **Copilot**: Порт 5173 → 5174 в README.md
-
-### Конфликты (разрешены)
-- [x] client/vite.config.ts — merged: env-based HMR + aliases
-- [x] .memory_bank/activeContext.md — merged: main content + LAN dev section
-- [x] .memory_bank/progress.md — merged: main content + dev config section
+| ID | Описание | Статус |
+|----|----------|--------|
+| #126 | UI фаза 'connecting' не рендерится | Открыто |
+| #127 | Оптимизация tick=2700 | Открыто |
+| #129 | Устаревшие API endpoints | Открыто |
 
 ---
 

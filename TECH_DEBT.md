@@ -162,6 +162,72 @@ if (attackerGain + scatterMass > actualLoss + 0.001) {
 
 ---
 
+### [P1] Admin Dashboard: страница управления игроками (UsersPage)
+**Задача:** Добавить в Admin Dashboard страницу просмотра и управления игроками.
+
+**Контекст:**
+- В Admin Dashboard есть Dashboard, Rooms, Audit, Settings, Restart — но нет страницы игроков.
+- В ТЗ (TZ-MON v1.6) страница управления игроками не была запланирована.
+- Для production-эксплуатации необходима возможность просматривать и модерировать игроков.
+
+**Функциональность:**
+1. Список игроков с поиском и фильтрацией (по нику, статусу, дате регистрации)
+2. Детали игрока: профиль, статистика, история матчей, OAuth-привязки
+3. Действия: бан/разбан, сброс никнейма, просмотр рейтинга
+4. Пагинация (в БД могут быть тысячи пользователей)
+
+**Backend (новые endpoints):**
+- `GET /api/v1/admin/players` — список с пагинацией и фильтрами
+- `GET /api/v1/admin/players/:id` — детали игрока
+- `POST /api/v1/admin/players/:id/ban` — бан (требует 2FA)
+- `POST /api/v1/admin/players/:id/unban` — разбан
+
+**Frontend:**
+- `admin-dashboard/src/pages/PlayersPage.tsx` — новая страница
+- Добавить маршрут и пункт в навигацию
+
+**Файлы:**
+- `server/src/meta/routes/admin.ts` — новые endpoints
+- `admin-dashboard/src/pages/PlayersPage.tsx` — новый файл
+- `admin-dashboard/src/app.tsx` — маршрут
+
+**Статус:** Открыто. Приоритет P1.
+
+---
+
+### [P2] Admin Dashboard: страница управления администраторами (AdminUsersPage)
+**Задача:** Добавить в Admin Dashboard страницу для управления учётными записями администраторов.
+
+**Контекст:**
+- Сейчас администраторы создаются только через SQL-запросы в контейнере.
+- В ТЗ (TZ-MON v1.6) UI для управления admin_users не планировался.
+- Для удобства эксплуатации нужна возможность управлять админами из интерфейса.
+
+**Функциональность:**
+1. Список администраторов (username, дата создания, 2FA статус)
+2. Создание нового администратора (требует 2FA)
+3. Смена пароля другому администратору (требует 2FA)
+4. Удаление администратора (требует 2FA, нельзя удалить себя)
+
+**Backend (новые endpoints):**
+- `GET /api/v1/admin/users` — список администраторов
+- `POST /api/v1/admin/users` — создание (требует 2FA)
+- `DELETE /api/v1/admin/users/:id` — удаление (требует 2FA)
+- `PATCH /api/v1/admin/users/:id/password` — смена пароля (требует 2FA)
+
+**Frontend:**
+- `admin-dashboard/src/pages/AdminUsersPage.tsx` — новая страница
+- Добавить маршрут и пункт в навигацию
+
+**Файлы:**
+- `server/src/meta/routes/admin.ts` — новые endpoints
+- `admin-dashboard/src/pages/AdminUsersPage.tsx` — новый файл
+- `admin-dashboard/src/app.tsx` — маршрут
+
+**Статус:** Открыто. Приоритет P2.
+
+---
+
 ## Приоритет: Средний
 
 ### [P2] normalizeNickname() не защищает от null/undefined
