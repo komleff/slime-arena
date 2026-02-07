@@ -25,7 +25,7 @@ ssh-keygen -t ed25519 -C "your@email.com"
 ssh-copy-id -i ~/.ssh/id_ed25519.pub root@147.45.147.175
 ```
 
-## Архитектура (v0.8.4+) — Split: db + app
+## Архитектура (v0.8.5) — Split: db + app
 
 Production использует **два контейнера**, управляемых docker-compose:
 
@@ -42,10 +42,10 @@ Production использует **два контейнера**, управля�
 
 ```bash
 # App (обновляется часто)
-ghcr.io/komleff/slime-arena-app:0.8.4
+ghcr.io/komleff/slime-arena-app:0.8.5
 
 # DB (обновляется редко)
-ghcr.io/komleff/slime-arena-db:0.8.4
+ghcr.io/komleff/slime-arena-db:0.8.5
 ```
 
 ### Первоначальная установка

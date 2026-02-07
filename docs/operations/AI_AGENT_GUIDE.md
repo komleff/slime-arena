@@ -2,7 +2,7 @@
 
 **Это руководство для ИИ-деплоеров (Claude, Copilot и подобные)**, которые помогают управлять production сервером Slime Arena.
 
-> **Архитектура v0.8.4+:** Split-архитектура (db + app), управляемая docker-compose.
+> **Архитектура v0.8.5:** Split-архитектура (db + app), управляемая docker-compose.
 > Монолитный контейнер (`monolith-full`) **deprecated** — НЕ использовать для production.
 
 ---
@@ -331,5 +331,5 @@ ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker exec slime-arena-db pg_isre
 ---
 
 **Последнее обновление:** 2026-02-07
-**Версия сервера:** 0.8.4 (split-архитектура db + app)
+**Версия сервера:** 0.8.5 (split-архитектура db + app)
 **Контактная информация:** GitHub Issues с тегом `ops`
