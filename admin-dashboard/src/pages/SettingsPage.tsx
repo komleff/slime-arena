@@ -35,22 +35,22 @@ export function SettingsPage() {
  * Компонент настройки TOTP.
  */
 function TotpSetup() {
-  // Если 2FA уже настроена и не требуется
-  if (!totpRequired.value && !totpSetupData.value && totpSuccess.value) {
-    return (
-      <div class="totp-status totp-enabled">
-        <span class="status-icon">&#10003;</span>
-        <span>2FA включена</span>
-      </div>
-    );
-  }
-
-  // Если успешно настроили
+  // Только что настроили 2FA в текущей сессии
   if (totpSuccess.value) {
     return (
       <div class="totp-status totp-enabled">
         <span class="status-icon">&#10003;</span>
         <span>2FA успешно настроена!</span>
+      </div>
+    );
+  }
+
+  // 2FA уже включена (totpRequired=false означает «настройка НЕ нужна»)
+  if (!totpRequired.value && !totpSetupData.value) {
+    return (
+      <div class="totp-status totp-enabled">
+        <span class="status-icon">&#10003;</span>
+        <span>2FA включена</span>
       </div>
     );
   }

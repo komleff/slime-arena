@@ -12,7 +12,9 @@ services:
       - POSTGRES_PASSWORD=slime_dev_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./seed-data.sql:/docker-entrypoint-initdb.d/seed-data.sql:ro
+      # seed-data.sql загружается ПОСЛЕ миграций вручную:
+      # docker exec -i slime-arena-postgres psql -U slime -d slime_arena < docker/seed-data.sql
+      # - ./seed-data.sql:/docker-entrypoint-initdb.d/seed-data.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U slime -d slime_arena"]
       interval: 10s

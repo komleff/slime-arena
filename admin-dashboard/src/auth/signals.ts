@@ -8,7 +8,7 @@ import { signal, computed } from '@preact/signals';
 /** Access token JWT (в памяти, теряется при закрытии вкладки) */
 export const accessToken = signal<string | null>(null);
 
-/** Требуется ли настройка 2FA после логина */
+/** Требуется ли настройка 2FA (true = 2FA не включена, нужно настроить) */
 export const totpRequired = signal<boolean>(false);
 
 /** 2FA успешно настроена в текущей сессии */

@@ -184,7 +184,7 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
 
     res.json({
       accessToken,
-      totpRequired: user.totp_enabled,
+      totpRequired: !user.totp_enabled,
     });
   } catch (error) {
     console.error('[Admin Login] Error:', error);
@@ -274,7 +274,7 @@ router.post('/refresh', refreshRateLimiter, async (req: Request, res: Response) 
 
     res.json({
       accessToken,
-      totpRequired: user.totp_enabled,
+      totpRequired: !user.totp_enabled,
     });
   } catch (error) {
     console.error('[Admin Refresh] Error:', error);
