@@ -19,6 +19,15 @@
 - **Docker: директория логов телеметрии** (#130) — EACCES при создании /app/server/dist/server/logs
 - **Устаревшие API endpoints** (#129) — 404 на /api/room/join-token и /claim
 
+## Отложенные задачи Sprint 20 (фев 2026)
+Задачи из Фазы 2 плана Sprint 20, не вошедшие в v0.8.4:
+- **#121 (P1)** — Скин не сохраняется при OAuth upgrade (см. секцию "Приоритет: Высокий")
+- **#129 (P3)** — Устаревшие API endpoints (см. выше)
+- **#130 (P3)** — Docker EACCES логи телеметрии (см. выше)
+- **normalizeNickname() (P2)** — null/undefined (см. секцию "Приоритет: Средний")
+- **Cron-бэкап на сервере** — настроить `crontab` после деплоя v0.8.4 (оператор)
+- **monolith-full.Dockerfile** — добавить `COPY scripts/ scripts/` аналогично app.Dockerfile (не критично, монолит deprecated)
+
 ## Приоритет: Высокий
 
 ### При регистрации скин слайма не сохраняется (#121)

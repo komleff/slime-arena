@@ -2,32 +2,39 @@
 
 Текущее состояние проекта и фокус работы.
 
-## Текущее состояние
-**База:** main → **v0.8.3** (в разработке, ветка `sprint-20/infra-v0.8.3`)
+## Текущее состояние (7 февраля 2026 — ПЕРЕД ОТПУСКОМ)
+**База:** main → **v0.8.4** (tag pushed, Docker images built)
 **GDD версия:** 3.3.2
-**Sprint 20 Status:** в работе — Infrastructure v0.8.3
-**Production:** v0.7.8 (обновление до v0.8.3 после мержа и деплоя)
+**Sprint 20 Status:** v0.8.4 ✅ RELEASED — Docker images на ghcr.io, ожидает деплой оператором
+**Production:** v0.7.8 → обновление до v0.8.4 (split-архитектура db + app)
+**Документация:** ✅ Архивирована и синхронизирована (git commit готов)
+
+**Docker images (готовы):**
+- `ghcr.io/komleff/slime-arena-app:0.8.4`
+- `ghcr.io/komleff/slime-arena-db:0.8.4`
 
 ---
 
-## Sprint 20 — Infrastructure v0.8.3 (2026-02-07)
+## Sprint 20 — Infrastructure v0.8.4 (2026-02-07)
 
-**Цель:** Бэкапы, безопасное обновление, UX авторизации
-**Ветка:** `sprint-20/infra-v0.8.3`
+**Цель:** Split-архитектура, бэкапы, безопасное обновление, UX авторизации
+**PRs:** #139 (v0.8.3 code), #140 (Dockerfile fix), #141 (v0.8.4 release)
+**Tag:** v0.8.4
 
 ### Выполнено
 
 | Задача | Описание | Статус |
 |--------|----------|--------|
-| A1 | scripts/backup-remote.sh + протокол бэкапов в AI_AGENT_GUIDE.md | done |
-| A2 | RestartPage в Admin Dashboard (2FA, статусы, ошибки) | done |
-| A3 | app.Dockerfile, db.Dockerfile, compose обновлены до v0.8.3 | done |
-| A4 | CHANGELOG.md дополнен записями v0.7.5 — v0.8.2 | done |
-| A5 | Версионирование: version.json, Dockerfile, compose → 0.8.3 | done |
-| A6 | Nginx location /admin/ в SERVER_SETUP.md | done |
-| B | Кнопка «Войти» для гостей в лобби (MainScreen + RegistrationPromptModal) | done |
-| A7 | Сборка и push Docker-образов | оператор |
-| A8 | Деплой на production | оператор |
+| A1 | scripts/backup-remote.sh + протокол бэкапов | done |
+| A2 | RestartPage в Admin Dashboard (2FA) | done |
+| A3 | Dockerfiles, compose для split-архитектуры | done |
+| A4 | CHANGELOG.md v0.7.5 — v0.8.4 | done |
+| A5 | Версионирование всех файлов → 0.8.4 | done |
+| A6 | AI_AGENT_GUIDE.md — полная переработка для split-архитектуры | done |
+| A7 | SERVER_SETUP.md — docker-compose секция | done |
+| B | Кнопка «Войти» для гостей в лобби | done |
+| CI | Dockerfile fix (COPY scripts/) + CI/CD → Docker images built | done |
+| A8 | Деплой на production | ⏳ оператор |
 
 ---
 
@@ -50,7 +57,7 @@
 - P0-5: AuditPage — items vs entries fix
 - P0-6: API_BASE для production (hostname:3000)
 
-**Отчёт:** `docs/testing/v0.8.1-test-report.md`
+**Отчёт:** `docs/releases/v0.8.1-test-report.md`
 **Hotfix PR:** https://github.com/komleff/slime-arena/pull/137
 
 ---
@@ -445,6 +452,48 @@ ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 "docker exec slime-arena redis-cli 
 
 ---
 
+## 📋 Готово для следующей сессии (After Vacation)
+
+### PRs на внимание
+```
+#141  chore: release v0.8.4 ✅ MERGED —  tag pushed, Docker images built
+#140  fix(docker): COPY scripts/ ✅ MERGED
+#139  Sprint 20 infra ✅ MERGED  
+#138  (если были открыты) — проверить статус в GitHub
+```
+
+### Активные задачи в Beads (готовые к работе)
+**P0-P1 критичные:**
+- slime-arena-8yh [P0 epic] — UI P0 Core для софт-лонча
+- slime-arena-vsn5 [P1 bug] — Скин не сохраняется при OAuth upgrade (#121)
+- slime-arena-b48 [P1] — Accessibility: Escape + focus trap в модальных окнах
+- slime-arena-5tp [P1] — UNKNOWN регион: отключить Google OAuth
+
+**P2 высокий:**
+- slime-arena-n17m [P2] — normalizeNickname() падает на null/undefined
+- slime-arena-a5h0 [P2 ops] — Настроить cron-бэкап PostgreSQL (после деплоя)
+- slime-arena-tja [P2] — UI Refactoring Phase 3 - Legacy cleanup
+
+**P3 средний:**
+- slime-arena-r6v5 [P3] — Устаревшие API endpoints (DELETE /api/room/join-token)
+- slime-arena-0iy7 [P3] — Docker EACCES: директория логов телеметрии
+
+**Запуск:** `bd ready --limit 20` для полного списка
+
+### Production Deployment ⏳
+**Текущая версия в production:** v0.7.8
+**Готова к деплою:** v0.8.4 (Docker images в ghcr.io)
+**Ответственный:** Оператор (требует вручную`)
+**После деплоя:** Настроить cron-бэкап (task slime-arena-a5h0)
+
+### Важные пути
+- Config: [config/balance.json](config/balance.json) — все параметры игры
+- Tech debt: [TECH_DEBT.md](TECH_DEBT.md) — актуальные проблемы (обновлено 7 фев)
+- Server setup: [docs/operations/SERVER_SETUP.md](docs/operations/SERVER_SETUP.md)
+- AI Guide: [docs/operations/AI_AGENT_GUIDE.md](docs/operations/AI_AGENT_GUIDE.md)
+
+---
+
 ## Команды
 
 ```bash
@@ -458,5 +507,11 @@ npm run build
 
 # Beads
 bd ready                 # Доступные задачи
-bd list --status=open    # Все открытые
+bd list --status open    # Все открытые
+
+# Git
+git pull --rebase       # Перед работой
+git push                # После завершения
+bd sync                 # Синхронизировать Beads
 ```
+

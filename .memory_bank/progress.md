@@ -2,36 +2,38 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: sprint-20/infra-v0.8.3 @ 7 февраля 2026
-- **Текущая ветка**: `sprint-20/infra-v0.8.3`
-- **Релиз:** v0.7.8 ✅ (production deployed)
-- **v0.8.3 (Infra):** в работе — бэкапы, restart, auth UX, Docker split
+- **last_checked_commit**: main @ 7 февраля 2026 (PR #141 merged, tag v0.8.4)
+- **Текущая ветка**: `main`
+- **Релиз:** v0.8.4 ✅ (Docker images built, ожидает деплой оператором)
+- **Production:** v0.7.8 → v0.8.4 (деплой оператором)
 - **GDD версия**: v3.3.2
 
 ---
 
-## Sprint 20 (2026-02-07) — Infrastructure v0.8.3
+## Sprint 20 (2026-02-07) — Infrastructure v0.8.4 ✅ ЗАВЕРШЁН
 
-**Цель:** Бэкапы, безопасное обновление, UX авторизации
-**Ветка:** `sprint-20/infra-v0.8.3`
+**Цель:** Split-архитектура, бэкапы, безопасное обновление, UX авторизации
+**PRs:** #139 (v0.8.3 code), #140 (Dockerfile fix), #141 (v0.8.4 release)
+**Tag:** v0.8.4
+**Docker images:** ghcr.io/komleff/slime-arena-{app,db}:0.8.4
 
-### Код — завершён
+### Код
 
 - scripts/backup-remote.sh — удалённый pg_dump + ротация
 - admin-dashboard/RestartPage.tsx — перезапуск с 2FA
 - client/MainScreen.tsx — кнопка «Войти» для гостей
 - client/RegistrationPromptModal.tsx — prop intent (login/convert_guest)
-- app.Dockerfile, db.Dockerfile, docker-compose.app-db.yml → v0.8.3
-- monolith-full.Dockerfile, docker-compose.monolith-full.yml → v0.8.3
-- CHANGELOG.md — записи v0.7.5 — v0.8.3
-- AI_AGENT_GUIDE.md — протокол бэкапов
-- SERVER_SETUP.md — nginx /admin/
+- app.Dockerfile — COPY scripts/ fix + v0.8.4
+- db.Dockerfile, docker-compose.app-db.yml → v0.8.4
+- AI_AGENT_GUIDE.md — полностью переписан для split-архитектуры
+- SERVER_SETUP.md — docker-compose секция + первоначальная установка
+- CHANGELOG.md — записи v0.7.5 — v0.8.4
 
-### Ожидает
+### Статус: ✅ RELEASED
 
-- PR review + merge
-- Docker build + push (оператор)
-- Деплой на production (оператор)
+- 9 ревьюеров, 5 раундов фиксов, 21 находка исправлена
+- Docker images built + pushed to ghcr.io
+- Деплой на production (⏳ оператор)
 
 ---
 
