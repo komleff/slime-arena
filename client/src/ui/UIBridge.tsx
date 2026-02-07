@@ -62,6 +62,7 @@ import { MainMenu } from './components/MainMenu';
 import { AccountConflictModal } from './components/AccountConflictModal';
 import { NicknameConfirmModal } from './components/NicknameConfirmModal';
 import { LeaderboardScreen } from './components/LeaderboardScreen';
+import { ShutdownBanner } from './components/ShutdownBanner';
 
 // ========== Типы для колбеков ==========
 
@@ -186,6 +187,9 @@ function UIRoot() {
       {leaderboardVisible && (
         <LeaderboardScreen onClose={closeLeaderboard} />
       )}
+
+      {/* Баннер перезагрузки сервера (поверх всего) */}
+      <ShutdownBanner />
     </Fragment>
   );
 }

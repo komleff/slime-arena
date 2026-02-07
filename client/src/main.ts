@@ -58,7 +58,7 @@ import { authService } from "./services/authService";
 import { configService } from "./services/configService";
 import { isOAuthCallback, parseOAuthCallback, handleOAuthCallback, clearOAuthState } from "./oauth/OAuthRedirectHandler";
 import { matchmakingService } from "./services/matchmakingService";
-import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict, setOAuthNicknameConfirm, setAuthError } from "./ui/signals/gameState";
+import { arenaWaitTime, currentMatchId, currentRoomId, gamePhase, resetMatchmaking, selectedClassId as selectedClassIdSignal, setArenaWaitTime, setLevelThresholds, setResultsWaitTime, setOAuthConflict, setOAuthNicknameConfirm, setAuthError, shutdownAt } from "./ui/signals/gameState";
 import {
     getOrbColor,
     drawCircle as drawCircleRender,
@@ -1641,6 +1641,19 @@ async function connectToServer(playerName: string, classId: number) {
         syncMatchId();
         // И подписываемся на изменения (на случай сброса комнаты)
         room.onStateChange(syncMatchId);
+
+        // Синхронизируем shutdownAt (уведомление о перезагрузке сервера)
+        const syncShutdownAt = () => {
+            const val = (room.state as { shutdownAt?: number }).shutdownAt ?? 0;
+            if (shutdownAt.value !== val) {
+                shutdownAt.value = val;
+                if (val > 0) {
+                    console.log('[Main] Server shutdown scheduled at:', new Date(val).toISOString());
+                }
+            }
+        };
+        syncShutdownAt();
+        room.onStateChange(syncShutdownAt);
         
         const resetClassSelectionUi = () => {
             // Сброс состояния класса в Preact signal
