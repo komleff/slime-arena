@@ -19,3 +19,5 @@ export const ZONE_TYPE_TURBO = 5;
 
 export const OBSTACLE_TYPE_PILLAR = 1;
 export const OBSTACLE_TYPE_SPIKES = 2;
+
+export const GUEST_DEFAULT_NICKNAME = 'Гость';

@@ -21,6 +21,7 @@ import {
   type Profile,
 } from '../ui/signals/gameState';
 import balanceConfig from '../../../config/balance.json';
+import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
 
 /**
  * Ответ сервера на /auth/guest
@@ -463,15 +464,11 @@ class AuthService {
   }
 
   /**
-   * Генерация случайного никнейма для гостя.
-   *
-   * Gemini P1: Списки слов проверены против серверных BANNED_WORDS
-   * (admin, moderator, system, bot, dev, staff, gm, gamemaster, slime, arena).
-   * При добавлении новых слов необходимо проверить совместимость.
-   * Сервер выполняет финальную валидацию при /auth/upgrade.
+   * Дефолтный никнейм для гостя.
+   * Случайное игровое имя генерируется в MainMenu через generateRandomName().
    */
   private generateGuestNickname(): string {
-    return 'Гость';
+    return GUEST_DEFAULT_NICKNAME;
   }
 
   /**

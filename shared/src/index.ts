@@ -49,6 +49,7 @@ export {
     ZONE_TYPE_TURBO,
     OBSTACLE_TYPE_PILLAR,
     OBSTACLE_TYPE_SPIKES,
+    GUEST_DEFAULT_NICKNAME,
 } from "./constants";
 export type { SlimeSprite } from "./sprites";
 export {

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { injectStyles } from '../utils/injectStyles';
 import { currentUser, currentProfile, openLeaderboard } from '../signals/gameState';
 import { authService } from '../../services/authService';
+import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
 import { RegistrationPromptModal } from './RegistrationPromptModal';
 
 const STYLES_ID = 'main-screen-styles';
@@ -637,7 +638,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
   const profile = currentProfile.value;
 
   const [isGuest, setIsGuest] = useState(authService.isAnonymous());
-  const playerName = isGuest ? 'Гость' : (user?.nickname || 'PLAYER');
+  const playerName = isGuest ? GUEST_DEFAULT_NICKNAME : (user?.nickname || 'PLAYER');
   const level = profile?.level ?? 1;
   const avatarUrl = profile?.avatarUrl || '/hud/hud_avatar_hero_01.webp';
   const coins = 0; // Валюта пока не реализована
