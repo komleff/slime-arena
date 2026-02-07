@@ -182,31 +182,35 @@ const styles = `
   }
 
   .hud-auth-link {
-    background: none;
     border: none;
-    color: #4FC3F7;
+    outline: none;
+    cursor: pointer;
     font-family: inherit;
     font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 3px;
-    padding: 6px 8px;
-    margin: -6px -8px;
-    min-height: 44px;
-    min-width: 44px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    text-transform: uppercase;
+    padding: 6px 18px;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
-    transition: color 150ms;
+    justify-content: center;
+    background: linear-gradient(180deg, #81D4FA 0%, #039BE5 50%, #0277BD 100%);
+    border-radius: 999px;
+    box-shadow: 0 3px 0 #01579B, 0 5px 8px rgba(0,0,0,0.3);
+    transition: transform 0.1s, box-shadow 0.1s;
   }
 
   .hud-auth-link:hover {
-    color: #81D4FA;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 0 #01579B, 0 6px 10px rgba(0,0,0,0.3);
   }
 
   .hud-auth-link:active {
-    color: #29B6F6;
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #01579B, 0 2px 4px rgba(0,0,0,0.3);
   }
 
   /* === ВАЛЮТА === */

@@ -406,7 +406,7 @@ export function MainMenu({ onPlay, onBack, onCancelMatchmaking, isConnecting = f
   // имя, которое пользователь начал вводить до срабатывания эффекта
   useEffect(() => {
     const currentName = playerName.value;
-    if (!currentName || currentName.trim() === '') {
+    if (!currentName || currentName.trim() === '' || currentName === 'Гость') {
       const newName = generateRandomName();
       setName(newName);
       playerName.value = newName;
