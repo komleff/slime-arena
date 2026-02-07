@@ -1,123 +1,126 @@
-# Реорганизация документации + коммит незалитых файлов
+# Исправление бага: 2FA статус в Admin Dashboard
 
 **Дата:** 2026-02-07
-**Контекст:** После Sprint 20 накопились: незалитые в git изменения (memory bank, TECH_DEBT, архив планов), устаревшие документы в docs/, дублирование ролей и папок.
+**Ветка:** `sprint-20/fix-admin-2fa-status`
+**Контекст:** При локальном тестировании v0.8.4 обнаружен баг — после настройки 2FA и повторного логина Settings показывает кнопку «Настроить 2FA» вместо статуса «2FA включена».
 
 ---
 
-## Часть 1: Незалитые файлы (коммит в main)
+## Причина бага
 
-Текущий `git status` показывает:
+Сигнал `totpRequired` перегружен двумя смыслами:
 
-**Staged:**
-- `.memory_bank/activeContext.md` — обновлён для Sprint 20
-- `.memory_bank/progress.md` — обновлён для Sprint 20
-- `docs/plans/polymorphic-pondering-valley.md` → `archive/sprint-19/pm-orchestration-plan.md`
-- `docs/plans/silly-chasing-russell.md` → `archive/sprint-mon/review-tz-monitoring-dashboard.md`
+| Компонент | Что отправляет/читает | Семантика |
+|-----------|----------------------|-----------|
+| **Бэкенд** (admin.ts:187, 277) | `totpRequired: user.totp_enabled` | «У пользователя включена 2FA» |
+| **SettingsPage** (строка 62) | `totpRequired.value` → показать notice | «Нужно настроить 2FA» |
 
-**Unstaged:**
-- `TECH_DEBT.md` — добавлена секция «Отложенные задачи Sprint 20»
-- `docs/sprint-13/review-prompts.md` — удалён (ревью Sprint 13)
-
-**Untracked (добавить в коммит):**
-- `docs/plans/archive/sprint-20/release-v084-split-architecture.md` — план деплоя v0.8.4
-
-**Удалить (не коммитить):**
-
-- `tmp/login.json` — временный файл
-- `docs/operations/Защита данных v0.8.3.md` — временный документ
+При `totp_enabled=true` в БД → `totpRequired=true` → Settings думает «нужно настроить» → показывает кнопку.
+При этом `totpSuccess=false` (in-memory, сбрасывается при перезагрузке) → условие «2FA включена» (строка 39) не срабатывает.
 
 ---
 
-## Часть 2: Реорганизация docs/
+## Решение
 
-### 2.1 Объединить папки презентаций
+Инвертировать семантику `totpRequired` на бэкенде: `true` = «настройка нужна» (т.е. `!totp_enabled`).
 
-`docs/presentation/` → `docs/presentations/` (сохраняем `presentations/`)
+### Шаг 1: Бэкенд — `server/src/meta/routes/admin.ts`
 
-| Действие | Файл | Назначение |
-|----------|------|------------|
-| git mv | `presentation/PLAN.md` | `presentations/AI-Driven-Development-Plan.md` |
-| git mv | `presentation/REPORT.md` | `presentations/AI-Driven-Development-Report.md` |
-| git mv | `presentation/AGENT_ROLES_QUICKSTART.md` | `archive/AGENT_ROLES_QUICKSTART.md` |
-
-Удалить пустую `docs/presentation/`.
-
-### 2.2 Sprint-13 → архив
-
-| Действие | Файл | Назначение |
-|----------|------|------------|
-| git mv | `sprint-13/` (вся папка) | `archive/sprint-13-reviews/` |
-
-Sprint 13 давно завершён, все файлы — результаты ревью.
-
-### 2.3 Testing → releases + архив
-
-| Действие | Файл | Назначение |
-|----------|------|------------|
-| git mv | `testing/v0.8.1-test-report.md` | `releases/v0.8.1-test-report.md` |
-| git mv | `testing/v0.8.1-test-plan.md` | `archive/v0.8.1-test-plan.md` |
-
-Удалить пустую `docs/testing/`.
-
-### 2.4 Удалить дубли ролей
-
-| Действие | Файл | Причина |
-|----------|------|---------|
-| git mv | `docs/PM-ROLE.md` | → `docs/archive/PM-ROLE.md` (дубль `.beads/PM_ROLE.md`) |
-| delete | `.beads/Арт-директор_role.md` | Дубль `.beads/ART_DIRECTOR_ROLE.md` (58 vs 193 строк) |
-
-### 2.5 Одиночные папки и файлы
-
-| Действие | Файл | Назначение |
-|----------|------|------------|
-| git mv | `docs/agents/PM-ORCHESTRATION-PLAN.md` | `docs/archive/PM-ORCHESTRATION-PLAN.md` |
-| git mv | `docs/TECHNICAL_SNAPSHOT_v0.7.0.md` | `docs/archive/TECHNICAL_SNAPSHOT_v0.7.0.md` |
-
-Удалить пустую `docs/agents/`.
-
-### 2.6 Обновить ссылки
-
-В `.memory_bank/activeContext.md`: заменить `docs/testing/v0.8.1-test-report.md` → `docs/releases/v0.8.1-test-report.md`.
-
----
-
-## Целевая структура docs/
-
-```
-docs/
-├── gdd/                    # [НЕ ТРОГАТЬ] GDD v3.3.2
-├── soft-launch/            # [НЕ ТРОГАТЬ] ТЗ, архитектура v4.2.5
-├── operations/             # [НЕ ТРОГАТЬ] AI_AGENT_GUIDE, SERVER_SETUP, backup
-├── meta-min/               # [НЕ ТРОГАТЬ] ТЗ мета-геймплея v1.9
-├── monitor/                # [НЕ ТРОГАТЬ] ТЗ мониторинга v1.6
-├── plans/                  # Планы (+ archive/sprint-19,20,mon)
-├── architecture/           # data-flow.md (актуальный)
-├── presentations/          # [ОБЪЕДИНЕНО] Все презентации
-├── releases/               # Release notes + test reports
-├── archive/                # [ЕДИНЫЙ АРХИВ] Всё устаревшее
-├── ASSETS_MAP_FULL.md      # Актуальная карта ассетов
-└── .obsidian/              # Служебная
+**Login (строка 187):**
+```ts
+// Было:
+totpRequired: user.totp_enabled,
+// Стало:
+totpRequired: !user.totp_enabled,
 ```
 
-**Удалённые папки:** `presentation/`, `sprint-13/`, `testing/`, `agents/`
-**Удалённые файлы:** `.beads/Арт-директор_role.md`, `tmp/login.json`
+**Refresh (строка 277):**
+```ts
+// Было:
+totpRequired: user.totp_enabled,
+// Стало:
+totpRequired: !user.totp_enabled,
+```
+
+Безопасность: `totpRequired` НЕ используется в App.tsx для роутинга (только `isAuthenticated`). Сигнал используется только в SettingsPage.tsx для UI.
+
+### Шаг 2: Фронтенд — `admin-dashboard/src/pages/SettingsPage.tsx`
+
+Переписать логику `TotpSetup()`:
+
+```tsx
+function TotpSetup() {
+  // Только что настроили 2FA в текущей сессии
+  if (totpSuccess.value) {
+    return (
+      <div class="totp-status totp-enabled">
+        <span class="status-icon">&#10003;</span>
+        <span>2FA успешно настроена!</span>
+      </div>
+    );
+  }
+
+  // 2FA уже включена (totpRequired=false означает «настройка НЕ нужна»)
+  if (!totpRequired.value && !totpSetupData.value) {
+    return (
+      <div class="totp-status totp-enabled">
+        <span class="status-icon">&#10003;</span>
+        <span>2FA включена</span>
+      </div>
+    );
+  }
+
+  // Нужна настройка (totpRequired=true означает «настройка нужна»)
+  if (!totpSetupData.value) {
+    return (
+      <div class="totp-setup-start">
+        {totpRequired.value && (
+          <p class="totp-required-notice">...</p>
+        )}
+        <button ...>Настроить 2FA</button>
+      </div>
+    );
+  }
+
+  // Форма верификации (без изменений)
+}
+```
+
+Ключевое изменение: порядок проверок. `totpSuccess` проверяется первым (приоритет у «только что настроили»), затем `!totpRequired` для «уже включена».
+
+### Шаг 3: Фронтенд — `admin-dashboard/src/auth/signals.ts`
+
+Обновить комментарий:
+```ts
+// Было:
+/** Требуется ли настройка 2FA после логина */
+// Стало:
+/** Требуется ли настройка 2FA (true = 2FA не включена, нужно настроить) */
+```
+
+### Шаг 4: `handleVerify()` — без изменений
+
+После успешной верификации `setTotpRequired(false)` уже корректно — 2FA настроена, настройка больше не нужна.
 
 ---
 
-## Порядок выполнения
+## Файлы
 
-1. Удалить `tmp/` (временные файлы)
-2. Выполнить все `git mv` операции (реорганизация)
-3. Удалить `.beads/Арт-директор_role.md`
-4. Обновить ссылку в activeContext.md
-5. `git add` все изменения
-6. Один коммит: `docs: reorganize documentation + commit Sprint 20 updates`
-7. `git push origin main`
+| Файл | Изменение |
+|------|-----------|
+| `server/src/meta/routes/admin.ts` | Строки 187, 277: инвертировать `totpRequired` |
+| `admin-dashboard/src/pages/SettingsPage.tsx` | Строки 37-56: переписать логику TotpSetup |
+| `admin-dashboard/src/auth/signals.ts` | Строка 11: обновить комментарий |
+
+---
 
 ## Проверка
 
-- `git status` — чисто
-- `git log --oneline -1` — коммит на месте
-- Ссылки в CLAUDE.md не изменились (`.beads/AGENT_ROLES.md`, `docs/soft-launch/`, `docs/operations/`)
-- Все актуальные папки на месте
+1. `npm run build` — сборка без ошибок
+2. `npm run test` — тесты проходят
+3. Локальная проверка:
+   - Логин в Admin Dashboard
+   - Settings показывает «2FA включена» (если уже настроена)
+   - Logout → Login → Settings снова показывает «2FA включена»
+   - Сброс 2FA в БД (`UPDATE admin_users SET totp_enabled=false, totp_secret_encrypted=NULL`) → логин → Settings показывает кнопку «Настроить 2FA»
+4. Коммит в ветку, PR в main

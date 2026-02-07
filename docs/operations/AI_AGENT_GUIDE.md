@@ -62,6 +62,43 @@
 
 ---
 
+## Первый деплой v0.8.4 — чеклист
+
+При первом деплое v0.8.4 (split-архитектура) убедиться:
+
+1. **`.env` содержит обязательные переменные:**
+   - `ADMIN_ENCRYPTION_KEY` — **критично**, без неё Admin Dashboard не работает
+   - `OAUTH_YANDEX_ENABLED=true` — по умолчанию `false` в compose, нужно явно включить
+   - `YANDEX_CLIENT_ID` и `YANDEX_CLIENT_SECRET` — для Yandex OAuth
+   - `JWT_SECRET`, `MATCH_SERVER_TOKEN` — стандартные секреты
+
+2. **После `docker compose up -d app` — обязательно запустить миграции:**
+
+   ```bash
+   docker exec slime-arena-app npm run db:migrate --workspace=server
+   ```
+
+3. **Проверить admin-пользователя** (создаётся миграцией 009):
+   - Логин: `admin`
+   - Пароль по умолчанию: задаётся при первой настройке или через seed
+   - 2FA: настраивается через Admin Dashboard → Settings
+
+4. **(Опционально) Restart через Admin Dashboard** — требует:
+   - Volume для outbox-файлов в compose:
+
+     ```yaml
+     app:
+       volumes:
+         - /root/slime-arena/shared:/shared
+       environment:
+         - SHARED_DIR=/shared
+     ```
+
+   - Watchdog-скрипт на хосте, следящий за `/root/slime-arena/shared/restart-requested`
+   - Без этого рестарт можно делать вручную: `docker compose restart app`
+
+---
+
 ## Обновление app (частое — каждый релиз)
 
 Это основная операция. Обновляется только app-контейнер, всё остальное не затрагивается.
@@ -184,6 +221,27 @@ curl -s -X POST https://slime-arena.overmobile.space/matchmake/joinOrCreate/aren
 
 ---
 
+## Проверка Admin Dashboard (v0.8.4+)
+
+Admin Dashboard доступен по адресу `https://slime-arena.overmobile.space/admin/`.
+
+**Проверка после деплоя:**
+
+1. Открыть `/admin/` в браузере
+2. Войти с учётными данными admin-пользователя
+3. Если 2FA не настроен — настроить в Settings (QR-код → TOTP-приложение → подтверждение)
+4. Проверить доступность страниц: Users, Matches, Settings
+5. (Опционально) Проверить рестарт — требует настроенный SHARED_DIR и watchdog
+
+**Частые проблемы:**
+
+- Ошибка логина → проверить что миграция 009 выполнена (`admin_users` таблица существует)
+- `ADMIN_ENCRYPTION_KEY not set` → добавить в `.env`, перезапустить app
+- 2FA код не принимается → проверить синхронизацию времени на сервере (`timedatectl`)
+- Restart возвращает 500 → `SHARED_DIR` не настроен или каталог не существует
+
+---
+
 ## Просмотр логов
 
 ```bash
@@ -201,10 +259,14 @@ ssh -i ~/.ssh/id_ed25519 root@147.45.147.175 'docker logs -f slime-arena-app --t
 ```
 
 **Red flags:**
+
 - `Cannot allocate memory` — переполнение памяти
 - `Connection refused` — сервис не слушает порт
 - `EACCES` — проблема с правами доступа
 - `ECONNREFUSED db:5432` — БД не доступна для app
+- `ADMIN_ENCRYPTION_KEY not set` — **критично**, Admin Dashboard не будет работать
+- `ENOENT: restart-requested` — `SHARED_DIR` не настроен или каталог не создан
+- `OAUTH_YANDEX_ENABLED` отсутствует в логах провайдеров — добавить `OAUTH_YANDEX_ENABLED=true` в `.env`
 
 ---
 
