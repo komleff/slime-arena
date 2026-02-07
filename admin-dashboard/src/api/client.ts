@@ -5,11 +5,8 @@
  */
 import { accessToken, setAccessToken, setTotpRequired, clearAuth } from '../auth/signals';
 
-// В production (serve) нет proxy, поэтому используем абсолютный URL MetaServer
-// В dev режиме Vite proxy перенаправляет /api на localhost:3000
-const API_BASE = import.meta.env.PROD
-  ? `${window.location.protocol}//${window.location.hostname}:3000/api/v1/admin`
-  : '/api/v1/admin';
+// Относительный путь: в dev — Vite proxy, в production — Nginx proxy
+const API_BASE = '/api/v1/admin';
 
 /** Флаг, предотвращающий параллельные refresh-запросы */
 let isRefreshing = false;
