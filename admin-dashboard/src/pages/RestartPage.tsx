@@ -35,9 +35,9 @@ export function RestartPage() {
     auditId.value = null;
   }, []);
 
-  // totpRequired = сервер подтвердил что 2FA включена (при логине)
-  // totpSuccess = 2FA настроена в текущей сессии (через Settings)
-  const is2FAConfigured = totpRequired.value || totpSuccess.value;
+  // totpRequired=true → 2FA НЕ настроена (нужно настроить)
+  // totpSuccess=true → 2FA настроена в текущей сессии (через Settings)
+  const is2FAConfigured = !totpRequired.value || totpSuccess.value;
 
   return (
     <div class="page restart-page">
