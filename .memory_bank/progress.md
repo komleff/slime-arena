@@ -2,11 +2,27 @@
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 7 февраля 2026 (PR #144 merged, v0.8.5)
-- **Текущая ветка**: `main`
-- **Релиз:** v0.8.5 (PR #144, #145 merged, Docker images pushed, tag v0.8.5)
-- **Production:** v0.7.8 → v0.8.5 (деплой оператором)
+- **last_checked_commit**: main @ 8 февраля 2026 (PR #148 — Redis hotfix)
+- **Текущая ветка**: `fix/redis-rdb-snapshot-error` (PR #148)
+- **Релиз:** v0.8.5 ✅ (production deployed, app-db)
+- **Production:** v0.8.5 ✅ (деплоен 2026-02-07, hotfix Redis 2026-02-08)
 - **GDD версия**: v3.3.2
+
+---
+
+## Server Maintenance (2026-02-08) — ✅ ЗАВЕРШЕНО
+
+**Проблема:** 502 Bad Gateway + Яндекс OAuth 503 (iPad Safari, тайский IP)
+**Причина:** Redis MISCONF — RDB-снапшот не пишется, блокировка записей
+**PR:** #148 (fix/redis-rdb-snapshot-error)
+
+### Выполнено
+- [x] Диагностика 502 → Redis MISCONF → health-check 503
+- [x] Runtime-фикс: `CONFIG SET stop-writes-on-bgsave-error no` + `CONFIG SET save ''`
+- [x] supervisord-db.conf и supervisord.conf: `--save "" --stop-writes-on-bgsave-error no`
+- [x] Настроен домен `slime-arena.u2game.space` (DNS, SSL, nginx)
+- [x] Яндекс OAuth: работает с тайского IP + iPad Safari
+- [x] Обновлены CHANGELOG, SERVER_SETUP, создан SERVER_UPDATE
 
 ---
 

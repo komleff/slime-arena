@@ -9,7 +9,8 @@
 | Провайдер | Timeweb Cloud |
 | Локация | Москва |
 | IP | 147.45.147.175 |
-| Домен | slime-arena.overmobile.space |
+| Домен (основной) | slime-arena.overmobile.space |
+| Домен (альтернативный) | slime-arena.u2game.space |
 | OS | Ubuntu 20.04+ |
 
 ## SSH Access
@@ -301,12 +302,31 @@ tail -f /var/log/nginx/slime-arena.error.log
 # Установка acme.sh
 curl https://get.acme.sh | sh
 
-# Выпуск сертификата
+# Выпуск сертификата (основной домен)
 acme.sh --issue -d slime-arena.overmobile.space -w /var/www/acme --keylength ec-256
 
+# Выпуск сертификата (альтернативный домен)
+acme.sh --issue -d slime-arena.u2game.space -w /var/www/acme --keylength ec-256
+
 # Автопродление настроено автоматически через cron
-# Сертификаты в: /root/.acme.sh/slime-arena.overmobile.space_ecc/
+# Сертификаты в:
+#   /root/.acme.sh/slime-arena.overmobile.space_ecc/
+#   /root/.acme.sh/slime-arena.u2game.space_ecc/
 ```
+
+## Nginx — Альтернативный домен (u2game.space)
+
+Файл: `/etc/nginx/sites-available/slime-arena-u2game`
+
+Конфигурация аналогична основному домену. Отличие — имя сервера и пути к SSL-сертификатам.
+
+```bash
+# Включение
+ln -sf /etc/nginx/sites-available/slime-arena-u2game /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+**⚠️ При добавлении нового домена:** DNS → SSL (acme.sh) → nginx server block → Yandex OAuth redirect URI.
 
 ## Useful Commands
 
@@ -374,15 +394,25 @@ curl -s -X POST https://slime-arena.overmobile.space/matchmake/joinOrCreate/aren
 
 ## Troubleshooting
 
-### Redis RDB Permission Denied
+### Redis RDB Permission Denied / MISCONF
 
 ```bash
-# Симптом: Can't save in background: fork: Cannot allocate memory
-# Решение:
+# Симптом 1: Can't save in background: fork: Cannot allocate memory
 sysctl vm.overcommit_memory=1
 echo "vm.overcommit_memory=1" >> /etc/sysctl.conf
 docker compose restart db
+
+# Симптом 2: MISCONF Redis is configured to save RDB snapshots,
+#   but it's currently unable to persist to disk.
+#   → health-check 503 → nginx 502 Bad Gateway → OAuth 503
+# Решение (runtime):
+docker exec slime-arena-db redis-cli CONFIG SET stop-writes-on-bgsave-error no
+docker exec slime-arena-db redis-cli CONFIG SET save ''
+# Решение (постоянное): --save "" --stop-writes-on-bgsave-error no
+#   уже добавлено в supervisord-db.conf и supervisord.conf (PR #148)
 ```
+
+**⚠️ Инцидент 2026-02-08:** Redis MISCONF → 502 + OAuth 503. Downtime ~22 часа.
 
 ### Telemetry Logs Permission
 
@@ -423,14 +453,19 @@ location ~ ^/[a-zA-Z0-9]+/[a-zA-Z0-9]+$ {
 - [ ] `docker compose up -d` — оба контейнера `Up (healthy)`
 - [ ] Миграции БД применены
 - [ ] Nginx config обновлён и `nginx -t` прошёл
-- [ ] SSL certificate valid
+- [ ] SSL certificate valid (оба домена)
 - [ ] Health endpoint responding
 - [ ] Guest auth working
 - [ ] Matchmake working
 - [ ] WebSocket connection working
 - [ ] Admin Dashboard доступен по `/admin/`
-- [ ] OAuth callback URL configured in Yandex
+- [ ] OAuth callback URL configured in Yandex (для каждого домена)
+- [ ] Оба домена доступны: overmobile.space и u2game.space
 - [ ] Cron бэкап настроен (`crontab -l`)
+
+## Related Documentation
+
+- [SERVER_UPDATE.md](SERVER_UPDATE.md) — инструкции по обновлению и добавлению доменов
 
 ## Contact
 
