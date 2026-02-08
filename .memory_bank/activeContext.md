@@ -2,17 +2,38 @@
 
 Текущее состояние проекта и фокус работы.
 
-## Текущее состояние (7 февраля 2026)
+## Текущее состояние (8 февраля 2026)
 
 **База:** main → **v0.8.5** (PR #144, #145 merged, tag v0.8.5)
 **GDD версия:** 3.3.2
-**Sprint 20 Status:** v0.8.5 — UI фиксы гостя, Docker images pushed, ожидает деплой
-**Production:** v0.7.8 → обновление до v0.8.5 (split-архитектура db + app)
+**Sprint 20 Status:** ✅ v0.8.5 задеплоен на production
+**Production:** v0.8.5 (app-db деплой, два контейнера)
 
 **Docker images (на ghcr.io):**
 
 - `ghcr.io/komleff/slime-arena-app:0.8.5` ✅
 - `ghcr.io/komleff/slime-arena-db:0.8.5` ✅
+
+### Домены
+| Домен | Статус | SSL |
+|-------|--------|-----|
+| https://slime-arena.overmobile.space | ✅ Работает | Let's Encrypt (ECC) |
+| https://slime-arena.u2game.space | ✅ Работает (с 2026-02-08) | Let's Encrypt (ECC) |
+
+---
+
+## 🔧 Server Maintenance (2026-02-08)
+
+### Инцидент: 502 Bad Gateway + Яндекс OAuth 503
+
+**Причина:** Redis не мог записать RDB-снапшот → `stop-writes-on-bgsave-error yes` блокировал все записи → health-check 503 → nginx 502. OAuth `/oauth/resolve` тоже не мог записать токен → 503 на iPad Safari из Таиланда.
+
+**Решение (runtime):** `CONFIG SET stop-writes-on-bgsave-error no` + `CONFIG SET save ''`
+**Решение (код, PR #148):** `--save "" --stop-writes-on-bgsave-error no` в supervisord-db.conf и supervisord.conf
+
+### Новый домен: slime-arena.u2game.space
+
+Настроено: DNS → 147.45.147.175, SSL (acme.sh), nginx-конфиг, Яндекс OAuth redirect URI.
 
 ---
 
