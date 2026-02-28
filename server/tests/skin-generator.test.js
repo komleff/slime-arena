@@ -10,12 +10,15 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 process.chdir(projectRoot);
 
 const {
-  generateRandomBasicSkin,
   generateBasicSkin,
   getBasicSkins,
   skinExists,
   getSkinById
 } = require(path.resolve(__dirname, '../dist/server/src/utils/generators/skinGenerator.js'));
+
+const {
+  generateRandomBasicSkin,
+} = require(path.resolve(__dirname, '../dist/server/src/meta/utils/skinGenerator.js'));
 
 // Простой тестовый фреймворк
 let passedTests = 0;

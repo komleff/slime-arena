@@ -65,23 +65,9 @@ export function getBasicSkins(): Skin[] {
 }
 
 /**
- * Генерирует случайный базовый скин для нового игрока.
- * Использует Math.random(), поэтому НЕ детерминирован.
- * ТОЛЬКО ДЛЯ МЕТАСЕРВЕРА - не использовать в игровой симуляции!
- *
- * @returns skinId случайного базового скина
+ * generateRandomBasicSkin() перенесена в server/src/meta/utils/skinGenerator.ts
+ * (использует Math.random() — допустимо только в мета-слое).
  */
-export function generateRandomBasicSkin(): string {
-  // META-SERVER ONLY: Math.random() допустим, не используется в симуляции
-  const basicSkins = getBasicSkins();
-
-  if (basicSkins.length === 0) {
-    throw new Error('No basic skins found in config/skins.json');
-  }
-
-  const randomIndex = Math.floor(Math.random() * basicSkins.length);
-  return basicSkins[randomIndex].id;
-}
 
 /**
  * Генерирует детерминированный базовый скин на основе seed.
