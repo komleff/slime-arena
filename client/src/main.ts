@@ -2446,17 +2446,41 @@ async function connectToServer(playerName: string, classId: number) {
                     (balanceConfig.match.resultsDurationSec ?? 12) +
                     (balanceConfig.match.restartDelaySec ?? 3) +
                     BUFFER_SECONDS;
-                let resultsCountdown = resultsWaitSeconds;
-                setResultsWaitTime(resultsCountdown);
-                const resultsTimerInterval = setInterval(() => {
-                    resultsCountdown--;
-                    if (resultsCountdown <= 0) {
+                // fix(slime-arena-hfww): Используем абсолютное время вместо декремента,
+                // чтобы таймер корректно работал после background/foreground (Chrome mobile)
+                const resultsEndTime = Date.now() + resultsWaitSeconds * 1000;
+                setResultsWaitTime(resultsWaitSeconds);
+
+                const updateResultsTimer = () => {
+                    const remaining = Math.max(0, Math.ceil((resultsEndTime - Date.now()) / 1000));
+                    setResultsWaitTime(remaining);
+                    if (remaining <= 0 && resultsTimerInterval != null) {
                         clearInterval(resultsTimerInterval);
-                        setResultsWaitTime(0);
-                    } else {
-                        setResultsWaitTime(resultsCountdown);
+                        resultsTimerInterval = null;
                     }
-                }, 1000);
+                };
+                // Интервал 250 мс для плавного обновления после возврата из background
+                let resultsTimerInterval: ReturnType<typeof setInterval> | null =
+                    setInterval(updateResultsTimer, 250);
+
+                // Пересчёт таймера при возврате вкладки из background
+                const onVisibilityChange = () => {
+                    if (document.visibilityState === "visible") {
+                        updateResultsTimer();
+                    }
+                };
+                document.addEventListener("visibilitychange", onVisibilityChange);
+
+                // Очистка обработчика при уходе из фазы results (через onLeave или новый матч)
+                const cleanupResultsTimer = () => {
+                    if (resultsTimerInterval != null) {
+                        clearInterval(resultsTimerInterval);
+                        resultsTimerInterval = null;
+                    }
+                    document.removeEventListener("visibilitychange", onVisibilityChange);
+                };
+                // Привязываем очистку к onLeave комнаты
+                room.onLeave(cleanupResultsTimer);
 
                 // Получаем победителя
                 const leaderId = room.state.leaderboard?.[0];
