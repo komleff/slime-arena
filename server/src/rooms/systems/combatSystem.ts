@@ -50,29 +50,37 @@ export function processCombat(
     const defenderClassStats = room.getClassStats(defender);
     const minSlimeMass = room.balance.physics.minSlimeMass;
 
-    // PvP Bite Formula (из ТЗ):
-    // - Атакующий получает 10% СВОЕЙ массы за счёт жертвы
-    // - Жертва дополнительно теряет 10% СВОЕЙ массы в виде пузырей
+    // PvP Bite Formula (симметричная):
+    // Все модификаторы (damageBonusMult, damageTakenMult, totalResist) применяются
+    // к общей потере жертвы, затем она делится на attackerGain и scatterMass.
     // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
 
-    // 1. Атакующий получает % от СВОЕЙ массы
-    const attackerMassBefore = attacker.mass;
+    const defenderMassBefore = defender.mass;
+
+    // Модификатор урона атакующего (Острые зубы, Агрессор, Rage, класс)
     let damageBonusMult = room.getDamageBonusMultiplier(attacker, true);
     if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
         damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
     }
-    const attackerGainBase = attackerMassBefore * room.balance.combat.pvpBiteAttackerGainPct;
-    let attackerGain = attackerGainBase * zoneMultiplier * classStats.damageMult * damageBonusMult;
 
-    // 2. Жертва теряет % СВОЕЙ массы как пузыри
-    const defenderMassBefore = defender.mass;
+    // Модификатор получаемого урона защитника (Стойкий, Агрессор)
     const damageTakenMult = room.getDamageTakenMultiplier(defender);
+
     // Защита от укусов: класс + талант (cap 50%)
     const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
-    const scatterBase = defenderMassBefore * room.balance.combat.pvpBiteScatterPct;
-    let scatterMass = scatterBase * zoneMultiplier * damageTakenMult * (1 - totalResist);
 
-    // 3. Общая потеря жертвы = attackerGain + scatterMass
+    // Проценты из конфига
+    const gainPct = room.balance.combat.pvpBiteAttackerGainPct;
+    const scatterPct = room.balance.combat.pvpBiteScatterPct;
+    const totalRewardPct = gainPct + scatterPct;
+
+    // Общая потеря жертвы: все модификаторы применяются симметрично
+    const baseLoss = defenderMassBefore * totalRewardPct;
+    const totalLoss = baseLoss * zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult * (1 - totalResist);
+
+    // Распределяем пропорционально gainPct / scatterPct
+    let attackerGain = totalLoss * (gainPct / totalRewardPct);
+    let scatterMass = totalLoss * (scatterPct / totalRewardPct);
     let massLoss = attackerGain + scatterMass;
 
     attacker.lastAttackTick = room.tick;
