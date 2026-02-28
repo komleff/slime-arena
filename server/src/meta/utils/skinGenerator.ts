@@ -8,7 +8,7 @@
  * Детерминированные функции скинов остаются в utils/generators/skinGenerator.ts.
  */
 
-import { getBasicSkins } from '../../utils/generators/skinGenerator.js';
+import { getBasicSkins } from '../../utils/generators/skinGenerator';
 
 /**
  * Генерирует случайный базовый скин для нового игрока.
