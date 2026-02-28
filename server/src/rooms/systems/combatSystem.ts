@@ -50,34 +50,29 @@ export function processCombat(
     const defenderClassStats = room.getClassStats(defender);
     const minSlimeMass = room.balance.physics.minSlimeMass;
 
-    // PvP Bite Formula (из GDD):
-    // - attackerGain = attacker.mass * pvpBiteAttackerGainPct (% от СВОЕЙ массы)
-    // - scatterMass = defender.mass * pvpBiteScatterPct (% от массы ЖЕРТВЫ)
-    // Все модификаторы (damageBonusMult, damageTakenMult, totalResist) применяются
-    // СИММЕТРИЧНО к обоим слагаемым (fix slime-arena-mtw).
+    // PvP Bite Formula (из ТЗ):
+    // - Атакующий получает 10% СВОЕЙ массы за счёт жертвы
+    // - Жертва дополнительно теряет 10% СВОЕЙ массы в виде пузырей
     // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
 
+    // 1. Атакующий получает % от СВОЕЙ массы
     const attackerMassBefore = attacker.mass;
-    const defenderMassBefore = defender.mass;
-
-    // Модификатор урона атакующего (Острые зубы, Агрессор, Rage, класс)
     let damageBonusMult = room.getDamageBonusMultiplier(attacker, true);
     if (attacker.mod_ambushDamage > 0 && (defenderZone === "side" || defenderZone === "tail")) {
         damageBonusMult = Math.max(0, damageBonusMult + attacker.mod_ambushDamage);
     }
+    const attackerGainBase = attackerMassBefore * room.balance.combat.pvpBiteAttackerGainPct;
+    let attackerGain = attackerGainBase * zoneMultiplier * classStats.damageMult * damageBonusMult;
 
-    // Модификатор получаемого урона защитника (Стойкий, Агрессор)
+    // 2. Жертва теряет % СВОЕЙ массы как пузыри
+    const defenderMassBefore = defender.mass;
     const damageTakenMult = room.getDamageTakenMultiplier(defender);
-
     // Защита от укусов: класс + талант (cap 50%)
     const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
+    const scatterBase = defenderMassBefore * room.balance.combat.pvpBiteScatterPct;
+    let scatterMass = scatterBase * zoneMultiplier * damageTakenMult * (1 - totalResist);
 
-    // Общий множитель модификаторов (применяется симметрично к gain и scatter)
-    const combinedMult = zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult * (1 - totalResist);
-
-    // Раздельные базы: gain от массы АТАКУЮЩЕГО, scatter от массы ЖЕРТВЫ
-    let attackerGain = attackerMassBefore * room.balance.combat.pvpBiteAttackerGainPct * combinedMult;
-    let scatterMass = defenderMassBefore * room.balance.combat.pvpBiteScatterPct * combinedMult;
+    // 3. Общая потеря жертвы = attackerGain + scatterMass
     let massLoss = attackerGain + scatterMass;
 
     attacker.lastAttackTick = room.tick;
@@ -95,27 +90,24 @@ export function processCombat(
         return;
     }
 
-    // Vampire talents: перенаправляют часть scatter в attackerGain.
-    // GDD: "Вампир: бок 10% -> 20%, хвост 15% -> 25%"
-    // vampirePct — целевой % массы жертвы, который атакующий получает.
-    // Бонус = (vampirePct - baseGainPct) * defenderMassBefore * combinedMult,
-    // берётся за счёт scatter (масса не создаётся).
-    {
-        let vampirePct = 0;
-        if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
-            vampirePct = attacker.mod_vampireSideGainPct;
-        } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
-            vampirePct = attacker.mod_vampireTailGainPct;
+    // Vampire talents: перенаправляют часть scatter в attackerGain
+    if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
+        const baseGainPct = room.balance.combat.pvpBiteAttackerGainPct;
+        const vampirePct = attacker.mod_vampireSideGainPct;
+        const bonusPct = vampirePct - baseGainPct;
+        if (bonusPct > 0 && scatterMass > 0) {
+            const transferred = scatterMass * Math.min(1, bonusPct / room.balance.combat.pvpBiteScatterPct);
+            attackerGain += transferred;
+            scatterMass -= transferred;
         }
-        if (vampirePct > 0) {
-            const baseGainPct = room.balance.combat.pvpBiteAttackerGainPct;
-            const bonusPct = vampirePct - baseGainPct;
-            if (bonusPct > 0 && scatterMass > 0) {
-                // Бонус Вампира считается от массы жертвы (как scatter)
-                const transferred = Math.min(scatterMass, defenderMassBefore * bonusPct * combinedMult);
-                attackerGain += transferred;
-                scatterMass -= transferred;
-            }
+    } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
+        const baseGainPct = room.balance.combat.pvpBiteAttackerGainPct;
+        const vampirePct = attacker.mod_vampireTailGainPct;
+        const bonusPct = vampirePct - baseGainPct;
+        if (bonusPct > 0 && scatterMass > 0) {
+            const transferred = scatterMass * Math.min(1, bonusPct / room.balance.combat.pvpBiteScatterPct);
+            attackerGain += transferred;
+            scatterMass -= transferred;
         }
     }
 
