@@ -14,7 +14,7 @@ import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { generateRandomBasicSkin } from '../utils/skinGenerator';
-import { skinExists } from '../../utils/generators/skinGenerator';
+import { getBasicSkins } from '../../utils/generators/skinGenerator';
 
 const router = express.Router();
 
@@ -370,9 +370,10 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     let skinId: string | undefined;
     if (isGuest) {
       // Гости передают skinId из localStorage через request body
-      // Валидация: принимаем только существующие скины (защита от подмены премиумных)
+      // Валидация: принимаем только базовые скины (защита от подмены премиумных)
+      const basicSkinIds = getBasicSkins().map(s => s.id);
       if (req.body.skinId && typeof req.body.skinId === 'string'
-          && req.body.skinId.length <= 64 && skinExists(req.body.skinId)) {
+          && req.body.skinId.length <= 64 && basicSkinIds.includes(req.body.skinId)) {
         skinId = req.body.skinId;
       }
     } else if (subjectId) {
