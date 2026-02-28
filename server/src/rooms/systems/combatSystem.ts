@@ -98,29 +98,23 @@ export function processCombat(
         return;
     }
 
-    // Vampire talents: перенаправляют часть scatter в attackerGain
-    if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
-        const baseGainPct = room.balance.combat.pvpBiteAttackerGainPct;
-        const vampirePct = attacker.mod_vampireSideGainPct;
-        const bonusPct = vampirePct - baseGainPct;
-        if (bonusPct > 0 && scatterMass > 0) {
-            const transferred = scatterMass * Math.min(1, bonusPct / room.balance.combat.pvpBiteScatterPct);
-            attackerGain += transferred;
-            scatterMass -= transferred;
+    // Vampire talents: увеличивают долю attackerGain за счёт scatter.
+    // GDD: "Вампир: бок 10% -> 20%, хвост 15% -> 25%"
+    // vampirePct — абсолютная целевая доля массы жертвы (до zone/mod).
+    // vampireGainFraction = vampirePct / (totalRewardPct * zoneMultiplier) от totalLoss.
+    {
+        let vampirePct = 0;
+        if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
+            vampirePct = attacker.mod_vampireSideGainPct;
+        } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
+            vampirePct = attacker.mod_vampireTailGainPct;
         }
-    } else if (attacker.mod_vampireTailGainPct > 0 && defenderZone === "tail") {
-        const baseGainPct = room.balance.combat.pvpBiteAttackerGainPct;
-        const vampirePct = attacker.mod_vampireTailGainPct;
-        const bonusPct = vampirePct - baseGainPct;
-        if (bonusPct > 0 && scatterMass > 0) {
-            const transferred = scatterMass * Math.min(1, bonusPct / room.balance.combat.pvpBiteScatterPct);
-            attackerGain += transferred;
-            scatterMass -= transferred;
+        if (vampirePct > 0) {
+            const vampireGainFraction = Math.min(1, vampirePct / (totalRewardPct * zoneMultiplier));
+            attackerGain = massLoss * vampireGainFraction;
+            scatterMass = massLoss - attackerGain;
         }
     }
-
-    // Пересчитываем massLoss после vampire talents
-    massLoss = attackerGain + scatterMass;
 
     // Проверка Last Breath: если масса упадёт ниже минимума
     const newDefenderMass = defender.mass - massLoss;
