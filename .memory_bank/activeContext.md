@@ -2,11 +2,64 @@
 
 Текущее состояние проекта и фокус работы.
 
-## Текущее состояние (8 февраля 2026)
+## Текущее состояние (28 февраля 2026)
 
-**База:** main → **v0.8.5** (PR #144, #145 merged, tag v0.8.5)
+**База:** main → **v0.8.5**, ветка `sprint-21/bugfix-tech-debt` → **v0.8.6** (PR #150, ожидает merge)
 **GDD версия:** 3.3.2
-**Sprint 20 Status:** ✅ v0.8.5 задеплоен на production
+**Sprint 21 Status:** ✅ Код готов, ревью пройдено, ожидает merge оператором
+**Production:** v0.8.5 (app-db деплой, два контейнера)
+
+---
+
+## Sprint 21 — Багфиксы и технический долг v0.8.6 (2026-02-28)
+
+**Цель:** Стабилизация — исправление P1/P2 багов + точечный тех долг. Новых фич нет.
+**Ветка:** `sprint-21/bugfix-tech-debt` (14 коммитов, 12 файлов, +516/-86 строк)
+**PR:** #150
+**Коммиты:** `ba1af70`..`a48add7`
+
+### Ревью-консенсус PR #150
+
+| Ревьювер | Статус |
+|----------|--------|
+| Claude Sonnet 4.6 | ✅ APPROVED |
+| ChatGPT (ручной) | ⚠️ REQUEST_CHANGES → исправлено в `504a6e6` |
+| Codex GPT-5 | ⚠️ REQUEST_CHANGES → исправлено в `63163ae` |
+| GitHub Copilot | ⚠️ COMMENTED → 1 принято (`a48add7`), остальные отклонены |
+| ChatGPT Codex | ⚠️ P1/P2 inline → закрыты в `504a6e6` |
+
+**Консенсус: все критические замечания устранены, 1 APPROVED.**
+
+### Выполненные задачи (9/9)
+
+| # | Beads ID | P | Задача | Коммит |
+|---|----------|---|--------|--------|
+| 1 | slime-arena-b7z6 | P1 | Зависание экрана выбора класса при рестарте | `ceb5b6e` |
+| 2 | slime-arena-hfww | P2 | Таймер зависает (Chrome mobile) | `efe9960` |
+| 3 | slime-arena-3v3o | P2 | Фаза 'connecting' мелькает главным экраном | `b2869e6` |
+| 4 | slime-arena-vsn5 | P1 | Скин не сохраняется при OAuth upgrade | `ba1af70` |
+| 5 | slime-arena-n17m | P2 | normalizeNickname() падает на null | `6075177` |
+| 6 | slime-arena-mtw | P2 | Модификаторы укуса несимметричны | `1ecd828` |
+| 7 | slime-arena-4xh | P2 | Талант Вампир не по GDD | `e55dbe7` |
+| 8 | slime-arena-y2z2 | P2 | Гость видит PLAYER после матча | `69de6d9` |
+| 9 | slime-arena-vpti | P2 | Изолировать generateRandomBasicSkin() | `56c002e` |
+
+### Исправления по итогам ревью
+
+| Коммит | Описание |
+|--------|----------|
+| `504a6e6` | Формула боя: раздельные базы mass, visibilitychange cleanup, skinId валидация |
+| `63163ae` | skinId: whitelist через getBasicSkins() вместо skinExists() |
+| `a48add7` | Убрать .js из import (CommonJS) |
+
+### Новая задача из ревью
+
+- `slime-arena-ef98` (P3) — Уточнить GDD: Вампир — attackerGain от attacker.mass или defender.mass?
+
+---
+
+## Предыдущее состояние (8 февраля 2026)
+
 **Production:** v0.8.5 (app-db деплой, два контейнера)
 
 **Docker images (на ghcr.io):**
