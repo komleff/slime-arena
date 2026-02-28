@@ -1425,7 +1425,28 @@ function drawSprite(
     drawSpriteRender(canvasCtx, img, ready, x, y, radius, angleRad, fallbackFill, fallbackStroke, spriteScale);
 }
 
+// Таймаут безопасности для фазы "connecting" (ID для очистки)
+let connectingTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const CONNECTING_TIMEOUT_MS = 10_000; // 10 секунд
+
 async function connectToServer(playerName: string, classId: number) {
+    // Очищаем предыдущий таймаут безопасности (если был)
+    if (connectingTimeoutId) {
+        clearTimeout(connectingTimeoutId);
+        connectingTimeoutId = null;
+    }
+    // Таймаут безопасности: если "connecting" > 10 сек → сбросить в "menu"
+    connectingTimeoutId = setTimeout(() => {
+        connectingTimeoutId = null;
+        if (gamePhase.value === "connecting") {
+            console.warn("[connectToServer] Таймаут подключения (10 сек), сброс в меню");
+            setConnecting(false);
+            setPhase("menu");
+            canvas.style.display = "none";
+            setGameViewportLock(false);
+        }
+    }, CONNECTING_TIMEOUT_MS);
+
     // Показываем индикатор подключения в Preact UI
     setConnecting(true);
 
@@ -1546,6 +1567,12 @@ async function connectToServer(playerName: string, classId: number) {
                 const waitTime = Math.ceil(room.state?.timeRemaining ?? 15);
                 console.log(`[connectToServer] Арена в фазе Results — покидаем и ждём ${waitTime} сек`);
 
+                // Очищаем таймаут безопасности подключения
+                if (connectingTimeoutId) {
+                    clearTimeout(connectingTimeoutId);
+                    connectingTimeoutId = null;
+                }
+
                 // ВАЖНО: Сначала покидаем комнату, потом обновляем UI
                 room.leave().catch((err) => {
                     console.error("[connectToServer] Ошибка при выходе из комнаты:", err);
@@ -1593,6 +1620,11 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Нормальное подключение — переключаем на playing
             setArenaWaitTime(0);
+            // Очищаем таймаут безопасности подключения
+            if (connectingTimeoutId) {
+                clearTimeout(connectingTimeoutId);
+                connectingTimeoutId = null;
+            }
             setPhase("playing");
             setConnecting(false);
 
@@ -2358,15 +2390,15 @@ async function connectToServer(playerName: string, classId: number) {
                         console.log("Арена готова — начинаем игру");
                     }
                 }
-                // Если игрок подключился во время Results и ждал в 'waiting' (старая логика)
-                else if (gamePhase.value === "waiting") {
+                // Если игрок подключился во время Results и ждал в 'waiting' или 'connecting'
+                else if (gamePhase.value === "waiting" || gamePhase.value === "connecting") {
                     const selfPlayer = room.state.players.get(room.sessionId);
                     if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
                         setClassSelectMode(true);
                         console.log("Сервер рестартировал матч — нужно выбрать класс");
                     } else {
                         setPhase("playing");
-                        console.log("Сервер рестартировал матч — переключаем из waiting в playing");
+                        console.log("Сервер рестартировал матч — переключаем из waiting/connecting в playing");
                     }
                 }
             }
@@ -3661,11 +3693,9 @@ async function connectToServer(playerName: string, classId: number) {
             // onStop колбэк вызовет inputManager.detach() и resetSnapshotBuffer()
             gameLoop.stop();
 
-            // Очистка визуальных сущностей для предотвращения "призраков"
-            // Проверяем что это та же комната, чтобы избежать race condition при reconnect
-            if (room === activeRoom) {
-                smoothingSystem.clear();
-            }
+            // Очистка визуальных сущностей — всегда при выходе из комнаты
+            // (activeRoom мог быть сброшен в null ранее в onPlayAgain)
+            smoothingSystem.clear();
 
             // Сброс направления движения для предотвращения "фантомного движения" после респауна
             lastSentInput = { x: 0, y: 0 };
@@ -3679,9 +3709,13 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
-            // Сбрасываем индикатор подключения и переходим в меню
             setConnecting(false);
-            setPhase("menu");
+            // fix(slime-arena-b7z6): Не сбрасываем в "menu" если уже в "connecting" —
+            // onPlayAgain устанавливает "connecting" до вызова room.leave(),
+            // и onLeave не должен перезаписывать эту фазу
+            if (gamePhase.value !== "connecting") {
+                setPhase("menu");
+            }
             isViewportUnlockedForResults = false;
             setGameViewportLock(false);
         });
@@ -3699,6 +3733,11 @@ async function connectToServer(playerName: string, classId: number) {
         });
     } catch (e) {
         console.error("Ошибка подключения:", e);
+        // Очищаем таймаут безопасности подключения
+        if (connectingTimeoutId) {
+            clearTimeout(connectingTimeoutId);
+            connectingTimeoutId = null;
+        }
         // Вернём экран выбора при ошибке
         canvas.style.display = "none";
         // Сбрасываем индикатор подключения и возвращаем в меню
