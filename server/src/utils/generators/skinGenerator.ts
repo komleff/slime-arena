@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { Rng } from '../rng.js';
+import { Rng } from '../rng';
 
 interface Skin {
   id: string;

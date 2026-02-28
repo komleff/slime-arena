@@ -774,7 +774,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
       {/* Модал авторизации для гостей */}
       {showAuthModal && (
         <RegistrationPromptModal
-          intent="login"
+          intent={isGuest.value ? "convert_guest" : "login"}
           onClose={() => {
             setShowAuthModal(false);
             // isGuest пересчитывается автоматически через useComputed(currentUser)
