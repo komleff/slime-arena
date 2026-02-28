@@ -50,11 +50,14 @@ export function processCombat(
     const defenderClassStats = room.getClassStats(defender);
     const minSlimeMass = room.balance.physics.minSlimeMass;
 
-    // PvP Bite Formula (симметричная):
+    // PvP Bite Formula (из GDD):
+    // - attackerGain = attacker.mass * pvpBiteAttackerGainPct (% от СВОЕЙ массы)
+    // - scatterMass = defender.mass * pvpBiteScatterPct (% от массы ЖЕРТВЫ)
     // Все модификаторы (damageBonusMult, damageTakenMult, totalResist) применяются
-    // к общей потере жертвы, затем она делится на attackerGain и scatterMass.
+    // СИММЕТРИЧНО к обоим слагаемым (fix slime-arena-mtw).
     // Инвариант: massLoss = attackerGain + scatterMass (масса не создаётся из воздуха)
 
+    const attackerMassBefore = attacker.mass;
     const defenderMassBefore = defender.mass;
 
     // Модификатор урона атакующего (Острые зубы, Агрессор, Rage, класс)
@@ -69,18 +72,12 @@ export function processCombat(
     // Защита от укусов: класс + талант (cap 50%)
     const totalResist = Math.min(0.5, defenderClassStats.biteResistPct + defender.biteResistPct);
 
-    // Проценты из конфига
-    const gainPct = room.balance.combat.pvpBiteAttackerGainPct;
-    const scatterPct = room.balance.combat.pvpBiteScatterPct;
-    const totalRewardPct = gainPct + scatterPct;
+    // Общий множитель модификаторов (применяется симметрично к gain и scatter)
+    const combinedMult = zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult * (1 - totalResist);
 
-    // Общая потеря жертвы: все модификаторы применяются симметрично
-    const baseLoss = defenderMassBefore * totalRewardPct;
-    const totalLoss = baseLoss * zoneMultiplier * classStats.damageMult * damageBonusMult * damageTakenMult * (1 - totalResist);
-
-    // Распределяем пропорционально gainPct / scatterPct
-    let attackerGain = totalLoss * (gainPct / totalRewardPct);
-    let scatterMass = totalLoss * (scatterPct / totalRewardPct);
+    // Раздельные базы: gain от массы АТАКУЮЩЕГО, scatter от массы ЖЕРТВЫ
+    let attackerGain = attackerMassBefore * room.balance.combat.pvpBiteAttackerGainPct * combinedMult;
+    let scatterMass = defenderMassBefore * room.balance.combat.pvpBiteScatterPct * combinedMult;
     let massLoss = attackerGain + scatterMass;
 
     attacker.lastAttackTick = room.tick;
@@ -98,10 +95,11 @@ export function processCombat(
         return;
     }
 
-    // Vampire talents: увеличивают долю attackerGain за счёт scatter.
+    // Vampire talents: перенаправляют часть scatter в attackerGain.
     // GDD: "Вампир: бок 10% -> 20%, хвост 15% -> 25%"
-    // vampirePct — абсолютная целевая доля массы жертвы (до zone/mod).
-    // vampireGainFraction = vampirePct / (totalRewardPct * zoneMultiplier) от totalLoss.
+    // vampirePct — целевой % массы жертвы, который атакующий получает.
+    // Бонус = (vampirePct - baseGainPct) * defenderMassBefore * combinedMult,
+    // берётся за счёт scatter (масса не создаётся).
     {
         let vampirePct = 0;
         if (attacker.mod_vampireSideGainPct > 0 && defenderZone === "side") {
@@ -110,11 +108,19 @@ export function processCombat(
             vampirePct = attacker.mod_vampireTailGainPct;
         }
         if (vampirePct > 0) {
-            const vampireGainFraction = Math.min(1, vampirePct / (totalRewardPct * zoneMultiplier));
-            attackerGain = massLoss * vampireGainFraction;
-            scatterMass = massLoss - attackerGain;
+            const baseGainPct = room.balance.combat.pvpBiteAttackerGainPct;
+            const bonusPct = vampirePct - baseGainPct;
+            if (bonusPct > 0 && scatterMass > 0) {
+                // Бонус Вампира считается от массы жертвы (как scatter)
+                const transferred = Math.min(scatterMass, defenderMassBefore * bonusPct * combinedMult);
+                attackerGain += transferred;
+                scatterMass -= transferred;
+            }
         }
     }
+
+    // Пересчитываем massLoss после vampire talents
+    massLoss = attackerGain + scatterMass;
 
     // Проверка Last Breath: если масса упадёт ниже минимума
     const newDefenderMass = defender.mass - massLoss;

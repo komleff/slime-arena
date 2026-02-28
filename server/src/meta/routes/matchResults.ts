@@ -14,6 +14,7 @@ import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { generateRandomBasicSkin } from '../utils/skinGenerator';
+import { skinExists } from '../../utils/generators/skinGenerator';
 
 const router = express.Router();
 
@@ -366,11 +367,12 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     const finalMass = playerData?.finalMass ?? 0;
 
     // Get skinId: for registered users fetch from profile, for guests use from request body
-    // fix(slime-arena-vsn5): fallback на generateRandomBasicSkin() вместо hardcoded 'slime_green'
     let skinId: string | undefined;
     if (isGuest) {
-      // P0-1: Гости передают skinId из localStorage через request body
-      if (req.body.skinId && typeof req.body.skinId === 'string') {
+      // Гости передают skinId из localStorage через request body
+      // Валидация: принимаем только существующие скины (защита от подмены премиумных)
+      if (req.body.skinId && typeof req.body.skinId === 'string'
+          && req.body.skinId.length <= 64 && skinExists(req.body.skinId)) {
         skinId = req.body.skinId;
       }
     } else if (subjectId) {
@@ -387,18 +389,18 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     if (!skinId) {
       try {
         skinId = generateRandomBasicSkin();
-      } catch {
+      } catch (err) {
+        console.warn('[MatchResults] generateRandomBasicSkin() failed, using slime_green:', err);
         skinId = 'slime_green';
       }
     }
 
     // Generate claimToken
-    const resolvedSkinId: string = skinId || 'slime_green';
     const claimToken = generateClaimToken({
       matchId,
       subjectId,
       finalMass,
-      skinId: resolvedSkinId,
+      skinId,
     });
 
     const expiresAt = calculateExpiresAt(TOKEN_EXPIRATION.CLAIM_TOKEN);

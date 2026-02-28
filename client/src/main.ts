@@ -2457,6 +2457,7 @@ async function connectToServer(playerName: string, classId: number) {
                     if (remaining <= 0 && resultsTimerInterval != null) {
                         clearInterval(resultsTimerInterval);
                         resultsTimerInterval = null;
+                        document.removeEventListener("visibilitychange", onVisibilityChange);
                     }
                 };
                 // Интервал 250 мс для плавного обновления после возврата из background

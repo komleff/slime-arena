@@ -65,11 +65,6 @@ export function getBasicSkins(): Skin[] {
 }
 
 /**
- * generateRandomBasicSkin() перенесена в server/src/meta/utils/skinGenerator.ts
- * (использует Math.random() — допустимо только в мета-слое).
- */
-
-/**
  * Генерирует детерминированный базовый скин на основе seed.
  * Использует детерминированный генератор Rng.
  *
