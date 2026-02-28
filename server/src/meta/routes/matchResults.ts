@@ -13,6 +13,7 @@ import {
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
 import { authRateLimiter } from '../middleware/rateLimiter';
+import { generateRandomBasicSkin } from '../../utils/generators/skinGenerator';
 
 const router = express.Router();
 
@@ -365,7 +366,8 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     const finalMass = playerData?.finalMass ?? 0;
 
     // Get skinId: for registered users fetch from profile, for guests use from request body
-    let skinId = 'slime_green';
+    // fix(slime-arena-vsn5): fallback на generateRandomBasicSkin() вместо hardcoded 'slime_green'
+    let skinId: string | undefined;
     if (isGuest) {
       // P0-1: Гости передают skinId из localStorage через request body
       if (req.body.skinId && typeof req.body.skinId === 'string') {
@@ -378,6 +380,15 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
       );
       if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id) {
         skinId = profileResult.rows[0].selected_skin_id;
+      }
+    }
+
+    // Fallback: если skinId не определён — генерируем случайный базовый скин
+    if (!skinId) {
+      try {
+        skinId = generateRandomBasicSkin();
+      } catch {
+        skinId = 'slime_green';
       }
     }
 

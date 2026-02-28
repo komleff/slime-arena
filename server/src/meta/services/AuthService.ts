@@ -443,7 +443,14 @@ export class AuthService {
       throw new Error('User not found');
     }
 
-    console.log(`[AuthService] Completed profile for user ${userId.slice(0, 8)}...`);
+    // fix(slime-arena-vsn5): Сохраняем skinId в profiles.selected_skin_id при complete_profile
+    // Ранее skinId записывался только в users.registration_skin_id, а profiles оставался с NULL
+    await db.query(
+      `UPDATE profiles SET selected_skin_id = $2, updated_at = NOW() WHERE user_id = $1`,
+      [userId, registrationSkinId]
+    );
+
+    console.log(`[AuthService] Completed profile for user ${userId.slice(0, 8)}..., skin: ${registrationSkinId}`);
 
     return this.mapUserRow(result.rows[0]);
   }
