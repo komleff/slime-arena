@@ -13,7 +13,7 @@ import {
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
 import { authRateLimiter } from '../middleware/rateLimiter';
-import { generateRandomBasicSkin } from '../../utils/generators/skinGenerator';
+import { generateRandomBasicSkin } from '../utils/skinGenerator';
 
 const router = express.Router();
 
@@ -393,11 +393,12 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     }
 
     // Generate claimToken
+    const resolvedSkinId: string = skinId || 'slime_green';
     const claimToken = generateClaimToken({
       matchId,
       subjectId,
       finalMass,
-      skinId,
+      skinId: resolvedSkinId,
     });
 
     const expiresAt = calculateExpiresAt(TOKEN_EXPIRATION.CLAIM_TOKEN);
