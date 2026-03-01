@@ -2,76 +2,73 @@
 
 Текущее состояние проекта и фокус работы.
 
-## Текущее состояние (1 марта 2026)
+## Текущее состояние (2 марта 2026)
 
-**База:** main → **v0.8.5**, ветка `sprint-21/bugfix-tech-debt` → **v0.8.6** (PR #150, ожидает merge)
+**Production:** v0.8.6 (развёрнут 1 марта 2026 после merge PR #150)
+**Main:** v0.8.7 (PR #153 merged, тег создан, Docker CI собирает образ)
 **GDD версия:** 3.3.2
-**Sprint 21 Status:** Код готов, ревью пройдено, ожидает merge оператором
-**Production:** v0.8.5 (split-архитектура, два контейнера, два домена)
 
 ---
 
-## Sprint 21 — Багфиксы, тех долг, спрайтовая система (v0.8.6)
+## Sprint 22 — Hotfix (2 марта 2026) — v0.8.7
 
-**Цель:** Стабилизация + редизайн спрайтовой системы. Исправление P1/P2 багов.
-**Ветка:** `sprint-21/bugfix-tech-debt` (21 коммит)
-**PR:** #150
+**PR:** #153 — merged
+**Ветка:** `sprint-22/bugfix-timer-auth-matchid`
 
-### Фаза 1: Багфиксы (9 задач) — done
+### Исправления (3/3) — ЗАВЕРШЕНО
 
-| # | Beads ID | P | Задача | Коммит |
-|---|----------|---|--------|--------|
-| 1 | slime-arena-b7z6 | P1 | Зависание экрана выбора класса при рестарте | `ceb5b6e` |
-| 2 | slime-arena-hfww | P2 | Таймер зависает (Chrome mobile) | `efe9960` |
-| 3 | slime-arena-3v3o | P2 | Фаза 'connecting' мелькает главным экраном | `b2869e6` |
-| 4 | slime-arena-vsn5 | P1 | Скин не сохраняется при OAuth upgrade | `ba1af70` |
-| 5 | slime-arena-n17m | P2 | normalizeNickname() падает на null | `6075177` |
-| 6 | slime-arena-mtw | P2 | Модификаторы укуса несимметричны | `1ecd828` |
-| 7 | slime-arena-4xh | P2 | Талант Вампир не по GDD | `e55dbe7` |
-| 8 | slime-arena-y2z2 | P2 | Гость видит PLAYER после матча | `69de6d9` |
-| 9 | slime-arena-vpti | P2 | Изолировать generateRandomBasicSkin() | `56c002e` |
+| Beads ID | P | Задача | Коммит |
+|----------|---|--------|--------|
+| slime-arena-t8pp | P1 | Таймер «Перед боем» зависает (arenaWaitInterval → Date.now()) | `8d811f4` |
+| slime-arena-o7v5 | P1 | matchId cycling на ResultsScreen (capturedMatchIdRef) | `8d811f4` |
+| slime-arena-boea | P1 | Гостевой токен истёк → 401 loop → isAnonymous()=false | `8d811f4` |
+| slime-arena-gikx | P1 | «Сохранить прогресс» не показывается (следствие boea) | закрыт через boea |
 
-### Фаза 2: Спрайтовая система — done
-
-| Коммит | Описание |
-|--------|----------|
-| `03de755` | Замена цветных скинов на спрайтовую систему (21 спрайт) |
-| `8878de3` | spriteId в generateFallbackToken |
-| `e1aad77` | Исправления по ревью спрайтов (итерация 1) |
-| `396425c` | Исправления по ревью спрайтов (итерация 2): leaderboard, matchmaking, дедупликация |
-| `885392d` | Создание аккаунта при новом OAuth (вместо 404) |
-| `a2c7f91` | intent="login" на MainScreen OAuth (P0 fix) |
-
-### Открытая задача из Sprint 21
-
-- `slime-arena-vk4m` (P1, open) — Спрайтовая система: сквозной flow выбора и сохранения (4 корневых причины)
+**Ревью:** Opus ✅, Gemini ✅, Codex ✅ — консенсус достигнут
 
 ---
 
-## Production (v0.8.5)
+## Sprint 21 — v0.8.6 (1 марта 2026) — ЗАВЕРШЕНО
 
-**Docker images (ghcr.io):** `slime-arena-app:0.8.5` + `slime-arena-db:0.8.5`
+PR #150 merged. Спрайтовая система (21 спрайт), 9 багфиксов.
+Задокументировано в `docs/releases/v0.8.6-release-notes.md`.
 
-| Домен | Статус | SSL |
-|-------|--------|-----|
-| https://slime-arena.overmobile.space | работает | Let's Encrypt (ECC) |
-| https://slime-arena.u2game.space | работает | Let's Encrypt (ECC) |
-
-**Инфраструктура:** db + app контейнеры, Nginx, Watchdog (systemd), cron-бэкапы (6ч)
-**Документация:** SERVER_SETUP.md, SERVER_UPDATE.md, AI_AGENT_GUIDE.md
+Также deployed hotfixes прямо в main:
+- `d87a253` — leaderboard: fallback на slime-base.webp вместо цветного круга
+- `a29b475` — CI: GITHUB_TOKEN вместо CR_PAT (истёк)
 
 ---
 
-## Следующие шаги
+## Production (v0.8.6)
+
+**Docker images:** `slime-arena-app:latest` + `slime-arena-db:latest`
+
+| Домен | Статус |
+|-------|--------|
+| https://slime-arena.overmobile.space | работает |
+| https://slime-arena.u2game.space | работает |
+
+**Деплой v0.8.7** (когда Docker CI соберёт образ):
+```bash
+SSH="ssh -i ~/.ssh/deploy_key root@147.45.147.175"
+$SSH 'mkdir -p /root/backups && docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-v087-$(date +%F-%H%M).sql.gz'
+$SSH 'cd /root/slime-arena && docker compose pull app && docker compose up -d app'
+curl -s https://slime-arena.overmobile.space/health | jq .
+```
+
+---
+
+## Открытые задачи
 
 ### P1
-- `slime-arena-vk4m` — Спрайтовый flow: клиент не передаёт skinId в matchmaking, clearGuestData() удаляет guest_skin_id, нет API для смены скина
+- `slime-arena-vk4m` — Спрайтовый flow: клиент не передаёт skinId в matchmaking, clearGuestData() удаляет guest_skin_id, нет API смены скина
 - `slime-arena-b1b` — PKCE валидация на сервере
 - `slime-arena-5tp` — UNKNOWN регион: отключить Google OAuth
 
 ### P2
-- `slime-arena-74gx` — Merge anonymous match into existing account
+- `slime-arena-52k6` — ResultsScreen: добавить кнопку «Таблица лидеров»
 - `slime-arena-bfce` — Admin: N+1 remoteRoomCall
+- `slime-arena-74gx` — Merge anonymous match into existing account
 
 ---
 
@@ -88,7 +85,7 @@ npm run build
 
 # Beads
 bd ready                 # Доступные задачи
-bd list --status open    # Все открытые
+bd list --status=open    # Все открытые
 
 # Production
 SSH="ssh -i ~/.ssh/deploy_key root@147.45.147.175"
