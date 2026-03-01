@@ -16,7 +16,7 @@
 | **Шпаргалка ролей** | [.agents/HOW_TO_USE_AGENT_ROLES.md](../.agents/HOW_TO_USE_AGENT_ROLES.md) | Промпты для быстрой активации |
 | **Beads CLI** | [.beads/README.md](../.beads/README.md) | `bd create`, `bd show`, `bd sync` |
 | **Claude** | [CLAUDE.md](../CLAUDE.md) | Beads, архитектура, команды |
-| **Memory Bank** | [agents.md](../agents.md) | Правила обновления `.memory_bank/` |
+| **Memory Bank** | [AGENTS.md](../AGENTS.md) | Точка входа для AI-моделей, правила Memory Bank |
 | **Агент** | [agent.md](../agent.md) | Режимы работы, обновление документации |
 | **Copilot** | [.github/copilot-instructions.md](../.github/copilot-instructions.md) | Паттерны симуляции, конфигурация, спрайты |
 
