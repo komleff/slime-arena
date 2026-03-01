@@ -4,7 +4,7 @@
 
 ## Роли агентов
 
-Каноничный документ: [`.beads/AGENT_ROLES.md`](.beads/AGENT_ROLES.md)
+Каноничный документ: [`.agents/AGENT_ROLES.md`](.agents/AGENT_ROLES.md)
 
 | Роль | Когда использовать |
 | ---- | ------------------ |
@@ -13,7 +13,7 @@
 | **Developer** | Написание кода, исправление багов |
 | **Reviewer** | Проверка PR, валидация качества |
 
-Промпты для активации: [`.beads/HOW_TO_USE_AGENT_ROLES.md`](.beads/HOW_TO_USE_AGENT_ROLES.md)
+Промпты для активации: [`.agents/HOW_TO_USE_AGENT_ROLES.md`](.agents/HOW_TO_USE_AGENT_ROLES.md)
 
 Задачи только через Beads: `bd ready` → `bd show <id>` → `bd update <id> --status=in_progress`
 

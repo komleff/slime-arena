@@ -45,5 +45,5 @@
 
 ## Роли агентов
 
-Перед работой прочитай [`.beads/AGENT_ROLES.md`](../.beads/AGENT_ROLES.md) — каноничный документ ролей: PM, Architect, Developer, Reviewer.
+Перед работой прочитай [`.agents/AGENT_ROLES.md`](../.agents/AGENT_ROLES.md) — каноничный документ ролей: PM, Architect, Developer, Reviewer.
 При написании кода следуй роли Developer. Задачи — только через Beads (`bd ready`, `bd update`).

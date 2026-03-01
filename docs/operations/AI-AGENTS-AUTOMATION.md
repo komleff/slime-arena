@@ -286,7 +286,7 @@ defaults:
   timeout_minutes: 15
   max_retries: 2
   context_files:
-    - .beads/AGENT_ROLES.md
+    - .agents/AGENT_ROLES.md
     - .github/copilot-instructions.md
     - .memory_bank/activeContext.md
 

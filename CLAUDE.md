@@ -2,14 +2,14 @@
 
 ## Главное правило
 
-**Работай по задачам Beads.** Перед началом работы выполни `bd ready` и выбери задачу. Следуй правилам из `.beads/AGENT_ROLES.md`.
+**Работай по задачам Beads.** Перед началом работы выполни `bd ready` и выбери задачу. Следуй правилам из `.agents/AGENT_ROLES.md`.
 
 > ⛔ **Пуш в main запрещён.** Создавай ветку `sprint-X/task-name`, работай в ней, создавай PR. Merge — только человек-оператор.
 
 ## Протокол работы
 
 1. **Beads** — единственный источник задач. Перед работой: `bd ready`, затем `bd update <id> --status=in_progress`.
-2. **AGENT_ROLES** — следуй роли Developer из `.beads/AGENT_ROLES.md`.
+2. **AGENT_ROLES** — следуй роли Developer из `.agents/AGENT_ROLES.md`.
 3. **Memory Bank** — веди протокол в `.memory_bank/activeContext.md` при значительных изменениях.
 
 ## Коммуникация
@@ -88,7 +88,7 @@ bd close <id> --reason="..."
 | `server/src/utils/rng.ts` | Детерминированный генератор |
 | `client/src/main.ts` | Клиентский код (~4000 строк) |
 | `shared/src/formulas.ts` | Игровые формулы |
-| `.beads/AGENT_ROLES.md` | Роли агентов |
+| `.agents/AGENT_ROLES.md` | Роли агентов |
 | `.memory_bank/activeContext.md` | Текущее состояние проекта |
 
 ## Дополнительный контекст
@@ -97,4 +97,4 @@ bd close <id> --reason="..."
 - **Технический план:** `docs/soft-launch/TZ-SoftLaunch-v1.4.7.md`
 - **GDD:** `docs/gdd/` (версия 3.3.2)
 - **Memory Bank:** `.memory_bank/`
-- **Роли агентов:** `.beads/AGENT_ROLES.md`
+- **Роли агентов:** `.agents/AGENT_ROLES.md`
