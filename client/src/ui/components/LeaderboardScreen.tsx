@@ -19,34 +19,6 @@ import { RegistrationPromptModal } from './RegistrationPromptModal';
 import { matchmakingStatus } from '../signals/gameState';
 import { isValidSprite } from '@slime-arena/shared';
 
-// ========== Константы скинов (LB-013) ==========
-
-/**
- * Маппинг skinId → цвет для отображения миниатюры скина.
- * Базовые скины — цветные круги, остальные — серый по умолчанию.
- */
-const SKIN_COLORS: Record<string, string> = {
-  slime_green: '#10b981',
-  slime_blue: '#3b82f6',
-  slime_red: '#ef4444',
-  slime_yellow: '#fbbf24',
-  slime_pink: '#ec4899',
-  slime_purple: '#a855f7',
-  slime_orange: '#f97316',
-  slime_cyan: '#06b6d4',
-  slime_lime: '#84cc16',
-  slime_white: '#f1f5f9',
-  default: '#6b7a94',
-};
-
-/**
- * Получить цвет для миниатюры скина.
- */
-function getSkinColor(skinId?: string): string {
-  if (!skinId) return SKIN_COLORS.default;
-  return SKIN_COLORS[skinId] || SKIN_COLORS.default;
-}
-
 /**
  * LB-017: Резервный никнейм.
  * Если nickname пустой или отсутствует, возвращает "Игрок" + последние 4 символа userId.
@@ -805,21 +777,15 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                       } ${isHighlighted ? 'is-user-highlighted' : ''}`}
                     >
                       <div class="leaderboard-place">{entry.place}</div>
-                      {/* LB-013: Миниатюра скина — иконка спрайта или цветной круг */}
-                      {entry.skinId && isValidSprite(entry.skinId) ? (
-                        <img
-                          class="leaderboard-skin"
-                          src={`${import.meta.env.BASE_URL ?? '/'}sprites/slimes/base/${entry.skinId}`}
-                          alt={entry.skinId}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div
-                          class="leaderboard-skin"
-                          style={{ backgroundColor: getSkinColor(entry.skinId) }}
-                          title={entry.skinId || 'Скин'}
-                        />
-                      )}
+                      {/* LB-013: Миниатюра скина — спрайт или slime-base.webp как fallback */}
+                      <img
+                        class="leaderboard-skin"
+                        src={`${import.meta.env.BASE_URL ?? '/'}sprites/slimes/base/${
+                          (entry.skinId && isValidSprite(entry.skinId)) ? entry.skinId : 'slime-base.webp'
+                        }`}
+                        alt={entry.skinId || 'slime-base.webp'}
+                        loading="lazy"
+                      />
                       <div class="leaderboard-info">
                         <div class="leaderboard-name">{getDisplayNickname(entry.nickname, entry.userId)}</div>
                         {entry.gamesPlayed !== undefined && (
