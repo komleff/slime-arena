@@ -282,7 +282,8 @@ export class MatchmakingService {
       matchId,
       assignment.roomId,
       player.nickname,
-      player.guestSubjectId
+      player.guestSubjectId,
+      player.spriteId
     );
   }
 
