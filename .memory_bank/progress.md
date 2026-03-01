@@ -1,210 +1,69 @@
 # Progress
+
 Отслеживание статуса задач.
 
 ## Контроль изменений
-- **last_checked_commit**: main @ 8 февраля 2026 (PR #148 — Redis hotfix)
-- **Текущая ветка**: `fix/redis-rdb-snapshot-error` (PR #148)
-- **Релиз:** v0.8.5 ✅ (production deployed, app-db)
-- **Production:** v0.8.5 ✅ (деплоен 2026-02-07, hotfix Redis 2026-02-08)
+
+- **last_checked_commit**: sprint-21/bugfix-tech-debt @ 1 марта 2026 (a2c7f91)
+- **Текущая ветка**: `sprint-21/bugfix-tech-debt` (PR #150)
+- **Релиз:** v0.8.6 (ожидает merge)
+- **Production:** v0.8.5 ✅ (split-архитектура, развёрнут 7 фев 2026, hotfix Redis 8 фев 2026)
 - **GDD версия**: v3.3.2
 
 ---
 
+## Sprint 21 (2026-02-28 — 2026-03-01) — v0.8.6 Bugfix & Tech Debt
+
+**Цель:** Стабилизация + редизайн спрайтовой системы
+**Ветка:** `sprint-21/bugfix-tech-debt` (21 коммит)
+**PR:** #150
+
+### Фаза 1: Багфиксы (9/9) — ✅ ЗАВЕРШЕНО
+
+- [x] slime-arena-b7z6 (P1) — Зависание экрана выбора класса
+- [x] slime-arena-hfww (P2) — Таймер Chrome mobile
+- [x] slime-arena-3v3o (P2) — ConnectingScreen
+- [x] slime-arena-vsn5 (P1) — skinId при OAuth upgrade
+- [x] slime-arena-n17m (P2) — normalizeNickname null guard
+- [x] slime-arena-mtw (P2) — Симметричные модификаторы укуса
+- [x] slime-arena-4xh (P2) — Вампир по GDD
+- [x] slime-arena-y2z2 (P2) — Гость: реактивный isAnonymous
+- [x] slime-arena-vpti (P2) — generateRandomBasicSkin в meta/
+
+### Фаза 2: Спрайтовая система — ✅ ЗАВЕРШЕНО
+
+- [x] Замена цветных скинов (4 цвета) на 21 спрайт
+- [x] shared/src/sprites.ts: SPRITE_NAMES, pickSpriteByName, isValidSprite
+- [x] Player.spriteId в Colyseus schema
+- [x] spriteId в JoinTokenPayload → ArenaRoom → клиент
+- [x] spriteId в matchmaking flow
+- [x] leaderboard: isValidSprite валидация
+- [x] Удалён config/skins.json (ошибочный артефакт)
+
+### Фаза 3: Ревью + исправления — ✅ ЗАВЕРШЕНО
+
+- [x] 504a6e6 — формула боя, visibilitychange, skinId валидация
+- [x] 63163ae — whitelist через getBasicSkins()
+- [x] a48add7 — .js extension fix (CommonJS)
+- [x] e1aad77 — ревью спрайтов (итерация 1)
+- [x] 396425c — ревью спрайтов (итерация 2): leaderboard, matchmaking, дедупликация
+- [x] 885392d — создание аккаунта при новом OAuth
+- [x] a2c7f91 — intent="login" на MainScreen (P0 fix)
+
+### Открытая задача
+
+- slime-arena-vk4m (P1) — Спрайтовый flow: 4 корневых причины (отложено)
+
+---
+
+## Sprint 20 (2026-02-07) — v0.8.4/v0.8.5 — ✅ ЗАВЕРШЕНО
+
+Split-архитектура, Admin Dashboard на production, UI фиксы гостя.
+PRs: #139-#146. Развёрнут на production 7 фев 2026.
+
 ## Server Maintenance (2026-02-08) — ✅ ЗАВЕРШЕНО
 
-**Проблема:** 502 Bad Gateway + Яндекс OAuth 503 (iPad Safari, тайский IP)
-**Причина:** Redis MISCONF — RDB-снапшот не пишется, блокировка записей
-**PR:** #148 (fix/redis-rdb-snapshot-error)
-
-### Выполнено
-- [x] Диагностика 502 → Redis MISCONF → health-check 503
-- [x] Runtime-фикс: `CONFIG SET stop-writes-on-bgsave-error no` + `CONFIG SET save ''`
-- [x] supervisord-db.conf и supervisord.conf: `--save "" --stop-writes-on-bgsave-error no`
-- [x] Настроен домен `slime-arena.u2game.space` (DNS, SSL, nginx)
-- [x] Яндекс OAuth: работает с тайского IP + iPad Safari
-- [x] Обновлены CHANGELOG, SERVER_SETUP, создан SERVER_UPDATE
-
----
-
-## Sprint 20 (2026-02-07) — v0.8.4 Infrastructure + v0.8.5 UI Fixes
-
-**Цель:** Split-архитектура, бэкапы, UX авторизации, UI фиксы гостя
-**PRs:** #139-#141 (v0.8.4), #142 (2FA), #143 (shutdown), #144 (v0.8.5 UI), #145 (margin)
-**Версии:** v0.8.4 → v0.8.5
-
-### v0.8.5 изменения (PR #144)
-
-- generateGuestNickname() → возвращает GUEST_DEFAULT_NICKNAME («Гость»)
-- MainMenu: генерация случайного имени вместо «Гость» с isAnonymous() guard
-- MainScreen: .hud-auth-link → jelly pill-кнопка (44x44 hit area, focus-visible)
-- Favicon: assets-dist/favicon.png из slime-arena-icon.png
-- GUEST_DEFAULT_NICKNAME: shared/src/constants.ts → используется в 4 файлах
-- server/auth.ts: использует GUEST_DEFAULT_NICKNAME
-
-### Статус
-
-- v0.8.4: ✅ RELEASED (Docker images на ghcr.io)
-- v0.8.5: PR #144, #145 merged, tag v0.8.5
-- Docker v0.8.5: ✅ app:0.8.5 + db:0.8.5 на ghcr.io
-- Деплой: ⏳ оператор
-
----
-
-## Sprint MON (2026-02-04) — ✅ ЗАВЕРШЁН
-
-**Цель:** Admin Dashboard v0.8.0 (Phase 1)
-**Статус:** Тестирование завершено, Phase 2 отложена на Sprint 19
-
-### Результаты тестирования (локально)
-
-✅ **Базовая функциональность**
-- Admin auth (JWT + refresh cookies)
-- TOTP 2FA setup
-- Audit log (все действия логируются)
-
-✅ **Игровая логика (неизменена)**
-- Guest auth работает
-- Яндекс OAuth работает
-- Leaderboard обновляется
-- Статистика матчей сохраняется
-
-⚠️ **Admin Phase 2 (backlog)**
-- Метрики CPU/RAM (placeholder)
-- Список комнат (placeholder)
-- Рестарт сервиса (требует watchdog)
-
-### Выявленные проблемы
-
-| Проблема | Решение | Критичность |
-|----------|---------|-------------|
-| audit_log schema (actor_user_id vs user_id) | Пересоздать таблицу | P2 |
-| Миграция 009 не в образе | Требуется rebuild | P2 |
-| Админка на React вместо Preact | Рефакторинг Sprint 19 | P3 |
-
-### Вывод
-
-**v0.8.0 НЕ ГОТОВА для production.** Оставить на v0.7.8 до Sprint 19.
-
----
-
-## Server Maintenance Log (2026-02-03/04)
-
-### Настроен SSH доступ
-- Сгенерирован SSH ключ: `ssh-keygen -t ed25519`
-- Добавлен в панель управления хостинга
-- Подключение: `ssh -i ~/.ssh/id_ed25519 root@147.45.147.175`
-
-### Исправлено на сервере
-| Проблема | Решение | Статус |
-|----------|---------|--------|
-| Redis RDB Permission denied | Перезапуск контейнера | ✅ |
-| Telemetry logs EACCES | `chmod 777 /app/server/dist/server/logs` | ✅ |
-| Memory overcommit warning | `sysctl vm.overcommit_memory=1` | ✅ |
-| Container unhealthy | Restart + права | ✅ Healthy |
-
-### Анализ логов — обнаружено
-| Метрика | Значение |
-|---------|----------|
-| Всего тиков | 34669 |
-| [PERF] warnings | 351 (1%) |
-| Пиковая задержка | 118ms (бюджет 33.3ms) |
-| "Не удалось разместить зон" | 303 раза |
-| 404 на старые endpoints | Несколько |
-
-### Созданные issues
-- #126: UI фаза 'connecting' не рендерится
-- #127: Оптимизировать tick=2700 (конец матча)
-- #128: "Не удалось разместить зон" при создании комнаты
-- #129: Устаревшие API endpoints → 404
-- #130: Docker директория логов телеметрии
-
----
-
-## Sprint 13 Progress — 27 января 2026
-
-### Фаза 1: База данных и инфраструктура ✅ ЗАВЕРШЕНА
-
-**Завершено 23 января:**
-- [x] Задача 1.1: Migration 007 — новые таблицы (leaderboard_total_mass, leaderboard_best_mass, rating_awards, oauth_links)
-- [x] Задача 1.2: Migration 008 — изменение существующих таблиц (users: is_anonymous + регистрация, match_results: guest_subject_id + claim_consumed_at)
-- [x] Задача 1.3: Модели данных — TypeScript интерфейсы (Leaderboard, Rating, OAuth)
-- [x] Задача 1.4: Генераторы — skinGenerator + nicknameValidator + config/skins.json
-
-### Фаза 2: API и серверная логика ✅ ЗАВЕРШЕНА (PR #109)
-
-**Завершено 27 января:**
-
-- [x] Задача 2.1: JWT utilities — jwtUtils.ts (accessToken, guestToken, claimToken)
-- [x] Задача 2.2: POST /auth/guest — гостевая авторизация
-- [x] Задача 2.3: POST /auth/telegram — Telegram-авторизация с is_anonymous
-- [x] Задача 2.4: POST /auth/oauth — OAuth для Google/Yandex
-- [x] Задача 2.5: POST /match-results/claim — получение claimToken
-- [x] Задача 2.6: POST /auth/upgrade — convert_guest + complete_profile
-- [x] Задача 2.7: RatingService.awardRating — начисление после матча
-- [x] Задача 2.8: RatingService.initializeRating — при регистрации
-- [x] Задача 2.9: GET /leaderboard — лидерборд total/best
-
-**Ревью (10 итераций):**
-
-- Codex 5.2: APPROVED ✅
-- Opus 4.5: APPROVED ✅
-- Исправлены P1 баги: guestSubjectId в matchmaking, guest claim flow
-
-**Ожидает merge:** PR #109 → main (человек-оператор)
-
-**Прогресс:**
-- Фаза 1: [████] 4/4 задач (100%) ✅
-- Фаза 2: [████] 9/9 задач (100%) ✅
-- Фаза 3: [░░░░] 0/9 задач (0%)
-- **Всего:** [████░] 13/22 задач (59%)
-
-**Следующий шаг:**
-
-- Merge PR #109 (человек-оператор)
-- Начать Фазу 3: Клиентская интеграция
-
----
-
-## Последние изменения (20 января 2026)
-- **Sprint 12 COMPLETED:** Декомпозиция God Objects (ArenaRoom.ts, main.ts)
-- **v0.6.0 Released:** 8 модулей извлечено, 2043 LOC рефакторено, все тесты пройдены
-- **Результат:** ArenaRoom −34%, main.ts −19%, детерминизм ✅, тесты ✅
-
-## Открытые PR
-- **PR #91:** fix(hud): correct level progress bar formula — устаревший (работа завершена в PR #93)
-
-## Последние изменения (dev config)
-- client/vite.config.ts: HMR host/protocol теперь задаются через `VITE_HMR_HOST` и `VITE_HMR_PROTOCOL` для корректной работы по локальной сети.
-- Используется `loadEnv()` из Vite для поддержки `.env.local` файлов (исправлено по замечанию Codex P2).
-- README.md обновлён: порт 5173 → 5174, добавлена документация HMR env vars.
-
-## Последние изменения (main)
-- PR #61-66: Ads Documentation Improvements — MERGED
-- Sprint 11.2: TalentSystem Integration (PR #57) — MERGED
-- Sprint 11: Tech Debt Refactoring (PR #56) — MERGED
-- Sprint 10: Pre-Launch Fixes (PR #54) — MERGED
-- Sprint 8: joinToken JWT Validation (PR #52) — MERGED
-- Sprint 7: Legacy DOM Cleanup (PR #50) — MERGED
-
-## PR #74: Env-based HMR config (В РАБОТЕ)
-
-### Изменения
-- [x] vite.config.ts: функциональный конфиг с `loadEnv()` для чтения из `.env.local`
-- [x] README.md: порт 5173 → 5174 во всех упоминаниях
-- [x] README.md: добавлен раздел "Доступ с мобильных устройств (локальная сеть)"
-- [x] activeContext.md: добавлен раздел "Локальная сеть (dev)"
-- [x] progress.md: добавлен раздел "Последние изменения (dev config)"
-- [x] Resolve.alias сохранены (Preact compat, @slime-arena/shared)
-- [x] allowedHosts: ['*.overmobile.space'] сохранён
-
-### Review Fixes
-- [x] **Codex P2**: `process.env` → `loadEnv(mode, process.cwd(), 'VITE_')` для поддержки `.env.local`
-- [x] **Copilot**: Порт 5173 → 5174 в README.md
-
-### Конфликты (разрешены)
-- [x] client/vite.config.ts — merged: env-based HMR + aliases
-- [x] .memory_bank/activeContext.md — merged: main content + LAN dev section
-- [x] .memory_bank/progress.md — merged: main content + dev config section
+Redis MISCONF → 502 + OAuth 503. PR #148. Новый домен u2game.space.
 
 ---
 
