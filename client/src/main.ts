@@ -23,7 +23,7 @@ import {
     OBSTACLE_TYPE_SPIKES,
     clamp,
     generateRandomName,
-    SPRITE_NAMES,
+    pickSpriteByName,
 } from "@slime-arena/shared";
 import {
     type JoystickState,
@@ -687,8 +687,6 @@ const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
     console.log(`[joystick] ${label}`, { t: now, ...payload, ...state });
 };
 
-// Используем SPRITE_NAMES из shared — единый источник правды
-const slimeSpriteNames = SPRITE_NAMES;
 const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 const spriteCache = new Map<
@@ -1287,21 +1285,8 @@ function loadSprite(name: string) {
 
 // ========== Система скинов по имени игрока ==========
 
-/** Детерминистичный хеш строки (одинаковый результат на всех клиентах) */
-function hashString(str: string): number {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) {
-        h = (h * 31 + str.charCodeAt(i)) >>> 0;
-    }
-    return h;
-}
-
-/** Выбрать спрайт для игрока по имени (детерминистично) */
-function pickSpriteForPlayer(playerName: string): string {
-    const name = playerName || 'Unknown';
-    const hash = hashString(name);
-    return slimeSpriteNames[hash % slimeSpriteNames.length];
-}
+/** Выбрать спрайт для игрока по имени (детерминистично) — обёртка над shared */
+const pickSpriteForPlayer = pickSpriteByName;
 
 function getSlimeConfigForPlayer(classId: number) {
     switch (classId) {

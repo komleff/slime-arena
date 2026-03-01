@@ -17,6 +17,7 @@ import {
 } from '../../services/leaderboardService';
 import { RegistrationPromptModal } from './RegistrationPromptModal';
 import { matchmakingStatus } from '../signals/gameState';
+import { isValidSprite } from '@slime-arena/shared';
 
 // ========== Константы скинов (LB-013) ==========
 
@@ -805,10 +806,10 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                     >
                       <div class="leaderboard-place">{entry.place}</div>
                       {/* LB-013: Миниатюра скина — иконка спрайта или цветной круг */}
-                      {entry.skinId?.endsWith('.webp') ? (
+                      {entry.skinId && isValidSprite(entry.skinId) ? (
                         <img
                           class="leaderboard-skin"
-                          src={`sprites/slimes/base/${entry.skinId}`}
+                          src={`${import.meta.env.BASE_URL ?? '/'}sprites/slimes/base/${entry.skinId}`}
                           alt={entry.skinId}
                           loading="lazy"
                         />

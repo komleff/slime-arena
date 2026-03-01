@@ -9,6 +9,7 @@ import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
 import { verifyAccessToken, AccessTokenPayload } from '../utils/jwtUtils';
 import { LeaderboardEntry } from '../models/Leaderboard';
+import { isValidSprite } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -144,7 +145,7 @@ async function getLeaderboardEntries(
       position: parseInt(row.position, 10),
       userId: row.user_id,
       nickname: row.nickname,
-      skinId: row.skin_id,
+      skinId: isValidSprite(row.skin_id) ? row.skin_id : 'slime-base.webp',
       value: row.value,
     };
 
