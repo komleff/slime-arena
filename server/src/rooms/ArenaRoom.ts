@@ -380,13 +380,16 @@ export class ArenaRoom extends Room<GameState> {
             ? authPayload.nickname
             : null;
 
-        // Extract userId and guestSubjectId from joinToken for match results (server-only)
+        // Extract userId, guestSubjectId, spriteId from joinToken (server-only)
         if (authPayload && typeof authPayload === 'object') {
             if (authPayload.userId) {
                 player.userId = authPayload.userId;
             }
             if (authPayload.guestSubjectId) {
                 player.guestSubjectId = authPayload.guestSubjectId;
+            }
+            if (authPayload.spriteId) {
+                player.spriteId = authPayload.spriteId;
             }
         }
 

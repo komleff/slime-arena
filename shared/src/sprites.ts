@@ -1,5 +1,62 @@
 // Sprite-related constants and utilities for slime skins
 
+/**
+ * Все доступные имена спрайтов слаймов (файлы из assets-dist/sprites/slimes/base/).
+ * Используется на сервере и клиенте для выбора и валидации.
+ */
+export const SPRITE_NAMES: readonly string[] = [
+    "slime-angrybird.webp",
+    "slime-astronaut.webp",
+    "slime-base.webp",
+    "slime-cccp.webp",
+    "slime-crazy.webp",
+    "slime-crystal.webp",
+    "slime-cyberneon.webp",
+    "slime-frost.webp",
+    "slime-greeendragon.webp",
+    "slime-mecha.webp",
+    "slime-pinklove.webp",
+    "slime-pirate.webp",
+    "slime-pumpkin.webp",
+    "slime-reddragon.webp",
+    "slime-redfire.webp",
+    "slime-samurai.webp",
+    "slime-shark.webp",
+    "slime-tomato.webp",
+    "slime-toxic.webp",
+    "slime-wizard.webp",
+    "slime-zombi.webp",
+] as const;
+
+/**
+ * Хеш-функция для детерминированного выбора спрайта по имени.
+ * Совпадает с клиентской hashString из main.ts.
+ */
+export function hashString(str: string): number {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return h;
+}
+
+/**
+ * Детерминированный выбор спрайта по имени игрока (хеш).
+ * Используется для ботов, анонимов и как fallback.
+ */
+export function pickSpriteByName(playerName: string): string {
+    const name = playerName || 'Unknown';
+    const hash = hashString(name);
+    return SPRITE_NAMES[hash % SPRITE_NAMES.length];
+}
+
+/**
+ * Проверяет, является ли строка валидным именем спрайта.
+ */
+export function isValidSprite(spriteId: string): boolean {
+    return SPRITE_NAMES.includes(spriteId);
+}
+
 export interface SlimeSprite {
     idle: string;
     moving: string;

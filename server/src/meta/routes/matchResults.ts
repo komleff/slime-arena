@@ -13,8 +13,7 @@ import {
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
 import { authRateLimiter } from '../middleware/rateLimiter';
-import { generateRandomBasicSkin } from '../utils/skinGenerator';
-import { getBasicSkins } from '../../utils/generators/skinGenerator';
+import { pickSpriteByName, isValidSprite } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -369,11 +368,9 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     // Get skinId: for registered users fetch from profile, for guests use from request body
     let skinId: string | undefined;
     if (isGuest) {
-      // Гости передают skinId из localStorage через request body
-      // Валидация: принимаем только базовые скины (защита от подмены премиумных)
-      const basicSkinIds = getBasicSkins().map(s => s.id);
+      // Гости передают skinId (имя спрайта) из localStorage через request body
       if (req.body.skinId && typeof req.body.skinId === 'string'
-          && req.body.skinId.length <= 64 && basicSkinIds.includes(req.body.skinId)) {
+          && req.body.skinId.length <= 64 && isValidSprite(req.body.skinId)) {
         skinId = req.body.skinId;
       }
     } else if (subjectId) {
@@ -386,14 +383,9 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
       }
     }
 
-    // Fallback: если skinId не определён — генерируем случайный базовый скин
+    // Fallback: хеш от subjectId (детерминированный выбор спрайта)
     if (!skinId) {
-      try {
-        skinId = generateRandomBasicSkin();
-      } catch (err) {
-        console.warn('[MatchResults] generateRandomBasicSkin() failed, using slime_green:', err);
-        skinId = 'slime_green';
-      }
+      skinId = pickSpriteByName(subjectId || 'unknown');
     }
 
     // Generate claimToken

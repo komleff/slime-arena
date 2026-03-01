@@ -1973,15 +1973,21 @@ async function connectToServer(playerName: string, classId: number) {
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
-            // Выбираем спрайт по имени (или обновим когда имя придёт)
-            if (player.name) {
+            // Спрайт: приоритет spriteId из Colyseus, fallback на хеш имени
+            if (player.spriteId) {
+                playerSpriteById.set(sessionId, player.spriteId);
+            } else if (player.name) {
                 playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
             }
 
             player.onChange(() => {
-                // Обновляем спрайт когда имя изменилось
-                if (player.name && !playerSpriteById.has(sessionId)) {
-                    playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
+                // Обновляем спрайт если spriteId или имя появились
+                if (!playerSpriteById.has(sessionId)) {
+                    if (player.spriteId) {
+                        playerSpriteById.set(sessionId, player.spriteId);
+                    } else if (player.name) {
+                        playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
+                    }
                 }
             });
         });

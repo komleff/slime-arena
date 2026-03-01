@@ -27,8 +27,7 @@ import { getPostgresPool } from '../../db/pool';
 import { getRedisClient } from '../../db/redis';
 import { authRateLimiter, oauthRateLimiter } from '../middleware/rateLimiter';
 import { validateAndNormalize, normalizeNickname, NICKNAME_MAX_LENGTH } from '../../utils/generators/nicknameValidator';
-import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
-import { generateRandomBasicSkin } from '../utils/skinGenerator';
+import { GUEST_DEFAULT_NICKNAME, pickSpriteByName, isValidSprite } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -164,12 +163,21 @@ router.post('/join-token', async (req: Request, res: Response) => {
           // Невалидный nickname — используем fallback
         }
       }
+      // spriteId из body (клиент передаёт guest_skin_id), валидация + fallback по хешу имени
+      let spriteId: string | undefined;
+      if (req.body.skinId && typeof req.body.skinId === 'string' && isValidSprite(req.body.skinId)) {
+        spriteId = req.body.skinId;
+      } else {
+        spriteId = pickSpriteByName(nickname);
+      }
+
       const joinToken = joinTokenService.generateToken(
         '', // userId (empty for guests)
         '', // matchId (not known yet)
         '', // roomId (not known yet)
         nickname,
-        guestPayload.sub // guestSubjectId for claim verification
+        guestPayload.sub, // guestSubjectId for claim verification
+        spriteId
       );
 
       return res.json({
@@ -192,11 +200,33 @@ router.post('/join-token', async (req: Request, res: Response) => {
           // Невалидный nickname — используем fallback
         }
       }
+      // Получаем spriteId из профиля зарегистрированного пользователя
+      let spriteId: string | undefined;
+      try {
+        const pool = getPostgresPool();
+        const profileResult = await pool.query(
+          'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
+          [userPayload.sub]
+        );
+        if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id
+            && isValidSprite(profileResult.rows[0].selected_skin_id)) {
+          spriteId = profileResult.rows[0].selected_skin_id;
+        }
+      } catch (err) {
+        console.warn('[Auth] Failed to fetch spriteId from profile:', err);
+      }
+      // Fallback: хеш от никнейма
+      if (!spriteId) {
+        spriteId = pickSpriteByName(nickname);
+      }
+
       const joinToken = joinTokenService.generateToken(
         userPayload.sub, // userId
         '', // matchId
         '', // roomId
-        nickname
+        nickname,
+        undefined, // guestSubjectId
+        spriteId
       );
 
       return res.json({
@@ -470,7 +500,7 @@ router.post('/oauth', async (req: Request, res: Response) => {
         nickname = `User${Date.now() % 100000}`;
       }
 
-      const skinId = generateRandomBasicSkin();
+      const skinId = pickSpriteByName(nickname);
 
       try {
         user = await authService.createUserFromOAuth(
@@ -1091,7 +1121,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         }
       } else {
         // Путь без claimToken — гость регистрируется без матча (slime-arena-ias0)
-        const skinForUser = generateRandomBasicSkin();
+        const skinForUser = pickSpriteByName(finalNickname);
         user = await authService.createUserFromOAuth(
           finalProvider as AuthProvider,
           providerUserId,
