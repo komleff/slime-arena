@@ -1558,20 +1558,18 @@ async function connectToServer(playerName: string, classId: number) {
                 goToLobby();
                 setConnecting(false);
 
-                // Глобальный обратный отсчёт (очищается при следующем подключении)
-                let remaining = waitTime;
-                arenaWaitInterval = setInterval(() => {
-                    remaining -= 1;
-                    if (remaining > 0) {
-                        setArenaWaitTime(remaining);
-                    } else {
-                        if (arenaWaitInterval) {
-                            clearInterval(arenaWaitInterval);
-                            arenaWaitInterval = null;
-                        }
-                        setArenaWaitTime(0);
+                // fix(slime-arena-t8pp): Используем абсолютное время вместо декремента,
+                // чтобы таймер корректно работал после background/foreground (Chrome mobile)
+                const arenaEndTime = Date.now() + waitTime * 1000;
+                const updateArenaTimer = () => {
+                    const remaining = Math.max(0, Math.ceil((arenaEndTime - Date.now()) / 1000));
+                    setArenaWaitTime(remaining);
+                    if (remaining <= 0 && arenaWaitInterval) {
+                        clearInterval(arenaWaitInterval);
+                        arenaWaitInterval = null;
                     }
-                }, 1000);
+                };
+                arenaWaitInterval = setInterval(updateArenaTimer, 250);
 
                 // ВАЖНО: Прерываем выполнение connectToServer, не настраиваем игровую логику
                 return;

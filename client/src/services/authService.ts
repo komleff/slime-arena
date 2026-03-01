@@ -221,36 +221,50 @@ class AuthService {
     // FIX-001: Случай 2: Есть guest_token (но нет access_token) —
     // восстанавливаем гостевую сессию из localStorage БЕЗ вызова login()
     if (guestToken) {
-      console.log('[AuthService] Restoring guest session from localStorage');
+      // fix(slime-arena-boea): Проверяем срок действия ДО восстановления сессии.
+      // Если токен истёк — очищаем его и переходим к новому loginAsGuest().
+      // Без этой проверки: metaServerClient получает просроченный токен → 401 → logout loop
+      // (и isAnonymous() возвращает false после logout → "Сохранить прогресс" не показывается).
+      const expiresAt = localStorage.getItem('token_expires_at');
+      const isGuestTokenExpired = expiresAt ? Date.now() > new Date(expiresAt).getTime() : false;
 
-      const nickname = localStorage.getItem('guest_nickname') || this.generateGuestNickname();
-      const skinId = localStorage.getItem('guest_skin_id') || this.generateGuestSkinId();
+      if (!isGuestTokenExpired) {
+        console.log('[AuthService] Restoring guest session from localStorage');
 
-      // Сохраняем если были сгенерированы
-      if (!localStorage.getItem('guest_nickname')) {
-        localStorage.setItem('guest_nickname', nickname);
+        const nickname = localStorage.getItem('guest_nickname') || this.generateGuestNickname();
+        const skinId = localStorage.getItem('guest_skin_id') || this.generateGuestSkinId();
+
+        // Сохраняем если были сгенерированы
+        if (!localStorage.getItem('guest_nickname')) {
+          localStorage.setItem('guest_nickname', nickname);
+        }
+        if (!localStorage.getItem('guest_skin_id')) {
+          localStorage.setItem('guest_skin_id', skinId);
+        }
+
+        // Устанавливаем токен в HTTP-клиент
+        metaServerClient.setToken(guestToken);
+
+        // P2-3: Синхронизируем кэш после восстановления сессии
+        this.updateCachedJoinToken();
+
+        // Создаём User для UI
+        const user = createUser('guest', nickname, platformManager.getPlatformType());
+        const profile = createDefaultProfile();
+        setAuthState(user, profile, guestToken);
+
+        this.initialized = true;
+        console.log('[AuthService] Guest session restored, claim token preserved');
+
+        // FIX-006: Устанавливаем interceptor после восстановления
+        metaServerClient.setOnUnauthorized(() => this.logout());
+        return true;
       }
-      if (!localStorage.getItem('guest_skin_id')) {
-        localStorage.setItem('guest_skin_id', skinId);
-      }
 
-      // Устанавливаем токен в HTTP-клиент
-      metaServerClient.setToken(guestToken);
-
-      // P2-3: Синхронизируем кэш после восстановления сессии
-      this.updateCachedJoinToken();
-
-      // Создаём User для UI
-      const user = createUser('guest', nickname, platformManager.getPlatformType());
-      const profile = createDefaultProfile();
-      setAuthState(user, profile, guestToken);
-
-      this.initialized = true;
-      console.log('[AuthService] Guest session restored, claim token preserved');
-
-      // FIX-006: Устанавливаем interceptor после восстановления
-      metaServerClient.setOnUnauthorized(() => this.logout());
-      return true;
+      // Токен истёк — очищаем и переходим к новому login flow (loginAsGuest)
+      console.log('[AuthService] Guest token expired, starting new guest session');
+      localStorage.removeItem('guest_token');
+      localStorage.removeItem('token_expires_at');
     }
 
     // Случай 3: Нет токенов — запускаем login flow
