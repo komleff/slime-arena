@@ -6,7 +6,7 @@
 
 **База:** main → **v0.8.5**, ветка `sprint-21/bugfix-tech-debt` → **v0.8.6** (PR #150, ожидает merge)
 **GDD версия:** 3.3.2
-**Sprint 21 Status:** ✅ Код готов, ревью пройдено, ожидает merge оператором
+**Sprint 21 Status:** Код готов, ревью пройдено, ожидает merge оператором
 **Production:** v0.8.5 (split-архитектура, два контейнера, два домена)
 
 ---
@@ -17,7 +17,7 @@
 **Ветка:** `sprint-21/bugfix-tech-debt` (21 коммит)
 **PR:** #150
 
-### Фаза 1: Багфиксы (9 задач) — ✅
+### Фаза 1: Багфиксы (9 задач) — done
 
 | # | Beads ID | P | Задача | Коммит |
 |---|----------|---|--------|--------|
@@ -31,7 +31,7 @@
 | 8 | slime-arena-y2z2 | P2 | Гость видит PLAYER после матча | `69de6d9` |
 | 9 | slime-arena-vpti | P2 | Изолировать generateRandomBasicSkin() | `56c002e` |
 
-### Фаза 2: Спрайтовая система — ✅
+### Фаза 2: Спрайтовая система — done
 
 | Коммит | Описание |
 |--------|----------|
@@ -46,16 +46,6 @@
 
 - `slime-arena-vk4m` (P1, open) — Спрайтовая система: сквозной flow выбора и сохранения (4 корневых причины)
 
-### Ревью PR #150
-
-| Ревьювер | Статус |
-|----------|--------|
-| Claude Sonnet 4.6 | ✅ APPROVED |
-| Claude Opus 4.6 | ✅ APPROVED |
-| Codex GPT-5 | ⚠️ REQUEST_CHANGES → исправлено |
-| GitHub Copilot | ⚠️ COMMENTED → частично принято |
-| ChatGPT Codex | ⚠️ inline → закрыто |
-
 ---
 
 ## Production (v0.8.5)
@@ -64,8 +54,8 @@
 
 | Домен | Статус | SSL |
 |-------|--------|-----|
-| https://slime-arena.overmobile.space | ✅ | Let's Encrypt (ECC) |
-| https://slime-arena.u2game.space | ✅ | Let's Encrypt (ECC) |
+| https://slime-arena.overmobile.space | работает | Let's Encrypt (ECC) |
+| https://slime-arena.u2game.space | работает | Let's Encrypt (ECC) |
 
 **Инфраструктура:** db + app контейнеры, Nginx, Watchdog (systemd), cron-бэкапы (6ч)
 **Документация:** SERVER_SETUP.md, SERVER_UPDATE.md, AI_AGENT_GUIDE.md
