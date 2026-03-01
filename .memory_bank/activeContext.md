@@ -2,111 +2,76 @@
 
 Текущее состояние проекта и фокус работы.
 
-## Текущее состояние (8 февраля 2026)
+## Текущее состояние (1 марта 2026)
 
-**База:** main → **v0.8.5**
+**База:** main → **v0.8.5**, ветка `sprint-21/bugfix-tech-debt` → **v0.8.6** (PR #150, ожидает merge)
 **GDD версия:** 3.3.2
-**Sprint 20 Status:** ✅ v0.8.5 задеплоен на production
-**Production:** v0.8.5 — split-архитектура (db + app), Admin Dashboard, Watchdog
-**Домен:** https://slime-arena.overmobile.space
-**GitHub Release:** v0.8.5 (latest)
+**Sprint 21 Status:** Код готов, ревью пройдено, ожидает merge оператором
+**Production:** v0.8.5 (split-архитектура, два контейнера, два домена)
 
-**Docker images (ghcr.io):**
+---
 
-- `ghcr.io/komleff/slime-arena-app:0.8.5` ✅
-- `ghcr.io/komleff/slime-arena-db:0.8.5` ✅
+## Sprint 21 — Багфиксы, тех долг, спрайтовая система (v0.8.6)
 
-### Домены
+**Цель:** Стабилизация + редизайн спрайтовой системы. Исправление P1/P2 багов.
+**Ветка:** `sprint-21/bugfix-tech-debt` (21 коммит)
+**PR:** #150
+
+### Фаза 1: Багфиксы (9 задач) — done
+
+| # | Beads ID | P | Задача | Коммит |
+|---|----------|---|--------|--------|
+| 1 | slime-arena-b7z6 | P1 | Зависание экрана выбора класса при рестарте | `ceb5b6e` |
+| 2 | slime-arena-hfww | P2 | Таймер зависает (Chrome mobile) | `efe9960` |
+| 3 | slime-arena-3v3o | P2 | Фаза 'connecting' мелькает главным экраном | `b2869e6` |
+| 4 | slime-arena-vsn5 | P1 | Скин не сохраняется при OAuth upgrade | `ba1af70` |
+| 5 | slime-arena-n17m | P2 | normalizeNickname() падает на null | `6075177` |
+| 6 | slime-arena-mtw | P2 | Модификаторы укуса несимметричны | `1ecd828` |
+| 7 | slime-arena-4xh | P2 | Талант Вампир не по GDD | `e55dbe7` |
+| 8 | slime-arena-y2z2 | P2 | Гость видит PLAYER после матча | `69de6d9` |
+| 9 | slime-arena-vpti | P2 | Изолировать generateRandomBasicSkin() | `56c002e` |
+
+### Фаза 2: Спрайтовая система — done
+
+| Коммит | Описание |
+|--------|----------|
+| `03de755` | Замена цветных скинов на спрайтовую систему (21 спрайт) |
+| `8878de3` | spriteId в generateFallbackToken |
+| `e1aad77` | Исправления по ревью спрайтов (итерация 1) |
+| `396425c` | Исправления по ревью спрайтов (итерация 2): leaderboard, matchmaking, дедупликация |
+| `885392d` | Создание аккаунта при новом OAuth (вместо 404) |
+| `a2c7f91` | intent="login" на MainScreen OAuth (P0 fix) |
+
+### Открытая задача из Sprint 21
+
+- `slime-arena-vk4m` (P1, open) — Спрайтовая система: сквозной flow выбора и сохранения (4 корневых причины)
+
+---
+
+## Production (v0.8.5)
+
+**Docker images (ghcr.io):** `slime-arena-app:0.8.5` + `slime-arena-db:0.8.5`
+
 | Домен | Статус | SSL |
 |-------|--------|-----|
-| https://slime-arena.overmobile.space | ✅ Работает | Let's Encrypt (ECC) |
-| https://slime-arena.u2game.space | ✅ Работает (с 2026-02-08) | Let's Encrypt (ECC) |
+| https://slime-arena.overmobile.space | работает | Let's Encrypt (ECC) |
+| https://slime-arena.u2game.space | работает | Let's Encrypt (ECC) |
+
+**Инфраструктура:** db + app контейнеры, Nginx, Watchdog (systemd), cron-бэкапы (6ч)
+**Документация:** SERVER_SETUP.md, SERVER_UPDATE.md, AI_AGENT_GUIDE.md
 
 ---
 
-## 🔧 Server Maintenance (2026-02-08)
+## Следующие шаги
 
-### Инцидент: 502 Bad Gateway + Яндекс OAuth 503
+### P1
+- `slime-arena-vk4m` — Спрайтовый flow: клиент не передаёт skinId в matchmaking, clearGuestData() удаляет guest_skin_id, нет API для смены скина
+- `slime-arena-b1b` — PKCE валидация на сервере
+- `slime-arena-5tp` — UNKNOWN регион: отключить Google OAuth
 
-**Причина:** Redis не мог записать RDB-снапшот → `stop-writes-on-bgsave-error yes` блокировал все записи → health-check 503 → nginx 502. OAuth `/oauth/resolve` тоже не мог записать токен → 503 на iPad Safari из Таиланда.
-
-**Решение (runtime):** `CONFIG SET stop-writes-on-bgsave-error no` + `CONFIG SET save ''`
-**Решение (код, PR #148):** `--save "" --stop-writes-on-bgsave-error no` в supervisord-db.conf и supervisord.conf
-
-### Новый домен: slime-arena.u2game.space
-
-Настроено: DNS → 147.45.147.175, SSL (acme.sh), nginx-конфиг, Яндекс OAuth redirect URI.
-
----
-
-## Production v0.8.5 (развёрнут 7 февраля 2026)
-
-### Инфраструктура
-
-| Компонент | Описание |
-|-----------|----------|
-| `slime-arena-db` | PostgreSQL 16 + Redis (docker-compose) |
-| `slime-arena-app` | MetaServer + MatchServer + Client + Admin Dashboard |
-| Nginx | Reverse proxy + SSL (Let's Encrypt via acme.sh) |
-| Watchdog | systemd-сервис: health monitoring + restart handler |
-| Бэкапы | Cron каждые 6 часов, ротация 7 дней |
-
-### Администраторы
-
-| Логин | Роль |
-|-------|------|
-| admin | Суперадмин |
-| Komleff | Разработчик |
-| Viktor | Оператор |
-| Ironman | Оператор |
-| Taskmgr | Оператор |
-
-Все пароли уникальные, выданы индивидуально.
-
-### Admin Dashboard (https://slime-arena.overmobile.space/admin/)
-
-- **Dashboard** — метрики сервера (CPU, RAM, uptime, онлайн)
-- **Rooms** — активные игровые комнаты
-- **Audit** — журнал действий администраторов
-- **Settings** — 2FA, смена пароля
-- **Restart** — перезапуск с 2FA подтверждением и уведомлением игроков
-
-### Документация
-
-| Документ | Описание |
-|----------|----------|
-| [SERVER_SETUP.md](docs/operations/SERVER_SETUP.md) | Установка с нуля |
-| [SERVER_UPDATE.md](docs/operations/SERVER_UPDATE.md) | Обновление сервера |
-| [AI_AGENT_GUIDE.md](docs/operations/AI_AGENT_GUIDE.md) | Гайд для ИИ-агентов |
-| [v0.8.5 Release Notes](docs/releases/v0.8.5.md) | Релиз-ноутс |
-
----
-
-## Оператор в отпуске (8-22 февраля 2026)
-
-Сервер v0.8.5 работает автономно. Watchdog автоматически перезапускает при сбоях.
-
----
-
-## Следующие шаги (после отпуска)
-
-### P1 критичные
-
-- **#121** — Скин не сохраняется при OAuth upgrade
-- **PlayersPage** — Страница управления игроками в Admin Dashboard (TECH_DEBT.md)
-- **PKCE валидация** — на сервере для OAuth
-
-### P2 важные
-
-- **AdminUsersPage** — Страница управления администраторами в Admin Dashboard
-- **normalizeNickname()** — защита от null/undefined
-- **Cron-бэкап** — ✅ настроен на сервере (каждые 6 часов)
-
-### P3 средние
-
-- UI: фаза 'connecting' не рендерится (#126)
-- Оптимизация tick=2700 (#127)
-- Устаревшие API endpoints (#129)
+### P2
+- `slime-arena-74gx` — Merge anonymous match into existing account
+- `slime-arena-bfce` — Admin: N+1 remoteRoomCall
 
 ---
 

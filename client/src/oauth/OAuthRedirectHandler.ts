@@ -200,14 +200,15 @@ export async function handleOAuthCallback(
       result = await handleOAuthLogin(provider, params.code, codeVerifier);
     } else {
       // P1-4: Конвертация гостя — сначала prepare, потом подтверждение никнейма
-      if (!guestToken || !claimToken) {
+      // slime-arena-ias0: guestToken обязателен, claimToken опционален
+      if (!guestToken) {
         clearOAuthState();
         return {
           success: false,
-          error: 'Missing guest data for convert_guest flow',
+          error: 'Missing guest token for convert_guest flow',
         };
       }
-      result = await handleOAuthPrepare(provider, params.code, guestToken, claimToken);
+      result = await handleOAuthPrepare(provider, params.code, guestToken, claimToken || null);
     }
 
     // Очищаем состояние после обработки
@@ -274,14 +275,16 @@ async function handleOAuthPrepare(
   provider: OAuthProviderName,
   code: string,
   guestToken: string,
-  claimToken: string
+  claimToken: string | null
 ): Promise<OAuthHandlerResult> {
-  const body = {
+  const body: Record<string, string> = {
     provider,
     code,
-    claimToken,
     redirectUri: `${window.location.origin}/`,
   };
+  if (claimToken) {
+    body.claimToken = claimToken;
+  }
 
   const response = await metaServerClient.postRaw('/api/v1/auth/oauth/prepare-upgrade', body, {
     headers: {

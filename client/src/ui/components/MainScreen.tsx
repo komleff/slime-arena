@@ -6,9 +6,9 @@
  */
 
 import { useEffect, useState } from 'preact/hooks';
+import { useComputed } from '@preact/signals';
 import { injectStyles } from '../utils/injectStyles';
 import { currentUser, currentProfile, openLeaderboard } from '../signals/gameState';
-import { authService } from '../../services/authService';
 import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
 import { RegistrationPromptModal } from './RegistrationPromptModal';
 
@@ -645,8 +645,16 @@ export function MainScreen({ onArena }: MainScreenProps) {
   const user = currentUser.value;
   const profile = currentProfile.value;
 
-  const [isGuest, setIsGuest] = useState(authService.isAnonymous());
-  const playerName = isGuest ? GUEST_DEFAULT_NICKNAME : (user?.nickname || 'PLAYER');
+  // Реактивное вычисление гостевого статуса из сигнала currentUser.
+  // При возврате из матча currentUser обновляется, и isGuest пересчитывается автоматически.
+  // FIX slime-arena-y2z2: заменили useState(authService.isAnonymous()) на useComputed,
+  // чтобы компонент реагировал на изменения currentUser без перемонтирования.
+  const isGuest = useComputed(() => {
+    const u = currentUser.value;
+    if (!u) return true;
+    return u.id === 'guest';
+  });
+  const playerName = isGuest.value ? GUEST_DEFAULT_NICKNAME : (user?.nickname || 'PLAYER');
   const level = profile?.level ?? 1;
   const avatarUrl = profile?.avatarUrl || '/hud/hud_avatar_hero_01.webp';
   const coins = 0; // Валюта пока не реализована
@@ -696,7 +704,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
           </div>
           <div class="hud-info">
             <div class="hud-name">{playerName}</div>
-            {isGuest ? (
+            {isGuest.value ? (
               <button class="hud-auth-link" onClick={() => setShowAuthModal(true)}>
                 Войти
               </button>
@@ -708,7 +716,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
               </div>
             )}
           </div>
-          {isGuest ? null : (
+          {isGuest.value ? null : (
             <div class="xp-track">
               <div class="xp-fill" style={{ width: `${xpPercent}%` }} />
             </div>
@@ -769,7 +777,7 @@ export function MainScreen({ onArena }: MainScreenProps) {
           intent="login"
           onClose={() => {
             setShowAuthModal(false);
-            setIsGuest(authService.isAnonymous());
+            // isGuest пересчитывается автоматически через useComputed(currentUser)
           }}
         />
       )}

@@ -4,105 +4,66 @@
 
 ## Контроль изменений
 
-- **last_checked_commit**: main @ 8 февраля 2026 (PR #148 — Redis hotfix)
-- **Текущая ветка**: `main`
-- **Релиз:** v0.8.5 ✅ (GitHub Release latest, Docker images pushed)
-- **Production:** v0.8.5 ✅ (split-архитектура, развёрнут 7 фев 2026, hotfix Redis 8 фев 2026)
+- **last_checked_commit**: sprint-21/bugfix-tech-debt @ 1 марта 2026 (a2c7f91)
+- **Текущая ветка**: `sprint-21/bugfix-tech-debt` (PR #150)
+- **Релиз:** v0.8.6 (ожидает merge)
+- **Production:** v0.8.5 (split-архитектура, развёрнут 7 фев 2026, hotfix Redis 8 фев 2026)
 - **GDD версия**: v3.3.2
 
 ---
 
-## Production Deployment v0.8.5 (7 февраля 2026) — ✅ ЗАВЕРШЕНО
+## Sprint 21 (2026-02-28 — 2026-03-01) — v0.8.6 Bugfix & Tech Debt
 
-- ✅ Split-архитектура (db + app) развёрнута
-- ✅ Миграции 001-010 применены
-- ✅ Admin Dashboard — 5 администраторов
-- ✅ Watchdog systemd-сервис установлен
-- ✅ Cron-бэкап настроен (каждые 6 часов)
-- ✅ Документация: SERVER_SETUP, SERVER_UPDATE, Release notes, CHANGELOG
+**Цель:** Стабилизация + редизайн спрайтовой системы
+**Ветка:** `sprint-21/bugfix-tech-debt` (21 коммит)
+**PR:** #150
 
-## Server Maintenance (2026-02-08) — ✅ ЗАВЕРШЕНО
+### Фаза 1: Багфиксы (9/9) — ЗАВЕРШЕНО
 
-**Проблема:** 502 Bad Gateway + Яндекс OAuth 503 (iPad Safari, тайский IP)
-**Причина:** Redis MISCONF — RDB-снапшот не пишется, блокировка записей
-**PR:** #148 (fix/redis-rdb-snapshot-error)
+- [x] slime-arena-b7z6 (P1) — Зависание экрана выбора класса
+- [x] slime-arena-hfww (P2) — Таймер Chrome mobile
+- [x] slime-arena-3v3o (P2) — ConnectingScreen
+- [x] slime-arena-vsn5 (P1) — skinId при OAuth upgrade
+- [x] slime-arena-n17m (P2) — normalizeNickname null guard
+- [x] slime-arena-mtw (P2) — Симметричные модификаторы укуса
+- [x] slime-arena-4xh (P2) — Вампир по GDD
+- [x] slime-arena-y2z2 (P2) — Гость: реактивный isAnonymous
+- [x] slime-arena-vpti (P2) — generateRandomBasicSkin в meta/
 
-- [x] Диагностика 502 → Redis MISCONF → health-check 503
-- [x] Runtime-фикс: `CONFIG SET stop-writes-on-bgsave-error no` + `CONFIG SET save ''`
-- [x] supervisord-db.conf и supervisord.conf: `--save "" --stop-writes-on-bgsave-error no`
-- [x] Настроен домен `slime-arena.u2game.space` (DNS, SSL, nginx)
-- [x] Яндекс OAuth: работает с тайского IP + iPad Safari
+### Фаза 2: Спрайтовая система — ЗАВЕРШЕНО
 
----
+- [x] Замена цветных скинов (4 цвета) на 21 спрайт
+- [x] shared/src/sprites.ts: SPRITE_NAMES, pickSpriteByName, isValidSprite
+- [x] Player.spriteId в Colyseus schema
+- [x] spriteId в JoinTokenPayload → ArenaRoom → клиент
+- [x] spriteId в matchmaking flow
+- [x] leaderboard: isValidSprite валидация
+- [x] Удалён config/skins.json (ошибочный артефакт)
 
-## Sprint 20 (2026-02-07) — v0.8.4 Infrastructure + v0.8.5 UI Fixes
+### Фаза 3: Ревью + исправления — ЗАВЕРШЕНО
 
-**Цель:** Split-архитектура, бэкапы, UX авторизации, UI фиксы гостя, деплой
-**PRs:** #139-#146
-**Версии:** v0.8.4 → v0.8.5
-**Статус:** ✅ ЗАВЕРШЁН — production развёрнут
+- [x] 504a6e6 — формула боя, visibilitychange, skinId валидация
+- [x] 63163ae — whitelist через getBasicSkins()
+- [x] a48add7 — .js extension fix (CommonJS)
+- [x] e1aad77 — ревью спрайтов (итерация 1)
+- [x] 396425c — ревью спрайтов (итерация 2): leaderboard, matchmaking, дедупликация
+- [x] 885392d — создание аккаунта при новом OAuth
+- [x] a2c7f91 — intent="login" на MainScreen (P0 fix)
 
-### Результат
+### Открытая задача
 
-- Split-архитектура: db + app через docker-compose
-- Admin Dashboard с 5 страницами
-- Watchdog для автоматического мониторинга
-- Полная документация (SERVER_SETUP, SERVER_UPDATE, AI_AGENT_GUIDE)
-- 5 администраторов с 2FA
-
----
-
-## Sprint MON (2026-02-04) — ✅ ЗАВЕРШЁН
-
-**Цель:** Admin Dashboard v0.8.0 (Phase 1 + Phase 2)
-**Версии:** v0.8.0 → v0.8.2
-**Статус:** ✅ Завершён, развёрнут в production как часть v0.8.5
+- slime-arena-vk4m (P1) — Спрайтовый flow: 4 корневых причины (отложено)
 
 ---
 
-## Sprint 19 (2026-02-05) — ✅ ЗАВЕРШЁН
+## Sprint 20 (2026-02-07) — v0.8.4/v0.8.5 — ЗАВЕРШЕНО
 
-**Цель:** Admin Dashboard Phase 2
-**Версия:** v0.8.1 → v0.8.2
-**PR:** #136 (merged)
-**Статус:** ✅ Завершён
+Split-архитектура, Admin Dashboard на production, UI фиксы гостя.
+PRs: #139-#146. Развёрнут на production 7 фев 2026.
 
----
+## Server Maintenance (2026-02-08) — ЗАВЕРШЕНО
 
-## Sprint 18 (2026-02-01/03) — ✅ ЗАВЕРШЁН
-
-**Цель:** Tech Debt + Production Deploy v0.7.8
-**Версия:** v0.7.4 → v0.7.8
-**Статус:** ✅ Завершён, production обновлён до v0.8.5
-
----
-
-## Активные задачи (после отпуска)
-
-### P1 критичные
-
-| ID | Описание | Статус |
-|----|----------|--------|
-| #121 | Скин не сохраняется при OAuth upgrade | Открыто |
-| TECH_DEBT | PlayersPage — управление игроками в Admin | Открыто |
-| slime-arena-b1b | PKCE валидация на сервере | Открыто |
-| slime-arena-5tp | UNKNOWN регион: отключить Google | Открыто |
-
-### P2 важные
-
-| ID | Описание | Статус |
-|----|----------|--------|
-| TECH_DEBT | AdminUsersPage — управление администраторами | Открыто |
-| slime-arena-n17m | normalizeNickname() null/undefined | Открыто |
-| slime-arena-74gx | Merge anonymous match into existing account | Открыто |
-
-### P3 средние
-
-| ID | Описание | Статус |
-|----|----------|--------|
-| #126 | UI фаза 'connecting' не рендерится | Открыто |
-| #127 | Оптимизация tick=2700 | Открыто |
-| #129 | Устаревшие API endpoints | Открыто |
+Redis MISCONF → 502 + OAuth 503. PR #148. Новый домен u2game.space.
 
 ---
 

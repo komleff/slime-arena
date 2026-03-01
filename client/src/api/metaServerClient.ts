@@ -31,8 +31,8 @@ const getMetaServerUrl = () => {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
 
-    // Dev-режим: localhost — Vite proxy работает, используем относительные пути
-    if (import.meta.env?.DEV && hostname === 'localhost') {
+    // Dev-режим: Vite proxy работает для всех хостов (localhost и LAN IP)
+    if (import.meta.env?.DEV) {
       return '';
     }
 
@@ -59,11 +59,12 @@ const IS_PROXY_MODE = (() => {
   if (import.meta.env?.VITE_META_SERVER_URL) return false;
   if (typeof window === 'undefined') return false;
 
+  // DEV: Vite proxy работает для всех хостов (localhost, LAN IP)
+  if (import.meta.env?.DEV) return true;
+
   const hostname = window.location.hostname;
-  // DEV + localhost: Vite proxy
-  if (import.meta.env?.DEV && hostname === 'localhost') return true;
   // Production + домен (не IP): обратный прокси-сервер
-  if (!import.meta.env?.DEV && !isIPAddress(hostname) && hostname !== 'localhost') return true;
+  if (!isIPAddress(hostname) && hostname !== 'localhost') return true;
 
   return false;
 })();

@@ -212,16 +212,8 @@ export function OAuthProviderSelector({
       // LB-009: Пытаемся взять токен из сигнала или из localStorage (если сессия была прервана)
       const effectiveClaimToken = claimToken.value || localStorage.getItem('registration_claim_token');
 
-      // FIX-002: Блокируем редирект для convert_guest если нет claimToken
-      // Без токена OAuth callback вернёт ошибку "Missing guest data"
-      if (intent === 'convert_guest' && !effectiveClaimToken) {
-        const errorMessage = 'Нет данных для сохранения прогресса. Сначала сыграйте матч.';
-        setError(errorMessage);
-        onError?.(errorMessage);
-        setStartingOAuth(null);
-        return;
-      }
-
+      // slime-arena-ias0: claimToken опционален для convert_guest
+      // Если есть — сохраняем, если нет — регистрация без прогресса
       if (intent === 'convert_guest' && effectiveClaimToken) {
         localStorage.setItem('registration_claim_token', effectiveClaimToken);
         // Сохраняем и под старым ключом для обратной совместимости во время миграции

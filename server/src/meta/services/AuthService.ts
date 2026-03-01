@@ -416,6 +416,59 @@ export class AuthService {
   }
 
   /**
+   * Создать нового пользователя из OAuth login (без гостевой сессии).
+   * Используется когда пользователь нажимает «Войти» и у него нет аккаунта.
+   */
+  async createUserFromOAuth(
+    provider: AuthProvider,
+    providerUserId: string,
+    nickname: string,
+    avatarUrl: string | undefined,
+    skinId: string
+  ): Promise<User> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const userResult = await client.query(
+        `INSERT INTO users (platform_type, platform_id, nickname, avatar_url, is_anonymous,
+                            registration_skin_id, nickname_set_at, last_login_at)
+         VALUES ($1, $2, $3, $4, FALSE, $5, NOW(), NOW())
+         RETURNING id, platform_type, platform_id, nickname, avatar_url, locale,
+                   is_anonymous, registration_skin_id, registration_match_id, nickname_set_at`,
+        [provider, providerUserId, nickname, avatarUrl || null, skinId]
+      );
+
+      const user = this.mapUserRow(userResult.rows[0]);
+
+      await client.query(
+        'INSERT INTO oauth_links (user_id, auth_provider, provider_user_id) VALUES ($1, $2, $3)',
+        [user.id, provider, providerUserId]
+      );
+
+      await client.query(
+        'INSERT INTO profiles (user_id, selected_skin_id) VALUES ($1, $2)',
+        [user.id, skinId]
+      );
+
+      await client.query(
+        'INSERT INTO wallets (user_id) VALUES ($1)',
+        [user.id]
+      );
+
+      await client.query('COMMIT');
+
+      console.log(`[AuthService] Created new user ${user.id.slice(0, 8)}... via OAuth ${provider}`);
+      return user;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Complete anonymous profile (Telegram-anonymous → registered)
    * Updates is_anonymous to false
    * @param client - Optional external DB client for transaction support
@@ -443,7 +496,14 @@ export class AuthService {
       throw new Error('User not found');
     }
 
-    console.log(`[AuthService] Completed profile for user ${userId.slice(0, 8)}...`);
+    // fix(slime-arena-vsn5): Сохраняем skinId в profiles.selected_skin_id при complete_profile
+    // Ранее skinId записывался только в users.registration_skin_id, а profiles оставался с NULL
+    await db.query(
+      `UPDATE profiles SET selected_skin_id = $2, updated_at = NOW() WHERE user_id = $1`,
+      [userId, registrationSkinId]
+    );
+
+    console.log(`[AuthService] Completed profile for user ${userId.slice(0, 8)}..., skin: ${registrationSkinId}`);
 
     return this.mapUserRow(result.rows[0]);
   }

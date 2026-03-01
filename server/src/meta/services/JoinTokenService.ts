@@ -12,6 +12,8 @@ export interface JoinTokenPayload {
   matchId: string;
   roomId: string;
   nickname: string;
+  /** Имя файла спрайта (например "slime-samurai.webp") */
+  spriteId?: string;
   /** Guest subject ID (UUID) for standalone guests - used for match claim verification */
   guestSubjectId?: string;
   /** Token issue time (Unix timestamp) */
@@ -74,13 +76,18 @@ export class JoinTokenService {
    * @param nickname - Player nickname
    * @param guestSubjectId - Guest subject ID (UUID) for standalone guests
    */
-  generateToken(userId: string, matchId: string, roomId: string, nickname: string, guestSubjectId?: string): string {
+  generateToken(userId: string, matchId: string, roomId: string, nickname: string, guestSubjectId?: string, spriteId?: string): string {
     const payload: JoinTokenPayload = {
       userId,
       matchId,
       roomId,
       nickname,
     };
+
+    // Add spriteId only if provided
+    if (spriteId) {
+      payload.spriteId = spriteId;
+    }
 
     // Add guestSubjectId only if provided (for standalone guests)
     if (guestSubjectId) {

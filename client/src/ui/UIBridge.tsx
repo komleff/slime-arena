@@ -62,6 +62,7 @@ import { MainMenu } from './components/MainMenu';
 import { AccountConflictModal } from './components/AccountConflictModal';
 import { NicknameConfirmModal } from './components/NicknameConfirmModal';
 import { LeaderboardScreen } from './components/LeaderboardScreen';
+import { ConnectingScreen } from './components/ConnectingScreen';
 import { ShutdownBanner } from './components/ShutdownBanner';
 
 // ========== Типы для колбеков ==========
@@ -123,6 +124,11 @@ function UIRoot() {
       {/* Boot Screen */}
       {phase === 'boot' && (
         <BootScreen onRetry={callbacks?.onBootRetry} />
+      )}
+
+      {/* Connecting Screen (индикатор подключения к серверу) */}
+      {phase === 'connecting' && (
+        <ConnectingScreen />
       )}
 
       {/* Main Screen (главный экран с кнопкой Arena) */}

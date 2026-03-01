@@ -147,29 +147,30 @@ export function validateNicknameDetailed(nickname: string): ValidationResult {
 
 /**
  * Нормализует никнейм: удаляет лишние пробелы, приводит к trim.
+ * При null/undefined возвращает пустую строку (для безопасности вызывающего кода).
+ *
+ * fix(slime-arena-n17m): ранний return пустой строки для null/undefined
+ * предотвращает строку 'null'/'undefined' проходящую валидацию.
  *
  * @param nickname - никнейм для нормализации
- * @returns нормализованный никнейм
- * @throws Error если nickname равен null, undefined или не является строкой
+ * @returns нормализованный никнейм, пустая строка для null/undefined
  */
-export function normalizeNickname(nickname: string): string {
-  if (nickname === null || nickname === undefined || typeof nickname !== 'string') {
-    throw new Error('Nickname must be a non-empty string');
-  }
-  return nickname
+export function normalizeNickname(nickname: string | null | undefined): string {
+  if (nickname == null) return '';
+  return String(nickname)
     .trim()
     .replace(/\s+/g, ' '); // Заменяем множественные пробелы на один
 }
 
 /**
  * Проверяет никнейм и возвращает нормализованную версию.
- * Выбрасывает ошибку если никнейм невалиден.
+ * Выбрасывает ошибку если никнейм невалиден (включая null/undefined).
  *
  * @param nickname - никнейм для проверки
  * @returns нормализованный никнейм
  * @throws Error если никнейм невалиден
  */
-export function validateAndNormalize(nickname: string): string {
+export function validateAndNormalize(nickname: string | null | undefined): string {
   const normalized = normalizeNickname(nickname);
   const result = validateNicknameDetailed(normalized);
 

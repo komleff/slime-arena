@@ -53,6 +53,10 @@ export {
 } from "./constants";
 export type { SlimeSprite } from "./sprites";
 export {
+    SPRITE_NAMES,
+    hashString,
+    pickSpriteByName,
+    isValidSprite,
     SLIME_SPRITES,
     SPRITE_SIZE,
     SPRITE_CACHE,

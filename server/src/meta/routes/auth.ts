@@ -27,7 +27,7 @@ import { getPostgresPool } from '../../db/pool';
 import { getRedisClient } from '../../db/redis';
 import { authRateLimiter, oauthRateLimiter } from '../middleware/rateLimiter';
 import { validateAndNormalize, normalizeNickname, NICKNAME_MAX_LENGTH } from '../../utils/generators/nicknameValidator';
-import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
+import { GUEST_DEFAULT_NICKNAME, pickSpriteByName, isValidSprite } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -163,12 +163,21 @@ router.post('/join-token', async (req: Request, res: Response) => {
           // Невалидный nickname — используем fallback
         }
       }
+      // spriteId из body (клиент передаёт guest_skin_id), валидация + fallback по хешу имени
+      let spriteId: string | undefined;
+      if (req.body.skinId && typeof req.body.skinId === 'string' && isValidSprite(req.body.skinId)) {
+        spriteId = req.body.skinId;
+      } else {
+        spriteId = pickSpriteByName(nickname);
+      }
+
       const joinToken = joinTokenService.generateToken(
         '', // userId (empty for guests)
         '', // matchId (not known yet)
         '', // roomId (not known yet)
         nickname,
-        guestPayload.sub // guestSubjectId for claim verification
+        guestPayload.sub, // guestSubjectId for claim verification
+        spriteId
       );
 
       return res.json({
@@ -191,11 +200,33 @@ router.post('/join-token', async (req: Request, res: Response) => {
           // Невалидный nickname — используем fallback
         }
       }
+      // Получаем spriteId из профиля зарегистрированного пользователя
+      let spriteId: string | undefined;
+      try {
+        const pool = getPostgresPool();
+        const profileResult = await pool.query(
+          'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
+          [userPayload.sub]
+        );
+        if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id
+            && isValidSprite(profileResult.rows[0].selected_skin_id)) {
+          spriteId = profileResult.rows[0].selected_skin_id;
+        }
+      } catch (err) {
+        console.warn('[Auth] Failed to fetch spriteId from profile:', err);
+      }
+      // Fallback: хеш от никнейма
+      if (!spriteId) {
+        spriteId = pickSpriteByName(nickname);
+      }
+
       const joinToken = joinTokenService.generateToken(
         userPayload.sub, // userId
         '', // matchId
         '', // roomId
-        nickname
+        nickname,
+        undefined, // guestSubjectId
+        spriteId
       );
 
       return res.json({
@@ -375,10 +406,10 @@ router.post('/verify', async (req: Request, res: Response) => {
 
 /**
  * POST /api/v1/auth/oauth
- * OAuth login (Google/Yandex) - for existing accounts only
+ * OAuth login (Google/Yandex)
  *
- * Does NOT create new accounts. Returns 404 if account not found.
- * Account creation happens via auth/upgrade endpoint.
+ * For existing accounts — returns accessToken.
+ * For new users — creates account and returns accessToken (slime-arena-ias0).
  */
 router.post('/oauth', async (req: Request, res: Response) => {
   try {
@@ -419,13 +450,17 @@ router.post('/oauth', async (req: Request, res: Response) => {
     }
 
     let providerUserId: string;
+    let displayName: string;
+    let avatarUrl: string | undefined;
 
-    // Exchange code for user info (только для получения providerUserId)
+    // Exchange code for user info
     if (provider === 'google') {
       try {
         const googleProvider = getGoogleOAuthProvider();
         const userInfo = await googleProvider.exchangeCode(code);
         providerUserId = userInfo.id;
+        displayName = userInfo.name || (userInfo.email ? userInfo.email.split('@')[0] : `User${Date.now() % 100000}`);
+        avatarUrl = userInfo.picture;
       } catch (err: any) {
         if (err.message.includes('must be set')) {
           return res.status(500).json({
@@ -440,6 +475,8 @@ router.post('/oauth', async (req: Request, res: Response) => {
         const yandexProvider = getYandexOAuthProvider();
         const userInfo = await yandexProvider.exchangeCode(code);
         providerUserId = userInfo.id;
+        displayName = userInfo.display_name || userInfo.login || `User${Date.now() % 100000}`;
+        avatarUrl = YandexOAuthProvider.getAvatarUrl(userInfo.default_avatar_id);
       } catch (err: any) {
         if (err.message.includes('must be set')) {
           return res.status(500).json({
@@ -452,24 +489,47 @@ router.post('/oauth', async (req: Request, res: Response) => {
     }
 
     // Look up user by oauth_link
-    const user = await authService.findUserByOAuthLink(provider as AuthProvider, providerUserId);
+    let user = await authService.findUserByOAuthLink(provider as AuthProvider, providerUserId);
 
     if (!user) {
-      // Account not found - return 404
-      // User must use auth/upgrade to create account
-      return res.status(404).json({
-        error: 'account_not_found',
-        message: 'No account found for this OAuth provider. Use upgrade flow to create account.',
-      });
-    }
+      // Account not found — создаём нового пользователя (fix slime-arena-ias0)
+      let nickname: string;
+      try {
+        nickname = validateAndNormalize(displayName);
+      } catch {
+        nickname = `User${Date.now() % 100000}`;
+      }
 
-    // Update last login
-    await authService.updateLastLogin(user.id);
+      const skinId = pickSpriteByName(nickname);
+
+      try {
+        user = await authService.createUserFromOAuth(
+          provider as AuthProvider,
+          providerUserId,
+          nickname,
+          avatarUrl,
+          skinId
+        );
+        console.log(`[Auth] OAuth new user: ${provider} ${providerUserId.slice(0, 8)}... → ${user.id.slice(0, 8)}... (${nickname})`);
+      } catch (createError: any) {
+        // Race condition: duplicate oauth_link (unique constraint 23505)
+        if (createError.code === '23505') {
+          user = await authService.findUserByOAuthLink(provider as AuthProvider, providerUserId);
+          if (!user) throw createError;
+          await authService.updateLastLogin(user.id);
+          console.log(`[Auth] OAuth race resolved: ${provider} ${providerUserId.slice(0, 8)}... → ${user.id.slice(0, 8)}...`);
+        } else {
+          throw createError;
+        }
+      }
+    } else {
+      // Update last login for existing user
+      await authService.updateLastLogin(user.id);
+      console.log(`[Auth] OAuth login: ${provider} user ${providerUserId.slice(0, 8)}... -> ${user.id.slice(0, 8)}...`);
+    }
 
     // Generate access token
     const accessToken = generateAccessToken(user.id, user.isAnonymous);
-
-    console.log(`[Auth] OAuth login: ${provider} user ${providerUserId.slice(0, 8)}... -> ${user.id.slice(0, 8)}...`);
 
     res.json({
       accessToken,
@@ -495,7 +555,7 @@ router.post('/oauth', async (req: Request, res: Response) => {
  *
  * Input:
  * - Authorization: Bearer <guestToken>
- * - Body: { provider, code, claimToken, redirectUri }
+ * - Body: { provider, code, claimToken? (optional), redirectUri }
  *
  * Returns:
  * - { displayName, avatarUrl, prepareToken } - user confirms nickname, then calls /upgrade
@@ -505,10 +565,10 @@ router.post('/oauth/prepare-upgrade', async (req: Request, res: Response) => {
   try {
     const { provider, code, claimToken, redirectUri } = req.body;
 
-    if (!provider || !code || !claimToken) {
+    if (!provider || !code) {
       return res.status(400).json({
         error: 'missing_parameters',
-        message: 'provider, code, and claimToken are required',
+        message: 'provider and code are required',
       });
     }
 
@@ -537,13 +597,15 @@ router.post('/oauth/prepare-upgrade', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify claimToken
-    const claimPayload = verifyClaimToken(claimToken);
-    if (!claimPayload) {
-      return res.status(401).json({
-        error: 'invalid_claim_token',
-        message: 'Invalid or expired claim token',
-      });
+    // Verify claimToken (optional — гость мог не сыграть матч, slime-arena-ias0)
+    if (claimToken) {
+      const claimPayload = verifyClaimToken(claimToken);
+      if (!claimPayload) {
+        return res.status(401).json({
+          error: 'invalid_claim_token',
+          message: 'Invalid or expired claim token',
+        });
+      }
     }
 
     // Exchange OAuth code for user info
@@ -698,18 +760,20 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
-      // Use data from prepareToken, but verify claimToken again
-      const claimPayload = verifyClaimToken(preparePayload.claimToken);
-      if (!claimPayload) {
-        return res.status(401).json({
-          error: 'invalid_claim_token',
-          message: 'Claim token in prepare token is invalid or expired',
-        });
+      // Verify claimToken if present (optional — гость мог не сыграть матч, slime-arena-ias0)
+      if (preparePayload.claimToken) {
+        const claimPayload = verifyClaimToken(preparePayload.claimToken);
+        if (!claimPayload) {
+          return res.status(401).json({
+            error: 'invalid_claim_token',
+            message: 'Claim token in prepare token is invalid or expired',
+          });
+        }
+        req.body.claimToken = preparePayload.claimToken;
       }
 
       // Process upgrade with prepareToken data
       req.body.mode = 'convert_guest';
-      req.body.claimToken = preparePayload.claimToken;
       req.body.provider = preparePayload.provider;
       req.body._preparePayload = preparePayload; // Pass to later processing
     }
@@ -718,10 +782,12 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     const finalMode = req.body.mode;
     const finalClaimToken = req.body.claimToken;
 
-    if (!finalMode || !finalClaimToken) {
+    // claimToken optional при наличии preparePayload (slime-arena-ias0)
+    const hasPreparePayload = !!req.body._preparePayload;
+    if (!finalMode || (!finalClaimToken && !hasPreparePayload)) {
       return res.status(400).json({
         error: 'missing_parameters',
-        message: 'mode and claimToken are required',
+        message: 'mode is required; claimToken is required unless using prepareToken',
       });
     }
 
@@ -732,29 +798,36 @@ router.post('/upgrade', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify claimToken
-    const claimPayload = verifyClaimToken(finalClaimToken);
-    if (!claimPayload) {
-      return res.status(401).json({
-        error: 'invalid_claim_token',
-        message: 'Invalid or expired claim token',
-      });
+    // Verify claimToken (optional — гость мог не сыграть матч, slime-arena-ias0)
+    let claimPayload: any = null;
+    let matchId: string | null = null;
+    let subjectId: string | null = null;
+    let finalMass = 0;
+    let skinId: string | null = null;
+
+    if (finalClaimToken) {
+      claimPayload = verifyClaimToken(finalClaimToken);
+      if (!claimPayload) {
+        return res.status(401).json({
+          error: 'invalid_claim_token',
+          message: 'Invalid or expired claim token',
+        });
+      }
+      ({ matchId, subjectId, finalMass, skinId } = claimPayload);
     }
 
-    const { matchId, subjectId, finalMass, skinId } = claimPayload;
-
-    // Get match info for player count (P1-4)
-    // Note: claim consumption check moved to atomic markClaimConsumed inside transaction
-    const matchInfo = await getMatchResultInfo(matchId);
-    if (!matchInfo) {
-      return res.status(404).json({
-        error: 'match_not_found',
-        message: 'Match not found',
-      });
+    // Get match info for player count (P1-4) — only if claimToken provided
+    let playersInMatch = 0;
+    if (matchId) {
+      const matchInfo = await getMatchResultInfo(matchId);
+      if (!matchInfo) {
+        return res.status(404).json({
+          error: 'match_not_found',
+          message: 'Match not found',
+        });
+      }
+      playersInMatch = matchInfo.playersCount;
     }
-
-    // Get actual players count from match_results (P1-4)
-    const playersInMatch = matchInfo.playersCount;
 
     // Extract auth header
     const authHeader = req.get('authorization');
@@ -805,8 +878,8 @@ router.post('/upgrade', async (req: Request, res: Response) => {
           });
         }
 
-        // Verify claim belongs to this guest
-        if (preparePayload.guestSubjectId !== subjectId) {
+        // Verify claim belongs to this guest (only if claimToken provided)
+        if (subjectId && preparePayload.guestSubjectId !== subjectId) {
           return res.status(403).json({
             error: 'forbidden',
             message: 'Claim token does not belong to this guest',
@@ -1002,52 +1075,67 @@ router.post('/upgrade', async (req: Request, res: Response) => {
         });
       }
 
-      // RACE CONDITION PROTECTION (slime-arena-ww8):
-      // All operations executed in a single DB transaction.
-      // markClaimConsumed uses UPDATE ... WHERE claim_consumed_at IS NULL
-      // to atomically check and set, preventing double-claim race conditions.
-      const client = await authService.getClient();
       let user;
-      try {
-        await client.query('BEGIN');
 
-        // Atomically mark claim as consumed first to prevent race conditions (P1-5)
-        const claimConsumed = await authService.markClaimConsumed(matchId, subjectId, client);
-        if (!claimConsumed) {
+      if (matchId && subjectId) {
+        // Путь с claimToken — есть данные матча
+        // RACE CONDITION PROTECTION (slime-arena-ww8):
+        // All operations executed in a single DB transaction.
+        // markClaimConsumed uses UPDATE ... WHERE claim_consumed_at IS NULL
+        // to atomically check and set, preventing double-claim race conditions.
+        const client = await authService.getClient();
+        try {
+          await client.query('BEGIN');
+
+          // Atomically mark claim as consumed first to prevent race conditions (P1-5)
+          const claimConsumed = await authService.markClaimConsumed(matchId, subjectId, client);
+          if (!claimConsumed) {
+            await client.query('ROLLBACK');
+            client.release();
+            return res.status(409).json({
+              error: 'claim_already_consumed',
+              message: 'This claim token has already been used',
+            });
+          }
+
+          // Create registered user
+          user = await authService.createUserFromGuest(
+            finalProvider as AuthProvider,
+            providerUserId,
+            finalNickname,
+            avatarUrl,
+            matchId,
+            skinId!,
+            client
+          );
+
+          // Initialize ratings with actual players count from match_results (P1-4)
+          await ratingService.initializeRating(user.id, claimPayload, playersInMatch, client);
+
+          await client.query('COMMIT');
+        } catch (txError) {
           await client.query('ROLLBACK');
+          throw txError;
+        } finally {
           client.release();
-          return res.status(409).json({
-            error: 'claim_already_consumed',
-            message: 'This claim token has already been used',
-          });
         }
-
-        // Create registered user
-        user = await authService.createUserFromGuest(
+      } else {
+        // Путь без claimToken — гость регистрируется без матча (slime-arena-ias0)
+        const skinForUser = pickSpriteByName(finalNickname);
+        user = await authService.createUserFromOAuth(
           finalProvider as AuthProvider,
           providerUserId,
           finalNickname,
           avatarUrl,
-          matchId,
-          skinId,
-          client
+          skinForUser
         );
-
-        // Initialize ratings with actual players count from match_results (P1-4)
-        await ratingService.initializeRating(user.id, claimPayload, playersInMatch, client);
-
-        await client.query('COMMIT');
-      } catch (txError) {
-        await client.query('ROLLBACK');
-        throw txError;
-      } finally {
-        client.release();
       }
 
       // Generate access token
       const accessTokenNew = generateAccessToken(user.id, false);
 
-      console.log(`[Auth] Upgrade convert_guest: guest ${subjectId.slice(0, 8)}... -> user ${user.id.slice(0, 8)}... (${playersInMatch} players)`);
+      const logSubject = subjectId ? subjectId.slice(0, 8) + '...' : 'no-match';
+      console.log(`[Auth] Upgrade convert_guest: guest ${logSubject} -> user ${user.id.slice(0, 8)}... (${playersInMatch} players)`);
 
       res.json({
         accessToken: accessTokenNew,
@@ -1057,16 +1145,23 @@ router.post('/upgrade', async (req: Request, res: Response) => {
           locale: user.locale,
         },
         isAnonymous: false,
-        rating: {
+        rating: matchId ? {
           totalMass: finalMass,
           bestMass: finalMass,
           matchesPlayed: 1,
-        },
+        } : undefined,
       });
 
     } else {
       // Mode: complete_profile
       // Auth: accessToken (for Telegram-anonymous user)
+      // claimToken обязателен для complete_profile
+      if (!matchId || !subjectId || !skinId) {
+        return res.status(400).json({
+          error: 'missing_parameters',
+          message: 'claimToken is required for complete_profile mode',
+        });
+      }
 
       // Verify accessToken
       const accessPayload = verifyAccessToken(token);

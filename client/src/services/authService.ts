@@ -21,7 +21,7 @@ import {
   type Profile,
 } from '../ui/signals/gameState';
 import balanceConfig from '../../../config/balance.json';
-import { GUEST_DEFAULT_NICKNAME } from '@slime-arena/shared';
+import { GUEST_DEFAULT_NICKNAME, SPRITE_NAMES } from '@slime-arena/shared';
 
 /**
  * Ответ сервера на /auth/guest
@@ -472,11 +472,10 @@ class AuthService {
   }
 
   /**
-   * Генерация случайного скина для гостя.
+   * Генерация спрайта для гостя — случайный из SPRITE_NAMES.
    */
   private generateGuestSkinId(): string {
-    const basicSkins = ['slime_green', 'slime_blue', 'slime_red', 'slime_yellow'];
-    return basicSkins[Math.floor(Math.random() * basicSkins.length)];
+    return SPRITE_NAMES[Math.floor(Math.random() * SPRITE_NAMES.length)];
   }
 
   /**
@@ -639,10 +638,10 @@ class AuthService {
   }
 
   /**
-   * Получить ID выбранного скина.
+   * Получить ID выбранного спрайта.
    */
   getSkinId(): string {
-    return localStorage.getItem('selected_skin_id') || localStorage.getItem('guest_skin_id') || 'slime_green';
+    return localStorage.getItem('selected_skin_id') || localStorage.getItem('guest_skin_id') || SPRITE_NAMES[0];
   }
 
   /**
@@ -653,9 +652,10 @@ class AuthService {
    */
   async getRoomJoinToken(nickname: string): Promise<string | null> {
     try {
+      const skinId = this.getSkinId();
       const response = await metaServerClient.post<{ joinToken: string; expiresIn: number }>(
         '/api/v1/auth/join-token',
-        { nickname }
+        { nickname, skinId }
       );
       console.log('[AuthService] Room join token obtained');
       return response.joinToken;
