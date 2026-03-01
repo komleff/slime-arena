@@ -2,8 +2,8 @@
 
 Роли Claude-агентов для работы с Beads в проекте Slime Arena.
 
-**Версия:** 1.9
-**Дата:** 28 января 2026
+**Версия:** 2.0
+**Дата:** 1 марта 2026
 **Проект:** slime-arena
 
 ---
@@ -47,6 +47,7 @@ Slime Arena — **кросс-платформенная мобильная HTML5
 | **Realtime** | Colyseus 0.15.x | Socket.IO, raw WebSocket |
 | **HTTP API** | Express / Fastify | Koa, Hapi |
 | **База данных** | PostgreSQL 15+ | MongoDB, MySQL, SQLite |
+| **Кеш / сессии** | Redis 4.x | Memcached |
 | **ORM** | Prisma | TypeORM, Sequelize |
 | **Язык** | TypeScript | JavaScript |
 
@@ -159,7 +160,7 @@ Architect → [задачи] → Developer → [код] → Reviewer → [про
 
 **Команды:**
 ```bash
-echo '{"version": "0.7.5"}' > version.json && npm run sync-version
+echo '{"version": "0.8.7"}' > version.json && npm run sync-version
 ```
 
 ---
@@ -201,8 +202,8 @@ echo '{"version": "0.7.5"}' > version.json && npm run sync-version
 - `TECH_DEBT.md` — известные проблемы
 
 **Ключевые ограничения:**
-- ArenaRoom (4026 строк) — God Object, требует декомпозиции
-- main.ts (4958 строк) — смешаны UI/рендеринг/сеть
+- ArenaRoom (~2800 строк) — God Object, требует декомпозиции
+- main.ts (~4000 строк) — смешаны UI/рендеринг/сеть
 - Детерминизм обязателен (30 ticks/sec, `Rng` класс)
 - Баланс только через `config/balance.json`
 
@@ -973,8 +974,8 @@ bd dep add <task-A> <depends-on-task-B>  # A зависит от B
 
 ---
 
-**Версия:** 1.9
-**Последнее обновление:** 28 января 2026
+**Версия:** 2.0
+**Последнее обновление:** 1 марта 2026
 **Автор:** PM Agent
 
 ---

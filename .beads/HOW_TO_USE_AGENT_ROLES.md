@@ -30,26 +30,26 @@
 
 **PM:**
 ```
-Ты PM. Прочитай AGENT_ROLES.md секция "0️⃣ Project Manager".
-Задача: запустить ревью PR #65, собрать консенсус от Opus/Gemini.
+Ты PM. Прочитай AGENT_ROLES.md секция "0️⃣ Project Manager" и PM_ROLE.md.
+Задача: запустить ревью PR #150, собрать консенсус от Opus/Gemini.
 ```
 
 **Architect:**
 ```
 Ты Architect. Прочитай AGENT_ROLES.md секция "1️⃣ Architect".
-Задача: декомпозировать Stage D Testing на подзадачи.
+Задача: декомпозировать slime-arena-vk4m (спрайтовый flow) на подзадачи.
 ```
 
 **Developer:**
 ```
 Ты Developer. Прочитай AGENT_ROLES.md секция "2️⃣ Developer".
-План утвержден. Задача: реализуй slime-arena-pgf (лимиты рекламы).
+План утвержден. Задача: реализуй slime-arena-vk4m (спрайтовый flow).
 ```
 
 **Reviewer:**
 ```
 Ты Reviewer. Прочитай AGENT_ROLES.md секция "3️⃣ Reviewer".
-Задача: проверь PR #60 на соответствие требованиям.
+Задача: проверь PR #150 на соответствие требованиям.
 ```
 
 ---
