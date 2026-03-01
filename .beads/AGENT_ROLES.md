@@ -47,6 +47,7 @@ Slime Arena — **кросс-платформенная мобильная HTML5
 | **Realtime** | Colyseus 0.15.x | Socket.IO, raw WebSocket |
 | **HTTP API** | Express / Fastify | Koa, Hapi |
 | **База данных** | PostgreSQL 15+ | MongoDB, MySQL, SQLite |
+| **Кеш / сессии** | Redis 4.x | Memcached |
 | **ORM** | Prisma | TypeORM, Sequelize |
 | **Язык** | TypeScript | JavaScript |
 
