@@ -221,14 +221,14 @@ VITE_HMR_PROTOCOL=ws
 
 ## Docker
 
-Production: split-архитектура (2 контейнера).
+Раздельная архитектура (2 контейнера).
 
 | Контейнер | Содержание | Порты |
 | --------- | ---------- | ----- |
 | `slime-arena-app` | MetaServer + MatchServer + Client + Admin | 3000, 2567, 5173, 5175 |
 | `slime-arena-db` | PostgreSQL 16 + Redis 7 | 5432, 6379 |
 
-Образы: `ghcr.io/komleff/slime-arena-app`, `ghcr.io/komleff/slime-arena-db` (multi-arch: amd64/arm64).
+Образы: `ghcr.io/komleff/slime-arena-app`, `ghcr.io/komleff/slime-arena-db` (поддержка архитектур amd64 и arm64).
 
 Подробности: [docs/operations/SERVER_SETUP.md](docs/operations/SERVER_SETUP.md)
 
@@ -236,7 +236,7 @@ Production: split-архитектура (2 контейнера).
 
 **URL:** <https://slime-arena.overmobile.space>
 
-Nginx проксирует HTTP, WebSocket и Admin Dashboard через один домен.
+Nginx проксирует HTTP, WebSocket и админ-панель через один домен.
 
 Документация: [SERVER_SETUP.md](docs/operations/SERVER_SETUP.md) | [SERVER_UPDATE.md](docs/operations/SERVER_UPDATE.md)
 
