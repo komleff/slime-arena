@@ -160,7 +160,7 @@ Architect → [задачи] → Developer → [код] → Reviewer → [про
 
 **Команды:**
 ```bash
-echo '{"version": "0.X.Y"}' > version.json && npm run sync-version
+echo '{"version": "0.8.7"}' > version.json && npm run sync-version
 ```
 
 ---
@@ -169,7 +169,7 @@ echo '{"version": "0.X.Y"}' > version.json && npm run sync-version
 
 **Роль:** Координация спринтов, делегирование, ревью-оркестрация, завершение сессий.
 
-> 📄 **Полное описание:** [PM_ROLE.md](../docs/archive/PM-ROLE.md)
+> 📄 **Полное описание:** [PM_ROLE.md](./PM_ROLE.md)
 
 ---
 
@@ -974,7 +974,7 @@ bd dep add <task-A> <depends-on-task-B>  # A зависит от B
 
 ---
 
-**Версия:** 1.9
+**Версия:** 2.0
 **Последнее обновление:** 1 марта 2026
 **Автор:** PM Agent
 
