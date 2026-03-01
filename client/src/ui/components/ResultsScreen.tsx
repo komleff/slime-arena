@@ -348,23 +348,29 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
   const rewards = claimRewards.value;
 
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
-  // Copilot P1: Используем matchId для отслеживания, а не boolean флаг
-  // Это позволяет корректно обрабатывать повторные матчи
   const lastClaimedMatchRef = useRef<string | null>(null);
+  // fix(slime-arena-o7v5): Снапшотим matchId при первом рендере с результатами.
+  // stateMatchId обновляется на каждый новый матч, пока игрок остаётся на этом экране.
+  // Без снапшота useEffect срабатывает для каждого нового matchId → reset() → мигание наград.
+  const capturedMatchIdRef = useRef<string | null>(null);
 
   const isAnonymous = authService.isAnonymous();
-  // Codex P1: Приоритет matchId: state.matchId > matchmaking.matchId > roomId
-  // state.matchId — реальный UUID матча, остальные — fallback
-  const matchId =
-    stateMatchId.value ||
-    matchAssignment.value?.matchId ||
-    currentRoomId.value;
 
   // Вычисляем награды локально и запрашиваем claimToken для гостей
   useEffect(() => {
+    if (!results) return;
 
-    // Проверяем по matchId, а не по boolean флагу
-    if (!results || !matchId || lastClaimedMatchRef.current === matchId) return;
+    // Захватываем matchId один раз при первом появлении results
+    if (capturedMatchIdRef.current === null) {
+      capturedMatchIdRef.current =
+        stateMatchId.peek() ||
+        matchAssignment.peek()?.matchId ||
+        currentRoomId.peek() ||
+        null;
+    }
+
+    const myMatchId = capturedMatchIdRef.current;
+    if (!myMatchId || lastClaimedMatchRef.current === myMatchId) return;
 
     // Вычисляем place из finalLeaderboard
     // slime-arena-isf: Если игрок не в топ-10, place неизвестен (null).
@@ -380,9 +386,9 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     }
 
     // Помечаем этот матч как обработанный
-    lastClaimedMatchRef.current = matchId;
+    lastClaimedMatchRef.current = myMatchId;
 
-    // Сбрасываем состояние сервиса для нового матча (Copilot P2)
+    // Сбрасываем состояние сервиса для нового матча
     matchResultsService.reset();
 
     // Вычисляем награды локально для мгновенного отображения
@@ -392,12 +398,12 @@ export function ResultsScreen({ onPlayAgain, onExit }: ResultsScreenProps) {
     console.log('[ResultsScreen] setLocalRewards called, status should be success now');
 
     // Для гостей запрашиваем claimToken (используется в upgrade flow)
-    if (isAnonymous && matchId) {
-      matchResultsService.getClaimToken(matchId).catch((err) => {
+    if (isAnonymous) {
+      matchResultsService.getClaimToken(myMatchId).catch((err) => {
         console.warn('[ResultsScreen] Failed to get claim token:', err);
       });
     }
-  }, [results, isAnonymous, matchId]);
+  }, [results, isAnonymous]); // matchId убран из deps — захватывается через capturedMatchIdRef
 
   const handlePlayAgain = useCallback(() => {
     onPlayAgain(currentClassId);
