@@ -10,13 +10,13 @@
 
 | Что | Где | Назначение |
 |-----|-----|------------|
-| **Роли агентов** | [.beads/AGENT_ROLES.md](../.beads/AGENT_ROLES.md) | Каноничный документ: PM, Architect, Developer, Reviewer (v1.9) |
-| **Роль PM** | [.beads/PM_ROLE.md](../.beads/PM_ROLE.md) | Оркестрация, эскалация, цикл ревью |
-| **Арт-директор** | [.beads/ART_DIRECTOR_ROLE.md](../.beads/ART_DIRECTOR_ROLE.md) | Визуальный стиль «Sticker Pack 3D» |
-| **Шпаргалка ролей** | [.beads/HOW_TO_USE_AGENT_ROLES.md](../.beads/HOW_TO_USE_AGENT_ROLES.md) | Промпты для быстрой активации |
+| **Роли агентов** | [.agents/AGENT_ROLES.md](../.agents/AGENT_ROLES.md) | Каноничный документ: PM, Architect, Developer, Reviewer (v2.0) |
+| **Роль PM** | [.agents/PM_ROLE.md](../.agents/PM_ROLE.md) | Оркестрация, эскалация, цикл ревью |
+| **Арт-директор** | [.agents/ART_DIRECTOR_ROLE.md](../.agents/ART_DIRECTOR_ROLE.md) | Визуальный стиль «Sticker Pack 3D» |
+| **Шпаргалка ролей** | [.agents/HOW_TO_USE_AGENT_ROLES.md](../.agents/HOW_TO_USE_AGENT_ROLES.md) | Промпты для быстрой активации |
 | **Beads CLI** | [.beads/README.md](../.beads/README.md) | `bd create`, `bd show`, `bd sync` |
 | **Claude** | [CLAUDE.md](../CLAUDE.md) | Beads, архитектура, команды |
-| **Memory Bank** | [agents.md](../agents.md) | Правила обновления `.memory_bank/` |
+| **Memory Bank** | [AGENTS.md](../AGENTS.md) | Точка входа для AI-моделей, правила Memory Bank |
 | **Агент** | [agent.md](../agent.md) | Режимы работы, обновление документации |
 | **Copilot** | [.github/copilot-instructions.md](../.github/copilot-instructions.md) | Паттерны симуляции, конфигурация, спрайты |
 
