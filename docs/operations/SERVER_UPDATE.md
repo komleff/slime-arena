@@ -1,82 +1,156 @@
-# Slime Arena — Server Update
+# Slime Arena — Обновление сервера
 
-Инструкции по обновлению production-сервера.
+Процедуры обновления действующего production-сервера.
 
-## Предварительные требования
+**Версия:** v0.8.5
+**Обновлено:** 2026-02-08
+**Установка с нуля:** [SERVER_SETUP.md](SERVER_SETUP.md)
 
-- SSH-доступ: `ssh root@slime-arena.overmobile.space`
-- Docker-образ загружен в `ghcr.io/komleff/slime-arena-*`
-- Бэкап данных (см. раздел «Бэкап»)
+---
 
-## Порядок обновления
+## Содержание
 
-### 1. Бэкап базы данных
+1. [Обновление app (повседневное)](#обновление-app-повседневное)
+2. [Обновление db (редкое)](#обновление-db-редкое)
+3. [Обновление docker-compose.yml](#обновление-docker-composeyml)
+4. [Обновление Nginx](#обновление-nginx)
+5. [Добавление нового домена](#добавление-нового-домена)
+6. [Откат (Rollback)](#откат-rollback)
+7. [Полезные команды](#полезные-команды)
+8. [Troubleshooting](#troubleshooting)
 
-```bash
-ssh root@slime-arena.overmobile.space
+---
 
-# PostgreSQL дамп
-docker exec slime-arena-db pg_dump -U slime slime_arena > /root/backup-$(date +%Y%m%d).sql
-
-# Проверить размер
-ls -lh /root/backup-*.sql
-```
-
-### 2. Остановка и обновление контейнеров (app-db)
-
-```bash
-cd /root
-
-# Остановить
-docker compose -f docker-compose.app-db.yml down
-
-# Загрузить новый образ
-docker pull ghcr.io/komleff/slime-arena-app:NEW_VERSION
-docker pull ghcr.io/komleff/slime-arena-db:NEW_VERSION
-
-# Обновить версию в docker-compose.app-db.yml
-# или задать через переменную окружения
-
-# Запустить
-docker compose -f docker-compose.app-db.yml up -d
-
-# Проверить
-docker ps
-docker logs slime-arena-app --tail 20
-```
-
-### 3. Проверка после обновления
+## Переменные
 
 ```bash
-# Health-check
-curl -s http://localhost:3000/health | python3 -m json.tool
-
-# Redis
-docker exec slime-arena-db redis-cli PING
-
-# PostgreSQL
-docker exec slime-arena-db psql -U slime -d slime_arena -c "SELECT COUNT(*) FROM users;"
-
-# Клиент
-curl -s -o /dev/null -w "%{http_code}" https://slime-arena.overmobile.space
-
-# WebSocket (matchmake)
-curl -s -X POST https://slime-arena.overmobile.space/matchmake/joinOrCreate/arena \
-  -H "Content-Type: application/json" -d '{}' | head -c 100
+SSH="ssh -i ~/.ssh/deploy_key root@147.45.147.175"
 ```
 
-### 4. Откат при проблемах
+---
+
+## Обновление app (повседневное)
+
+Обновляется только app-контейнер. БД, Redis, Nginx, SSL, Watchdog — **не затрагиваются**.
+
+**Даунтайм:** ~5-10 секунд.
 
 ```bash
-# Остановить
-docker compose -f docker-compose.app-db.yml down
+# 1. Бэкап БД (P0 — обязательно перед любым обновлением)
+$SSH 'mkdir -p /root/backups && docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-update-$(date +%F-%H%M).sql.gz && ls -lh /root/backups/ | tail -3'
 
-# Вернуть предыдущую версию
-docker compose -f docker-compose.app-db.yml up -d  # с предыдущим тегом
+# 2. Pull + restart
+$SSH << 'EOF'
+cd /root/slime-arena
+docker compose pull app
+docker compose up -d app
+EOF
 
-# Восстановить БД (если нужно)
-cat /root/backup-YYYYMMDD.sql | docker exec -i slime-arena-db psql -U slime slime_arena
+# 3. Миграции (если есть новые)
+$SSH 'docker exec slime-arena-app npm run db:migrate --workspace=server'
+
+# 4. Проверка
+$SSH 'cd /root/slime-arena && docker compose ps'
+curl -s https://slime-arena.overmobile.space/health | jq .
+curl -s -o /dev/null -w "%{http_code}" https://slime-arena.overmobile.space/admin/
 ```
+
+### Что НЕ затрагивается
+
+| Компонент | Расположение | Затрагивается? |
+| --------- | ------------ | -------------- |
+| PostgreSQL данные | Volume `slime-arena-pgdata` | Нет |
+| Redis данные | Volume `slime-arena-redisdata` | Нет |
+| Секреты (.env) | `/root/slime-arena/.env` | Нет |
+| docker-compose.yml | `/root/slime-arena/` | Нет |
+| Nginx | `/etc/nginx/sites-available/` | Нет |
+| SSL сертификаты | `/root/.acme.sh/` | Нет |
+| Watchdog | `/opt/slime-arena/ops/watchdog/` | Нет |
+
+### Checklist
+
+- [ ] Бэкап БД создан
+- [ ] `docker compose pull app`
+- [ ] `docker compose up -d app`
+- [ ] Миграции применены (если есть новые)
+- [ ] `/health` → 200 OK
+- [ ] `/admin/` → 200
+
+---
+
+## Обновление db (редкое)
+
+**ОБЯЗАТЕЛЬНО:** Бэкап перед обновлением.
+
+```bash
+$SSH << 'EOF'
+cd /root/slime-arena
+docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/pre-db-update-$(date +%F-%H%M).sql.gz
+docker compose pull db
+docker compose up -d db
+EOF
+```
+
+---
+
+## Обновление docker-compose.yml
+
+Если изменился compose-файл (новые volumes, переменные, порты):
+
+```bash
+# Скопировать
+scp -i ~/.ssh/deploy_key docker/docker-compose.app-db.yml root@147.45.147.175:/root/slime-arena/docker-compose.yml
+
+# ВАЖНО: после копирования проверить/добавить кастомные изменения:
+# - shared volume (если ещё не в образе)
+# - любые дополнительные настройки
+
+# Перезапуск
+$SSH 'cd /root/slime-arena && docker compose up -d'
+```
+
+---
+
+## Обновление Nginx
+
+> **Внимание:** Nginx-конфиг содержит `$`-переменные (`$host`, `$remote_addr`). При передаче через SSH **нельзя** использовать `sed`, `echo`, или heredoc без кавычек — `$` будут заменены пустыми строками.
+
+**Рекомендуемый способ — Python-скрипт на сервере:**
+
+```bash
+$SSH << 'REMOTEOF'
+python3 << 'PYEOF'
+import pathlib
+
+config = r'''
+server {
+    listen 80;
+    ... полный конфиг из SERVER_SETUP.md ...
+}
+'''
+
+path = pathlib.Path('/etc/nginx/sites-available/slime-arena.overmobile.space')
+# Бэкап
+backup = path.with_suffix('.bak')
+if path.exists():
+    backup.write_text(path.read_text())
+    print(f'Backup: {backup}')
+
+path.write_text(config.strip() + '\n')
+print(f'Written {len(config)} bytes to {path}')
+PYEOF
+nginx -t && systemctl reload nginx
+REMOTEOF
+```
+
+**Проверка после обновления:**
+
+```bash
+$SSH 'nginx -t'
+curl -s -o /dev/null -w "%{http_code}" https://slime-arena.overmobile.space/admin/
+```
+
+---
 
 ## Добавление нового домена
 
@@ -116,6 +190,7 @@ nginx -t && systemctl reload nginx
 ### 4. Nginx конфиг (HTTPS)
 
 Скопировать конфиг существующего домена, заменить:
+
 - `server_name`
 - пути к `ssl_certificate` и `ssl_certificate_key`
 - путь к `access_log` и `error_log`
@@ -127,47 +202,169 @@ nginx -t && systemctl reload nginx
 ### 5. OAuth
 
 Добавить `https://NEW.DOMAIN.COM` как разрешённый Redirect URI в:
-- [Yandex OAuth Console](https://oauth.yandex.ru/client/) (Client ID: `bfd4855a924f4bc7a16ccfc367f3a067`)
 
-## Чек-лист обновления
+- [Yandex OAuth Console](https://oauth.yandex.ru/client/)
 
-- [ ] Бэкап PostgreSQL
-- [ ] Новые Docker-образы загружены
-- [ ] Контейнеры обновлены и запущены
-- [ ] Health-check OK (`/health`)
-- [ ] Redis PING → PONG
-- [ ] Клиент загружается (200)
-- [ ] WebSocket подключается
-- [ ] OAuth работает (если менялся)
-- [ ] Оба домена доступны
+**⚠️ Порядок:** DNS → SSL (acme.sh) → nginx server block → Yandex OAuth redirect URI.
 
-## Контейнеры (app-db деплой)
+---
 
-| Контейнер | Образ | Порты |
-|-----------|-------|-------|
-| slime-arena-app | ghcr.io/komleff/slime-arena-app:TAG | 2567, 3000, 5173, 5175 |
-| slime-arena-db | ghcr.io/komleff/slime-arena-db:TAG | 5432, 6379 (internal) |
+## Обновление Watchdog
 
-## Volumes
+```bash
+# Скопировать новую версию
+scp -i ~/.ssh/deploy_key ops/watchdog/watchdog.py root@147.45.147.175:/opt/slime-arena/ops/watchdog/
 
-| Volume | Описание | ⚠️ |
-|--------|----------|------|
-| pgdata | PostgreSQL (пользователи, профили) | Никогда не удалять! |
-| redisdata | Redis (сессии, кеш) | Можно очистить |
-
-## Конфигурация Redis
-
-Redis запускается через supervisord с флагами:
-```
---save "" --stop-writes-on-bgsave-error no
+# Перезапустить
+$SSH 'systemctl restart slime-arena-watchdog && systemctl status slime-arena-watchdog --no-pager'
 ```
 
-Это отключает RDB-снапшоты. Для игровых сессий/кеша персистентность Redis не критична — PostgreSQL является основным хранилищем.
+---
 
-## Известные проблемы
+## Откат (Rollback)
+
+### Откат app на предыдущую версию
+
+```bash
+$SSH << 'EOF'
+cd /root/slime-arena
+VERSION=0.8.4 docker compose pull app
+VERSION=0.8.4 docker compose up -d app
+EOF
+```
+
+### Откат БД из бэкапа
+
+```bash
+$SSH << 'EOF'
+cd /root/slime-arena
+docker compose stop app
+gunzip -c /root/backups/pre-update-<ДАТА>.sql.gz | docker exec -i slime-arena-db psql -U slime -d slime_arena
+docker compose start app
+EOF
+```
+
+### Полный откат к монолиту v0.7.8 (крайний случай)
+
+```bash
+$SSH << 'EOF'
+cd /root/slime-arena
+docker compose down
+docker run -d --name slime-arena \
+  --env-file /root/.env.production \
+  -p 3000:3000 -p 2567:2567 -p 5173:5173 \
+  ghcr.io/komleff/slime-arena-monolith-full:0.7.8
+EOF
+```
+
+---
+
+## Полезные команды
+
+### Контейнеры
+
+```bash
+$SSH 'cd /root/slime-arena && docker compose ps'
+$SSH 'docker logs --tail 100 slime-arena-app'
+$SSH 'docker logs --tail 100 slime-arena-db'
+$SSH 'docker logs -f slime-arena-app --tail 50'
+$SSH 'cd /root/slime-arena && docker compose restart app'
+```
+
+### PostgreSQL
+
+```bash
+$SSH 'docker exec -it slime-arena-db psql -U slime -d slime_arena'
+$SSH 'docker exec slime-arena-db psql -U slime -d slime_arena -c "SELECT COUNT(*) FROM users;"'
+$SSH 'docker exec slime-arena-db pg_dump -U slime slime_arena | gzip > /root/backups/backup-$(date +%F-%H%M).sql.gz'
+```
+
+### Redis
+
+```bash
+$SSH 'docker exec slime-arena-db redis-cli ping'
+$SSH 'docker exec slime-arena-db redis-cli info memory'
+```
+
+Redis запускается с флагами `--save "" --stop-writes-on-bgsave-error no` (отключены RDB-снапшоты). PostgreSQL является основным хранилищем.
+
+### Health Checks
+
+```bash
+curl -s https://slime-arena.overmobile.space/health | jq .
+curl -s -X POST https://slime-arena.overmobile.space/api/v1/auth/guest \
+  -H "Content-Type: application/json" -d '{}' | jq .
+curl -s "https://slime-arena.overmobile.space/api/v1/leaderboard?mode=total&limit=5" | jq .
+curl -s -o /dev/null -w "%{http_code}" https://slime-arena.overmobile.space/admin/
+```
+
+### Watchdog
+
+```bash
+$SSH 'systemctl status slime-arena-watchdog'
+$SSH 'journalctl -u slime-arena-watchdog -f'
+$SSH 'systemctl restart slime-arena-watchdog'
+```
+
+### Nginx
+
+```bash
+$SSH 'nginx -t'
+$SSH 'systemctl reload nginx'
+$SSH 'tail -20 /var/log/nginx/slime-arena.error.log'
+```
+
+---
+
+## Troubleshooting
+
+### Контейнер не поднимается
+
+```bash
+$SSH << 'EOF'
+cd /root/slime-arena
+docker compose ps -a
+docker logs slime-arena-app 2>&1 | tail -50
+docker inspect slime-arena-db --format="{{.State.Health.Status}}"
+EOF
+```
+
+### Память или диск переполнен
+
+```bash
+$SSH 'df -h && free -h && du -sh /var/lib/docker/volumes/*/'
+```
+
+### Миграция не применяется
+
+```bash
+$SSH 'docker exec slime-arena-app npm run db:migrate --workspace=server 2>&1'
+```
+
+Если миграция падает — остановить app, показать ошибку оператору. **Не удалять** volumes.
+
+### Telemetry Logs Permission
+
+```bash
+$SSH 'docker exec slime-arena-app chmod -R 777 /app/server/dist/server/logs'
+```
+
+### Известные проблемы
 
 | Проблема | Решение |
-|----------|---------|
+| -------- | ------- |
 | Redis MISCONF → 502 | `--save "" --stop-writes-on-bgsave-error no` (исправлено в v0.8.5-hotfix) |
 | Memory overcommit | `sysctl vm.overcommit_memory=1` |
 | Logs EACCES | `chmod -R 777 /app/server/dist/server/logs` |
+
+---
+
+## Ссылки
+
+| Документ | Описание |
+| -------- | -------- |
+| [SERVER_SETUP.md](SERVER_SETUP.md) | Установка с нуля |
+| [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) | Гайд для ИИ-агентов |
+| [backup-restore.md](backup-restore.md) | Бэкап и восстановление |
+
+При проблемах с сервером: создать issue в репозитории с тегом `ops`.

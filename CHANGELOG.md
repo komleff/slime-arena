@@ -4,7 +4,7 @@
 
 Экстренное исправление падения production-сервера и настройка второго домена.
 
-### 🐛 Исправлено
+### Исправлено
 
 - **Redis RDB MISCONF (P0):**
   - Redis не мог записать RDB-снапшот в корень контейнера → `stop-writes-on-bgsave-error` блокировал все записи
@@ -12,7 +12,7 @@
   - Яндекс OAuth `/oauth/resolve` не мог сохранить токен → 503
   - Добавлены флаги `--save ""` и `--stop-writes-on-bgsave-error no` в supervisord-db.conf и supervisord.conf
 
-### 🌐 Инфраструктура
+### Инфраструктура
 
 - **Новый домен:** https://slime-arena.u2game.space
   - DNS A-запись → 147.45.147.175
@@ -20,10 +20,55 @@
   - Полный nginx-конфиг (API, WebSocket, клиент, admin)
   - Яндекс OAuth redirect URI добавлен
 
-### 📦 Статистика
+### Статистика
 
 - **PR #148:** 2 файла конфигурации + документация
 - **Downtime:** ~22 часа (watchdog рестартовал контейнер, но Redis блокировал запись)
+
+---
+
+## v0.8.5 — Admin Dashboard & Production Launch (7 февраля 2026)
+
+Полнофункциональная панель администратора на production-сервере. Админка — важнейший шаг к запуску: операторы получили инструменты мониторинга, управления пользователями и перезапуска сервера без SSH.
+
+### Добавлено
+
+- **Admin Dashboard на production** — полноценная панель управления по адресу `/admin/`
+- **Кнопка перезапуска** в Admin Dashboard с уведомлением игроков (обратный отсчёт 30 сек)
+- **Баннер отключения** — игроки видят предупреждение о скором рестарте в матче
+- **Watchdog-сервис** (`systemd`) — мониторинг здоровья, автоматический перезапуск, Telegram-уведомления
+- **Docker shared volume** для коммуникации Admin Dashboard ↔ Watchdog (outbox-паттерн)
+
+### Исправлено
+
+- **Admin API_BASE** — исправлен с абсолютного `hostname:3000` на относительный `/api/v1/admin` (ERR_SSL_PROTOCOL_ERROR)
+- **serve.json** — убрано поле `"public"`, конфликтовавшее с позиционным аргументом `serve dir` (404 на всё)
+- **Nginx admin block** — добавлен `^~` prefix и trailing slash в `proxy_pass` для корректного стрипа `/admin/`
+- **2FA status display** — корректное отображение статуса двухфакторной аутентификации в Settings
+- **HUD auth link** — исправлено вертикальное выравнивание ссылки входа
+
+### Улучшено
+
+- **Guest UI** — улучшения интерфейса для гостевых пользователей, обновлён favicon
+- **Nginx WebSocket regex** — добавлены `_-` в processId/roomId (`^/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$`)
+
+### Документация
+
+- **SERVER_SETUP.md** — полная процедура установки на новый сервер (9 шагов)
+- **SERVER_UPDATE.md** — процедура обновления действующего сервера
+- **Watchdog** — документация по установке и настройке
+
+### Архитектура
+
+Production v0.8.5 на VPS Timeweb (147.45.147.175):
+
+| Компонент | Описание |
+| --------- | -------- |
+| `slime-arena-db` | PostgreSQL 16 + Redis |
+| `slime-arena-app` | MetaServer + MatchServer + Client + Admin Dashboard |
+| `slime-arena-shared` | Docker volume для watchdog outbox |
+| `slime-arena-watchdog` | systemd-сервис мониторинга |
+| Nginx | Reverse proxy + SSL (acme.sh) |
 
 ---
 
