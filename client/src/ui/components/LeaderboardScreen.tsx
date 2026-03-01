@@ -804,12 +804,21 @@ export function LeaderboardScreen({ onClose }: LeaderboardScreenProps) {
                       } ${isHighlighted ? 'is-user-highlighted' : ''}`}
                     >
                       <div class="leaderboard-place">{entry.place}</div>
-                      {/* LB-013: Миниатюра скина */}
-                      <div
-                        class="leaderboard-skin"
-                        style={{ backgroundColor: getSkinColor(entry.skinId) }}
-                        title={entry.skinId || 'Скин'}
-                      />
+                      {/* LB-013: Миниатюра скина — иконка спрайта или цветной круг */}
+                      {entry.skinId?.endsWith('.webp') ? (
+                        <img
+                          class="leaderboard-skin"
+                          src={`sprites/slimes/base/${entry.skinId}`}
+                          alt={entry.skinId}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div
+                          class="leaderboard-skin"
+                          style={{ backgroundColor: getSkinColor(entry.skinId) }}
+                          title={entry.skinId || 'Скин'}
+                        />
+                      )}
                       <div class="leaderboard-info">
                         <div class="leaderboard-name">{getDisplayNickname(entry.nickname, entry.userId)}</div>
                         {entry.gamesPlayed !== undefined && (

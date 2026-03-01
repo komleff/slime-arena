@@ -23,6 +23,7 @@ import {
     OBSTACLE_TYPE_SPIKES,
     clamp,
     generateRandomName,
+    SPRITE_NAMES,
 } from "@slime-arena/shared";
 import {
     type JoystickState,
@@ -686,29 +687,8 @@ const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
     console.log(`[joystick] ${label}`, { t: now, ...payload, ...state });
 };
 
-const slimeSpriteNames = [
-    "slime-angrybird.webp",
-    "slime-astronaut.webp",
-    "slime-base.webp",
-    "slime-cccp.webp",
-    "slime-crazy.webp",
-    "slime-crystal.webp",
-    "slime-cyberneon.webp",
-    "slime-frost.webp",
-    "slime-greeendragon.webp",
-    "slime-mecha.webp",
-    "slime-pinklove.webp",
-    "slime-pirate.webp",
-    "slime-pumpkin.webp",
-    "slime-reddragon.webp",
-    "slime-redfire.webp",
-    "slime-samurai.webp",
-    "slime-shark.webp",
-    "slime-tomato.webp",
-    "slime-toxic.webp",
-    "slime-wizard.webp",
-    "slime-zombi.webp",
-];
+// Используем SPRITE_NAMES из shared — единый источник правды
+const slimeSpriteNames = SPRITE_NAMES;
 const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 const spriteCache = new Map<
@@ -1981,13 +1961,11 @@ async function connectToServer(playerName: string, classId: number) {
             }
 
             player.onChange(() => {
-                // Обновляем спрайт если spriteId или имя появились
-                if (!playerSpriteById.has(sessionId)) {
-                    if (player.spriteId) {
-                        playerSpriteById.set(sessionId, player.spriteId);
-                    } else if (player.name) {
-                        playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
-                    }
+                // spriteId с сервера всегда приоритетнее — перезаписываем даже fallback
+                if (player.spriteId && playerSpriteById.get(sessionId) !== player.spriteId) {
+                    playerSpriteById.set(sessionId, player.spriteId);
+                } else if (!playerSpriteById.has(sessionId) && player.name) {
+                    playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
                 }
             });
         });

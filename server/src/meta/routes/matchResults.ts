@@ -378,7 +378,8 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
         'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
         [subjectId]
       );
-      if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id) {
+      if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id
+          && isValidSprite(profileResult.rows[0].selected_skin_id)) {
         skinId = profileResult.rows[0].selected_skin_id;
       }
     }

@@ -127,7 +127,7 @@ async function getLeaderboardEntries(
        ROW_NUMBER() OVER (ORDER BY lb.${valueColumn} DESC, lb.updated_at DESC) as position,
        lb.user_id,
        u.nickname,
-       COALESCE(p.selected_skin_id, 'slime_green') as skin_id,
+       COALESCE(p.selected_skin_id, 'slime-base.webp') as skin_id,
        lb.${valueColumn} as value
        ${matchesPlayedColumn}
      FROM ${table} lb
