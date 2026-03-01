@@ -84,9 +84,9 @@ bd close <id> --reason="..."
 | Файл | Назначение |
 |------|------------|
 | `config/balance.json` | Параметры баланса |
-| `server/src/rooms/ArenaRoom.ts` | Игровая логика (4000+ строк) |
+| `server/src/rooms/ArenaRoom.ts` | Игровая логика (~2800 строк) |
 | `server/src/utils/rng.ts` | Детерминированный генератор |
-| `client/src/main.ts` | Клиентский код (5000+ строк) |
+| `client/src/main.ts` | Клиентский код (~4000 строк) |
 | `shared/src/formulas.ts` | Игровые формулы |
 | `.beads/AGENT_ROLES.md` | Роли агентов |
 | `.memory_bank/activeContext.md` | Текущее состояние проекта |

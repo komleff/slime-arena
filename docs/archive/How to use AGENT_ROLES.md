@@ -22,13 +22,13 @@
 ## Art Director (визуальный дизайн)
 
 ```
-Ты Art Director. Прочитай AGENT_ROLES.md секция "5️⃣ Art Director".
+Ты Art Director. Прочитай ART_DIRECTOR_ROLE.md.
 Задача: [описание визуальной задачи]
 ```
 
 **Пример:**
 ```
-Ты Art Director. Прочитай AGENT_ROLES.md секция "5️⃣ Art Director".
+Ты Art Director. Прочитай ART_DIRECTOR_ROLE.md.
 Задача: создать CSS-стили для Jelly Button в стиле "Sticker Pack 3D".
 ```
 
@@ -49,6 +49,21 @@
 
 ---
 
+## Project Manager (координация)
+
+```
+Ты PM. Прочитай AGENT_ROLES.md секция "0️⃣ Project Manager" и PM_ROLE.md.
+Задача: [описание]
+```
+
+**Пример:**
+```
+Ты PM. Прочитай AGENT_ROLES.md секция "0️⃣ Project Manager" и PM_ROLE.md.
+Задача: запустить ревью PR #60, собрать консенсус от Opus/Gemini.
+```
+
+---
+
 ## Reviewer (проверка кода)
 
 ```
@@ -64,19 +79,10 @@
 
 ---
 
-## Session Manager (завершение сессии)
-
-```
-Ты Session Manager. Прочитай AGENT_ROLES.md секция "4️⃣ Session Manager".
-Задача: выполни Landing the Plane protocol.
-```
-
----
-
 ## Интерпретация вердиктов
 
 | Вердикт | Действие оператора |
 |---------|-------------------|
-| `VERDICT: APPROVED` | Можно мержить PR |
-| `VERDICT: REJECTED` | Ждать исправлений |
-| `ESCALATION: ...` | Сменить модель или откатить |
+| `APPROVED` | Можно мержить PR |
+| `CHANGES_REQUESTED` | Ждать исправлений Developer |
+| `BLOCKED` | Критичная проблема, работа остановлена |
