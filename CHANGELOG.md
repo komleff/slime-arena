@@ -1,5 +1,32 @@
 # Журнал изменений
 
+## v0.8.5-hotfix — Redis MISCONF + Новый домен (8 февраля 2026)
+
+Экстренное исправление падения production-сервера и настройка второго домена.
+
+### Исправлено
+
+- **Redis RDB MISCONF (P0):**
+  - Redis не мог записать RDB-снапшот в корень контейнера → `stop-writes-on-bgsave-error` блокировал все записи
+  - Health-check MetaServer возвращал 503 → nginx отдавал 502 Bad Gateway
+  - Яндекс OAuth `/oauth/resolve` не мог сохранить токен → 503
+  - Добавлены флаги `--save ""` и `--stop-writes-on-bgsave-error no` в supervisord-db.conf и supervisord.conf
+
+### Инфраструктура
+
+- **Новый домен:** https://slime-arena.u2game.space
+  - DNS A-запись → 147.45.147.175
+  - SSL-сертификат Let's Encrypt (ECC) через acme.sh
+  - Полный nginx-конфиг (API, WebSocket, клиент, admin)
+  - Яндекс OAuth redirect URI добавлен
+
+### Статистика
+
+- **PR #148:** 2 файла конфигурации + документация
+- **Downtime:** ~22 часа (watchdog рестартовал контейнер, но Redis блокировал запись)
+
+---
+
 ## v0.8.5 — Admin Dashboard & Production Launch (7 февраля 2026)
 
 Полнофункциональная панель администратора на production-сервере. Админка — важнейший шаг к запуску: операторы получили инструменты мониторинга, управления пользователями и перезапуска сервера без SSH.

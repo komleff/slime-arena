@@ -3,7 +3,7 @@
 Процедуры обновления действующего production-сервера.
 
 **Версия:** v0.8.5
-**Обновлено:** 2026-02-07
+**Обновлено:** 2026-02-08
 **Установка с нуля:** [SERVER_SETUP.md](SERVER_SETUP.md)
 
 ---
@@ -14,9 +14,10 @@
 2. [Обновление db (редкое)](#обновление-db-редкое)
 3. [Обновление docker-compose.yml](#обновление-docker-composeyml)
 4. [Обновление Nginx](#обновление-nginx)
-5. [Откат (Rollback)](#откат-rollback)
-6. [Полезные команды](#полезные-команды)
-7. [Troubleshooting](#troubleshooting)
+5. [Добавление нового домена](#добавление-нового-домена)
+6. [Откат (Rollback)](#откат-rollback)
+7. [Полезные команды](#полезные-команды)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -151,6 +152,63 @@ curl -s -o /dev/null -w "%{http_code}" https://slime-arena.overmobile.space/admi
 
 ---
 
+## Добавление нового домена
+
+### 1. DNS
+
+Создать A-запись, указывающую на `147.45.147.175`.
+
+### 2. Nginx конфиг (HTTP для ACME)
+
+```bash
+cat > /etc/nginx/sites-available/slime-arena-NEWDOMAIN <<'NGINX'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name NEW.DOMAIN.COM;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/acme;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+NGINX
+
+ln -sf /etc/nginx/sites-available/slime-arena-NEWDOMAIN /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+### 3. SSL-сертификат
+
+```bash
+/root/.acme.sh/acme.sh --issue -d NEW.DOMAIN.COM -w /var/www/acme --keylength ec-256
+```
+
+### 4. Nginx конфиг (HTTPS)
+
+Скопировать конфиг существующего домена, заменить:
+
+- `server_name`
+- пути к `ssl_certificate` и `ssl_certificate_key`
+- путь к `access_log` и `error_log`
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+### 5. OAuth
+
+Добавить `https://NEW.DOMAIN.COM` как разрешённый Redirect URI в:
+
+- [Yandex OAuth Console](https://oauth.yandex.ru/client/)
+
+**⚠️ Порядок:** DNS → SSL (acme.sh) → nginx server block → Yandex OAuth redirect URI.
+
+---
+
 ## Обновление Watchdog
 
 ```bash
@@ -228,6 +286,8 @@ $SSH 'docker exec slime-arena-db redis-cli ping'
 $SSH 'docker exec slime-arena-db redis-cli info memory'
 ```
 
+Redis запускается с флагами `--save "" --stop-writes-on-bgsave-error no` (отключены RDB-снапшоты). PostgreSQL является основным хранилищем.
+
 ### Health Checks
 
 ```bash
@@ -283,6 +343,20 @@ $SSH 'docker exec slime-arena-app npm run db:migrate --workspace=server 2>&1'
 
 Если миграция падает — остановить app, показать ошибку оператору. **Не удалять** volumes.
 
+### Telemetry Logs Permission
+
+```bash
+$SSH 'docker exec slime-arena-app chmod -R 777 /app/server/dist/server/logs'
+```
+
+### Известные проблемы
+
+| Проблема | Решение |
+| -------- | ------- |
+| Redis MISCONF → 502 | `--save "" --stop-writes-on-bgsave-error no` (исправлено в v0.8.5-hotfix) |
+| Memory overcommit | `sysctl vm.overcommit_memory=1` |
+| Logs EACCES | `chmod -R 777 /app/server/dist/server/logs` |
+
 ---
 
 ## Ссылки
@@ -292,3 +366,5 @@ $SSH 'docker exec slime-arena-app npm run db:migrate --workspace=server 2>&1'
 | [SERVER_SETUP.md](SERVER_SETUP.md) | Установка с нуля |
 | [AI_AGENT_GUIDE.md](AI_AGENT_GUIDE.md) | Гайд для ИИ-агентов |
 | [backup-restore.md](backup-restore.md) | Бэкап и восстановление |
+
+При проблемах с сервером: создать issue в репозитории с тегом `ops`.

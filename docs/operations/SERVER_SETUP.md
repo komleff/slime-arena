@@ -15,7 +15,8 @@
 | Провайдер | Timeweb Cloud |
 | Локация | Москва |
 | IP | 147.45.147.175 |
-| Домен | slime-arena.overmobile.space |
+| Домен (основной) | slime-arena.overmobile.space |
+| Домен (альтернативный) | slime-arena.u2game.space |
 | OS | Ubuntu 22.04+ |
 
 ### SSH
@@ -504,11 +505,25 @@ $SSH 'cd /root/slime-arena && docker compose ps'
 
 `$2b$10$...` → shell съедает `$2b`, `$10`. Генерируйте хеши **внутри контейнера** через `node` (см. Шаг 8).
 
-### Redis RDB Permission Denied
+### Redis RDB Permission Denied / MISCONF
 
 ```bash
-$SSH 'sysctl vm.overcommit_memory=1 && echo "vm.overcommit_memory=1" >> /etc/sysctl.conf'
+# Симптом 1: Can't save in background: fork: Cannot allocate memory
+sysctl vm.overcommit_memory=1
+echo "vm.overcommit_memory=1" >> /etc/sysctl.conf
+docker compose restart db
+
+# Симптом 2: MISCONF Redis is configured to save RDB snapshots,
+#   but it's currently unable to persist to disk.
+#   → health-check 503 → nginx 502 Bad Gateway → OAuth 503
+# Решение (runtime):
+docker exec slime-arena-db redis-cli CONFIG SET stop-writes-on-bgsave-error no
+docker exec slime-arena-db redis-cli CONFIG SET save ''
+# Решение (постоянное): --save "" --stop-writes-on-bgsave-error no
+#   уже добавлено в supervisord-db.conf и supervisord.conf (PR #148)
 ```
+
+**⚠️ Инцидент 2026-02-08:** Redis MISCONF → 502 + OAuth 503. Downtime ~22 часа.
 
 ### WebSocket 405 / Connection Failed
 
@@ -525,3 +540,5 @@ Nginx regex не включает `_-`. Должно быть: `^/[a-zA-Z0-9_-]+
 | [backup-restore.md](backup-restore.md) | Бэкап и восстановление |
 | [docker-compose.app-db.yml](../../docker/docker-compose.app-db.yml) | Исходный Compose-файл |
 | [watchdog.py](../../ops/watchdog/watchdog.py) | Исходный код watchdog |
+
+При проблемах с сервером: создать issue в репозитории с тегом `ops`.

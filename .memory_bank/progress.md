@@ -4,43 +4,34 @@
 
 ## Контроль изменений
 
-- **last_checked_commit**: main @ 7 февраля 2026 (PR #145 merged, v0.8.5)
+- **last_checked_commit**: main @ 8 февраля 2026 (PR #148 — Redis hotfix)
 - **Текущая ветка**: `main`
-- **Релиз:** v0.8.5 (GitHub Release latest, Docker images pushed)
-- **Production:** v0.8.5 (split-архитектура, развёрнут 7 фев 2026)
+- **Релиз:** v0.8.5 ✅ (GitHub Release latest, Docker images pushed)
+- **Production:** v0.8.5 ✅ (split-архитектура, развёрнут 7 фев 2026, hotfix Redis 8 фев 2026)
 - **GDD версия**: v3.3.2
 
 ---
 
-## Production Deployment v0.8.5 (7 февраля 2026)
+## Production Deployment v0.8.5 (7 февраля 2026) — ✅ ЗАВЕРШЕНО
 
-**Выполнено:**
-
-- ✅ Бэкап БД v0.7.8 создан
-- ✅ Монолит v0.7.8 остановлен и удалён
-- ✅ docker-compose.yml + .env подготовлены в /root/slime-arena/
-- ✅ DB-контейнер запущен (PostgreSQL + Redis)
-- ✅ Бэкап восстановлен в новую БД
-- ✅ APP-контейнер запущен (MetaServer + MatchServer + Client + Admin)
+- ✅ Split-архитектура (db + app) развёрнута
 - ✅ Миграции 001-010 применены
-- ✅ Nginx обновлён: добавлен /admin/ location, WebSocket regex
-- ✅ SSL работает (acme.sh / Let's Encrypt)
+- ✅ Admin Dashboard — 5 администраторов
 - ✅ Watchdog systemd-сервис установлен
 - ✅ Cron-бэкап настроен (каждые 6 часов)
-- ✅ Admin Dashboard — 5 администраторов с уникальными паролями
-- ✅ Health endpoint → 200 OK
-- ✅ Guest auth → работает
-- ✅ Leaderboard → данные сохранены
-- ✅ Admin Dashboard → 200
+- ✅ Документация: SERVER_SETUP, SERVER_UPDATE, Release notes, CHANGELOG
 
-**Документация:**
+## Server Maintenance (2026-02-08) — ✅ ЗАВЕРШЕНО
 
-- ✅ SERVER_SETUP.md — переписан (установка с нуля)
-- ✅ SERVER_UPDATE.md — новый файл (обновление сервера)
-- ✅ Release notes v0.8.5 — создан
-- ✅ CHANGELOG.md — обновлён
-- ✅ GitHub Release v0.8.5 — опубликован как latest
-- ✅ TECH_DEBT.md — добавлены PlayersPage (P1) и AdminUsersPage (P2)
+**Проблема:** 502 Bad Gateway + Яндекс OAuth 503 (iPad Safari, тайский IP)
+**Причина:** Redis MISCONF — RDB-снапшот не пишется, блокировка записей
+**PR:** #148 (fix/redis-rdb-snapshot-error)
+
+- [x] Диагностика 502 → Redis MISCONF → health-check 503
+- [x] Runtime-фикс: `CONFIG SET stop-writes-on-bgsave-error no` + `CONFIG SET save ''`
+- [x] supervisord-db.conf и supervisord.conf: `--save "" --stop-writes-on-bgsave-error no`
+- [x] Настроен домен `slime-arena.u2game.space` (DNS, SSL, nginx)
+- [x] Яндекс OAuth: работает с тайского IP + iPad Safari
 
 ---
 
