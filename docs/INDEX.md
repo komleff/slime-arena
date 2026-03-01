@@ -11,7 +11,7 @@
 | Что | Где | Назначение |
 |-----|-----|------------|
 | **Роли агентов** | [.beads/AGENT_ROLES.md](../.beads/AGENT_ROLES.md) | Каноничный документ: PM, Architect, Developer, Reviewer (v1.9) |
-| **Роль PM** | [.beads/PM_ROLE.md](../.beads/PM_ROLE.md) | Оркестрация, эскалация, review-цикл |
+| **Роль PM** | [.beads/PM_ROLE.md](../.beads/PM_ROLE.md) | Оркестрация, эскалация, цикл ревью |
 | **Арт-директор** | [.beads/ART_DIRECTOR_ROLE.md](../.beads/ART_DIRECTOR_ROLE.md) | Визуальный стиль «Sticker Pack 3D» |
 | **Шпаргалка ролей** | [.beads/HOW_TO_USE_AGENT_ROLES.md](../.beads/HOW_TO_USE_AGENT_ROLES.md) | Промпты для быстрой активации |
 | **Beads CLI** | [.beads/README.md](../.beads/README.md) | `bd create`, `bd show`, `bd sync` |
@@ -126,7 +126,7 @@
 |----------|------------|
 | [pm/](backlog/pm/) | Старые PM-ROLE, ORCHESTRATION-PLAN, AGENT_ROLES_QUICKSTART, sprint-13-pm |
 | [reviews/](backlog/reviews/) | Артефакты ревью sprint-13 |
-| [sprints/](backlog/sprints/) | Завершённые спринты 14–20, мониторинг |
+| [sprints/](backlog/sprints/) | Завершённые спринты 14–21, мониторинг |
 | [versions/](backlog/versions/) | Технические снапшоты v0.6, v0.7, тест-планы |
 | Корень | Старые GDD v2.3–2.5, Architecture v1.4–3.3, Plans v1.7–3.3, ТЗ |
 
