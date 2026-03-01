@@ -38,7 +38,7 @@
 - **Frontend**: Preact, Signals (реактивное состояние), HTML5 Canvas (рендер игрового мира).
 - **Backend**: Node.js, Colyseus (WebSocket фреймворк для синхронизации состояния).
 - **Shared**: TypeScript (общие типы, константы и формулы).
-- **Инфраструктура**: Docker, GitHub Actions (CI/CD), PostgreSQL (MetaServer).
+- **Инфраструктура**: Docker, GitHub Actions (CI/CD), PostgreSQL, Redis.
 
 ## Ключевые концепции
 
@@ -72,7 +72,9 @@
 - [server/](server/) — Игровой сервер (Colyseus).
 - [shared/](shared/) — Общая логика и типы.
 - [config/](config/) — Конфигурационные файлы баланса.
+- [admin-dashboard/](admin-dashboard/) — Админ-панель (Preact).
 - [docs/](docs/) — Техническая документация (Архитектура v4.2.5, ТЗ Soft Launch).
+- [.agents/](.agents/) — Роли и регламенты ИИ-агентов.
 - [.memory_bank/](.memory_bank/) — База знаний проекта для ИИ-ассистентов.
 
 ## Быстрый старт
@@ -146,7 +148,7 @@ npm run test
 ### Stage D Integration Tests
 
 Полные интеграционные тесты полного игрового цикла (auth → config → matchmaking → match-results).
-**Статус: ✅ 19/19 тестов пройдены** (Sprint 3 завершён).
+**Статус: ✅ 19/19 тестов пройдены.**
 
 ```bash
 # 1. Запустить PostgreSQL и Redis
@@ -155,51 +157,12 @@ docker-compose up postgres redis -d
 # 2. Запустить MetaServer
 npm run dev --workspace=server
 
-# 3. В другом терминале — Stage D тесты (17 тестов)
+# 3. В другом терминале — Stage D тесты (19 тестов)
 npx tsx server/tests/meta-stage-d.test.ts
 
 # Или все smoke тесты (Stage B + C + D)
 .\tests\smoke\run-stage-d.ps1
 ```
-
-## Доступ с мобильных устройств (локальная сеть)
-
-Для тестирования на мобильных устройствах в локальной сети:
-
-1. **Узнайте IP-адрес компьютера** (например, `192.168.1.100`).
-2. **Настройте HMR** через переменные окружения в `.env.local`:
-
-```bash
-# client/.env.local
-VITE_HMR_HOST=192.168.1.100
-VITE_HMR_PROTOCOL=ws
-```
-
-3. **Запустите клиент** — HMR будет работать через указанный хост.
-4. **Откройте игру на мобильном устройстве:** `http://192.168.1.100:5173`
-
-| Переменная | Описание | По умолчанию |
-|------------|----------|---------------|
-| `VITE_HMR_HOST` | IP-адрес для WebSocket HMR | (не задан — HMR на localhost) |
-| `VITE_HMR_PROTOCOL` | Протокол HMR (`ws` или `wss`) | `ws` |
-
-**Примечание:** Если переменные не заданы, HMR работает в стандартном режиме (localhost).
-
-## Запуск в Docker (Stable Release)
-
-Для быстрого запуска всего окружения используйте Docker Compose:
-
-```bash
-# Из корня проекта
-docker-compose -f docker/docker-compose.yml up -d
-```
-
-### Доступные сервисы v0.4.0:
-- **Client**: [http://localhost:5173](http://localhost:5173) (Контейнер: `slime-arena-client`)
-- **MetaServer**: [http://localhost:3000](http://localhost:3000) (Контейнер: `slime-arena-meta-server`)
-- **MatchServer**: [ws://localhost:2567](ws://localhost:2567) (Контейнер: `slime-arena-match-server`)
-- **PostgreSQL**: [localhost:5432](localhost:5432) (Контейнер: `slime-arena-postgres`)
-- **Redis**: [localhost:6379](localhost:6379) (Контейнер: `slime-arena-redis`)
 
 ### Load Tests (k6)
 
@@ -233,122 +196,49 @@ k6 run tests/load/soft-launch.js
 
 Подробная документация: [docs/operations/backup-restore.md](docs/operations/backup-restore.md)
 
+## Доступ с мобильных устройств (локальная сеть)
+
+Для тестирования на мобильных устройствах в локальной сети:
+
+1. **Узнайте IP-адрес компьютера** (например, `192.168.1.100`).
+2. **Настройте HMR** через переменные окружения в `.env.local`:
+
+```bash
+# client/.env.local
+VITE_HMR_HOST=192.168.1.100
+VITE_HMR_PROTOCOL=ws
+```
+
+3. **Запустите клиент** — HMR будет работать через указанный хост.
+4. **Откройте игру на мобильном устройстве:** `http://192.168.1.100:5173`
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|---------------|
+| `VITE_HMR_HOST` | IP-адрес для WebSocket HMR | (не задан — HMR на localhost) |
+| `VITE_HMR_PROTOCOL` | Протокол HMR (`ws` или `wss`) | `ws` |
+
+**Примечание:** Если переменные не заданы, HMR работает в стандартном режиме (localhost).
+
 ## Docker
 
-Актуальные образы v0.4.0 доступны в GitHub Container Registry:
+Раздельная архитектура (2 контейнера).
 
-### Монолит (рекомендуется для быстрого старта)
+| Контейнер | Содержание | Порты |
+| --------- | ---------- | ----- |
+| `slime-arena-app` | MetaServer + MatchServer + Client + Admin | 3000, 2567, 5173, 5175 |
+| `slime-arena-db` | PostgreSQL 16 + Redis 7 | 5432, 6379 |
 
-Один контейнер с MetaServer, MatchServer и Client:
+Образы: `ghcr.io/komleff/slime-arena-app`, `ghcr.io/komleff/slime-arena-db` (поддержка архитектур amd64 и arm64).
 
-```bash
-# Запуск монолита с PostgreSQL и Redis
-docker-compose -f docker/docker-compose.monolith.yml up -d
+Подробности: [docs/operations/SERVER_SETUP.md](docs/operations/SERVER_SETUP.md)
 
-# Сервисы:
-# - MetaServer: http://localhost:3000
-# - MatchServer: ws://localhost:2567
-# - Client: http://localhost:5173
-```
+## Production
 
-Образ: `ghcr.io/komleff/slime-arena-monolith:v0.4.0`
+**URL:** <https://slime-arena.overmobile.space>
 
-### Удалённое развёртывание
+Nginx проксирует HTTP, WebSocket и админ-панель через один домен.
 
-Клиент автоматически определяет адрес сервера из URL страницы (`window.location.hostname`).
-При развёртывании на удалённом сервере никаких дополнительных настроек не требуется:
-
-```bash
-# На удалённом сервере (например, 192.168.1.100)
-docker-compose -f docker/docker-compose.monolith.yml up -d
-
-# Доступ из браузера:
-# - http://192.168.1.100:5173 (игра)
-# - http://192.168.1.100:3000/health (API health check)
-# - ws://192.168.1.100:2567 (WebSocket автоматически)
-```
-
-**Переменные окружения для production:**
-
-| Переменная             | Описание                        | По умолчанию           |
-| ---------------------- | ------------------------------- | ---------------------- |
-| `POSTGRES_PASSWORD`    | Пароль PostgreSQL               | `slime_dev_password`   |
-| `MATCH_SERVER_TOKEN`   | Токен для server-to-server auth | `dev-server-token`     |
-| `META_HOST`            | Адрес привязки MetaServer       | `0.0.0.0`              |
-| `HOST`                 | Адрес привязки MatchServer      | `0.0.0.0`              |
-| `VERSION`              | Версия образа                   | `v0.4.0`               |
-
-```bash
-# Пример с кастомными credentials
-POSTGRES_PASSWORD=secure_password_123 \
-MATCH_SERVER_TOKEN=prod-token-xyz \
-docker-compose -f docker/docker-compose.monolith.yml up -d
-```
-
-### Образы v0.4.0
-
-| Образ | Описание |
-|-------|----------|
-| `ghcr.io/komleff/slime-arena-app` | MetaServer + MatchServer + Client |
-| `ghcr.io/komleff/slime-arena-db` | PostgreSQL + Redis |
-| `ghcr.io/komleff/slime-arena-monolith-full` | Всё в одном (для тестов) |
-
-### Apple Silicon (M1/M2/M3/M4)
-
-Docker-образы поддерживают обе архитектуры:
-
-- `linux/amd64` (Intel, AMD, cloud servers)
-- `linux/arm64` (Apple Silicon, AWS Graviton)
-
-Образы автоматически выбирают правильную архитектуру:
-
-```bash
-docker pull ghcr.io/komleff/slime-arena-monolith-full:latest
-docker-compose -f docker/docker-compose.monolith-full.yml up -d
-```
-
-Для явного указания архитектуры:
-
-```bash
-# ARM64 (Apple Silicon — нативная скорость)
-docker pull --platform linux/arm64 ghcr.io/komleff/slime-arena-monolith-full:latest
-
-# AMD64 (Intel/AMD, эмуляция на M1-M4 через Rosetta 2)
-docker pull --platform linux/amd64 ghcr.io/komleff/slime-arena-monolith-full:latest
-```
-
-## Production Deployment
-
-### Live Demo
-
-**Production URL:** <https://slime-arena.overmobile.space>
-
-Игра автоматически подключается к production серверу:
-
-- **Client**: <https://slime-arena.overmobile.space> (HTTPS)
-- **MatchServer**: `wss://slime-arena-server.overmobile.space` (WSS)
-
-### Domain Configuration
-
-Для работы с кастомным доменом:
-
-**1. Vite Dev Server** (уже настроено):
-
-```typescript
-// client/vite.config.ts
-server: {
-  allowedHosts: ['*.overmobile.space']
-}
-```
-
-**2. WebSocket Auto-detection** (уже настроено):
-
-```typescript
-// client/src/main.ts
-if (isHttps && window.location.hostname.includes("overmobile.space")) {
-    defaultWsUrl = `wss://slime-arena-server.overmobile.space`;
-}
-```
+Документация: [SERVER_SETUP.md](docs/operations/SERVER_SETUP.md) | [SERVER_UPDATE.md](docs/operations/SERVER_UPDATE.md)
 
 ## Журнал изменений
 

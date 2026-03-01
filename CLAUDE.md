@@ -62,7 +62,7 @@
 ```bash
 # Разработка
 npm run dev:server      # ws://localhost:2567
-npm run dev:client      # http://localhost:5174
+npm run dev:client      # http://localhost:5173
 
 # Сборка и тесты
 npm run build           # shared → server → client
