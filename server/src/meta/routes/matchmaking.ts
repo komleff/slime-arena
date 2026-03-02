@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { MatchmakingService } from '../services/MatchmakingService';
 import { verifyAccessToken, verifyGuestToken } from '../utils/jwtUtils';
+import { pickSpriteByName, isValidSprite } from '@slime-arena/shared';
+import { getPostgresPool } from '../../db/pool';
 
 const router = Router();
 const matchmakingService = new MatchmakingService();
@@ -76,8 +78,36 @@ router.post('/join', authOrGuestMiddleware, async (req, res) => {
     // Determine nickname: from user profile or from request (guests)
     const nickname = req.user?.nickname || req.effectiveNickname || 'Guest';
 
-    // Pass guestSubjectId for standalone guests
-    await matchmakingService.joinQueue(userId, nickname, rating || 1500, req.guestSubjectId);
+    // Определяем spriteId: из профиля (зарег.) или из body (гость)
+    let spriteId: string | undefined;
+    if (req.guestSubjectId) {
+      // Гость: skinId из body
+      if (req.body.skinId && typeof req.body.skinId === 'string' && isValidSprite(req.body.skinId)) {
+        spriteId = req.body.skinId;
+      }
+    } else {
+      // Зарегистрированный: из профиля
+      try {
+        const pool = getPostgresPool();
+        const profileResult = await pool.query(
+          'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
+          [userId]
+        );
+        if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id
+            && isValidSprite(profileResult.rows[0].selected_skin_id)) {
+          spriteId = profileResult.rows[0].selected_skin_id;
+        }
+      } catch (err) {
+        console.warn('[Matchmaking] Failed to fetch spriteId from profile:', err);
+      }
+    }
+    // Fallback: хеш от никнейма
+    if (!spriteId) {
+      spriteId = pickSpriteByName(nickname);
+    }
+
+    // Pass guestSubjectId and spriteId for standalone guests
+    await matchmakingService.joinQueue(userId, nickname, rating || 1500, req.guestSubjectId, spriteId);
 
     const position = await matchmakingService.getQueuePosition(userId);
 

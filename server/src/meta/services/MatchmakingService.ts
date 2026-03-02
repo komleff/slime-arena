@@ -9,6 +9,8 @@ export interface MatchmakingRequest {
   timestamp: number;
   /** Guest subject ID (UUID) for standalone guests - used for match claim verification */
   guestSubjectId?: string;
+  /** Имя файла спрайта (например "slime-samurai.webp") */
+  spriteId?: string;
 }
 
 export interface MatchAssignment {
@@ -16,7 +18,7 @@ export interface MatchAssignment {
   roomHost: string;
   roomPort: number;
   matchId: string;
-  players: Array<{ userId: string; nickname: string; guestSubjectId?: string }>;
+  players: Array<{ userId: string; nickname: string; guestSubjectId?: string; spriteId?: string }>;
   /** JWT token for joining the match (per-player) */
   joinToken?: string;
 }
@@ -54,13 +56,14 @@ export class MatchmakingService {
    * @param rating - Player rating (default: 1500)
    * @param guestSubjectId - Guest subject ID (UUID) for standalone guests
    */
-  async joinQueue(userId: string, nickname: string, rating: number = 1500, guestSubjectId?: string): Promise<void> {
+  async joinQueue(userId: string, nickname: string, rating: number = 1500, guestSubjectId?: string, spriteId?: string): Promise<void> {
     const request: MatchmakingRequest = {
       userId,
       nickname,
       rating,
       timestamp: Date.now(),
       guestSubjectId,
+      spriteId,
     };
 
     // Check if user is already in queue
@@ -198,7 +201,8 @@ export class MatchmakingService {
         matchId,
         roomId,
         player.nickname,
-        player.guestSubjectId
+        player.guestSubjectId,
+        player.spriteId
       );
       playerTokens[player.userId] = token;
     }
@@ -212,6 +216,7 @@ export class MatchmakingService {
         userId: p.userId,
         nickname: p.nickname,
         guestSubjectId: p.guestSubjectId,
+        spriteId: p.spriteId,
       })),
     };
 
@@ -277,7 +282,8 @@ export class MatchmakingService {
       matchId,
       assignment.roomId,
       player.nickname,
-      player.guestSubjectId
+      player.guestSubjectId,
+      player.spriteId
     );
   }
 

@@ -13,6 +13,7 @@ import {
 import { loadBalanceConfig } from '../../config/loadBalanceConfig';
 import { ratingService } from '../services/RatingService';
 import { authRateLimiter } from '../middleware/rateLimiter';
+import { pickSpriteByName, isValidSprite } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -365,10 +366,11 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
     const finalMass = playerData?.finalMass ?? 0;
 
     // Get skinId: for registered users fetch from profile, for guests use from request body
-    let skinId = 'slime_green';
+    let skinId: string | undefined;
     if (isGuest) {
-      // P0-1: Гости передают skinId из localStorage через request body
-      if (req.body.skinId && typeof req.body.skinId === 'string') {
+      // Гости передают skinId (имя спрайта) из localStorage через request body
+      if (req.body.skinId && typeof req.body.skinId === 'string'
+          && req.body.skinId.length <= 64 && isValidSprite(req.body.skinId)) {
         skinId = req.body.skinId;
       }
     } else if (subjectId) {
@@ -376,9 +378,15 @@ router.post('/claim', authRateLimiter, async (req: Request, res: Response) => {
         'SELECT selected_skin_id FROM profiles WHERE user_id = $1',
         [subjectId]
       );
-      if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id) {
+      if (profileResult.rows.length > 0 && profileResult.rows[0].selected_skin_id
+          && isValidSprite(profileResult.rows[0].selected_skin_id)) {
         skinId = profileResult.rows[0].selected_skin_id;
       }
+    }
+
+    // Fallback: хеш от subjectId (детерминированный выбор спрайта)
+    if (!skinId) {
+      skinId = pickSpriteByName(subjectId || 'unknown');
     }
 
     // Generate claimToken

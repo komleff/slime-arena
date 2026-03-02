@@ -42,3 +42,8 @@
 
 - Спрайты слаймов: [assets/sprites/slimes/SYSTEM.md](assets/sprites/slimes/SYSTEM.md).
 - Выбор спрайта по `classId` и состоянию: [shared/src/sprites.ts](shared/src/sprites.ts).
+
+## Роли агентов
+
+Перед работой прочитай [`.agents/AGENT_ROLES.md`](../.agents/AGENT_ROLES.md) — каноничный документ ролей: PM, Architect, Developer, Reviewer.
+При написании кода следуй роли Developer. Задачи — только через Beads (`bd ready`, `bd update`).

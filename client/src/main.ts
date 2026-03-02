@@ -23,6 +23,7 @@ import {
     OBSTACLE_TYPE_SPIKES,
     clamp,
     generateRandomName,
+    pickSpriteByName,
 } from "@slime-arena/shared";
 import {
     type JoystickState,
@@ -686,29 +687,6 @@ const logJoystick = (label: string, payload: Record<string, unknown> = {}) => {
     console.log(`[joystick] ${label}`, { t: now, ...payload, ...state });
 };
 
-const slimeSpriteNames = [
-    "slime-angrybird.webp",
-    "slime-astronaut.webp",
-    "slime-base.webp",
-    "slime-cccp.webp",
-    "slime-crazy.webp",
-    "slime-crystal.webp",
-    "slime-cyberneon.webp",
-    "slime-frost.webp",
-    "slime-greeendragon.webp",
-    "slime-mecha.webp",
-    "slime-pinklove.webp",
-    "slime-pirate.webp",
-    "slime-pumpkin.webp",
-    "slime-reddragon.webp",
-    "slime-redfire.webp",
-    "slime-samurai.webp",
-    "slime-shark.webp",
-    "slime-tomato.webp",
-    "slime-toxic.webp",
-    "slime-wizard.webp",
-    "slime-zombi.webp",
-];
 const baseUrl = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/";
 const assetBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 const spriteCache = new Map<
@@ -1307,21 +1285,8 @@ function loadSprite(name: string) {
 
 // ========== Система скинов по имени игрока ==========
 
-/** Детерминистичный хеш строки (одинаковый результат на всех клиентах) */
-function hashString(str: string): number {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) {
-        h = (h * 31 + str.charCodeAt(i)) >>> 0;
-    }
-    return h;
-}
-
-/** Выбрать спрайт для игрока по имени (детерминистично) */
-function pickSpriteForPlayer(playerName: string): string {
-    const name = playerName || 'Unknown';
-    const hash = hashString(name);
-    return slimeSpriteNames[hash % slimeSpriteNames.length];
-}
+/** Выбрать спрайт для игрока по имени (детерминистично) — обёртка над shared */
+const pickSpriteForPlayer = pickSpriteByName;
 
 function getSlimeConfigForPlayer(classId: number) {
     switch (classId) {
@@ -1425,7 +1390,28 @@ function drawSprite(
     drawSpriteRender(canvasCtx, img, ready, x, y, radius, angleRad, fallbackFill, fallbackStroke, spriteScale);
 }
 
+// Таймаут безопасности для фазы "connecting" (ID для очистки)
+let connectingTimeoutId: ReturnType<typeof setTimeout> | null = null;
+const CONNECTING_TIMEOUT_MS = 10_000; // 10 секунд
+
 async function connectToServer(playerName: string, classId: number) {
+    // Очищаем предыдущий таймаут безопасности (если был)
+    if (connectingTimeoutId) {
+        clearTimeout(connectingTimeoutId);
+        connectingTimeoutId = null;
+    }
+    // Таймаут безопасности: если "connecting" > 10 сек → сбросить в "menu"
+    connectingTimeoutId = setTimeout(() => {
+        connectingTimeoutId = null;
+        if (gamePhase.value === "connecting") {
+            console.warn("[connectToServer] Таймаут подключения (10 сек), сброс в меню");
+            setConnecting(false);
+            setPhase("menu");
+            canvas.style.display = "none";
+            setGameViewportLock(false);
+        }
+    }, CONNECTING_TIMEOUT_MS);
+
     // Показываем индикатор подключения в Preact UI
     setConnecting(true);
 
@@ -1546,6 +1532,12 @@ async function connectToServer(playerName: string, classId: number) {
                 const waitTime = Math.ceil(room.state?.timeRemaining ?? 15);
                 console.log(`[connectToServer] Арена в фазе Results — покидаем и ждём ${waitTime} сек`);
 
+                // Очищаем таймаут безопасности подключения
+                if (connectingTimeoutId) {
+                    clearTimeout(connectingTimeoutId);
+                    connectingTimeoutId = null;
+                }
+
                 // ВАЖНО: Сначала покидаем комнату, потом обновляем UI
                 room.leave().catch((err) => {
                     console.error("[connectToServer] Ошибка при выходе из комнаты:", err);
@@ -1566,20 +1558,18 @@ async function connectToServer(playerName: string, classId: number) {
                 goToLobby();
                 setConnecting(false);
 
-                // Глобальный обратный отсчёт (очищается при следующем подключении)
-                let remaining = waitTime;
-                arenaWaitInterval = setInterval(() => {
-                    remaining -= 1;
-                    if (remaining > 0) {
-                        setArenaWaitTime(remaining);
-                    } else {
-                        if (arenaWaitInterval) {
-                            clearInterval(arenaWaitInterval);
-                            arenaWaitInterval = null;
-                        }
-                        setArenaWaitTime(0);
+                // fix(slime-arena-t8pp): Используем абсолютное время вместо декремента,
+                // чтобы таймер корректно работал после background/foreground (Chrome mobile)
+                const arenaEndTime = Date.now() + waitTime * 1000;
+                const updateArenaTimer = () => {
+                    const remaining = Math.max(0, Math.ceil((arenaEndTime - Date.now()) / 1000));
+                    setArenaWaitTime(remaining);
+                    if (remaining <= 0 && arenaWaitInterval) {
+                        clearInterval(arenaWaitInterval);
+                        arenaWaitInterval = null;
                     }
-                }, 1000);
+                };
+                arenaWaitInterval = setInterval(updateArenaTimer, 250);
 
                 // ВАЖНО: Прерываем выполнение connectToServer, не настраиваем игровую логику
                 return;
@@ -1593,6 +1583,11 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Нормальное подключение — переключаем на playing
             setArenaWaitTime(0);
+            // Очищаем таймаут безопасности подключения
+            if (connectingTimeoutId) {
+                clearTimeout(connectingTimeoutId);
+                connectingTimeoutId = null;
+            }
             setPhase("playing");
             setConnecting(false);
 
@@ -1941,14 +1936,18 @@ async function connectToServer(playerName: string, classId: number) {
                 refreshTalentModal();
                 player.onChange(() => refreshTalentModal());
             }
-            // Выбираем спрайт по имени (или обновим когда имя придёт)
-            if (player.name) {
+            // Спрайт: приоритет spriteId из Colyseus, fallback на хеш имени
+            if (player.spriteId) {
+                playerSpriteById.set(sessionId, player.spriteId);
+            } else if (player.name) {
                 playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
             }
 
             player.onChange(() => {
-                // Обновляем спрайт когда имя изменилось
-                if (player.name && !playerSpriteById.has(sessionId)) {
+                // spriteId с сервера всегда приоритетнее — перезаписываем даже fallback
+                if (player.spriteId && playerSpriteById.get(sessionId) !== player.spriteId) {
+                    playerSpriteById.set(sessionId, player.spriteId);
+                } else if (!playerSpriteById.has(sessionId) && player.name) {
                     playerSpriteById.set(sessionId, pickSpriteForPlayer(player.name));
                 }
             });
@@ -2358,15 +2357,15 @@ async function connectToServer(playerName: string, classId: number) {
                         console.log("Арена готова — начинаем игру");
                     }
                 }
-                // Если игрок подключился во время Results и ждал в 'waiting' (старая логика)
-                else if (gamePhase.value === "waiting") {
+                // Если игрок подключился во время Results и ждал в 'waiting' или 'connecting'
+                else if (gamePhase.value === "waiting" || gamePhase.value === "connecting") {
                     const selfPlayer = room.state.players.get(room.sessionId);
                     if (selfPlayer && !isValidClassId(selfPlayer.classId)) {
                         setClassSelectMode(true);
                         console.log("Сервер рестартировал матч — нужно выбрать класс");
                     } else {
                         setPhase("playing");
-                        console.log("Сервер рестартировал матч — переключаем из waiting в playing");
+                        console.log("Сервер рестартировал матч — переключаем из waiting/connecting в playing");
                     }
                 }
             }
@@ -2414,17 +2413,42 @@ async function connectToServer(playerName: string, classId: number) {
                     (balanceConfig.match.resultsDurationSec ?? 12) +
                     (balanceConfig.match.restartDelaySec ?? 3) +
                     BUFFER_SECONDS;
-                let resultsCountdown = resultsWaitSeconds;
-                setResultsWaitTime(resultsCountdown);
-                const resultsTimerInterval = setInterval(() => {
-                    resultsCountdown--;
-                    if (resultsCountdown <= 0) {
+                // fix(slime-arena-hfww): Используем абсолютное время вместо декремента,
+                // чтобы таймер корректно работал после background/foreground (Chrome mobile)
+                const resultsEndTime = Date.now() + resultsWaitSeconds * 1000;
+                setResultsWaitTime(resultsWaitSeconds);
+
+                const updateResultsTimer = () => {
+                    const remaining = Math.max(0, Math.ceil((resultsEndTime - Date.now()) / 1000));
+                    setResultsWaitTime(remaining);
+                    if (remaining <= 0 && resultsTimerInterval != null) {
                         clearInterval(resultsTimerInterval);
-                        setResultsWaitTime(0);
-                    } else {
-                        setResultsWaitTime(resultsCountdown);
+                        resultsTimerInterval = null;
+                        document.removeEventListener("visibilitychange", onVisibilityChange);
                     }
-                }, 1000);
+                };
+                // Интервал 250 мс для плавного обновления после возврата из background
+                let resultsTimerInterval: ReturnType<typeof setInterval> | null =
+                    setInterval(updateResultsTimer, 250);
+
+                // Пересчёт таймера при возврате вкладки из background
+                const onVisibilityChange = () => {
+                    if (document.visibilityState === "visible") {
+                        updateResultsTimer();
+                    }
+                };
+                document.addEventListener("visibilitychange", onVisibilityChange);
+
+                // Очистка обработчика при уходе из фазы results (через onLeave или новый матч)
+                const cleanupResultsTimer = () => {
+                    if (resultsTimerInterval != null) {
+                        clearInterval(resultsTimerInterval);
+                        resultsTimerInterval = null;
+                    }
+                    document.removeEventListener("visibilitychange", onVisibilityChange);
+                };
+                // Привязываем очистку к onLeave комнаты
+                room.onLeave(cleanupResultsTimer);
 
                 // Получаем победителя
                 const leaderId = room.state.leaderboard?.[0];
@@ -3661,11 +3685,9 @@ async function connectToServer(playerName: string, classId: number) {
             // onStop колбэк вызовет inputManager.detach() и resetSnapshotBuffer()
             gameLoop.stop();
 
-            // Очистка визуальных сущностей для предотвращения "призраков"
-            // Проверяем что это та же комната, чтобы избежать race condition при reconnect
-            if (room === activeRoom) {
-                smoothingSystem.clear();
-            }
+            // Очистка визуальных сущностей — всегда при выходе из комнаты
+            // (activeRoom мог быть сброшен в null ранее в onPlayAgain)
+            smoothingSystem.clear();
 
             // Сброс направления движения для предотвращения "фантомного движения" после респауна
             lastSentInput = { x: 0, y: 0 };
@@ -3679,9 +3701,13 @@ async function connectToServer(playerName: string, classId: number) {
 
             // Показываем экран выбора при отключении
             canvas.style.display = "none";
-            // Сбрасываем индикатор подключения и переходим в меню
             setConnecting(false);
-            setPhase("menu");
+            // fix(slime-arena-b7z6): Не сбрасываем в "menu" если уже в "connecting" —
+            // onPlayAgain устанавливает "connecting" до вызова room.leave(),
+            // и onLeave не должен перезаписывать эту фазу
+            if (gamePhase.value !== "connecting") {
+                setPhase("menu");
+            }
             isViewportUnlockedForResults = false;
             setGameViewportLock(false);
         });
@@ -3699,6 +3725,11 @@ async function connectToServer(playerName: string, classId: number) {
         });
     } catch (e) {
         console.error("Ошибка подключения:", e);
+        // Очищаем таймаут безопасности подключения
+        if (connectingTimeoutId) {
+            clearTimeout(connectingTimeoutId);
+            connectingTimeoutId = null;
+        }
         // Вернём экран выбора при ошибке
         canvas.style.display = "none";
         // Сбрасываем индикатор подключения и возвращаем в меню

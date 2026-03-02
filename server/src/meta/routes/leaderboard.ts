@@ -9,6 +9,7 @@ import { Pool } from 'pg';
 import { getPostgresPool } from '../../db/pool';
 import { verifyAccessToken, AccessTokenPayload } from '../utils/jwtUtils';
 import { LeaderboardEntry } from '../models/Leaderboard';
+import { isValidSprite } from '@slime-arena/shared';
 
 const router = express.Router();
 
@@ -127,7 +128,7 @@ async function getLeaderboardEntries(
        ROW_NUMBER() OVER (ORDER BY lb.${valueColumn} DESC, lb.updated_at DESC) as position,
        lb.user_id,
        u.nickname,
-       COALESCE(p.selected_skin_id, 'slime_green') as skin_id,
+       COALESCE(p.selected_skin_id, 'slime-base.webp') as skin_id,
        lb.${valueColumn} as value
        ${matchesPlayedColumn}
      FROM ${table} lb
@@ -144,7 +145,7 @@ async function getLeaderboardEntries(
       position: parseInt(row.position, 10),
       userId: row.user_id,
       nickname: row.nickname,
-      skinId: row.skin_id,
+      skinId: isValidSprite(row.skin_id) ? row.skin_id : 'slime-base.webp',
       value: row.value,
     };
 

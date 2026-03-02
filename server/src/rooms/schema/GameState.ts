@@ -28,6 +28,7 @@ export class AbilityCard extends Schema {
 export class Player extends Schema {
     @type("string") id: string = "";
     @type("string") name: string = "";
+    @type("string") spriteId: string = "";
     @type("number") x: number = 0;
     @type("number") y: number = 0;
     @type("number") vx: number = 0;
