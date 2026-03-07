@@ -1,7 +1,7 @@
 # Slime Arena — Talents
 
-**Версия:** 3.3.2  
-**Дата:** 03.01.2026  
+**Версия:** 3.4.0
+**Дата:** 07.03.2026
 **Зависимости:** GDD-Core.md (классы), GDD-Abilities.md (умения), GDD-Combat.md (урон)  
 **Глоссарий:** [GDD-Glossary.md](GDD-Glossary.md)  
 
