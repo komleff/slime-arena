@@ -54,6 +54,7 @@
 
 | Файл | Содержание |
 |------|------------|
+| [overview.md](architecture/overview.md) | Краткий formal overview текущей architecture |
 | [data-flow.md](architecture/data-flow.md) | Поток данных клиент ↔ сервер |
 
 Полная архитектура v4.2.5 (4 части) → [docs/soft-launch/](soft-launch/)
