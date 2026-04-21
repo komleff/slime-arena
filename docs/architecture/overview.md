@@ -130,27 +130,27 @@ flowchart LR
 
 `ArenaRoom` использует fixed simulation interval и обрабатывает systems в стабильном порядке.
 
-1. Input capture и preprocessing.
-2. Ability queue и activation.
-3. Movement assist и propulsion.
-4. Physics integration.
-5. Collision resolution.
-6. Zone and effect application.
-7. Combat resolution.
-8. Orb, chest, boost и talent processing.
-9. Death, respawn, safe-zone и rebel updates.
-10. Snapshot/state synchronization.
+1. В начале тика сервер увеличивает `serverTick` и вызывает `updateMatchPhase()`.
+2. Если матч уже завершён, сервер выполняет только `updateOrbsVisual()`, `updatePlayerFlags()` и `reportMetrics()`, после чего завершает тик без полной simulation.
+3. В обычном тике сервер последовательно вызывает `collectInputs()` и `applyInputs()`.
+4. Затем выполняются ранние systems прогрессии и подготовки состояния: `boostSystem()`, `abilitySystem()`, `abilityCardSystem()`, `talentCardSystem()`, `updateOrbs()`, `updateChests()`, `toxicPoolSystem()`, `slowZoneSystem()`.
+5. После этого выполняются movement- и physics-системы: `flightAssistSystem()`, `physicsSystem()`, `collisionSystem()`.
+6. Затем обрабатываются combat и deployable systems: `projectileSystem()`, `mineSystem()`, `chestSystem()`, `statusEffectSystem()`, `zoneEffectSystem()`.
+7. В конце тика выполняются lifecycle-системы: `deathSystem()`, `hungerSystem()`, `safeZoneSystem()`, `rebelSystem()`, `updatePlayerFlags()`, `reportMetrics()`.
+8. Изменённый `GameState` затем синхронизируется клиентам механизмом Colyseus; отдельного `SnapshotSystem` в текущем `ArenaRoom.onTick()` нет.
 
-| Этап | Основные модули | Назначение |
+| Порядок | Модули | Назначение |
 | --- | --- | --- |
-| Input | `onMessage("input")`, input preprocessing | Нормализация player intent |
-| Ability | `abilitySystem`, `abilityActivationSystem` | Cooldown, queue, trigger |
-| Movement | `movementSystems` | Force, torque, assist |
-| Physics | physics helpers, damping | Интеграция скоростей и позиций |
-| Collision | `collisionSystem` | Контакты и импульсы |
-| Combat | `combatSystem` | Bite/projectile/control effects |
-| Progression | `orbSystem`, `chestSystem`, `talentCardSystem`, `boostSystem` | Match progression |
-| Lifecycle | `deathSystem`, `safeZoneSystem`, `rebelSystem` | State transitions |
+| 1 | `updateMatchPhase` | Обновление match phase и timers |
+| 2 | `collectInputs`, `applyInputs` | Нормализация и применение player intent |
+| 3 | `boostSystem`, `abilitySystem` | Boost lifecycle, cooldowns, queued ability activation |
+| 4 | `abilityCardSystem`, `talentCardSystem` | Обработка card/talent choice flows |
+| 5 | `updateOrbs`, `updateChests`, `toxicPoolSystem`, `slowZoneSystem` | Обновление world pickups и pre-movement effect state |
+| 6 | `flightAssistSystem`, `physicsSystem`, `collisionSystem` | Assist, kinematics, collision resolution |
+| 7 | `projectileSystem`, `mineSystem`, `chestSystem`, `statusEffectSystem`, `zoneEffectSystem` | Combat, deployables, status and zone effects |
+| 8 | `deathSystem`, `hungerSystem`, `safeZoneSystem`, `rebelSystem`, `updatePlayerFlags` | Lifecycle, map pressure, flags |
+| 9 | `reportMetrics` | Runtime observability и profiling |
+| 10 | Colyseus state sync | Рассылка изменённого `GameState` без отдельного onTick-stage module |
 
 ### 4.5 Client-side smoothing and rendering
 
